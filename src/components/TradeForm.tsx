@@ -1,0 +1,370 @@
+"use client";
+
+import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
+import { accentColor, glassCard } from "@/lib/theme";
+import { removeChartSlot } from "@/lib/actions/trades";
+import { CHART_SLOTS } from "@/lib/chartSlots";
+
+const SETUP_OPTIONS = ["Trend run", "Backtest reverse"];
+const EMOTIONS = ["Calm", "Cautious", "Nervous", "Impatient", "Frustrated", "Revenge", "Greedy"];
+
+export type TradeFormValues = {
+  date: string;
+  time: string;
+  symbol: string;
+  market: string;
+  setup: string;
+  side: string;
+  size: string;
+  pnl: string;
+  rr: string;
+  emotion: string;
+  preTradeNotes: string;
+  postTradeNotes: string;
+};
+
+export type ExistingCharts = Partial<Record<(typeof CHART_SLOTS)[number]["key"], string>>;
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  background: "oklch(0.18 0.02 290)",
+  border: "1px solid oklch(0.32 0.03 290 / 0.6)",
+  borderRadius: 8,
+  padding: "10px 12px",
+  color: "oklch(0.96 0.004 290)",
+  fontFamily: "var(--font-space-grotesk), sans-serif",
+  fontSize: 13,
+  outline: "none",
+};
+
+const monoInputStyle: React.CSSProperties = { ...inputStyle, fontFamily: "var(--font-jetbrains-mono), monospace" };
+
+function fieldLabel(text: string) {
+  return <div style={{ fontSize: 12, color: "oklch(0.6 0.02 290)", marginBottom: 6 }}>{text}</div>;
+}
+
+function ChartSlotInput({
+  slotKey,
+  label,
+  initialSrc,
+  tradeId,
+}: {
+  slotKey: string;
+  label: string;
+  initialSrc?: string;
+  tradeId?: string;
+}) {
+  const [preview, setPreview] = useState(initialSrc ?? "");
+  const [dragOver, setDragOver] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function loadFile(file: File) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    if (inputRef.current) inputRef.current.files = dt.files;
+    const reader = new FileReader();
+    reader.onload = () => setPreview(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+
+  function removeExisting() {
+    if (!tradeId) return;
+    setPreview("");
+    startTransition(() => removeChartSlot(tradeId, slotKey));
+  }
+
+  return (
+    <label
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) loadFile(file);
+      }}
+      style={{
+        display: "block",
+        border: `1.5px dashed ${dragOver ? accentColor : "oklch(0.36 0.03 290 / 0.6)"}`,
+        borderRadius: 10,
+        padding: 14,
+        background: "oklch(0.16 0.018 290)",
+        cursor: "pointer",
+        opacity: isPending ? 0.5 : 1,
+      }}
+    >
+      <div style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.78 0.02 290)" }}>{label}</div>
+      {!preview && <div style={{ fontSize: 11, color: "oklch(0.5 0.02 290)", marginTop: 4 }}>Drag &amp; drop or click</div>}
+      {preview && (
+        <div style={{ position: "relative", marginTop: 8 }}>
+          <div
+            style={{
+              width: "100%",
+              aspectRatio: "16/10",
+              borderRadius: 8,
+              backgroundImage: `url(${preview})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              border: "1px solid oklch(0.32 0.03 290 / 0.5)",
+            }}
+          />
+          {tradeId && (
+            <div
+              onClick={(e) => {
+                e.preventDefault();
+                removeExisting();
+              }}
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 6,
+                width: 22,
+                height: 22,
+                borderRadius: "50%",
+                background: "oklch(0.15 0.02 290 / 0.85)",
+                color: "oklch(0.9 0 0)",
+                fontSize: 13,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              ×
+            </div>
+          )}
+        </div>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        name={`chart_${slotKey}`}
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) loadFile(file);
+        }}
+      />
+    </label>
+  );
+}
+
+export default function TradeForm({
+  action,
+  deleteAction,
+  tradeId,
+  initial,
+  existingCharts = {},
+  title,
+  subtitle,
+}: {
+  action: (formData: FormData) => void;
+  deleteAction?: (formData: FormData) => void;
+  tradeId?: string;
+  initial: TradeFormValues;
+  existingCharts?: ExistingCharts;
+  title: string;
+  subtitle: string;
+}) {
+  const [side, setSide] = useState(initial.side);
+  const [emotion, setEmotion] = useState(initial.emotion);
+
+  const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
+    flex: 1,
+    textAlign: "center",
+    padding: 10,
+    borderRadius: 8,
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 600,
+    background: active ? accentColor : "transparent",
+    color: active ? "oklch(0.12 0.01 290)" : "oklch(0.7 0.02 290)",
+    border: `1px solid ${active ? accentColor : "oklch(0.36 0.03 290 / 0.6)"}`,
+  });
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <Link
+          href="/trades"
+          style={{
+            cursor: "pointer",
+            width: 34,
+            height: 34,
+            borderRadius: 9,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid oklch(0.36 0.03 290 / 0.6)",
+            background: "oklch(0.18 0.02 290)",
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16">
+            <path d="M10 3L5 8l5 5" fill="none" stroke="oklch(0.85 0.01 290)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Link>
+        <div>
+          <div style={{ fontSize: 26, fontWeight: 700 }}>{title}</div>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 2 }}>{subtitle}</div>
+        </div>
+      </div>
+
+      <div style={{ ...glassCard, maxWidth: 640 }}>
+        <form action={action}>
+          <div className="trade-form-grid">
+            <div>
+              {fieldLabel("Date")}
+              <input type="date" name="date" defaultValue={initial.date} style={monoInputStyle} />
+            </div>
+            <div>
+              {fieldLabel("Time")}
+              <input type="time" name="time" defaultValue={initial.time} style={monoInputStyle} />
+            </div>
+            <div>
+              {fieldLabel("Symbol")}
+              <input type="text" name="symbol" defaultValue={initial.symbol} placeholder="e.g. ES" style={inputStyle} />
+            </div>
+            <div>
+              {fieldLabel("Market")}
+              <input type="text" name="market" defaultValue={initial.market} placeholder="Futures / Stocks / Crypto" style={inputStyle} />
+            </div>
+            <div>
+              {fieldLabel("Setup")}
+              <select name="setup" defaultValue={initial.setup} style={inputStyle}>
+                {SETUP_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              {fieldLabel("R:R")}
+              <input type="text" name="rr" defaultValue={initial.rr} placeholder="1.5" style={monoInputStyle} />
+            </div>
+
+            <div style={{ gridColumn: "span 2" }}>
+              {fieldLabel("Side")}
+              <input type="hidden" name="side" value={side} />
+              <div style={{ display: "flex", gap: 10 }}>
+                <div onClick={() => setSide("Long")} style={toggleBtnStyle(side === "Long")}>
+                  Long
+                </div>
+                <div onClick={() => setSide("Short")} style={toggleBtnStyle(side === "Short")}>
+                  Short
+                </div>
+              </div>
+            </div>
+
+            <div>
+              {fieldLabel("Size")}
+              <input type="text" name="size" defaultValue={initial.size} placeholder="0" style={monoInputStyle} />
+            </div>
+            <div>
+              {fieldLabel("P&L")}
+              <input type="text" name="pnl" defaultValue={initial.pnl} placeholder="0.00" style={monoInputStyle} />
+            </div>
+
+            <div style={{ gridColumn: "span 2" }}>
+              {fieldLabel("Emotion")}
+              <input type="hidden" name="emotion" value={emotion} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
+                {EMOTIONS.map((em) => (
+                  <div key={em} onClick={() => setEmotion(em)} style={toggleBtnStyle(emotion === em)}>
+                    {em}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ gridColumn: "span 2" }}>
+              {fieldLabel("Pre trade analysis")}
+              <textarea
+                name="preTradeNotes"
+                defaultValue={initial.preTradeNotes}
+                placeholder="Setup context, execution notes, lessons…"
+                rows={3}
+                style={{ ...inputStyle, resize: "vertical" }}
+              />
+            </div>
+
+            <div style={{ gridColumn: "span 2" }}>
+              {fieldLabel("Post trade analysis")}
+              <textarea
+                name="postTradeNotes"
+                defaultValue={initial.postTradeNotes}
+                placeholder="What happened, what you'd do differently…"
+                rows={3}
+                style={{ ...inputStyle, resize: "vertical" }}
+              />
+            </div>
+
+            <div style={{ gridColumn: "span 2" }}>
+              {fieldLabel("Chart screenshots")}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+                {CHART_SLOTS.map((slot) => (
+                  <ChartSlotInput
+                    key={slot.key}
+                    slotKey={slot.key}
+                    label={slot.label}
+                    initialSrc={existingCharts[slot.key]}
+                    tradeId={tradeId}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
+            <button
+              type="submit"
+              style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "11px 20px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.01 290)", border: "none" }}
+            >
+              Save Trade
+            </button>
+            <Link
+              href="/trades"
+              style={{
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "11px 20px",
+                borderRadius: 9,
+                border: "1px solid oklch(0.36 0.03 290 / 0.6)",
+                color: "oklch(0.75 0.02 290)",
+                textDecoration: "none",
+              }}
+            >
+              Cancel
+            </Link>
+          </div>
+        </form>
+        {deleteAction && (
+          <form action={deleteAction} style={{ marginTop: 12 }}>
+            <button
+              type="submit"
+              style={{
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "11px 20px",
+                borderRadius: 9,
+                border: "1px solid oklch(0.55 0.18 25 / 0.5)",
+                background: "transparent",
+                color: "oklch(0.65 0.18 25)",
+              }}
+            >
+              Delete Trade
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}

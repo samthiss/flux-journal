@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Trade {
+  id           String   @id @default(cuid())
+  date         DateTime
+  time         String?
+  symbol       String
+  market       String?
+  side         String
+  size         Float
+  pnl          Float
+  rr           Float?
+  setup        String
+  emotion      String?
+  preTradeNotes  String?
+  postTradeNotes String?
+  chartCluster String?
+  chartReverse String?
+  chartBox     String?
+  chartTrading String?
+  createdAt    DateTime @default(now())
+}
+
+model ChecklistItem {
+  id    String @id @default(cuid())
+  group String
+  label String
+  order Int
+}
+
+model ChecklistLog {
+  id      String   @id @default(cuid())
+  date    DateTime
+  itemId  String
+  checked Boolean  @default(false)
+
+  @@unique([date, itemId])
+}

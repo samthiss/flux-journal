@@ -1,0 +1,117 @@
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile, unlink } from "node:fs/promises";
+import path from "node:path";
+import { CHART_SLOTS } from "@/lib/chartSlots";
+
+const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+
+async function saveImage(file: File): Promise<string> {
+  await mkdir(UPLOAD_DIR, { recursive: true });
+  const ext = path.extname(file.name) || ".png";
+  const filename = `${randomUUID()}${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  await writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  return `/uploads/${filename}`;
+}
+
+async function deleteImageFile(relativePath: string | null | undefined) {
+  if (!relativePath) return;
+  await unlink(path.join(process.cwd(), "public", relativePath)).catch(() => {});
+}
+
+async function parseChartFields(formData: FormData) {
+  const fields: Record<string, string> = {};
+  for (const slot of CHART_SLOTS) {
+    const file = formData.get(`chart_${slot.key}`);
+    if (file instanceof File && file.size > 0) {
+      fields[slot.field] = await saveImage(file);
+    }
+  }
+  return fields;
+}
+
+function parseTradeForm(formData: FormData) {
+  const date = String(formData.get("date") ?? "");
+  const time = String(formData.get("time") ?? "") || null;
+  const symbol = String(formData.get("symbol") ?? "");
+  const market = String(formData.get("market") ?? "") || null;
+  const side = String(formData.get("side") ?? "Long");
+  const size = parseFloat(String(formData.get("size") ?? "0")) || 0;
+  const pnl = parseFloat(String(formData.get("pnl") ?? "0")) || 0;
+  const rr = formData.get("rr") ? parseFloat(String(formData.get("rr"))) : null;
+  const setup = String(formData.get("setup") ?? "");
+  const emotion = String(formData.get("emotion") ?? "") || null;
+  const preTradeNotes = String(formData.get("preTradeNotes") ?? "") || null;
+  const postTradeNotes = String(formData.get("postTradeNotes") ?? "") || null;
+
+  return { date, time, symbol, market, side, size, pnl, rr, setup, emotion, preTradeNotes, postTradeNotes };
+}
+
+export async function createTrade(formData: FormData) {
+  const data = parseTradeForm(formData);
+  const chartFields = await parseChartFields(formData);
+
+  const trade = await prisma.trade.create({
+    data: {
+      ...data,
+      date: new Date(data.date),
+      ...chartFields,
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/trades");
+  redirect(`/trades/${trade.id}`);
+}
+
+export async function updateTrade(tradeId: string, formData: FormData) {
+  const data = parseTradeForm(formData);
+  const chartFields = await parseChartFields(formData);
+
+  await prisma.trade.update({
+    where: { id: tradeId },
+    data: {
+      ...data,
+      date: new Date(data.date),
+      ...chartFields,
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/trades");
+  revalidatePath(`/trades/${tradeId}`);
+  redirect(`/trades/${tradeId}`);
+}
+
+export async function removeChartSlot(tradeId: string, slotKey: string) {
+  const slot = CHART_SLOTS.find((s) => s.key === slotKey);
+  if (!slot) return;
+
+  const trade = await prisma.trade.findUnique({ where: { id: tradeId } });
+  if (!trade) return;
+
+  const current = (trade as unknown as Record<string, string | null>)[slot.field];
+  await deleteImageFile(current);
+
+  await prisma.trade.update({ where: { id: tradeId }, data: { [slot.field]: null } });
+  revalidatePath(`/trades/${tradeId}/edit`);
+  revalidatePath(`/trades/${tradeId}`);
+}
+
+export async function deleteTrade(tradeId: string) {
+  const trade = await prisma.trade.findUnique({ where: { id: tradeId } });
+  if (trade) {
+    for (const slot of CHART_SLOTS) {
+      await deleteImageFile((trade as unknown as Record<string, string | null>)[slot.field]);
+    }
+    await prisma.trade.delete({ where: { id: tradeId } });
+  }
+  revalidatePath("/");
+  revalidatePath("/trades");
+  redirect("/trades");
+}
