@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import TradeForm, { type ExistingCharts } from "@/components/TradeForm";
 import { updateTrade } from "@/lib/actions/trades";
 
+export const dynamic = "force-dynamic";
+
 export default async function EditTradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const trade = await prisma.trade.findUnique({ where: { id } });

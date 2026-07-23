@@ -7,8 +7,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { CHART_SLOTS } from "@/lib/chartSlots";
-
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+import { UPLOAD_DIR } from "@/lib/uploadDir";
 
 async function saveImage(file: File): Promise<string> {
   await mkdir(UPLOAD_DIR, { recursive: true });
@@ -16,12 +15,14 @@ async function saveImage(file: File): Promise<string> {
   const filename = `${randomUUID()}${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(path.join(UPLOAD_DIR, filename), buffer);
-  return `/uploads/${filename}`;
+  return `/api/uploads/${filename}`;
 }
 
-async function deleteImageFile(relativePath: string | null | undefined) {
-  if (!relativePath) return;
-  await unlink(path.join(process.cwd(), "public", relativePath)).catch(() => {});
+async function deleteImageFile(imagePath: string | null | undefined) {
+  if (!imagePath) return;
+  const filename = imagePath.split("/").pop();
+  if (!filename) return;
+  await unlink(path.join(UPLOAD_DIR, filename)).catch(() => {});
 }
 
 async function parseChartFields(formData: FormData) {

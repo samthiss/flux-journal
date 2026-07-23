@@ -42,19 +42,28 @@ const CHECKLIST_SEED = [
 ];
 
 async function main() {
-  await prisma.trade.createMany({
-    data: TRADES_SEED.map((t) => ({
-      ...t,
-      date: new Date(t.date),
-    })),
-  });
+  // Demo trades are only useful for local development, never for a real
+  // deployment — gated behind an explicit opt-in flag.
+  if (process.env.SEED_DEMO_TRADES === "true") {
+    await prisma.trade.createMany({
+      data: TRADES_SEED.map((t) => ({
+        ...t,
+        date: new Date(t.date),
+      })),
+    });
+  }
 
-  let order = 0;
-  for (const group of CHECKLIST_SEED) {
-    for (const label of group.items) {
-      await prisma.checklistItem.create({
-        data: { group: group.group, label, order: order++ },
-      });
+  // Checklist items are real app content (the pre-market routine), not demo
+  // data, but this script must stay safe to re-run on every deploy/restart.
+  const checklistCount = await prisma.checklistItem.count();
+  if (checklistCount === 0) {
+    let order = 0;
+    for (const group of CHECKLIST_SEED) {
+      for (const label of group.items) {
+        await prisma.checklistItem.create({
+          data: { group: group.group, label, order: order++ },
+        });
+      }
     }
   }
 }
