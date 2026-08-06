@@ -11,8 +11,16 @@ import {
 
 type ChecklistItem = { id: string; group: string; label: string; checked: boolean };
 
+// timeZone=17 pins the widget to the Central European (Amsterdam/Berlin/Rome)
+// group, which is the same GMT+1/+2 clock as Europe/Paris. All toggle
+// controls (date picker, day/week/month tabs, filters) are dropped from
+// "features" so the day/importance/country filters below stay fixed for
+// every visitor, and exc_flag is dropped from "columns" to drop the flag
+// icons. countries=5,72,4,17,39,37 is US + Euro Zone + Germany/France/UK/
+// Switzerland — investing.com's country IDs aren't officially documented,
+// so double check the visible list still matches "USA, Europe" after deploy.
 const INVESTING_CALENDAR_SRC =
-  "https://sslecal2.investing.com/?ecoDayBackground=%23131722&columns=exc_flag,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone,timeselector,filters&countries=25,32,6,37,72,22,17,39,14,10,35,43,56,36,110,11,26,12,4,5&calType=day&timeZone=8&lang=1";
+  "https://sslecal2.investing.com/?ecoDayBackground=%23131722&columns=exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&countries=5,72,4,17,39,37&importance=3&calType=day&timeZone=17&lang=1";
 
 export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
   const [, startTransition] = useTransition();
