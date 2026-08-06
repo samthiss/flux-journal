@@ -30,3 +30,31 @@ export async function toggleChecklistItem(itemId: string, checked: boolean) {
   });
   revalidatePath("/checklist");
 }
+
+export async function createChecklistItem(group: string, label: string) {
+  const trimmedGroup = group.trim();
+  const trimmedLabel = label.trim();
+  if (!trimmedGroup || !trimmedLabel) return;
+
+  const last = await prisma.checklistItem.findFirst({
+    orderBy: { order: "desc" },
+  });
+
+  await prisma.checklistItem.create({
+    data: { group: trimmedGroup, label: trimmedLabel, order: (last?.order ?? -1) + 1 },
+  });
+  revalidatePath("/checklist");
+}
+
+export async function renameChecklistItem(itemId: string, label: string) {
+  const trimmedLabel = label.trim();
+  if (!trimmedLabel) return;
+  await prisma.checklistItem.update({ where: { id: itemId }, data: { label: trimmedLabel } });
+  revalidatePath("/checklist");
+}
+
+export async function deleteChecklistItem(itemId: string) {
+  await prisma.checklistLog.deleteMany({ where: { itemId } });
+  await prisma.checklistItem.delete({ where: { id: itemId } });
+  revalidatePath("/checklist");
+}
