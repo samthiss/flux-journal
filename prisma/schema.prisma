@@ -43,3 +43,43 @@ model ChecklistLog {
 
   @@unique([date, itemId])
 }
+
+model Note {
+  id          String   @id @default(cuid())
+  parentId    String?
+  title       String
+  order       Int      @default(0)
+  objectif    String?
+  theorie     String?
+  regles      String?
+  reglesLabel String?
+  retenir     String?
+  blockOrder  String?
+  createdAt   DateTime @default(now())
+}
+
+model NoteCategory {
+  id     String @id @default(cuid())
+  noteId String
+  name   String
+  order  Int    @default(0)
+}
+
+model NoteExample {
+  id         String   @id @default(cuid())
+  noteId     String
+  categoryId String?
+  title      String
+  caption    String?
+  tags       String?
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model NoteExampleImage {
+  id        String  @id @default(cuid())
+  exampleId String
+  url       String
+  tradeId   String?
+  order     Int     @default(0)
+}

@@ -72,9 +72,24 @@ body {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  padding: 28px 18px;
-  border-right: 1px solid oklch(0.32 0.03 290 / 0.5);
-  background: oklch(0.15 0.016 290);
+  padding: 24px 16px;
+  margin: 16px 0 16px 16px;
+  border-radius: 16px;
+  background: oklch(0.19 0.02 290 / 0.55);
+  backdrop-filter: blur(16px);
+  border: 1px solid oklch(0.36 0.03 290 / 0.45);
+  box-shadow: 0 0 0 1px oklch(0.68 0.19 293 / 0.04), 0 10px 40px -12px oklch(0.68 0.19 293 / 0.25);
+  overflow-y: auto;
+  position: relative;
+}
+.sidebar.sidebar-collapsed {
+  display: none;
+}
+.sidebar-expand-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 50;
 }
 .sidebar-brand {
   display: flex;
@@ -98,14 +113,34 @@ body {
 .sidebar-nav-label {
   font-size: 14px;
 }
+.sidebar-note-add {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.sidebar-note-row:hover .sidebar-note-add {
+  opacity: 1;
+}
 
 @media (max-width: 768px) {
   .sidebar {
     width: 100% !important;
     flex-direction: row !important;
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    background: oklch(0.15 0.016 290) !important;
     border-right: none !important;
     border-top: 1px solid oklch(0.32 0.03 290 / 0.5) !important;
+  }
+  /* The bottom tab bar is always visible on mobile regardless of the
+     desktop collapse preference stored in localStorage. */
+  .sidebar.sidebar-collapsed {
+    display: flex !important;
+  }
+  .sidebar-expand-btn {
+    display: none !important;
   }
   .sidebar-brand {
     display: none !important;
@@ -125,6 +160,9 @@ body {
     font-size: 10px !important;
     text-align: center !important;
     line-height: 1.15 !important;
+  }
+  .sidebar-notes-tree {
+    display: none !important;
   }
 }
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 import { deleteTrade } from "@/lib/actions/trades";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
+import AddTradeToNoteButton from "@/components/AddTradeToNoteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,7 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
         <div className="trade-detail-actions">
+          <AddTradeToNoteButton tradeId={trade.id} />
           <Link
             href={`/trades/${trade.id}/edit`}
             style={{
