@@ -11,16 +11,20 @@ import {
 
 type ChecklistItem = { id: string; group: string; label: string; checked: boolean };
 
-// timeZone=17 pins the widget to the Central European (Amsterdam/Berlin/Rome)
-// group, which is the same GMT+1/+2 clock as Europe/Paris. All toggle
-// controls (date picker, day/week/month tabs, filters) are dropped from
-// "features" so the day/importance/country filters below stay fixed for
-// every visitor, and exc_flag is dropped from "columns" to drop the flag
-// icons. countries=5,72,4,17,39,37 is US + Euro Zone + Germany/France/UK/
-// Switzerland — investing.com's country IDs aren't officially documented,
-// so double check the visible list still matches "USA, Europe" after deploy.
+// countries: 5 United States, 72 Euro Zone, 22 France, 17 Germany, 4 United
+// Kingdom, 12 Switzerland. timeZone=16 was confirmed empirically (Initial
+// Jobless Claims — always released 8:30am US Eastern — showed as 14:30, the
+// correct Paris/CEST time). All toggle controls (date picker, day/week/month
+// tabs, filters) are dropped from "features" so the filters below stay fixed
+// for every visitor.
 const INVESTING_CALENDAR_SRC =
-  "https://sslecal2.investing.com/?ecoDayBackground=%23131722&columns=exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&countries=5,72,4,17,39,37&importance=3&calType=day&timeZone=17&lang=1";
+  "https://sslecal2.investing.com/?ecoDayBackground=%23131722&columns=exc_flag,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&countries=5,72,22,17,4,12&importance=3&calType=day&timeZone=16&lang=1";
+// Investing.com always renders its own logo + app-store badges as a fixed
+// header (~64px) above the table; there's no URL flag to remove it, so we
+// crop it by rendering the iframe taller than its visible wrapper and
+// shifting it up. Nudge INVESTING_HEADER_CROP if the crop line is off.
+const INVESTING_HEADER_CROP = 64;
+const INVESTING_VISIBLE_HEIGHT = 520;
 
 export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
   const [, startTransition] = useTransition();
@@ -321,15 +325,17 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
               investing.com
             </div>
           </div>
-          <iframe
-            src={INVESTING_CALENDAR_SRC}
-            title="Economic Calendar"
-            width="100%"
-            height="560"
-            frameBorder={0}
-            allowTransparency
-            style={{ display: "block", border: "none" }}
-          />
+          <div style={{ height: INVESTING_VISIBLE_HEIGHT, overflow: "auto hidden" }}>
+            <iframe
+              src={INVESTING_CALENDAR_SRC}
+              title="Economic Calendar"
+              width="100%"
+              height={INVESTING_VISIBLE_HEIGHT + INVESTING_HEADER_CROP}
+              frameBorder={0}
+              allowTransparency
+              style={{ display: "block", border: "none", marginTop: -INVESTING_HEADER_CROP, minWidth: 620 }}
+            />
+          </div>
         </div>
       </div>
     </div>
