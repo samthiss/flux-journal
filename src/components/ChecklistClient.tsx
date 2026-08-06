@@ -11,19 +11,8 @@ import {
 
 type ChecklistItem = { id: string; group: string; label: string; checked: boolean };
 
-const NEWS_SEED = [
-  { time: "08:30", title: "US Initial Jobless Claims", impact: "high" },
-  { time: "09:45", title: "S&P Global Services PMI", impact: "medium" },
-  { time: "10:00", title: "Existing Home Sales", impact: "low" },
-  { time: "10:30", title: "EIA Crude Oil Inventories", impact: "medium" },
-  { time: "14:00", title: "Fed Speaker: Williams", impact: "high" },
-];
-
-const IMPACT_COLORS: Record<string, string> = {
-  high: accentColor,
-  medium: "oklch(0.6 0.02 290)",
-  low: "oklch(0.4 0.01 290)",
-};
+const INVESTING_CALENDAR_SRC =
+  "https://sslecal2.investing.com/?ecoDayBackground=%23131722&columns=exc_flag,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone,timeselector,filters&countries=25,32,6,37,72,22,17,39,14,10,35,43,56,36,110,11,26,12,4,5&calType=day&timeZone=8&lang=1";
 
 export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
   const [, startTransition] = useTransition();
@@ -324,32 +313,15 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
               investing.com
             </div>
           </div>
-          <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {NEWS_SEED.map((n, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid oklch(0.24 0.02 290 / 0.5)" }}>
-                <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: "oklch(0.55 0.02 290)", width: 44, flexShrink: 0 }}>
-                  {n.time}
-                </div>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: IMPACT_COLORS[n.impact], flexShrink: 0 }} />
-                <div style={{ fontSize: 12, color: "oklch(0.85 0.01 290)", flex: 1 }}>{n.title}</div>
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              margin: "0 18px 18px 18px",
-              padding: "22px 14px",
-              borderRadius: 10,
-              border: "1px dashed oklch(0.4 0.03 290 / 0.6)",
-              background:
-                "repeating-linear-gradient(135deg, oklch(0.19 0.02 290) 0px, oklch(0.19 0.02 290) 8px, oklch(0.16 0.018 290) 8px, oklch(0.16 0.018 290) 16px)",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: "oklch(0.6 0.02 290)" }}>
-              [ embed investing.com widget here ]
-            </div>
-          </div>
+          <iframe
+            src={INVESTING_CALENDAR_SRC}
+            title="Economic Calendar"
+            width="100%"
+            height="560"
+            frameBorder={0}
+            allowTransparency
+            style={{ display: "block", border: "none" }}
+          />
         </div>
       </div>
     </div>
