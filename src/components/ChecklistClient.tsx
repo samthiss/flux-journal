@@ -24,7 +24,7 @@ const INVESTING_CALENDAR_SRC =
 // crop it by rendering the iframe taller than its visible wrapper and
 // shifting it up. Nudge INVESTING_HEADER_CROP if the crop line is off.
 const INVESTING_HEADER_CROP = 64;
-const INVESTING_VISIBLE_HEIGHT = 520;
+const INVESTING_VISIBLE_HEIGHT = 360;
 
 export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
   const [, startTransition] = useTransition();
@@ -325,15 +325,15 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
               investing.com
             </div>
           </div>
-          <div style={{ height: INVESTING_VISIBLE_HEIGHT, overflow: "auto hidden" }}>
+          <div style={{ height: INVESTING_VISIBLE_HEIGHT, overflow: "hidden auto" }}>
             <iframe
               src={INVESTING_CALENDAR_SRC}
               title="Economic Calendar"
               width="100%"
-              height={INVESTING_VISIBLE_HEIGHT + INVESTING_HEADER_CROP}
+              height={900}
               frameBorder={0}
               allowTransparency
-              style={{ display: "block", border: "none", marginTop: -INVESTING_HEADER_CROP, minWidth: 620 }}
+              style={{ display: "block", border: "none", marginTop: -INVESTING_HEADER_CROP }}
             />
           </div>
         </div>
