@@ -49,7 +49,7 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
 };
 
 type CategoryRecord = { id: string; noteId: string; name: string; order: number };
-type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; order: number };
+type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; order: number };
 type ImageRecord = { id: string; exampleId: string; url: string; tradeId: string | null; order: number };
 type TradeSearchResult = { id: string; symbol: string; date: string; setup: string; side: string; pnl: number; imageCount: number };
 
@@ -1098,11 +1098,25 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
   const [pasteError, setPasteError] = useState(false);
   const [pasteLoading, setPasteLoading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [hideText, setHideText] = useState(example.hideText);
+  const [imagesPerRow, setImagesPerRow] = useState<1 | 2>(example.imagesPerRow === 1 ? 1 : 2);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const saveTags = (next: string[]) => {
     setTags(next);
     updateExample(example.id, { tags: next });
+  };
+
+  const toggleHideText = () => {
+    const next = !hideText;
+    setHideText(next);
+    updateExample(example.id, { hideText: next });
+  };
+
+  const toggleImagesPerRow = () => {
+    const next: 1 | 2 = imagesPerRow === 2 ? 1 : 2;
+    setImagesPerRow(next);
+    updateExample(example.id, { imagesPerRow: next });
   };
 
   return (
@@ -1111,7 +1125,7 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
         <div
           onMouseEnter={() => setHeaderHover(true)}
           onMouseLeave={() => setHeaderHover(false)}
-          style={{ display: "flex", gap: 8 }}
+          style={{ display: "flex", alignItems: "center", gap: 8 }}
         >
           <input
             value={title}
@@ -1119,6 +1133,45 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
             onBlur={() => updateExample(example.id, { title })}
             style={{ flex: 1, fontSize: 15, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.94 0.004 290)" }}
           />
+          <span
+            onClick={toggleHideText}
+            title={hideText ? "Réafficher le texte" : "Masquer le texte de l'exemple"}
+            style={{
+              flex: "none",
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "3px 8px",
+              borderRadius: 999,
+              border: `1px solid ${hideText ? accentColor : "oklch(0.34 0.02 290)"}`,
+              color: hideText ? "oklch(0.85 0.06 290)" : "oklch(0.6 0.02 290)",
+              background: hideText ? "oklch(0.68 0.19 293 / 0.12)" : "transparent",
+              cursor: "pointer",
+              opacity: headerHover || hideText ? 1 : 0,
+              transition: "opacity 0.12s ease",
+              whiteSpace: "nowrap",
+            }}
+          >
+            sans texte
+          </span>
+          <span
+            onClick={toggleImagesPerRow}
+            title="Nombre d'images par ligne"
+            style={{
+              flex: "none",
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "3px 8px",
+              borderRadius: 999,
+              border: "1px solid oklch(0.34 0.02 290)",
+              color: "oklch(0.6 0.02 290)",
+              cursor: "pointer",
+              opacity: headerHover ? 1 : 0,
+              transition: "opacity 0.12s ease",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {imagesPerRow} img/ligne
+          </span>
           <MoreMenuButton
             visible={headerHover}
             onDelete={async () => {
@@ -1127,6 +1180,7 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
             }}
           />
         </div>
+        {!hideText && (
         <textarea
           ref={(el) => autoGrow(el)}
           value={caption}
@@ -1135,6 +1189,7 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
           rows={1}
           style={{ fontSize: 13.5, lineHeight: 1.6, color: "oklch(0.72 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
         />
+        )}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 3 }}>
           {tags.map((t, ti) => {
             const st = tagStyle(t);
@@ -1176,7 +1231,7 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
       </div>
       <div style={{ borderTop: "1px solid oklch(0.24 0.02 290)" }}>
         {images.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: images.length === 1 ? "1fr" : "repeat(2, 1fr)", gap: 10, padding: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: images.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10 }}>
             {images.map((img) => {
               return (
                 <div key={img.id} style={{ position: "relative", aspectRatio: "16 / 9" }}>

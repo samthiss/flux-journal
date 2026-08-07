@@ -69,14 +69,16 @@ model NoteCategory {
 }
 
 model NoteExample {
-  id         String   @id @default(cuid())
-  noteId     String
-  categoryId String?
-  title      String
-  caption    String?
-  tags       String?
-  order      Int      @default(0)
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  noteId       String
+  categoryId   String?
+  title        String
+  caption      String?
+  tags         String?
+  hideText     Boolean  @default(false)
+  imagesPerRow Int      @default(2)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
 }
 
 model NoteExampleImage {

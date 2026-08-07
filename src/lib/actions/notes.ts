@@ -296,11 +296,13 @@ export async function createExample(noteId: string, categoryId: string | null) {
   revalidatePath("/notes");
 }
 
-export async function updateExample(id: string, data: { title?: string; caption?: string; tags?: string[] }) {
-  const payload: Record<string, string> = {};
+export async function updateExample(id: string, data: { title?: string; caption?: string; tags?: string[]; hideText?: boolean; imagesPerRow?: number }) {
+  const payload: Record<string, string | boolean | number> = {};
   if (data.title !== undefined) payload.title = data.title;
   if (data.caption !== undefined) payload.caption = data.caption;
   if (data.tags !== undefined) payload.tags = JSON.stringify(data.tags);
+  if (data.hideText !== undefined) payload.hideText = data.hideText;
+  if (data.imagesPerRow !== undefined) payload.imagesPerRow = data.imagesPerRow;
   await prisma.noteExample.update({ where: { id }, data: payload });
   revalidatePath("/notes");
 }
