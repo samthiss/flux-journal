@@ -45,17 +45,20 @@ model ChecklistLog {
 }
 
 model Note {
-  id          String   @id @default(cuid())
-  parentId    String?
-  title       String
-  order       Int      @default(0)
-  objectif    String?
-  theorie     String?
-  regles      String?
-  reglesLabel String?
-  retenir     String?
-  blockOrder  String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  parentId  String?
+  title     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model NoteBlock {
+  id        String   @id @default(cuid())
+  noteId    String
+  type      String
+  content   String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
 }
 
 model NoteCategory {

@@ -12,18 +12,25 @@ async function seedNotesTree(nodes: typeof NOTES_SEED, parentId: string | null) 
   let order = 0;
   for (const node of nodes) {
     const note = await prisma.note.create({
-      data: {
-        parentId,
-        title: node.title,
-        order: order++,
-        objectif: node.objectif ?? null,
-        theorie: node.theorie ? JSON.stringify(node.theorie) : null,
-        regles: node.regles ? JSON.stringify(node.regles) : null,
-        reglesLabel: node.reglesLabel ?? null,
-        retenir: node.retenir ? JSON.stringify(node.retenir) : null,
-      },
+      data: { parentId, title: node.title, order: order++ },
     });
+
+    let blockOrder = 0;
+    if (node.objectif) {
+      await prisma.noteBlock.create({ data: { noteId: note.id, type: "objectif", content: node.objectif, order: blockOrder++ } });
+    }
+    if (node.theorie) {
+      await prisma.noteBlock.create({ data: { noteId: note.id, type: "theorie", content: JSON.stringify(node.theorie), order: blockOrder++ } });
+    }
+    if (node.regles) {
+      const regles = node.regles.map((title) => ({ title, details: [] as string[] }));
+      await prisma.noteBlock.create({ data: { noteId: note.id, type: "regles", content: JSON.stringify(regles), order: blockOrder++ } });
+    }
+    if (node.retenir) {
+      await prisma.noteBlock.create({ data: { noteId: note.id, type: "retenir", content: JSON.stringify(node.retenir), order: blockOrder++ } });
+    }
     if (node.exemples && node.exemples.length) {
+      await prisma.noteBlock.create({ data: { noteId: note.id, type: "exemples", content: null, order: blockOrder++ } });
       const category = await prisma.noteCategory.create({ data: { noteId: note.id, name: "Exemples", order: 0 } });
       let exOrder = 0;
       for (const ex of node.exemples) {
@@ -58,8 +65,9 @@ export async function getNoteTree() {
 
 export async function getNotesPageData() {
   await ensureNotesSeeded();
-  const [notes, categories, examples] = await Promise.all([
+  const [notes, blocks, categories, examples] = await Promise.all([
     prisma.note.findMany({ orderBy: { order: "asc" } }),
+    prisma.noteBlock.findMany({ orderBy: { order: "asc" } }),
     prisma.noteCategory.findMany({ orderBy: { order: "asc" } }),
     prisma.noteExample.findMany({ orderBy: { order: "desc" } }),
   ]);
@@ -69,7 +77,7 @@ export async function getNotesPageData() {
         orderBy: { order: "asc" },
       })
     : [];
-  return { notes, categories, examples, images };
+  return { notes, blocks, categories, examples, images };
 }
 
 export async function createNote(parentId: string | null) {
@@ -83,23 +91,51 @@ export async function renameNote(id: string, title: string) {
   revalidatePath("/notes");
 }
 
-export async function updateNoteContent(
-  id: string,
-  data: {
-    objectif?: string | null;
-    theorie?: string[] | null;
-    regles?: string[] | null;
-    retenir?: string[] | null;
-    blockOrder?: string[] | null;
-  }
-) {
-  const payload: Record<string, string | null> = {};
-  if ("objectif" in data) payload.objectif = data.objectif ?? null;
-  if ("theorie" in data) payload.theorie = data.theorie ? JSON.stringify(data.theorie) : null;
-  if ("regles" in data) payload.regles = data.regles ? JSON.stringify(data.regles) : null;
-  if ("retenir" in data) payload.retenir = data.retenir ? JSON.stringify(data.retenir) : null;
-  if ("blockOrder" in data) payload.blockOrder = data.blockOrder ? JSON.stringify(data.blockOrder) : null;
-  await prisma.note.update({ where: { id }, data: payload });
+const BLOCK_DEFAULT_CONTENT: Record<string, string | null> = {
+  headings: JSON.stringify(["Nouveau titre"]),
+  objectif: "",
+  theorie: JSON.stringify(["Nouveau paragraphe."]),
+  regles: JSON.stringify([{ title: "Nouvel élément", details: [] }]),
+  retenir: JSON.stringify(["Nouveau point à retenir."]),
+  invalide: JSON.stringify(["Nouvel élément à ne pas faire."]),
+  exemples: null,
+};
+
+export async function createNoteBlock(noteId: string, type: string) {
+  const count = await prisma.noteBlock.count({ where: { noteId } });
+  const block = await prisma.noteBlock.create({
+    data: { noteId, type, content: BLOCK_DEFAULT_CONTENT[type] ?? null, order: count },
+  });
+  revalidatePath("/notes");
+  return { id: block.id, noteId: block.noteId, type: block.type, content: block.content, order: block.order };
+}
+
+export async function createExemplesBlock(noteId: string) {
+  const count = await prisma.noteBlock.count({ where: { noteId } });
+  const block = await prisma.noteBlock.create({ data: { noteId, type: "exemples", content: null, order: count } });
+  const category = await prisma.noteCategory.create({ data: { noteId, name: "Nouvelle catégorie", order: 0 } });
+  await prisma.noteExample.create({
+    data: { noteId, categoryId: category.id, title: "Nouvel exemple", caption: "Décris le contexte, l'entrée et la sortie.", tags: JSON.stringify([]), order: 0 },
+  });
+  revalidatePath("/notes");
+  return { id: block.id, noteId: block.noteId, type: block.type, content: block.content, order: block.order };
+}
+
+export async function updateNoteBlockContent(blockId: string, content: string | null) {
+  await prisma.noteBlock.update({ where: { id: blockId }, data: { content } });
+  revalidatePath("/notes");
+}
+
+export async function deleteNoteBlock(blockId: string) {
+  const block = await prisma.noteBlock.findUnique({ where: { id: blockId } });
+  if (!block) return;
+  await prisma.noteBlock.delete({ where: { id: blockId } });
+  if (block.type === "exemples") await clearNoteExamples(block.noteId);
+  revalidatePath("/notes");
+}
+
+export async function reorderNoteBlocks(orderedIds: string[]) {
+  await prisma.$transaction(orderedIds.map((id, i) => prisma.noteBlock.update({ where: { id }, data: { order: i } })));
   revalidatePath("/notes");
 }
 
@@ -162,6 +198,24 @@ async function saveImage(file: File): Promise<string> {
   return `/api/uploads/${filename}`;
 }
 
+// Re-hosts a pasted image URL under our own /api/uploads instead of storing the
+// remote URL directly: many hosts (Notion, private CDNs, expiring signed URLs)
+// block hotlinking or require a browser session, so the raw URL would render as
+// broken. Fetching it once here and saving the bytes makes it as reliable as an
+// uploaded file.
+async function saveImageFromUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.startsWith("image/")) throw new Error(`not an image: ${contentType}`);
+  const ext = "." + (contentType.split("/")[1]?.split(";")[0] || "png");
+  await mkdir(UPLOAD_DIR, { recursive: true });
+  const filename = `${randomUUID()}${ext}`;
+  const buffer = Buffer.from(await res.arrayBuffer());
+  await writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  return `/api/uploads/${filename}`;
+}
+
 async function deleteImageFile(imagePath: string | null | undefined) {
   if (!imagePath) return;
   const filename = imagePath.split("/").pop();
@@ -180,19 +234,16 @@ export async function deleteNote(id: string) {
     await prisma.noteExample.deleteMany({ where: { noteId: { in: ids } } });
   }
   await prisma.noteCategory.deleteMany({ where: { noteId: { in: ids } } });
+  await prisma.noteBlock.deleteMany({ where: { noteId: { in: ids } } });
   await prisma.note.deleteMany({ where: { id: { in: ids } } });
   revalidatePath("/notes");
 }
 
-export async function createCategory(noteId: string) {
-  const count = await prisma.noteCategory.count({ where: { noteId } });
-  await prisma.noteCategory.create({ data: { noteId, name: "Nouvelle catégorie", order: count } });
-  revalidatePath("/notes");
-}
-
 export async function createCategoryNamed(noteId: string, name: string) {
-  const count = await prisma.noteCategory.count({ where: { noteId } });
-  const category = await prisma.noteCategory.create({ data: { noteId, name: name.trim() || "Nouvelle catégorie", order: count } });
+  const category = await prisma.$transaction(async (tx) => {
+    const count = await tx.noteCategory.count({ where: { noteId } });
+    return tx.noteCategory.create({ data: { noteId, name: name.trim() || "Nouvelle catégorie", order: count } });
+  });
   revalidatePath("/notes");
   return { id: category.id, name: category.name };
 }
@@ -203,22 +254,44 @@ export async function renameCategory(id: string, name: string) {
 }
 
 export async function deleteCategory(id: string) {
-  await prisma.noteExample.updateMany({ where: { categoryId: id }, data: { categoryId: null } });
+  const examples = await prisma.noteExample.findMany({ where: { categoryId: id } });
+  const exampleIds = examples.map((e) => e.id);
+  if (exampleIds.length) {
+    const images = await prisma.noteExampleImage.findMany({ where: { exampleId: { in: exampleIds } } });
+    for (const img of images) if (!img.tradeId) await deleteImageFile(img.url);
+    await prisma.noteExampleImage.deleteMany({ where: { exampleId: { in: exampleIds } } });
+    await prisma.noteExample.deleteMany({ where: { categoryId: id } });
+  }
   await prisma.noteCategory.delete({ where: { id } });
   revalidatePath("/notes");
 }
 
+export async function clearNoteExamples(noteId: string) {
+  const examples = await prisma.noteExample.findMany({ where: { noteId } });
+  const exampleIds = examples.map((e) => e.id);
+  if (exampleIds.length) {
+    const images = await prisma.noteExampleImage.findMany({ where: { exampleId: { in: exampleIds } } });
+    for (const img of images) if (!img.tradeId) await deleteImageFile(img.url);
+    await prisma.noteExampleImage.deleteMany({ where: { exampleId: { in: exampleIds } } });
+    await prisma.noteExample.deleteMany({ where: { noteId } });
+  }
+  await prisma.noteCategory.deleteMany({ where: { noteId } });
+  revalidatePath("/notes");
+}
+
 export async function createExample(noteId: string, categoryId: string | null) {
-  const count = await prisma.noteExample.count({ where: { noteId, categoryId } });
-  await prisma.noteExample.create({
-    data: {
-      noteId,
-      categoryId,
-      title: "Nouvel exemple",
-      caption: "Décris le contexte, l'entrée et la sortie.",
-      tags: JSON.stringify([]),
-      order: count,
-    },
+  await prisma.$transaction(async (tx) => {
+    const count = await tx.noteExample.count({ where: { noteId, categoryId } });
+    return tx.noteExample.create({
+      data: {
+        noteId,
+        categoryId,
+        title: "Nouvel exemple",
+        caption: "Décris le contexte, l'entrée et la sortie.",
+        tags: JSON.stringify([]),
+        order: count,
+      },
+    });
   });
   revalidatePath("/notes");
 }
@@ -247,6 +320,21 @@ export async function addExampleImage(exampleId: string, formData: FormData) {
   const count = await prisma.noteExampleImage.count({ where: { exampleId } });
   await prisma.noteExampleImage.create({ data: { exampleId, url, order: count } });
   revalidatePath("/notes");
+}
+
+export async function addExampleImageByUrl(exampleId: string, url: string): Promise<{ ok: boolean }> {
+  const trimmed = url.trim();
+  if (!trimmed) return { ok: false };
+  let hostedUrl: string;
+  try {
+    hostedUrl = await saveImageFromUrl(trimmed);
+  } catch {
+    return { ok: false };
+  }
+  const count = await prisma.noteExampleImage.count({ where: { exampleId } });
+  await prisma.noteExampleImage.create({ data: { exampleId, url: hostedUrl, order: count } });
+  revalidatePath("/notes");
+  return { ok: true };
 }
 
 export async function removeExampleImage(imageId: string) {

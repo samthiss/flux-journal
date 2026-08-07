@@ -7,14 +7,19 @@ import { accentColor } from "@/lib/theme";
 import {
   renameNote,
   deleteNote,
-  updateNoteContent,
-  createCategory,
+  createNoteBlock,
+  createExemplesBlock,
+  updateNoteBlockContent,
+  deleteNoteBlock,
+  reorderNoteBlocks,
+  createCategoryNamed,
   renameCategory,
   deleteCategory,
   createExample,
   updateExample,
   deleteExample,
   addExampleImage,
+  addExampleImageByUrl,
   removeExampleImage,
   searchTrades,
   importTradeImages,
@@ -29,15 +34,20 @@ type NoteRecord = {
   parentId: string | null;
   title: string;
   order: number;
-  objectif: string | null;
-  theorie: string | null;
-  regles: string | null;
-  reglesLabel: string | null;
-  retenir: string | null;
-  blockOrder: string | null;
 };
 
-const DEFAULT_BLOCK_ORDER = ["objectif", "theorie", "regles", "retenir"];
+type BlockRecord = { id: string; noteId: string; type: string; content: string | null; order: number };
+
+const BLOCK_TYPE_LABELS: Record<string, string> = {
+  headings: "Titre",
+  objectif: "Encadré",
+  theorie: "Texte",
+  regles: "Liste numérotée",
+  retenir: "Liste à puces",
+  invalide: "Invalid",
+  exemples: "Exemples",
+};
+
 type CategoryRecord = { id: string; noteId: string; name: string; order: number };
 type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; order: number };
 type ImageRecord = { id: string; exampleId: string; url: string; tradeId: string | null; order: number };
@@ -47,6 +57,24 @@ function parseArr(s: string | null): string[] {
   if (!s) return [];
   try {
     return JSON.parse(s);
+  } catch {
+    return [];
+  }
+}
+
+type RegleItem = { title: string; details: string[] };
+
+function parseRegles(s: string | null): RegleItem[] {
+  if (!s) return [];
+  try {
+    const parsed = JSON.parse(s);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((x) => {
+      if (typeof x === "string") return { title: x, details: [] };
+      if (Array.isArray(x?.details)) return { title: x?.title ?? "", details: x.details };
+      if (typeof x?.detail === "string" && x.detail) return { title: x?.title ?? "", details: [x.detail] };
+      return { title: x?.title ?? "", details: [] };
+    });
   } catch {
     return [];
   }
@@ -144,8 +172,8 @@ function GripMenuButton({ onDelete, onDragStart, visible }: { onDelete: () => vo
         <div
           style={{
             position: "absolute",
-            top: "110%",
-            left: 0,
+            top: 0,
+            left: "110%",
             zIndex: 30,
             background: "oklch(0.21 0.02 290)",
             border: "1px solid oklch(0.34 0.02 290)",
@@ -171,17 +199,52 @@ function GripMenuButton({ onDelete, onDragStart, visible }: { onDelete: () => vo
   );
 }
 
-function PlusGripCluster({ onPlus, onDelete, plusTitle, visible }: { onPlus: () => void; onDelete: () => void; plusTitle: string; visible: boolean }) {
+function PlusGripCluster({
+  onPlus,
+  onDelete,
+  plusTitle,
+  visible,
+}: {
+  onPlus: () => void | Promise<void>;
+  onDelete?: () => void;
+  plusTitle: string;
+  visible: boolean;
+}) {
+  const busyRef = useRef(false);
+  const [busy, setBusy] = useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 1, flex: "none" }}>
       <span
-        onClick={onPlus}
+        onClick={async () => {
+          if (busyRef.current) return;
+          busyRef.current = true;
+          setBusy(true);
+          try {
+            await onPlus();
+          } finally {
+            busyRef.current = false;
+            setBusy(false);
+          }
+        }}
         title={plusTitle}
-        style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "oklch(0.5 0.02 290)", borderRadius: 5, cursor: "pointer", opacity: visible ? 1 : 0, transition: "opacity 0.12s ease" }}
+        style={{
+          width: 22,
+          height: 22,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 16,
+          color: "oklch(0.5 0.02 290)",
+          borderRadius: 5,
+          cursor: busy ? "default" : "pointer",
+          pointerEvents: busy ? "none" : "auto",
+          opacity: busy ? 0.4 : visible ? 1 : 0,
+          transition: "opacity 0.12s ease",
+        }}
       >
         +
       </span>
-      <GripMenuButton visible={visible} onDelete={onDelete} />
+      {onDelete && <GripMenuButton visible={visible} onDelete={onDelete} />}
     </div>
   );
 }
@@ -263,11 +326,13 @@ function flattenDFS(nodes: TreeNode[], depth = 0, out: Array<{ node: TreeNode; d
 
 export default function NotesClient({
   notes,
+  blocks,
   categories,
   examples,
   images,
 }: {
   notes: NoteRecord[];
+  blocks: BlockRecord[];
   categories: CategoryRecord[];
   examples: ExampleRecord[];
   images: ImageRecord[];
@@ -278,12 +343,12 @@ export default function NotesClient({
 
   return (
     <div>
-      <div style={{ fontSize: 26, fontWeight: 700, marginBottom: 20 }}>Notes</div>
       <div>
         {flat.map(({ node }) => (
           <NoteSection
             key={node.id}
             note={node}
+            blocks={blocks.filter((b) => b.noteId === node.id)}
             categories={categories.filter((c) => c.noteId === node.id)}
             examples={examples.filter((e) => e.noteId === node.id)}
             images={images}
@@ -297,88 +362,96 @@ export default function NotesClient({
 
 function NoteSection({
   note,
+  blocks,
   categories,
   examples,
   images,
   onChanged,
 }: {
   note: NoteRecord;
+  blocks: BlockRecord[];
   categories: CategoryRecord[];
   examples: ExampleRecord[];
   images: ImageRecord[];
   onChanged: () => void;
 }) {
   const [title, setTitle] = useState(note.title);
-  const [objectif, setObjectif] = useState(note.objectif ?? "");
-  const [theorie, setTheorie] = useState<string[]>(parseArr(note.theorie));
-  const [regles, setRegles] = useState<string[]>(parseArr(note.regles));
-  const [retenir, setRetenir] = useState<string[]>(parseArr(note.retenir));
+  const [blockList, setBlockList] = useState<BlockRecord[]>(() => [...blocks].sort((a, b) => a.order - b.order));
+  const blockListRef = useRef(blockList);
+  useEffect(() => {
+    blockListRef.current = blockList;
+  }, [blockList]);
 
-  const [showObjectif, setShowObjectif] = useState(!!note.objectif);
-  const [showTheorie, setShowTheorie] = useState(parseArr(note.theorie).length > 0);
-  const [showRegles, setShowRegles] = useState(parseArr(note.regles).length > 0);
-  const [showRetenir, setShowRetenir] = useState(parseArr(note.retenir).length > 0);
-  const [showExemples, setShowExemples] = useState(categories.length > 0 || examples.length > 0);
-  const [tagFilter, setTagFilter] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<"date" | "tag">("date");
   const [headerHover, setHeaderHover] = useState(false);
   const [exemplesHover, setExemplesHover] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<"date" | "tag">("date");
+  const [addLineText, setAddLineText] = useState("");
+  const [addLineHover, setAddLineHover] = useState(false);
+  const [addLineFocused, setAddLineFocused] = useState(false);
+  const addLineInputRef = useRef<HTMLInputElement | null>(null);
 
-  const theorieRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
-  const reglesRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const retenirRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  const [blockOrder, setBlockOrder] = useState<string[]>(() => {
-    const saved = parseArr(note.blockOrder);
-    return saved.length ? [...saved, ...DEFAULT_BLOCK_ORDER.filter((k) => !saved.includes(k))] : DEFAULT_BLOCK_ORDER;
-  });
-  const blockOrderRef = useRef(blockOrder);
-  useEffect(() => {
-    blockOrderRef.current = blockOrder;
-  }, [blockOrder]);
   const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const draggingKeyRef = useRef<string | null>(null);
+  const draggingIdRef = useRef<string | null>(null);
   const [blockHover, setBlockHover] = useState<string | null>(null);
-  const blockVisible: Record<string, boolean> = { objectif: showObjectif, theorie: showTheorie, regles: showRegles, retenir: showRetenir };
 
-  function startBlockDrag(key: string) {
+  function startBlockDrag(id: string) {
     return (e: React.MouseEvent) => {
       e.preventDefault();
-      draggingKeyRef.current = key;
+      draggingIdRef.current = id;
       function onMove(ev: MouseEvent) {
-        const dragKey = draggingKeyRef.current;
-        if (!dragKey) return;
-        const order = blockOrderRef.current;
-        const visibleKeys = order.filter((k) => blockVisible[k]);
-        let closestKey: string | null = null;
+        const dragId = draggingIdRef.current;
+        if (!dragId) return;
+        const list = blockListRef.current;
+        let closestId: string | null = null;
         let closestDist = Infinity;
-        for (const k of visibleKeys) {
-          const el = blockRefs.current[k];
+        for (const b of list) {
+          const el = blockRefs.current[b.id];
           if (!el) continue;
           const rect = el.getBoundingClientRect();
           const mid = rect.top + rect.height / 2;
           const dist = Math.abs(ev.clientY - mid);
           if (dist < closestDist) {
             closestDist = dist;
-            closestKey = k;
+            closestId = b.id;
           }
         }
-        if (closestKey && closestKey !== dragKey) {
-          const next = order.filter((k) => k !== dragKey);
-          next.splice(next.indexOf(closestKey), 0, dragKey);
-          blockOrderRef.current = next;
-          setBlockOrder(next);
+        if (closestId && closestId !== dragId) {
+          const dragItem = list.find((b) => b.id === dragId);
+          if (!dragItem) return;
+          const next = list.filter((b) => b.id !== dragId);
+          const targetIdx = next.findIndex((b) => b.id === closestId);
+          next.splice(targetIdx, 0, dragItem);
+          blockListRef.current = next;
+          setBlockList(next);
         }
       }
       function onUp() {
-        draggingKeyRef.current = null;
+        draggingIdRef.current = null;
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("mouseup", onUp);
-        updateNoteContent(note.id, { blockOrder: blockOrderRef.current });
+        reorderNoteBlocks(blockListRef.current.map((b) => b.id));
       }
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
     };
+  }
+
+  async function addBlock(type: string) {
+    if (type === "exemples") {
+      const created = await createExemplesBlock(note.id);
+      setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, type: "exemples", content: null, order: prev.length }]);
+      onChanged();
+      return;
+    }
+    const created = await createNoteBlock(note.id, type);
+    setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, type, content: created.content, order: prev.length }]);
+  }
+
+  async function deleteBlock(blockId: string) {
+    setBlockList((prev) => prev.filter((b) => b.id !== blockId));
+    await deleteNoteBlock(blockId);
+    onChanged();
   }
 
   const allTags = useMemo(() => {
@@ -393,6 +466,8 @@ function NoteSection({
       ? [...byTagFilter].sort((a, b) => (parseArr(a.tags)[0] || "~~~").toLowerCase().localeCompare((parseArr(b.tags)[0] || "~~~").toLowerCase()))
       : byTagFilter;
   const uncategorized = filteredExamples.filter((e) => !e.categoryId || !categories.some((c) => c.id === e.categoryId));
+
+  const hasExemples = blockList.some((b) => b.type === "exemples");
 
   return (
     <div data-note-section={note.id} id={"note-" + note.id} style={{ paddingBottom: 48, marginBottom: 40, borderBottom: "1px solid oklch(0.22 0.02 290)" }}>
@@ -430,333 +505,522 @@ function NoteSection({
             />
           </div>
         </div>
-
-        {blockOrder.map((key) => {
-          if (key === "objectif" && showObjectif) {
-            return (
-              <DraggableBlock
-                key="objectif"
-                blockKey="objectif"
-                setRef={(el) => { blockRefs.current.objectif = el; }}
-                hoverKey={blockHover}
-                setHoverKey={setBlockHover}
-                onDragStart={startBlockDrag("objectif")}
-                onDelete={() => {
-                  setShowObjectif(false);
-                  setObjectif("");
-                  updateNoteContent(note.id, { objectif: null });
-                }}
-              >
-                <div style={{ border: `1px solid ${accentColor}59`, background: "oklch(0.68 0.19 293 / 0.07)", borderRadius: 12, padding: "15px 18px", marginLeft: HEADER_INDENT, marginBottom: 24, display: "flex", gap: 13 }}>
-                  <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, letterSpacing: "0.1em", color: accentColor, paddingTop: 3 }}>BUT</div>
-                  <textarea
-                    ref={(el) => autoGrow(el)}
-                    value={objectif}
-                    onChange={(e) => setObjectif(e.target.value)}
-                    onBlur={() => updateNoteContent(note.id, { objectif })}
-                    rows={1}
-                    style={{ flex: 1, fontSize: 15, lineHeight: 1.6, color: "oklch(0.92 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
-                  />
-                </div>
-              </DraggableBlock>
-            );
-          }
-          if (key === "theorie" && showTheorie) {
-            return (
-              <DraggableBlock
-                key="theorie"
-                blockKey="theorie"
-                setRef={(el) => { blockRefs.current.theorie = el; }}
-                hoverKey={blockHover}
-                setHoverKey={setBlockHover}
-                onDragStart={startBlockDrag("theorie")}
-                onDelete={() => {
-                  setShowTheorie(false);
-                  setTheorie([]);
-                  updateNoteContent(note.id, { theorie: null });
-                }}
-              >
-                <Section
-                  label="Théorie"
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 32, marginLeft: HEADER_INDENT }}>
-                    {theorie.map((p, i) => (
-                      <div key={i} style={{ display: "flex", gap: 8 }}>
-                        <textarea
-                          ref={(el) => { theorieRefs.current[i] = el; autoGrow(el); }}
-                          value={p}
-                          onChange={(e) => setTheorie((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
-                          onBlur={() => updateNoteContent(note.id, { theorie })}
-                          onKeyDown={(e) => handleListKeyDown(e, i, theorie, (next) => { setTheorie(next); updateNoteContent(note.id, { theorie: next }); }, theorieRefs)}
-                          rows={1}
-                          style={{ flex: 1, fontSize: 15, lineHeight: 1.72, color: "oklch(0.84 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-              </DraggableBlock>
-            );
-          }
-          if (key === "regles" && showRegles) {
-            return (
-              <DraggableBlock
-                key="regles"
-                blockKey="regles"
-                setRef={(el) => { blockRefs.current.regles = el; }}
-                hoverKey={blockHover}
-                setHoverKey={setBlockHover}
-                onDragStart={startBlockDrag("regles")}
-                onDelete={() => {
-                  setShowRegles(false);
-                  setRegles([]);
-                  updateNoteContent(note.id, { regles: null });
-                }}
-              >
-                <Section
-                  label={note.reglesLabel || "Règles"}
-                >
-                  <div style={{ marginBottom: 32, marginLeft: HEADER_INDENT, border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, overflow: "hidden" }}>
-                    {regles.map((r, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 13, padding: "13px 18px", background: "oklch(0.185 0.02 290)", borderBottom: i < regles.length - 1 ? "1px solid oklch(0.22 0.02 290)" : "none" }}>
-                        <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: accentColor, flex: "none", paddingTop: 1 }}>{i + 1}</span>
-                        <input
-                          ref={(el) => { reglesRefs.current[i] = el; }}
-                          value={r}
-                          onChange={(e) => setRegles((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
-                          onBlur={() => updateNoteContent(note.id, { regles })}
-                          onKeyDown={(e) => handleListKeyDown(e, i, regles, (next) => { setRegles(next); updateNoteContent(note.id, { regles: next }); }, reglesRefs, { allowEnter: true })}
-                          style={{ flex: 1, fontSize: 14.5, color: "oklch(0.86 0.02 290)", background: "transparent", border: "none", outline: "none" }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-              </DraggableBlock>
-            );
-          }
-          if (key === "retenir" && showRetenir) {
-            return (
-              <DraggableBlock
-                key="retenir"
-                blockKey="retenir"
-                setRef={(el) => { blockRefs.current.retenir = el; }}
-                hoverKey={blockHover}
-                setHoverKey={setBlockHover}
-                onDragStart={startBlockDrag("retenir")}
-                onDelete={() => {
-                  setShowRetenir(false);
-                  setRetenir([]);
-                  updateNoteContent(note.id, { retenir: null });
-                }}
-              >
-                <Section
-                  label="À retenir"
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 11, marginBottom: 32, marginLeft: HEADER_INDENT }}>
-                    {retenir.map((k, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
-                        <span style={{ width: 16, height: 16, flex: "none", marginTop: 2, borderRadius: 5, border: `1.5px solid ${accentColor}`, background: "oklch(0.68 0.19 293 / 0.14)", color: accentColor, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          ✓
-                        </span>
-                        <input
-                          ref={(el) => { retenirRefs.current[i] = el; }}
-                          value={k}
-                          onChange={(e) => setRetenir((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
-                          onBlur={() => updateNoteContent(note.id, { retenir })}
-                          onKeyDown={(e) => handleListKeyDown(e, i, retenir, (next) => { setRetenir(next); updateNoteContent(note.id, { retenir: next }); }, retenirRefs, { allowEnter: true })}
-                          style={{ flex: 1, fontSize: 14.5, color: "oklch(0.86 0.02 290)", background: "transparent", border: "none", outline: "none" }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-              </DraggableBlock>
-            );
-          }
-          return null;
-        })}
       </div>
 
-      {showExemples && (
-        <div>
-          <div
-            onMouseEnter={() => setExemplesHover(true)}
-            onMouseLeave={() => setExemplesHover(false)}
-            style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 18 }}
-          >
-            <PlusGripCluster
-              visible={exemplesHover}
-              plusTitle="Ajouter une catégorie"
-              onPlus={async () => {
-                await createCategory(note.id);
-                onChanged();
-              }}
-              onDelete={() => setShowExemples(false)}
-            />
-            <span style={{ width: 10, flex: "none" }} />
-            <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "oklch(0.56 0.02 290)" }}>Exemples</span>
-            <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.48 0.02 290)" }}>Trier</span>
-            {([
-              { key: "date" as const, label: "Derniers ajoutés" },
-              { key: "tag" as const, label: "Nom de tag" },
-            ]).map((opt) => {
-              const on = sortBy === opt.key;
-              return (
-                <span
-                  key={opt.key}
-                  onClick={() => setSortBy(opt.key)}
-                  style={{
-                    fontFamily: "var(--font-jetbrains-mono), monospace",
-                    fontSize: 10.5,
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    cursor: "pointer",
-                    border: `1px solid ${on ? accentColor : "oklch(0.3 0.02 290)"}`,
-                    background: on ? "oklch(0.68 0.19 293 / 0.16)" : "oklch(0.2 0.02 290)",
-                    color: on ? accentColor : "oklch(0.6 0.02 290)",
-                  }}
-                >
-                  {opt.label}
-                </span>
-              );
-            })}
-          </div>
-
-          {allTags.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 20, marginLeft: HEADER_INDENT }}>
-              {allTags.map((t) => {
-                const st = tagStyle(t);
-                const on = tagFilter.includes(t);
-                return (
+      {blockList.map((block) => {
+        if (block.type === "exemples") {
+          return (
+            <DraggableBlock
+              key={block.id}
+              blockKey={block.id}
+              setRef={(el) => { blockRefs.current[block.id] = el; }}
+              hoverKey={blockHover}
+              setHoverKey={setBlockHover}
+              onDragStart={startBlockDrag(block.id)}
+              onDelete={() => deleteBlock(block.id)}
+            >
+              <div>
                   <div
-                    key={t}
-                    onClick={() => setTagFilter((f) => (f.includes(t) ? f.filter((x) => x !== t) : [...f, t]))}
-                    style={{
-                      fontFamily: "var(--font-jetbrains-mono), monospace",
-                      fontSize: 11,
-                      padding: "4px 11px",
-                      borderRadius: 999,
-                      cursor: "pointer",
-                      border: `1px solid ${on ? st.color : "oklch(0.3 0.02 290)"}`,
-                      background: on ? st.bg : "oklch(0.2 0.02 290)",
-                      color: on ? st.color : "oklch(0.64 0.02 290)",
-                    }}
+                    onMouseEnter={() => setExemplesHover(true)}
+                    onMouseLeave={() => setExemplesHover(false)}
+                    style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 18 }}
                   >
-                    {t}
-                  </div>
-                );
-              })}
-              {tagFilter.length > 0 && (
-                <span onClick={() => setTagFilter([])} style={{ fontSize: 12, color: "oklch(0.58 0.02 290)", cursor: "pointer", padding: "4px 6px" }}>
-                  réinitialiser
-                </span>
-              )}
-            </div>
-          )}
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-            {categories.map((cat) => (
-              <ExampleCategory
-                key={cat.id}
-                title={cat.name}
-                onRename={(name) => {
-                  renameCategory(cat.id, name);
-                  onChanged();
-                }}
-                onDelete={async () => {
-                  await deleteCategory(cat.id);
-                  onChanged();
-                }}
-                onAddExample={async () => {
-                  await createExample(note.id, cat.id);
-                  onChanged();
-                }}
-                examples={filteredExamples.filter((e) => e.categoryId === cat.id)}
-                images={images}
-                onChanged={onChanged}
-              />
-            ))}
-            {(uncategorized.length > 0 || categories.length === 0) && (
-              <ExampleCategory
-                title="Sans catégorie"
-                onAddExample={async () => {
-                  await createExample(note.id, null);
-                  onChanged();
-                }}
-                onDelete={
-                  uncategorized.length > 0
-                    ? async () => {
-                        for (const ex of uncategorized) await deleteExample(ex.id);
+                    <PlusGripCluster
+                      visible={exemplesHover}
+                      plusTitle="Ajouter une catégorie"
+                      onPlus={async () => {
+                        const category = await createCategoryNamed(note.id, "Nouvelle catégorie");
+                        await createExample(note.id, category.id);
                         onChanged();
-                      }
-                    : undefined
+                      }}
+                    />
+                    <span style={{ width: 10, flex: "none" }} />
+                    <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "oklch(0.56 0.02 290)" }}>Exemples</span>
+                    <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.48 0.02 290)" }}>Trier</span>
+                    {([
+                      { key: "date" as const, label: "Derniers ajoutés" },
+                      { key: "tag" as const, label: "Nom de tag" },
+                    ]).map((opt) => {
+                      const on = sortBy === opt.key;
+                      return (
+                        <span
+                          key={opt.key}
+                          onClick={() => setSortBy(opt.key)}
+                          style={{
+                            fontFamily: "var(--font-jetbrains-mono), monospace",
+                            fontSize: 10.5,
+                            padding: "4px 10px",
+                            borderRadius: 999,
+                            cursor: "pointer",
+                            border: `1px solid ${on ? accentColor : "oklch(0.3 0.02 290)"}`,
+                            background: on ? "oklch(0.68 0.19 293 / 0.16)" : "oklch(0.2 0.02 290)",
+                            color: on ? accentColor : "oklch(0.6 0.02 290)",
+                          }}
+                        >
+                          {opt.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {allTags.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 20, marginLeft: HEADER_INDENT }}>
+                      {allTags.map((t) => {
+                        const st = tagStyle(t);
+                        const on = tagFilter.includes(t);
+                        return (
+                          <div
+                            key={t}
+                            onClick={() => setTagFilter((f) => (f.includes(t) ? f.filter((x) => x !== t) : [...f, t]))}
+                            style={{
+                              fontFamily: "var(--font-jetbrains-mono), monospace",
+                              fontSize: 11,
+                              padding: "4px 11px",
+                              borderRadius: 999,
+                              cursor: "pointer",
+                              border: `1px solid ${on ? st.color : "oklch(0.3 0.02 290)"}`,
+                              background: on ? st.bg : "oklch(0.2 0.02 290)",
+                              color: on ? st.color : "oklch(0.64 0.02 290)",
+                            }}
+                          >
+                            {t}
+                          </div>
+                        );
+                      })}
+                      {tagFilter.length > 0 && (
+                        <span onClick={() => setTagFilter([])} style={{ fontSize: 12, color: "oklch(0.58 0.02 290)", cursor: "pointer", padding: "4px 6px" }}>
+                          réinitialiser
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+                    {categories.map((cat) => (
+                      <ExampleCategory
+                        key={cat.id}
+                        title={cat.name}
+                        onRename={(name) => {
+                          renameCategory(cat.id, name);
+                          onChanged();
+                        }}
+                        onDelete={async () => {
+                          await deleteCategory(cat.id);
+                          onChanged();
+                        }}
+                        onAddExample={async () => {
+                          await createExample(note.id, cat.id);
+                          onChanged();
+                        }}
+                        examples={filteredExamples.filter((e) => e.categoryId === cat.id)}
+                        images={images}
+                        onChanged={onChanged}
+                      />
+                    ))}
+                    {(uncategorized.length > 0 || categories.length === 0) && (
+                      <ExampleCategory
+                        title="Sans catégorie"
+                        onAddExample={async () => {
+                          await createExample(note.id, null);
+                          onChanged();
+                        }}
+                        onDelete={
+                          uncategorized.length > 0
+                            ? async () => {
+                                for (const ex of uncategorized) await deleteExample(ex.id);
+                                onChanged();
+                              }
+                            : undefined
+                        }
+                        examples={uncategorized}
+                        images={images}
+                        onChanged={onChanged}
+                      />
+                    )}
+                  </div>
+                </div>
+            </DraggableBlock>
+          );
+        }
+        return (
+          <div key={block.id} style={{ maxWidth: TEXT_WIDTH }}>
+            <DraggableBlock
+              blockKey={block.id}
+              setRef={(el) => { blockRefs.current[block.id] = el; }}
+              hoverKey={blockHover}
+              setHoverKey={setBlockHover}
+              onDragStart={startBlockDrag(block.id)}
+              onDelete={() => deleteBlock(block.id)}
+            >
+              <NoteBlockContent block={block} />
+            </DraggableBlock>
+          </div>
+        );
+      })}
+
+      <div style={{ maxWidth: TEXT_WIDTH }}>
+      {(() => {
+        const availableBlocks = Object.entries(BLOCK_TYPE_LABELS)
+          .map(([key, label]) => ({ key, label }))
+          .filter((o) => o.key !== "exemples" || !hasExemples);
+
+        const slashIndex = addLineText.lastIndexOf("/");
+        const slashQuery = slashIndex >= 0 ? addLineText.slice(slashIndex + 1) : null;
+        const filteredBlocks =
+          slashQuery !== null ? availableBlocks.filter((o) => o.label.toLowerCase().includes(slashQuery.toLowerCase())) : [];
+        const addLineActive = addLineHover || addLineFocused || addLineText.length > 0;
+
+        async function selectBlock(key: string) {
+          await addBlock(key);
+          setAddLineText("");
+          addLineInputRef.current?.focus();
+        }
+
+        return (
+          <div
+            onMouseEnter={() => setAddLineHover(true)}
+            onMouseLeave={() => setAddLineHover(false)}
+            style={{ position: "relative", marginTop: 32, marginLeft: HEADER_INDENT, maxWidth: TEXT_WIDTH, height: 22 }}
+          >
+            <span
+              onClick={() => {
+                setAddLineText("/");
+                addLineInputRef.current?.focus();
+              }}
+              title="Ajouter une section"
+              style={{
+                position: "absolute",
+                left: -34,
+                top: -3,
+                width: 28,
+                height: 28,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 22,
+                color: "oklch(0.5 0.02 290)",
+                borderRadius: 6,
+                cursor: "pointer",
+                opacity: addLineActive ? 1 : 0,
+                transition: "opacity 0.12s ease",
+              }}
+            >
+              +
+            </span>
+            <input
+              ref={addLineInputRef}
+              value={addLineText}
+              onChange={(e) => setAddLineText(e.target.value)}
+              onFocus={() => setAddLineFocused(true)}
+              onBlur={() => setAddLineFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (slashQuery !== null && filteredBlocks.length > 0) selectBlock(filteredBlocks[0].key);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setAddLineText("");
+                  addLineInputRef.current?.blur();
                 }
-                examples={uncategorized}
-                images={images}
-                onChanged={onChanged}
-              />
+              }}
+              placeholder="Write here"
+              style={{
+                width: "100%",
+                fontSize: 14,
+                lineHeight: 1.5,
+                color: "oklch(0.88 0.01 290)",
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                caretColor: accentColor,
+                padding: 0,
+                opacity: addLineActive ? 1 : 0,
+                transition: "opacity 0.12s ease",
+              }}
+            />
+            {slashQuery !== null && filteredBlocks.length > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "130%",
+                  left: 0,
+                  zIndex: 30,
+                  background: "oklch(0.21 0.02 290)",
+                  border: "1px solid oklch(0.34 0.02 290)",
+                  borderRadius: 8,
+                  boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
+                  padding: 4,
+                  minWidth: 180,
+                }}
+              >
+                {filteredBlocks.map((o) => (
+                  <span
+                    key={o.key}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      selectBlock(o.key);
+                    }}
+                    style={addMenuItemStyle}
+                  >
+                    {o.label}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
-        </div>
-      )}
-
-      {(!showObjectif || !showTheorie || !showRegles || !showRetenir || !showExemples) && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 32, marginLeft: HEADER_INDENT, maxWidth: TEXT_WIDTH }}>
-          {!showObjectif && (
-            <button onClick={() => setShowObjectif(true)} style={addBlockBtnStyle}>
-              + BUT
-            </button>
-          )}
-          {!showTheorie && (
-            <button
-              onClick={() => {
-                setShowTheorie(true);
-                const next = ["Nouveau paragraphe."];
-                setTheorie(next);
-                updateNoteContent(note.id, { theorie: next });
-              }}
-              style={addBlockBtnStyle}
-            >
-              + Théorie
-            </button>
-          )}
-          {!showRegles && (
-            <button
-              onClick={() => {
-                setShowRegles(true);
-                const next = ["Nouvelle règle"];
-                setRegles(next);
-                updateNoteContent(note.id, { regles: next });
-              }}
-              style={addBlockBtnStyle}
-            >
-              + Règles
-            </button>
-          )}
-          {!showRetenir && (
-            <button
-              onClick={() => {
-                setShowRetenir(true);
-                const next = ["Nouveau point à retenir."];
-                setRetenir(next);
-                updateNoteContent(note.id, { retenir: next });
-              }}
-              style={addBlockBtnStyle}
-            >
-              + À retenir
-            </button>
-          )}
-          {!showExemples && (
-            <button onClick={() => setShowExemples(true)} style={addBlockBtnStyle}>
-              + Exemples
-            </button>
-          )}
-        </div>
-      )}
+        );
+      })()}
+      </div>
     </div>
   );
 }
+
+function NoteBlockContent({ block }: { block: BlockRecord }) {
+  switch (block.type) {
+    case "headings":
+      return <HeadingsBlock blockId={block.id} initialContent={block.content} />;
+    case "objectif":
+      return <ObjectifBlock blockId={block.id} initialContent={block.content} />;
+    case "theorie":
+      return <TheorieBlock blockId={block.id} initialContent={block.content} />;
+    case "regles":
+      return <ReglesBlock blockId={block.id} initialContent={block.content} />;
+    case "retenir":
+      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✓" iconColor={accentColor} iconBg="oklch(0.68 0.19 293 / 0.14)" />;
+    case "invalide":
+      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✕" iconColor={lossColor} iconBg="oklch(0.65 0.18 25 / 0.14)" />;
+    default:
+      return null;
+  }
+}
+
+function HeadingsBlock({ blockId, initialContent }: { blockId: string; initialContent: string | null }) {
+  const [headings, setHeadings] = useState<string[]>(parseArr(initialContent));
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT }}>
+      {headings.map((h, i) => (
+        <input
+          key={i}
+          ref={(el) => { refs.current[i] = el; }}
+          value={h}
+          onChange={(e) => setHeadings((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
+          onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(headings))}
+          onKeyDown={(e) => handleListKeyDown(e, i, headings, (next) => { setHeadings(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
+          style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.01em", color: "oklch(0.94 0.004 290)", background: "transparent", border: "none", outline: "none" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ObjectifBlock({ blockId, initialContent }: { blockId: string; initialContent: string | null }) {
+  const [objectif, setObjectif] = useState(initialContent ?? "");
+  return (
+    <div style={{ border: `1px solid ${accentColor}59`, background: "oklch(0.68 0.19 293 / 0.07)", borderRadius: 12, padding: "15px 18px", marginLeft: HEADER_INDENT, marginBottom: 24 }}>
+      <textarea
+        ref={(el) => autoGrow(el)}
+        value={objectif}
+        onChange={(e) => setObjectif(e.target.value)}
+        onBlur={() => updateNoteBlockContent(blockId, objectif)}
+        rows={1}
+        style={{ flex: 1, fontSize: 15, lineHeight: 1.6, color: "oklch(0.92 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
+      />
+    </div>
+  );
+}
+
+function TheorieBlock({ blockId, initialContent }: { blockId: string; initialContent: string | null }) {
+  const [theorie, setTheorie] = useState<string[]>(parseArr(initialContent));
+  const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT }}>
+      {theorie.map((p, i) => (
+        <div key={i} style={{ display: "flex", gap: 8 }}>
+          <textarea
+            ref={(el) => { refs.current[i] = el; autoGrow(el); }}
+            value={p}
+            onChange={(e) => setTheorie((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
+            onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(theorie))}
+            onKeyDown={(e) => handleListKeyDown(e, i, theorie, (next) => { setTheorie(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs)}
+            rows={1}
+            style={{ flex: 1, fontSize: 15, lineHeight: 1.72, color: "oklch(0.84 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BulletListBlock({
+  blockId,
+  initialContent,
+  icon,
+  iconColor,
+  iconBg,
+}: {
+  blockId: string;
+  initialContent: string | null;
+  icon: string;
+  iconColor: string;
+  iconBg: string;
+}) {
+  const [items, setItems] = useState<string[]>(parseArr(initialContent));
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT }}>
+      {items.map((k, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
+          <span style={{ width: 16, height: 16, flex: "none", marginTop: 2, borderRadius: 5, border: `1.5px solid ${iconColor}`, background: iconBg, color: iconColor, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {icon}
+          </span>
+          <input
+            ref={(el) => { refs.current[i] = el; }}
+            value={k}
+            onChange={(e) => setItems((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
+            onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(items))}
+            onKeyDown={(e) => handleListKeyDown(e, i, items, (next) => { setItems(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
+            style={{ flex: 1, fontSize: 14.5, color: "oklch(0.86 0.02 290)", background: "transparent", border: "none", outline: "none" }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReglesBlock({ blockId, initialContent }: { blockId: string; initialContent: string | null }) {
+  const [regles, setRegles] = useState<RegleItem[]>(parseRegles(initialContent));
+  const reglesRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const reglesDetailRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  return (
+    <div style={{ marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT, border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, overflow: "hidden" }}>
+      {regles.map((r, i) => (
+        <div key={i} style={{ padding: "13px 18px", background: "oklch(0.185 0.02 290)", borderBottom: i < regles.length - 1 ? "1px solid oklch(0.22 0.02 290)" : "none" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 13 }}>
+            <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: accentColor, flex: "none", paddingTop: 3 }}>{i + 1}</span>
+            <textarea
+              ref={(el) => { reglesRefs.current[i] = el; autoGrow(el); }}
+              value={r.title}
+              onChange={(e) => setRegles((arr) => arr.map((x, xi) => (xi === i ? { ...x, title: e.target.value } : x)))}
+              onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(regles))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  const next = [...regles.slice(0, i + 1), { title: "", details: [] }, ...regles.slice(i + 1)];
+                  setRegles(next);
+                  updateNoteBlockContent(blockId, JSON.stringify(next));
+                  requestAnimationFrame(() => reglesRefs.current[i + 1]?.focus());
+                  return;
+                }
+                if ((e.key === "Backspace" || e.key === "Delete") && regles[i].title === "" && regles[i].details.length === 0 && regles.length > 1) {
+                  e.preventDefault();
+                  const next = regles.filter((_, xi) => xi !== i);
+                  setRegles(next);
+                  updateNoteBlockContent(blockId, JSON.stringify(next));
+                  const focusIdx = Math.max(0, i - 1);
+                  requestAnimationFrame(() => reglesRefs.current[focusIdx]?.focus());
+                }
+              }}
+              rows={1}
+              style={{ flex: 1, fontSize: 14.5, lineHeight: 1.6, color: "oklch(0.86 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", overflowWrap: "anywhere", fontFamily: "inherit" }}
+            />
+          </div>
+          {r.details.map((d, di) => (
+            <div
+              key={di}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                marginTop: di === 0 ? 8 : 6,
+                marginLeft: 25,
+              }}
+            >
+              <span
+                style={{
+                  width: 14,
+                  height: 14,
+                  flex: "none",
+                  marginTop: 3,
+                  borderRadius: 4,
+                  border: `1.5px solid ${accentColor}`,
+                  background: "oklch(0.68 0.19 293 / 0.14)",
+                  color: accentColor,
+                  fontSize: 8.5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ✓
+              </span>
+              <textarea
+                ref={(el) => { reglesDetailRefs.current[`${i}-${di}`] = el; autoGrow(el); }}
+                value={d}
+                onChange={(e) =>
+                  setRegles((arr) =>
+                    arr.map((x, xi) => (xi === i ? { ...x, details: x.details.map((dd, ddi) => (ddi === di ? e.target.value : dd)) } : x))
+                  )
+                }
+                onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(regles))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    const nextDetails = [...r.details.slice(0, di + 1), "", ...r.details.slice(di + 1)];
+                    const next = regles.map((x, xi) => (xi === i ? { ...x, details: nextDetails } : x));
+                    setRegles(next);
+                    updateNoteBlockContent(blockId, JSON.stringify(next));
+                    requestAnimationFrame(() => reglesDetailRefs.current[`${i}-${di + 1}`]?.focus());
+                    return;
+                  }
+                  if ((e.key === "Backspace" || e.key === "Delete") && d === "") {
+                    e.preventDefault();
+                    const nextDetails = r.details.filter((_, ddi) => ddi !== di);
+                    const next = regles.map((x, xi) => (xi === i ? { ...x, details: nextDetails } : x));
+                    setRegles(next);
+                    updateNoteBlockContent(blockId, JSON.stringify(next));
+                    if (di > 0) requestAnimationFrame(() => reglesDetailRefs.current[`${i}-${di - 1}`]?.focus());
+                    else requestAnimationFrame(() => reglesRefs.current[i]?.focus());
+                  }
+                }}
+                placeholder="Détails…"
+                rows={1}
+                style={{
+                  display: "block",
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: 13.5,
+                  lineHeight: 1.6,
+                  color: "oklch(0.68 0.02 290)",
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  resize: "none",
+                  overflow: "hidden",
+                  overflowWrap: "anywhere",
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+          ))}
+          <span
+            onClick={() => {
+              const nextDetails = [...r.details, ""];
+              const next = regles.map((x, xi) => (xi === i ? { ...x, details: nextDetails } : x));
+              setRegles(next);
+              updateNoteBlockContent(blockId, JSON.stringify(next));
+              requestAnimationFrame(() => reglesDetailRefs.current[`${i}-${nextDetails.length - 1}`]?.focus());
+            }}
+            style={{ marginLeft: 25, marginTop: 4, display: "inline-block", fontSize: 11.5, color: "oklch(0.5 0.02 290)", cursor: "pointer" }}
+          >
+            + détails
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function ExampleCategory({
   title,
@@ -785,7 +1049,7 @@ function ExampleCategory({
         onMouseLeave={() => setHover(false)}
         style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}
       >
-        {onDelete && <PlusGripCluster visible={hover} plusTitle="Ajouter un exemple" onPlus={onAddExample} onDelete={onDelete} />}
+        <PlusGripCluster visible={hover} plusTitle="Ajouter un exemple" onPlus={onAddExample} onDelete={onDelete} />
         <span
           onClick={() => setCollapsed((c) => !c)}
           style={{ width: 14, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
@@ -828,6 +1092,11 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
   const [tagDraft, setTagDraft] = useState("");
   const [headerHover, setHeaderHover] = useState(false);
   const [showTradePicker, setShowTradePicker] = useState(false);
+  const [showPasteBox, setShowPasteBox] = useState(false);
+  const [pasteValue, setPasteValue] = useState("");
+  const [pasteError, setPasteError] = useState(false);
+  const [pasteLoading, setPasteLoading] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const saveTags = (next: string[]) => {
@@ -906,32 +1175,30 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
       </div>
       <div style={{ borderTop: "1px solid oklch(0.24 0.02 290)" }}>
         {images.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, padding: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: images.length === 1 ? "1fr" : "repeat(2, 1fr)", gap: 10, padding: 10 }}>
             {images.map((img) => {
-              const tile = (
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: 8,
-                    backgroundImage: `url(${img.url})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    border: "1px solid oklch(0.32 0.02 290 / 0.5)",
-                  }}
-                />
-              );
               return (
                 <div key={img.id} style={{ position: "relative", aspectRatio: "16 / 9" }}>
-                  {img.tradeId ? (
-                    <Link href={`/trades/${img.tradeId}`} target="_blank" rel="noopener noreferrer" title="Ouvrir le trade dans un nouvel onglet" style={{ display: "block", width: "100%", height: "100%" }}>
-                      {tile}
-                    </Link>
-                  ) : (
-                    tile
-                  )}
+                  <div
+                    onClick={() => setLightboxUrl(img.url)}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: 8,
+                      backgroundImage: `url(${img.url})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      border: "1px solid oklch(0.32 0.02 290 / 0.5)",
+                      cursor: "zoom-in",
+                    }}
+                  />
                   {img.tradeId && (
-                    <div
+                    <Link
+                      href={`/trades/${img.tradeId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Ouvrir le trade dans un nouvel onglet"
+                      onClick={(e) => e.stopPropagation()}
                       style={{
                         position: "absolute",
                         bottom: 7,
@@ -942,11 +1209,10 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
                         borderRadius: 999,
                         background: "oklch(0.15 0.02 290 / 0.75)",
                         color: "oklch(0.85 0.02 290)",
-                        pointerEvents: "none",
                       }}
                     >
                       Trade ↗
-                    </div>
+                    </Link>
                   )}
                   <div
                     onClick={async () => {
@@ -977,33 +1243,156 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
             onChanged();
           }}
         />
-        <div style={{ display: "flex", gap: 8, margin: "0 12px 12px" }}>
-          <div
-            onClick={() => fileRef.current?.click()}
-            style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: "1px dashed oklch(0.34 0.02 290)", borderRadius: 8, color: "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11 }}
-          >
-            <span style={{ fontSize: 16 }}>+</span> image
-          </div>
-          <div style={{ position: "relative", flex: 1 }}>
+        <div style={{ margin: "0 12px 12px" }}>
+          <div style={{ display: "flex", gap: 8 }}>
             <div
-              onClick={() => setShowTradePicker((s) => !s)}
-              style={{ height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: "1px dashed oklch(0.34 0.02 290)", borderRadius: 8, color: "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11 }}
+              onClick={() => fileRef.current?.click()}
+              style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: "1px dashed oklch(0.34 0.02 290)", borderRadius: 8, color: "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11 }}
             >
-              <span style={{ fontSize: 16 }}>+</span> importer un trade
+              <span style={{ fontSize: 16 }}>+</span> image
             </div>
-            {showTradePicker && (
-              <TradePicker
-                onClose={() => setShowTradePicker(false)}
-                onSelect={async (tradeId) => {
-                  setShowTradePicker(false);
-                  await importTradeImages(example.id, tradeId);
-                  onChanged();
+            <div style={{ position: "relative", flex: 1 }}>
+              <div
+                onClick={() => setShowTradePicker((s) => !s)}
+                style={{ height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: "1px dashed oklch(0.34 0.02 290)", borderRadius: 8, color: "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11 }}
+              >
+                <span style={{ fontSize: 16 }}>+</span> importer un trade
+              </div>
+              {showTradePicker && (
+                <TradePicker
+                  onClose={() => setShowTradePicker(false)}
+                  onSelect={async (tradeId) => {
+                    setShowTradePicker(false);
+                    await importTradeImages(example.id, tradeId);
+                    onChanged();
+                  }}
+                />
+              )}
+            </div>
+            <div
+              onClick={() => setShowPasteBox((s) => !s)}
+              style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: "1px dashed oklch(0.34 0.02 290)", borderRadius: 8, color: "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11 }}
+            >
+              <span style={{ fontSize: 16 }}>+</span> coller
+            </div>
+          </div>
+          {showPasteBox && (
+            <div style={{ marginTop: 8 }}>
+              <input
+                autoFocus
+                value={pasteValue}
+                disabled={pasteLoading}
+                onChange={(e) => {
+                  setPasteValue(e.target.value);
+                  setPasteError(false);
+                }}
+                onPaste={async (e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  for (const item of Array.from(items)) {
+                    if (item.type.startsWith("image/")) {
+                      e.preventDefault();
+                      const file = item.getAsFile();
+                      if (file) {
+                        const fd = new FormData();
+                        fd.append("image", file);
+                        await addExampleImage(example.id, fd);
+                        onChanged();
+                      }
+                      setShowPasteBox(false);
+                      setPasteValue("");
+                      return;
+                    }
+                  }
+                }}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const v = pasteValue.trim();
+                    if (!v) return;
+                    setPasteLoading(true);
+                    setPasteError(false);
+                    const { ok } = await addExampleImageByUrl(example.id, v);
+                    setPasteLoading(false);
+                    if (ok) {
+                      onChanged();
+                      setShowPasteBox(false);
+                      setPasteValue("");
+                    } else {
+                      setPasteError(true);
+                    }
+                  } else if (e.key === "Escape") {
+                    setShowPasteBox(false);
+                    setPasteValue("");
+                    setPasteError(false);
+                  }
+                }}
+                placeholder={pasteLoading ? "Chargement de l'image…" : "Collez (Cmd/Ctrl+V) une image ou une adresse d'image, puis Entrée…"}
+                style={{
+                  width: "100%",
+                  height: 42,
+                  boxSizing: "border-box",
+                  padding: "0 12px",
+                  fontSize: 12.5,
+                  borderRadius: 8,
+                  border: `1px dashed ${pasteError ? lossColor : accentColor}`,
+                  background: "oklch(0.68 0.19 293 / 0.08)",
+                  color: "oklch(0.88 0.02 290)",
+                  outline: "none",
                 }}
               />
-            )}
-          </div>
+              {pasteError && (
+                <div style={{ marginTop: 5, fontSize: 11.5, color: lossColor }}>
+                  Impossible de charger cette image (lien invalide, protégé, ou pas une image). Réessaie avec un autre lien, ou colle l&apos;image elle-même (Cmd/Ctrl+V).
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "oklch(0.08 0.01 290 / 0.9)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 40,
+            cursor: "zoom-out",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt=""
+            style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 10, boxShadow: "0 20px 60px -10px oklch(0 0 0 / 0.6)" }}
+          />
+          <div
+            onClick={() => setLightboxUrl(null)}
+            style={{
+              position: "absolute",
+              top: 20,
+              right: 24,
+              width: 36,
+              height: 36,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 18,
+              borderRadius: 8,
+              background: "oklch(0.18 0.02 290 / 0.8)",
+              color: "oklch(0.9 0.005 290)",
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1108,27 +1497,13 @@ function DraggableBlock({
   );
 }
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ width: HEADER_INDENT, flex: "none" }} />
-        <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "oklch(0.56 0.02 290)" }}>{label}</div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-const addBlockBtnStyle: React.CSSProperties = {
-  display: "inline-flex",
+const addMenuItemStyle: React.CSSProperties = {
+  display: "flex",
   alignItems: "center",
-  gap: 6,
-  fontSize: 12.5,
-  padding: "6px 13px",
-  border: "1px dashed oklch(0.36 0.02 290)",
-  borderRadius: 8,
-  color: "oklch(0.66 0.02 290)",
+  padding: "8px 10px",
+  fontSize: 13,
+  color: "oklch(0.82 0.01 290)",
+  borderRadius: 6,
   cursor: "pointer",
-  background: "transparent",
+  whiteSpace: "nowrap",
 };

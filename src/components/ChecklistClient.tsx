@@ -1,15 +1,15 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { accentColor, glassCard } from "@/lib/theme";
-import {
-  createChecklistItem,
-  deleteChecklistItem,
-  renameChecklistItem,
-  toggleChecklistItem,
-} from "@/lib/actions/checklist";
+import { createChecklistItem, deleteChecklistItem, renameChecklistItem } from "@/lib/actions/checklist";
 
 type ChecklistItem = { id: string; group: string; label: string; checked: boolean };
+
+function marketStorageKey(market: string) {
+  const dateKey = new Date().toISOString().slice(0, 10);
+  return `checklistChecked:${market}:${dateKey}`;
+}
 
 // countries: 5 United States, 72 Euro Zone, 22 France, 17 Germany, 4 United
 // Kingdom, 12 Switzerland. timeZone=16 was confirmed empirically (Initial
@@ -26,29 +26,56 @@ const INVESTING_CALENDAR_SRC =
 const INVESTING_HEADER_CROP = 64;
 const INVESTING_VISIBLE_HEIGHT = 360;
 
-export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
+export default function ChecklistClient({
+  items,
+  market,
+  title = "Checklist & News",
+  subtitle = "Routine avant-marché",
+  showCalendar = true,
+}: {
+  items: ChecklistItem[];
+  market: string;
+  title?: string;
+  subtitle?: string;
+  showCalendar?: boolean;
+}) {
   const [, startTransition] = useTransition();
-  const [optimisticItems, setOptimisticItems] = useOptimistic(items, (state, id: string) =>
-    state.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i))
-  );
   const [editMode, setEditMode] = useState(false);
   const [newItemDrafts, setNewItemDrafts] = useState<Record<string, string>>({});
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupItem, setNewGroupItem] = useState("");
+  const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
 
-  const groups = Array.from(new Set(optimisticItems.map((i) => i.group))).map((group) => ({
+  useEffect(() => {
+    let saved: Record<string, boolean> = {};
+    try {
+      const raw = window.localStorage.getItem(marketStorageKey(market));
+      if (raw) saved = JSON.parse(raw);
+    } catch {
+      saved = {};
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate checked state from localStorage for the selected market
+    setCheckedMap(saved);
+  }, [market]);
+
+  const groups = Array.from(new Set(items.map((i) => i.group))).map((group) => ({
     title: group,
-    items: optimisticItems.filter((i) => i.group === group),
+    items: items.filter((i) => i.group === group),
   }));
 
-  const doneCount = optimisticItems.filter((i) => i.checked).length;
-  const totalCount = optimisticItems.length;
+  const doneCount = items.filter((i) => checkedMap[i.id]).length;
+  const totalCount = items.length;
   const percent = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
 
   function toggle(item: ChecklistItem) {
-    startTransition(async () => {
-      setOptimisticItems(item.id);
-      await toggleChecklistItem(item.id, !item.checked);
+    setCheckedMap((prev) => {
+      const next = { ...prev, [item.id]: !prev[item.id] };
+      try {
+        window.localStorage.setItem(marketStorageKey(market), JSON.stringify(next));
+      } catch {
+        // ignore storage failures
+      }
+      return next;
     });
   }
 
@@ -85,7 +112,7 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
     });
   }
 
-  const todayLabel = new Date().toLocaleDateString("en-US", {
+  const todayLabel = new Date().toLocaleDateString("fr-FR", {
     weekday: "long",
     month: "short",
     day: "numeric",
@@ -95,17 +122,17 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 26, fontWeight: 700 }}>Checklist &amp; News</div>
+        <div style={{ fontSize: 26, fontWeight: 700 }}>{title}</div>
         <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
-          Pre-market routine — {todayLabel}
+          {subtitle} — {todayLabel} — {market}
         </div>
       </div>
 
-      <div className="checklist-grid">
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={glassCard}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              Progress
+              Progression
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 14, color: accentColor }}>
@@ -123,7 +150,7 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
                   cursor: "pointer",
                 }}
               >
-                {editMode ? "Done" : "Edit list"}
+                {editMode ? "Terminé" : "Modifier la liste"}
               </button>
             </div>
           </div>
@@ -158,11 +185,11 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        border: `1.5px solid ${item.checked ? accentColor : "oklch(0.42 0.02 290)"}`,
-                        background: item.checked ? accentColor : "transparent",
+                        border: `1.5px solid ${checkedMap[item.id] ? accentColor : "oklch(0.42 0.02 290)"}`,
+                        background: checkedMap[item.id] ? accentColor : "transparent",
                       }}
                     >
-                      {item.checked && (
+                      {checkedMap[item.id] && (
                         <svg width="12" height="12" viewBox="0 0 12 12">
                           <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.01 290)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
@@ -190,8 +217,8 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
                       <div
                         style={{
                           fontSize: 14,
-                          color: item.checked ? "oklch(0.5 0.015 290)" : "oklch(0.88 0.01 290)",
-                          textDecoration: item.checked ? "line-through" : "none",
+                          color: checkedMap[item.id] ? "oklch(0.5 0.015 290)" : "oklch(0.88 0.01 290)",
+                          textDecoration: checkedMap[item.id] ? "line-through" : "none",
                         }}
                       >
                         {item.label}
@@ -226,7 +253,7 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px" }}>
                     <div style={{ width: 20, flexShrink: 0 }} />
                     <input
-                      placeholder="Add item…"
+                      placeholder="Ajouter un élément…"
                       value={newItemDrafts[g.title] ?? ""}
                       onChange={(e) => setNewItemDrafts((d) => ({ ...d, [g.title]: e.target.value }))}
                       onKeyDown={(e) => {
@@ -255,7 +282,7 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
                         cursor: "pointer",
                       }}
                     >
-                      Add
+                      Ajouter
                     </button>
                   </div>
                 )}
@@ -265,10 +292,10 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
 
           {editMode && (
             <div style={{ paddingTop: 6, borderTop: "1px solid oklch(0.3 0.02 290 / 0.6)" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.02 290)", marginBottom: 10 }}>New group</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.02 290)", marginBottom: 10 }}>Nouveau groupe</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
-                  placeholder="Group name…"
+                  placeholder="Nom du groupe…"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
                   style={{
@@ -282,7 +309,7 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
                   }}
                 />
                 <input
-                  placeholder="First item…"
+                  placeholder="Premier élément…"
                   value={newGroupItem}
                   onChange={(e) => setNewGroupItem(e.target.value)}
                   onKeyDown={(e) => {
@@ -310,33 +337,35 @@ export default function ChecklistClient({ items }: { items: ChecklistItem[] }) {
                     cursor: "pointer",
                   }}
                 >
-                  Add group
+                  Ajouter le groupe
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        <div style={{ ...glassCard, padding: 0, overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid oklch(0.3 0.02 290 / 0.6)" }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor }} />
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Economic Calendar</div>
-            <div style={{ fontSize: 11, color: "oklch(0.55 0.02 290)", marginLeft: "auto", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
-              investing.com
+        {showCalendar && (
+          <div style={{ ...glassCard, padding: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid oklch(0.3 0.02 290 / 0.6)" }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor }} />
+              <div style={{ fontSize: 13, fontWeight: 600 }}>Calendrier économique</div>
+              <div style={{ fontSize: 11, color: "oklch(0.55 0.02 290)", marginLeft: "auto", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
+                investing.com
+              </div>
+            </div>
+            <div style={{ height: INVESTING_VISIBLE_HEIGHT, overflow: "hidden auto" }}>
+              <iframe
+                src={INVESTING_CALENDAR_SRC}
+                title="Economic Calendar"
+                width="100%"
+                height={900}
+                frameBorder={0}
+                allowTransparency
+                style={{ display: "block", border: "none", marginTop: -INVESTING_HEADER_CROP }}
+              />
             </div>
           </div>
-          <div style={{ height: INVESTING_VISIBLE_HEIGHT, overflow: "hidden auto" }}>
-            <iframe
-              src={INVESTING_CALENDAR_SRC}
-              title="Economic Calendar"
-              width="100%"
-              height={900}
-              frameBorder={0}
-              allowTransparency
-              style={{ display: "block", border: "none", marginTop: -INVESTING_HEADER_CROP }}
-            />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
