@@ -86,6 +86,7 @@ model NoteExampleImage {
   id        String  @id @default(cuid())
   exampleId String
   url       String
+  caption   String?
   tradeId   String?
   order     Int     @default(0)
 }

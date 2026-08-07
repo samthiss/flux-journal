@@ -70,7 +70,7 @@ export async function getNotesPageData() {
     prisma.note.findMany({ orderBy: { order: "asc" } }),
     prisma.noteBlock.findMany({ orderBy: { order: "asc" } }),
     prisma.noteCategory.findMany({ orderBy: { order: "asc" } }),
-    prisma.noteExample.findMany({ orderBy: { order: "desc" } }),
+    prisma.noteExample.findMany({ orderBy: { order: "asc" } }),
   ]);
   const images = examples.length
     ? await prisma.noteExampleImage.findMany({
@@ -116,7 +116,7 @@ export async function createExemplesBlock(noteId: string) {
   const block = await prisma.noteBlock.create({ data: { noteId, type: "exemples", content: null, order: count } });
   const category = await prisma.noteCategory.create({ data: { noteId, name: "Nouvelle catégorie", order: 0 } });
   await prisma.noteExample.create({
-    data: { noteId, categoryId: category.id, title: "Nouvel exemple", caption: "Décris le contexte, l'entrée et la sortie.", tags: JSON.stringify([]), order: 0 },
+    data: { noteId, categoryId: category.id, title: "", caption: "", tags: JSON.stringify([]), order: 0 },
   });
   revalidatePath("/notes");
   return { id: block.id, noteId: block.noteId, type: block.type, content: block.content, order: block.order };
@@ -289,13 +289,18 @@ export async function createExample(noteId: string, categoryId: string | null) {
       data: {
         noteId,
         categoryId,
-        title: "Nouvel exemple",
-        caption: "Décris le contexte, l'entrée et la sortie.",
+        title: "",
+        caption: "",
         tags: JSON.stringify([]),
         order: count,
       },
     });
   });
+  revalidatePath("/notes");
+}
+
+export async function reorderExamples(orderedIds: string[]) {
+  await prisma.$transaction(orderedIds.map((id, i) => prisma.noteExample.update({ where: { id }, data: { order: i } })));
   revalidatePath("/notes");
 }
 
@@ -340,6 +345,11 @@ export async function addExampleImageByUrl(exampleId: string, url: string): Prom
   await prisma.noteExampleImage.create({ data: { exampleId, url: hostedUrl, order: count } });
   revalidatePath("/notes");
   return { ok: true };
+}
+
+export async function updateExampleImageCaption(imageId: string, caption: string) {
+  await prisma.noteExampleImage.update({ where: { id: imageId }, data: { caption } });
+  revalidatePath("/notes");
 }
 
 export async function removeExampleImage(imageId: string) {

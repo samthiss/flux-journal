@@ -18,8 +18,10 @@ import {
   createExample,
   updateExample,
   deleteExample,
+  reorderExamples,
   addExampleImage,
   addExampleImageByUrl,
+  updateExampleImageCaption,
   removeExampleImage,
   searchTrades,
   importTradeImages,
@@ -50,7 +52,7 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
 
 type CategoryRecord = { id: string; noteId: string; name: string; order: number };
 type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; order: number };
-type ImageRecord = { id: string; exampleId: string; url: string; tradeId: string | null; order: number };
+type ImageRecord = { id: string; exampleId: string; url: string; caption: string | null; tradeId: string | null; order: number };
 type TradeSearchResult = { id: string; symbol: string; date: string; setup: string; side: string; pnl: number; imageCount: number };
 
 function parseArr(s: string | null): string[] {
@@ -135,6 +137,14 @@ function ChevronIcon({ color, down }: { color: string; down: boolean }) {
   return (
     <svg width="9" height="9" viewBox="0 0 10 10" style={{ transform: down ? "rotate(90deg)" : "none", transition: "transform 0.12s ease", flex: "none" }}>
       <path d="M3.5 1.5L7 5l-3.5 3.5" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+function ChartIcon({ color }: { color: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flex: "none" }}>
+      <path d="M1.5 12.5V8.5M6 12.5V5M10.5 12.5V1.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
@@ -521,7 +531,13 @@ function NoteSection({
                       }}
                     />
                     <span style={{ width: 10, flex: "none" }} />
-                    <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "oklch(0.56 0.02 290)" }}>Exemples</span>
+                    <ExemplesSectionTitle
+                      initialTitle={block.content || "Exemples"}
+                      onRename={(title) => {
+                        updateNoteBlockContent(block.id, title);
+                        setBlockList((prev) => prev.map((b) => (b.id === block.id ? { ...b, content: title } : b)));
+                      }}
+                    />
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
@@ -547,6 +563,7 @@ function NoteSection({
                         blocks={blockList.filter((b) => b.categoryId === cat.id)}
                         onAddBlock={(type) => addBlock(type, cat.id)}
                         onDeleteBlock={deleteBlock}
+                        storageKey={cat.id}
                       />
                     ))}
                     {(uncategorized.length > 0 || categories.length === 0) && (
@@ -567,6 +584,7 @@ function NoteSection({
                         examples={uncategorized}
                         images={images}
                         onChanged={onChanged}
+                        storageKey={note.id + "-uncategorized"}
                       />
                     )}
                   </div>
@@ -827,6 +845,7 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
   const [regles, setRegles] = useState<RegleItem[]>(parsed.items);
   const [hover, setHover] = useState(false);
   const [addingLabel, setAddingLabel] = useState(false);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const reglesRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const reglesDetailRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
@@ -883,7 +902,12 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
       )}
       <div style={{ border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, overflow: "hidden" }}>
       {regles.map((r, i) => (
-        <div key={i} style={{ padding: "13px 18px", background: "oklch(0.185 0.02 290)", borderBottom: i < regles.length - 1 ? "1px solid oklch(0.22 0.02 290)" : "none" }}>
+        <div
+          key={i}
+          onMouseEnter={() => setHoverIdx(i)}
+          onMouseLeave={() => setHoverIdx((cur) => (cur === i ? null : cur))}
+          style={{ padding: "13px 18px", background: "oklch(0.185 0.02 290)", borderBottom: i < regles.length - 1 ? "1px solid oklch(0.22 0.02 290)" : "none" }}
+        >
           <div style={{ display: "flex", alignItems: "flex-start", gap: 13 }}>
             <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: accentColor, flex: "none", paddingTop: 3 }}>{i + 1}</span>
             <textarea
@@ -999,7 +1023,16 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
               save(next);
               requestAnimationFrame(() => reglesDetailRefs.current[`${i}-${nextDetails.length - 1}`]?.focus());
             }}
-            style={{ marginLeft: 25, marginTop: 4, display: "inline-block", fontSize: 11.5, color: "oklch(0.5 0.02 290)", cursor: "pointer" }}
+            style={{
+              marginLeft: 25,
+              marginTop: 4,
+              display: "inline-block",
+              fontSize: 11.5,
+              color: "oklch(0.5 0.02 290)",
+              cursor: "pointer",
+              opacity: hoverIdx === i ? 1 : 0,
+              transition: "opacity 0.12s ease",
+            }}
           >
             + détails
           </span>
@@ -1102,6 +1135,7 @@ function ExampleCategory({
   blocks,
   onAddBlock,
   onDeleteBlock,
+  storageKey,
 }: {
   title: string;
   onRename?: (name: string) => void;
@@ -1113,10 +1147,26 @@ function ExampleCategory({
   blocks?: BlockRecord[];
   onAddBlock?: (type: string) => void;
   onDeleteBlock?: (blockId: string) => void;
+  storageKey?: string;
 }) {
   const [name, setName] = useState(title);
   const [hover, setHover] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (storageKey && localStorage.getItem(`exCatCollapsed:${storageKey}`) === "1") setCollapsed(true);
+  }, [storageKey]);
+
+  const setCollapsedPersist = (fn: (c: boolean) => boolean) => {
+    setCollapsed((c) => {
+      const next = fn(c);
+      if (storageKey) {
+        if (next) localStorage.setItem(`exCatCollapsed:${storageKey}`, "1");
+        else localStorage.removeItem(`exCatCollapsed:${storageKey}`);
+      }
+      return next;
+    });
+  };
   return (
     <div>
       <div
@@ -1126,7 +1176,7 @@ function ExampleCategory({
       >
         <PlusGripCluster visible={hover} plusTitle="Ajouter un exemple" onPlus={onAddExample} onDelete={onDelete} />
         <span
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => setCollapsedPersist((c) => !c)}
           style={{ width: 14, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
         >
           <ChevronIcon color="oklch(0.5 0.02 290)" down={!collapsed} />
@@ -1136,10 +1186,10 @@ function ExampleCategory({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => onRename(name)}
-            style={{ fontSize: 14, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.92 0.005 290)", padding: "2px 4px", marginLeft: -4 }}
+            style={{ fontSize: 14, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.92 0.005 290)", padding: "2px 4px", marginLeft: -4, width: `${Math.max(name.length + 2, 6)}ch`, minWidth: 0 }}
           />
         ) : (
-          <span onClick={() => setCollapsed((c) => !c)} style={{ fontSize: 14, fontWeight: 600, color: "oklch(0.7 0.02 290)", cursor: "pointer" }}>
+          <span onClick={() => setCollapsedPersist((c) => !c)} style={{ fontSize: 14, fontWeight: 600, color: "oklch(0.7 0.02 290)", cursor: "pointer" }}>
             {title}
           </span>
         )}
@@ -1153,16 +1203,145 @@ function ExampleCategory({
           ))}
         </div>
       )}
-      {!collapsed &&
-        (examples.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, marginLeft: HEADER_INDENT }}>
-            {examples.map((ex) => (
-              <ExampleCard key={ex.id} example={ex} images={images.filter((i) => i.exampleId === ex.id)} onChanged={onChanged} />
+      {!collapsed && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginLeft: HEADER_INDENT }}>
+          {examples.length === 0 && <div style={{ fontSize: 13, color: "oklch(0.5 0.02 290)" }}>Aucun exemple.</div>}
+          {examples.length > 0 &&
+            examples.map((ex, exIdx) => (
+              <div key={ex.id} style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: "none", paddingTop: 14 }}>
+                  <span
+                    onClick={async () => {
+                      if (exIdx === 0) return;
+                      const next = [...examples];
+                      [next[exIdx - 1], next[exIdx]] = [next[exIdx], next[exIdx - 1]];
+                      await reorderExamples(next.map((e) => e.id));
+                      onChanged();
+                    }}
+                    title="Monter"
+                    style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: exIdx === 0 ? "default" : "pointer", opacity: exIdx === 0 ? 0.25 : 1, color: "oklch(0.55 0.02 290)", transform: "rotate(-90deg)" }}
+                  >
+                    <ChevronIcon color="currentColor" down={false} />
+                  </span>
+                  <span
+                    onClick={async () => {
+                      if (exIdx === examples.length - 1) return;
+                      const next = [...examples];
+                      [next[exIdx], next[exIdx + 1]] = [next[exIdx + 1], next[exIdx]];
+                      await reorderExamples(next.map((e) => e.id));
+                      onChanged();
+                    }}
+                    title="Descendre"
+                    style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: exIdx === examples.length - 1 ? "default" : "pointer", opacity: exIdx === examples.length - 1 ? 0.25 : 1, color: "oklch(0.55 0.02 290)" }}
+                  >
+                    <ChevronIcon color="currentColor" down={true} />
+                  </span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <ExampleCard example={ex} images={images.filter((i) => i.exampleId === ex.id)} onChanged={onChanged} />
+                </div>
+              </div>
             ))}
-          </div>
-        ) : (
-          <div style={{ fontSize: 13, color: "oklch(0.5 0.02 290)", marginLeft: HEADER_INDENT }}>Aucun exemple.</div>
-        ))}
+          <span
+            onClick={onAddExample}
+            title="Ajouter un exemple"
+            style={{
+              alignSelf: "flex-start",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              border: "1px dashed oklch(0.34 0.02 290)",
+              color: "oklch(0.6 0.02 290)",
+              fontSize: 16,
+              cursor: "pointer",
+            }}
+          >
+            +
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExampleImage({ img, onOpen, onRemove }: { img: ImageRecord; onOpen: () => void; onRemove: () => void }) {
+  const [caption, setCaption] = useState(img.caption ?? "");
+  const [hover, setHover] = useState(false);
+  return (
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div style={{ position: "relative", aspectRatio: "16 / 9" }}>
+        <div
+          onClick={onOpen}
+          style={{
+            width: "100%",
+            height: "100%",
+            borderRadius: 8,
+            backgroundImage: `url(${img.url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            border: "1px solid oklch(0.32 0.02 290 / 0.5)",
+            cursor: "zoom-in",
+          }}
+        />
+        {img.tradeId && (
+          <Link
+            href={`/trades/${img.tradeId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Ouvrir le trade dans un nouvel onglet"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              bottom: 7,
+              left: 7,
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "3px 8px",
+              borderRadius: 999,
+              background: "oklch(0.15 0.02 290 / 0.75)",
+              color: "oklch(0.85 0.02 290)",
+            }}
+          >
+            Trade ↗
+          </Link>
+        )}
+        <div
+          onClick={onRemove}
+          style={{ position: "absolute", top: 7, right: 7, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, borderRadius: 6, background: "oklch(0.15 0.02 290 / 0.75)", color: "oklch(0.9 0.005 290)", cursor: "pointer" }}
+        >
+          ✕
+        </div>
+      </div>
+      {(caption || hover) && (
+        <textarea
+          ref={(el) => autoGrow(el)}
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          onBlur={() => updateExampleImageCaption(img.id, caption)}
+          placeholder="Légende de l'image"
+          rows={1}
+          style={{
+            display: "block",
+            width: "100%",
+            boxSizing: "border-box",
+            marginTop: 5,
+            fontSize: 13.5,
+            lineHeight: 1.5,
+            color: "oklch(0.92 0.004 290)",
+            background: "transparent",
+            border: "none",
+            outline: "none",
+            resize: "none",
+            overflow: "hidden",
+            overflowWrap: "anywhere",
+            fontFamily: "inherit",
+            textAlign: "left",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1177,15 +1356,10 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
   const [pasteError, setPasteError] = useState(false);
   const [pasteLoading, setPasteLoading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [hideText, setHideText] = useState(example.hideText);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingCaption, setEditingCaption] = useState(false);
   const [imagesPerRow, setImagesPerRow] = useState<1 | 2>(example.imagesPerRow === 1 ? 1 : 2);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const toggleHideText = () => {
-    const next = !hideText;
-    setHideText(next);
-    updateExample(example.id, { hideText: next });
-  };
 
   const toggleImagesPerRow = () => {
     const next: 1 | 2 = imagesPerRow === 2 ? 1 : 2;
@@ -1195,38 +1369,44 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
 
   return (
     <div style={{ border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, overflow: "hidden", background: "oklch(0.185 0.02 290)" }}>
-      <div style={{ padding: "14px 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-        <div
-          onMouseEnter={() => setHeaderHover(true)}
-          onMouseLeave={() => setHeaderHover(false)}
-          style={{ display: "flex", alignItems: "center", gap: 8 }}
-        >
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => updateExample(example.id, { title })}
-            style={{ flex: 1, fontSize: 15, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.94 0.004 290)" }}
-          />
-          <span
-            onClick={toggleHideText}
-            title={hideText ? "Réafficher le texte" : "Masquer le texte de l'exemple"}
-            style={{
-              flex: "none",
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-              fontSize: 10,
-              padding: "3px 8px",
-              borderRadius: 999,
-              border: `1px solid ${hideText ? accentColor : "oklch(0.34 0.02 290)"}`,
-              color: hideText ? "oklch(0.85 0.06 290)" : "oklch(0.6 0.02 290)",
-              background: hideText ? "oklch(0.68 0.19 293 / 0.12)" : "transparent",
-              cursor: "pointer",
-              opacity: headerHover || hideText ? 1 : 0,
-              transition: "opacity 0.12s ease",
-              whiteSpace: "nowrap",
-            }}
-          >
-            sans texte
-          </span>
+      <div
+        onMouseEnter={() => setHeaderHover(true)}
+        onMouseLeave={() => setHeaderHover(false)}
+        style={{ padding: "14px 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {title || editingTitle ? (
+            <input
+              autoFocus={editingTitle}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => {
+                updateExample(example.id, { title });
+                setEditingTitle(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              style={{ flex: 1, fontSize: 15, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.94 0.004 290)" }}
+            />
+          ) : headerHover ? (
+            <span
+              onClick={() => setEditingTitle(true)}
+              title="Ajouter un titre"
+              style={{
+                fontFamily: "var(--font-jetbrains-mono), monospace",
+                fontSize: 10,
+                padding: "3px 10px",
+                borderRadius: 999,
+                border: "1px dashed oklch(0.34 0.02 290)",
+                color: "oklch(0.6 0.02 290)",
+                cursor: "pointer",
+                width: "fit-content",
+              }}
+            >
+              + titre
+            </span>
+          ) : null}
           <span
             onClick={toggleImagesPerRow}
             title="Nombre d'images par ligne"
@@ -1254,70 +1434,52 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
             }}
           />
         </div>
-        {!hideText && (
-        <textarea
-          ref={(el) => autoGrow(el)}
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          onBlur={() => updateExample(example.id, { caption })}
-          rows={1}
-          style={{ fontSize: 13.5, lineHeight: 1.6, color: "oklch(0.72 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
-        />
-        )}
+        {caption || editingCaption ? (
+          <textarea
+            autoFocus={editingCaption}
+            ref={(el) => autoGrow(el)}
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            onBlur={() => {
+              updateExample(example.id, { caption });
+              setEditingCaption(false);
+            }}
+            rows={1}
+            style={{ fontSize: 13.5, lineHeight: 1.6, color: "oklch(0.72 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
+          />
+        ) : headerHover ? (
+          <span
+            onClick={() => setEditingCaption(true)}
+            title="Ajouter un sous-titre"
+            style={{
+              width: "fit-content",
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "3px 10px",
+              borderRadius: 999,
+              border: "1px dashed oklch(0.34 0.02 290)",
+              color: "oklch(0.6 0.02 290)",
+              cursor: "pointer",
+            }}
+          >
+            + sous-titre
+          </span>
+        ) : null}
       </div>
       <div style={{ borderTop: "1px solid oklch(0.24 0.02 290)" }}>
         {images.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: images.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10 }}>
-            {images.map((img) => {
-              return (
-                <div key={img.id} style={{ position: "relative", aspectRatio: "16 / 9" }}>
-                  <div
-                    onClick={() => setLightboxUrl(img.url)}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      borderRadius: 8,
-                      backgroundImage: `url(${img.url})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      border: "1px solid oklch(0.32 0.02 290 / 0.5)",
-                      cursor: "zoom-in",
-                    }}
-                  />
-                  {img.tradeId && (
-                    <Link
-                      href={`/trades/${img.tradeId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Ouvrir le trade dans un nouvel onglet"
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        position: "absolute",
-                        bottom: 7,
-                        left: 7,
-                        fontFamily: "var(--font-jetbrains-mono), monospace",
-                        fontSize: 10,
-                        padding: "3px 8px",
-                        borderRadius: 999,
-                        background: "oklch(0.15 0.02 290 / 0.75)",
-                        color: "oklch(0.85 0.02 290)",
-                      }}
-                    >
-                      Trade ↗
-                    </Link>
-                  )}
-                  <div
-                    onClick={async () => {
-                      await removeExampleImage(img.id);
-                      onChanged();
-                    }}
-                    style={{ position: "absolute", top: 7, right: 7, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, borderRadius: 6, background: "oklch(0.15 0.02 290 / 0.75)", color: "oklch(0.9 0.005 290)", cursor: "pointer" }}
-                  >
-                    ✕
-                  </div>
-                </div>
-              );
-            })}
+            {images.map((img) => (
+              <ExampleImage
+                key={img.id}
+                img={img}
+                onOpen={() => setLightboxUrl(img.url)}
+                onRemove={async () => {
+                  await removeExampleImage(img.id);
+                  onChanged();
+                }}
+              />
+            ))}
           </div>
         )}
         <input
@@ -1554,6 +1716,39 @@ function TradePicker({ onSelect, onClose }: { onSelect: (tradeId: string) => voi
           </div>
         ))}
     </div>
+  );
+}
+
+function ExemplesSectionTitle({ initialTitle, onRename }: { initialTitle: string; onRename: (title: string) => void }) {
+  const [title, setTitle] = useState(initialTitle);
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+      <ChartIcon color="oklch(0.92 0.004 290)" />
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => {
+          const val = title.trim() || "Exemples";
+          setTitle(val);
+          onRename(val);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        style={{
+          fontFamily: "var(--font-jetbrains-mono), monospace",
+          fontSize: 11,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "oklch(0.92 0.004 290)",
+          background: "transparent",
+          border: "none",
+          outline: "none",
+          padding: 0,
+          width: `${Math.max(title.length * 1.3 + 1, 6)}ch`,
+        }}
+      />
+    </span>
   );
 }
 
