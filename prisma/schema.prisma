@@ -53,12 +53,13 @@ model Note {
 }
 
 model NoteBlock {
-  id        String   @id @default(cuid())
-  noteId    String
-  type      String
-  content   String?
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  noteId     String
+  categoryId String?
+  type       String
+  content    String?
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
 }
 
 model NoteCategory {

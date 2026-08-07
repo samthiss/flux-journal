@@ -36,7 +36,7 @@ type NoteRecord = {
   order: number;
 };
 
-type BlockRecord = { id: string; noteId: string; type: string; content: string | null; order: number };
+type BlockRecord = { id: string; noteId: string; categoryId: string | null; type: string; content: string | null; order: number };
 
 const BLOCK_TYPE_LABELS: Record<string, string> = {
   headings: "Titre",
@@ -64,28 +64,27 @@ function parseArr(s: string | null): string[] {
 
 type RegleItem = { title: string; details: string[] };
 
-function parseRegles(s: string | null): RegleItem[] {
-  if (!s) return [];
+function normalizeRegleItems(parsed: unknown): RegleItem[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map((x) => {
+    if (typeof x === "string") return { title: x, details: [] };
+    if (Array.isArray(x?.details)) return { title: x?.title ?? "", details: x.details };
+    if (typeof x?.detail === "string" && x.detail) return { title: x?.title ?? "", details: [x.detail] };
+    return { title: x?.title ?? "", details: [] };
+  });
+}
+
+function parseReglesBlock(s: string | null): { label: string; items: RegleItem[] } {
+  if (!s) return { label: "", items: [] };
   try {
     const parsed = JSON.parse(s);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((x) => {
-      if (typeof x === "string") return { title: x, details: [] };
-      if (Array.isArray(x?.details)) return { title: x?.title ?? "", details: x.details };
-      if (typeof x?.detail === "string" && x.detail) return { title: x?.title ?? "", details: [x.detail] };
-      return { title: x?.title ?? "", details: [] };
-    });
+    if (Array.isArray(parsed)) return { label: "", items: normalizeRegleItems(parsed) };
+    return { label: parsed?.label ?? "", items: normalizeRegleItems(parsed?.items) };
   } catch {
-    return [];
+    return { label: "", items: [] };
   }
 }
 
-function tagStyle(tag: string) {
-  const t = tag.toUpperCase();
-  if (t === "VALIDE") return { bg: "oklch(0.68 0.19 293 / 0.18)", color: accentColor };
-  if (t === "INVALIDE") return { bg: "oklch(0.65 0.18 25 / 0.18)", color: lossColor };
-  return { bg: "oklch(0.28 0.02 290)", color: "oklch(0.72 0.02 290)" };
-}
 
 function autoGrow(el: HTMLTextAreaElement | null) {
   if (!el) return;
@@ -384,8 +383,6 @@ function NoteSection({
 
   const [headerHover, setHeaderHover] = useState(false);
   const [exemplesHover, setExemplesHover] = useState(false);
-  const [tagFilter, setTagFilter] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<"date" | "tag">("date");
   const [addLineText, setAddLineText] = useState("");
   const [addLineHover, setAddLineHover] = useState(false);
   const [addLineFocused, setAddLineFocused] = useState(false);
@@ -437,15 +434,15 @@ function NoteSection({
     };
   }
 
-  async function addBlock(type: string) {
+  async function addBlock(type: string, categoryId: string | null = null) {
     if (type === "exemples") {
       const created = await createExemplesBlock(note.id);
-      setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, type: "exemples", content: null, order: prev.length }]);
+      setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId: null, type: "exemples", content: null, order: prev.length }]);
       onChanged();
       return;
     }
-    const created = await createNoteBlock(note.id, type);
-    setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, type, content: created.content, order: prev.length }]);
+    const created = await createNoteBlock(note.id, type, categoryId);
+    setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId, type, content: created.content, order: created.order }]);
   }
 
   async function deleteBlock(blockId: string) {
@@ -454,18 +451,7 @@ function NoteSection({
     onChanged();
   }
 
-  const allTags = useMemo(() => {
-    const t = new Set<string>();
-    examples.forEach((e) => parseArr(e.tags).forEach((tag) => t.add(tag)));
-    return Array.from(t);
-  }, [examples]);
-
-  const byTagFilter = tagFilter.length === 0 ? examples : examples.filter((e) => parseArr(e.tags).some((t) => tagFilter.includes(t)));
-  const filteredExamples =
-    sortBy === "tag"
-      ? [...byTagFilter].sort((a, b) => (parseArr(a.tags)[0] || "~~~").toLowerCase().localeCompare((parseArr(b.tags)[0] || "~~~").toLowerCase()))
-      : byTagFilter;
-  const uncategorized = filteredExamples.filter((e) => !e.categoryId || !categories.some((c) => c.id === e.categoryId));
+  const uncategorized = examples.filter((e) => !e.categoryId || !categories.some((c) => c.id === e.categoryId));
 
   const hasExemples = blockList.some((b) => b.type === "exemples");
 
@@ -507,7 +493,7 @@ function NoteSection({
         </div>
       </div>
 
-      {blockList.map((block) => {
+      {blockList.filter((block) => !block.categoryId).map((block) => {
         if (block.type === "exemples") {
           return (
             <DraggableBlock
@@ -536,64 +522,7 @@ function NoteSection({
                     />
                     <span style={{ width: 10, flex: "none" }} />
                     <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "oklch(0.56 0.02 290)" }}>Exemples</span>
-                    <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.48 0.02 290)" }}>Trier</span>
-                    {([
-                      { key: "date" as const, label: "Derniers ajoutés" },
-                      { key: "tag" as const, label: "Nom de tag" },
-                    ]).map((opt) => {
-                      const on = sortBy === opt.key;
-                      return (
-                        <span
-                          key={opt.key}
-                          onClick={() => setSortBy(opt.key)}
-                          style={{
-                            fontFamily: "var(--font-jetbrains-mono), monospace",
-                            fontSize: 10.5,
-                            padding: "4px 10px",
-                            borderRadius: 999,
-                            cursor: "pointer",
-                            border: `1px solid ${on ? accentColor : "oklch(0.3 0.02 290)"}`,
-                            background: on ? "oklch(0.68 0.19 293 / 0.16)" : "oklch(0.2 0.02 290)",
-                            color: on ? accentColor : "oklch(0.6 0.02 290)",
-                          }}
-                        >
-                          {opt.label}
-                        </span>
-                      );
-                    })}
                   </div>
-
-                  {allTags.length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 20, marginLeft: HEADER_INDENT }}>
-                      {allTags.map((t) => {
-                        const st = tagStyle(t);
-                        const on = tagFilter.includes(t);
-                        return (
-                          <div
-                            key={t}
-                            onClick={() => setTagFilter((f) => (f.includes(t) ? f.filter((x) => x !== t) : [...f, t]))}
-                            style={{
-                              fontFamily: "var(--font-jetbrains-mono), monospace",
-                              fontSize: 11,
-                              padding: "4px 11px",
-                              borderRadius: 999,
-                              cursor: "pointer",
-                              border: `1px solid ${on ? st.color : "oklch(0.3 0.02 290)"}`,
-                              background: on ? st.bg : "oklch(0.2 0.02 290)",
-                              color: on ? st.color : "oklch(0.64 0.02 290)",
-                            }}
-                          >
-                            {t}
-                          </div>
-                        );
-                      })}
-                      {tagFilter.length > 0 && (
-                        <span onClick={() => setTagFilter([])} style={{ fontSize: 12, color: "oklch(0.58 0.02 290)", cursor: "pointer", padding: "4px 6px" }}>
-                          réinitialiser
-                        </span>
-                      )}
-                    </div>
-                  )}
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
                     {categories.map((cat) => (
@@ -612,9 +541,12 @@ function NoteSection({
                           await createExample(note.id, cat.id);
                           onChanged();
                         }}
-                        examples={filteredExamples.filter((e) => e.categoryId === cat.id)}
+                        examples={examples.filter((e) => e.categoryId === cat.id)}
                         images={images}
                         onChanged={onChanged}
+                        blocks={blockList.filter((b) => b.categoryId === cat.id)}
+                        onAddBlock={(type) => addBlock(type, cat.id)}
+                        onDeleteBlock={deleteBlock}
                       />
                     ))}
                     {(uncategorized.length > 0 || categories.length === 0) && (
@@ -890,11 +822,66 @@ function BulletListBlock({
 }
 
 function ReglesBlock({ blockId, initialContent }: { blockId: string; initialContent: string | null }) {
-  const [regles, setRegles] = useState<RegleItem[]>(parseRegles(initialContent));
+  const parsed = useMemo(() => parseReglesBlock(initialContent), [initialContent]);
+  const [label, setLabel] = useState(parsed.label);
+  const [regles, setRegles] = useState<RegleItem[]>(parsed.items);
+  const [hover, setHover] = useState(false);
+  const [addingLabel, setAddingLabel] = useState(false);
   const reglesRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const reglesDetailRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+
+  const save = (items: RegleItem[], lbl: string = label) => updateNoteBlockContent(blockId, JSON.stringify({ label: lbl, items }));
+
   return (
-    <div style={{ marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT, border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, overflow: "hidden" }}>
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ position: "relative", marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT }}
+    >
+      {(label || addingLabel) && (
+        <input
+          autoFocus={addingLabel}
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          onBlur={() => {
+            save(regles, label);
+            setAddingLabel(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") {
+              setLabel(parsed.label);
+              setAddingLabel(false);
+            }
+          }}
+          placeholder="Titre de la liste"
+          style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 600, letterSpacing: "0.02em", color: "oklch(0.7 0.02 290)", background: "transparent", border: "none", outline: "none", width: "100%", fontFamily: "inherit" }}
+        />
+      )}
+      {!label && !addingLabel && (
+        <span
+          onClick={() => setAddingLabel(true)}
+          title="Ajouter un titre"
+          style={{
+            position: "absolute",
+            left: -78,
+            top: 3,
+            fontFamily: "var(--font-jetbrains-mono), monospace",
+            fontSize: 10,
+            padding: "3px 10px",
+            borderRadius: 999,
+            border: "1px dashed oklch(0.34 0.02 290)",
+            color: "oklch(0.6 0.02 290)",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            opacity: hover ? 1 : 0,
+            transition: "opacity 0.12s ease",
+          }}
+        >
+          + titre
+        </span>
+      )}
+      <div style={{ border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, overflow: "hidden" }}>
       {regles.map((r, i) => (
         <div key={i} style={{ padding: "13px 18px", background: "oklch(0.185 0.02 290)", borderBottom: i < regles.length - 1 ? "1px solid oklch(0.22 0.02 290)" : "none" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 13 }}>
@@ -903,13 +890,13 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
               ref={(el) => { reglesRefs.current[i] = el; autoGrow(el); }}
               value={r.title}
               onChange={(e) => setRegles((arr) => arr.map((x, xi) => (xi === i ? { ...x, title: e.target.value } : x)))}
-              onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(regles))}
+              onBlur={() => save(regles)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   const next = [...regles.slice(0, i + 1), { title: "", details: [] }, ...regles.slice(i + 1)];
                   setRegles(next);
-                  updateNoteBlockContent(blockId, JSON.stringify(next));
+                  save(next);
                   requestAnimationFrame(() => reglesRefs.current[i + 1]?.focus());
                   return;
                 }
@@ -917,7 +904,7 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
                   e.preventDefault();
                   const next = regles.filter((_, xi) => xi !== i);
                   setRegles(next);
-                  updateNoteBlockContent(blockId, JSON.stringify(next));
+                  save(next);
                   const focusIdx = Math.max(0, i - 1);
                   requestAnimationFrame(() => reglesRefs.current[focusIdx]?.focus());
                 }
@@ -963,14 +950,14 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
                     arr.map((x, xi) => (xi === i ? { ...x, details: x.details.map((dd, ddi) => (ddi === di ? e.target.value : dd)) } : x))
                   )
                 }
-                onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(regles))}
+                onBlur={() => save(regles)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     const nextDetails = [...r.details.slice(0, di + 1), "", ...r.details.slice(di + 1)];
                     const next = regles.map((x, xi) => (xi === i ? { ...x, details: nextDetails } : x));
                     setRegles(next);
-                    updateNoteBlockContent(blockId, JSON.stringify(next));
+                    save(next);
                     requestAnimationFrame(() => reglesDetailRefs.current[`${i}-${di + 1}`]?.focus());
                     return;
                   }
@@ -979,7 +966,7 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
                     const nextDetails = r.details.filter((_, ddi) => ddi !== di);
                     const next = regles.map((x, xi) => (xi === i ? { ...x, details: nextDetails } : x));
                     setRegles(next);
-                    updateNoteBlockContent(blockId, JSON.stringify(next));
+                    save(next);
                     if (di > 0) requestAnimationFrame(() => reglesDetailRefs.current[`${i}-${di - 1}`]?.focus());
                     else requestAnimationFrame(() => reglesRefs.current[i]?.focus());
                   }
@@ -1009,7 +996,7 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
               const nextDetails = [...r.details, ""];
               const next = regles.map((x, xi) => (xi === i ? { ...x, details: nextDetails } : x));
               setRegles(next);
-              updateNoteBlockContent(blockId, JSON.stringify(next));
+              save(next);
               requestAnimationFrame(() => reglesDetailRefs.current[`${i}-${nextDetails.length - 1}`]?.focus());
             }}
             style={{ marginLeft: 25, marginTop: 4, display: "inline-block", fontSize: 11.5, color: "oklch(0.5 0.02 290)", cursor: "pointer" }}
@@ -1018,10 +1005,91 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
           </span>
         </div>
       ))}
+      </div>
     </div>
   );
 }
 
+
+function AddBlockButton({ visible, onAdd }: { visible: boolean; onAdd: (type: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const options = Object.entries(BLOCK_TYPE_LABELS).filter(([key]) => key !== "exemples");
+  return (
+    <div style={{ position: "relative", flex: "none", opacity: visible || open ? 1 : 0, transition: "opacity 0.12s ease" }} onMouseLeave={() => setOpen(false)}>
+      <span
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        title="Ajouter un bloc"
+        style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 10px", borderRadius: 999, border: "1px dashed oklch(0.34 0.02 290)", color: "oklch(0.6 0.02 290)", cursor: "pointer" }}
+      >
+        + bloc
+      </span>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "110%",
+            left: 0,
+            zIndex: 30,
+            background: "oklch(0.21 0.02 290)",
+            border: "1px solid oklch(0.34 0.02 290)",
+            borderRadius: 8,
+            padding: 4,
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 160,
+          }}
+        >
+          {options.map(([key, label]) => (
+            <span
+              key={key}
+              onClick={() => {
+                onAdd(key);
+                setOpen(false);
+              }}
+              style={{ fontSize: 12.5, padding: "6px 10px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.02 290)", whiteSpace: "nowrap" }}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CategoryBlock({ block, onDelete }: { block: BlockRecord; onDelete: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ position: "relative" }}>
+      <span
+        onClick={onDelete}
+        title="Supprimer le bloc"
+        style={{
+          position: "absolute",
+          top: -2,
+          right: 0,
+          width: 22,
+          height: 22,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 13,
+          borderRadius: 6,
+          color: "oklch(0.55 0.02 290)",
+          cursor: "pointer",
+          opacity: hover ? 1 : 0,
+          transition: "opacity 0.12s ease",
+        }}
+      >
+        ✕
+      </span>
+      <NoteBlockContent block={block} />
+    </div>
+  );
+}
 
 function ExampleCategory({
   title,
@@ -1031,6 +1099,9 @@ function ExampleCategory({
   examples,
   images,
   onChanged,
+  blocks,
+  onAddBlock,
+  onDeleteBlock,
 }: {
   title: string;
   onRename?: (name: string) => void;
@@ -1039,6 +1110,9 @@ function ExampleCategory({
   examples: ExampleRecord[];
   images: ImageRecord[];
   onChanged: () => void;
+  blocks?: BlockRecord[];
+  onAddBlock?: (type: string) => void;
+  onDeleteBlock?: (blockId: string) => void;
 }) {
   const [name, setName] = useState(title);
   const [hover, setHover] = useState(false);
@@ -1070,7 +1144,15 @@ function ExampleCategory({
           </span>
         )}
         <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: "oklch(0.5 0.02 290)" }}>{examples.length}</span>
+        {onAddBlock && <AddBlockButton visible={hover} onAdd={onAddBlock} />}
       </div>
+      {!collapsed && blocks && blocks.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", marginBottom: 8 }}>
+          {blocks.map((b) => (
+            <CategoryBlock key={b.id} block={b} onDelete={() => onDeleteBlock?.(b.id)} />
+          ))}
+        </div>
+      )}
       {!collapsed &&
         (examples.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, marginLeft: HEADER_INDENT }}>
@@ -1088,9 +1170,6 @@ function ExampleCategory({
 function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; images: ImageRecord[]; onChanged: () => void }) {
   const [title, setTitle] = useState(example.title);
   const [caption, setCaption] = useState(example.caption ?? "");
-  const [tags, setTags] = useState<string[]>(parseArr(example.tags));
-  const [addingTag, setAddingTag] = useState(false);
-  const [tagDraft, setTagDraft] = useState("");
   const [headerHover, setHeaderHover] = useState(false);
   const [showTradePicker, setShowTradePicker] = useState(false);
   const [showPasteBox, setShowPasteBox] = useState(false);
@@ -1101,11 +1180,6 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
   const [hideText, setHideText] = useState(example.hideText);
   const [imagesPerRow, setImagesPerRow] = useState<1 | 2>(example.imagesPerRow === 1 ? 1 : 2);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const saveTags = (next: string[]) => {
-    setTags(next);
-    updateExample(example.id, { tags: next });
-  };
 
   const toggleHideText = () => {
     const next = !hideText;
@@ -1190,44 +1264,6 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
           style={{ fontSize: 13.5, lineHeight: 1.6, color: "oklch(0.72 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
         />
         )}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 3 }}>
-          {tags.map((t, ti) => {
-            const st = tagStyle(t);
-            return (
-              <span key={ti} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 5px 3px 9px", borderRadius: 999, background: st.bg, color: st.color }}>
-                {t}
-                <span onClick={() => saveTags(tags.filter((_, xi) => xi !== ti))} style={{ cursor: "pointer", fontSize: 12, opacity: 0.7 }}>
-                  ✕
-                </span>
-              </span>
-            );
-          })}
-          {addingTag ? (
-            <input
-              autoFocus
-              value={tagDraft}
-              onChange={(e) => setTagDraft(e.target.value)}
-              onBlur={() => {
-                const v = tagDraft.trim();
-                if (v) saveTags([...tags, v]);
-                setTagDraft("");
-                setAddingTag(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                if (e.key === "Escape") {
-                  setTagDraft("");
-                  setAddingTag(false);
-                }
-              }}
-              style={{ width: 70, fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 8px", borderRadius: 999, border: `1px solid ${accentColor}`, background: "oklch(0.68 0.19 293 / 0.12)", color: "oklch(0.85 0.06 290)", outline: "none" }}
-            />
-          ) : (
-            <span onClick={() => setAddingTag(true)} style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 10px", borderRadius: 999, border: "1px dashed oklch(0.34 0.02 290)", color: "oklch(0.6 0.02 290)", cursor: "pointer" }}>
-              + tag
-            </span>
-          )}
-        </div>
       </div>
       <div style={{ borderTop: "1px solid oklch(0.24 0.02 290)" }}>
         {images.length > 0 && (
