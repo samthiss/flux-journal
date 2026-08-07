@@ -26,7 +26,7 @@ import {
 } from "@/lib/actions/notes";
 
 const lossColor = "oklch(0.65 0.18 25)";
-const TEXT_WIDTH = 720;
+const TEXT_WIDTH = 1040;
 const HEADER_INDENT = 75;
 
 type NoteRecord = {
@@ -824,7 +824,7 @@ function ObjectifBlock({ blockId, initialContent }: { blockId: string; initialCo
         onChange={(e) => setObjectif(e.target.value)}
         onBlur={() => updateNoteBlockContent(blockId, objectif)}
         rows={1}
-        style={{ flex: 1, fontSize: 15, lineHeight: 1.6, color: "oklch(0.92 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
+        style={{ width: "100%", boxSizing: "border-box", fontSize: 15, lineHeight: 1.6, color: "oklch(0.92 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
       />
     </div>
   );
@@ -866,7 +866,7 @@ function BulletListBlock({
   iconBg: string;
 }) {
   const [items, setItems] = useState<string[]>(parseArr(initialContent));
-  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT }}>
       {items.map((k, i) => (
@@ -874,13 +874,14 @@ function BulletListBlock({
           <span style={{ width: 16, height: 16, flex: "none", marginTop: 2, borderRadius: 5, border: `1.5px solid ${iconColor}`, background: iconBg, color: iconColor, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {icon}
           </span>
-          <input
-            ref={(el) => { refs.current[i] = el; }}
+          <textarea
+            ref={(el) => { refs.current[i] = el; autoGrow(el); }}
             value={k}
             onChange={(e) => setItems((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
             onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(items))}
             onKeyDown={(e) => handleListKeyDown(e, i, items, (next) => { setItems(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
-            style={{ flex: 1, fontSize: 14.5, color: "oklch(0.86 0.02 290)", background: "transparent", border: "none", outline: "none" }}
+            rows={1}
+            style={{ flex: 1, fontSize: 14.5, lineHeight: 1.5, color: "oklch(0.86 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", overflowWrap: "anywhere", fontFamily: "inherit" }}
           />
         </div>
       ))}
