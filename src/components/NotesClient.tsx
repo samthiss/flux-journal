@@ -38,7 +38,7 @@ type NoteRecord = {
   order: number;
 };
 
-type BlockRecord = { id: string; noteId: string; categoryId: string | null; type: string; content: string | null; order: number };
+type BlockRecord = { id: string; noteId: string; categoryId: string | null; exampleId: string | null; type: string; content: string | null; order: number };
 
 const BLOCK_TYPE_LABELS: Record<string, string> = {
   headings: "Titre",
@@ -447,12 +447,12 @@ function NoteSection({
   async function addBlock(type: string, categoryId: string | null = null) {
     if (type === "exemples") {
       const created = await createExemplesBlock(note.id);
-      setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId: null, type: "exemples", content: null, order: prev.length }]);
+      setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId: null, exampleId: null, type: "exemples", content: null, order: prev.length }]);
       onChanged();
       return;
     }
     const created = await createNoteBlock(note.id, type, categoryId);
-    setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId, type, content: created.content, order: created.order }]);
+    setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId, exampleId: null, type, content: created.content, order: created.order }]);
   }
 
   async function deleteBlock(blockId: string) {
@@ -560,9 +560,10 @@ function NoteSection({
                         examples={examples.filter((e) => e.categoryId === cat.id)}
                         images={images}
                         onChanged={onChanged}
-                        blocks={blockList.filter((b) => b.categoryId === cat.id)}
+                        blocks={blockList.filter((b) => b.categoryId === cat.id && !b.exampleId)}
                         onAddBlock={(type) => addBlock(type, cat.id)}
                         onDeleteBlock={deleteBlock}
+                        exampleBlocks={blockList}
                         storageKey={cat.id}
                       />
                     ))}
@@ -584,6 +585,7 @@ function NoteSection({
                         examples={uncategorized}
                         images={images}
                         onChanged={onChanged}
+                        exampleBlocks={blockList}
                         storageKey={note.id + "-uncategorized"}
                       />
                     )}
@@ -725,30 +727,30 @@ function NoteSection({
   );
 }
 
-function NoteBlockContent({ block }: { block: BlockRecord }) {
+function NoteBlockContent({ block, indent = HEADER_INDENT }: { block: BlockRecord; indent?: number }) {
   switch (block.type) {
     case "headings":
-      return <HeadingsBlock blockId={block.id} initialContent={block.content} />;
+      return <HeadingsBlock blockId={block.id} initialContent={block.content} indent={indent} />;
     case "objectif":
-      return <ObjectifBlock blockId={block.id} initialContent={block.content} />;
+      return <ObjectifBlock blockId={block.id} initialContent={block.content} indent={indent} />;
     case "theorie":
-      return <TheorieBlock blockId={block.id} initialContent={block.content} />;
+      return <TheorieBlock blockId={block.id} initialContent={block.content} indent={indent} />;
     case "regles":
-      return <ReglesBlock blockId={block.id} initialContent={block.content} />;
+      return <ReglesBlock blockId={block.id} initialContent={block.content} indent={indent} />;
     case "retenir":
-      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✓" iconColor={accentColor} iconBg="oklch(0.68 0.19 293 / 0.14)" />;
+      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✓" iconColor={accentColor} iconBg="oklch(0.68 0.19 293 / 0.14)" indent={indent} />;
     case "invalide":
-      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✕" iconColor={lossColor} iconBg="oklch(0.65 0.18 25 / 0.14)" />;
+      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✕" iconColor={lossColor} iconBg="oklch(0.65 0.18 25 / 0.14)" indent={indent} />;
     default:
       return null;
   }
 }
 
-function HeadingsBlock({ blockId, initialContent }: { blockId: string; initialContent: string | null }) {
+function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
   const [headings, setHeadings] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, marginBottom: 32, marginLeft: indent }}>
       {headings.map((h, i) => (
         <input
           key={i}
@@ -764,10 +766,10 @@ function HeadingsBlock({ blockId, initialContent }: { blockId: string; initialCo
   );
 }
 
-function ObjectifBlock({ blockId, initialContent }: { blockId: string; initialContent: string | null }) {
+function ObjectifBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
   const [objectif, setObjectif] = useState(initialContent ?? "");
   return (
-    <div style={{ border: `1px solid ${accentColor}59`, background: "oklch(0.68 0.19 293 / 0.07)", borderRadius: 12, padding: "15px 18px", marginLeft: HEADER_INDENT, marginBottom: 24 }}>
+    <div style={{ border: `1px solid ${accentColor}59`, background: "oklch(0.68 0.19 293 / 0.07)", borderRadius: 12, padding: "15px 18px", marginLeft: indent, marginBottom: 24 }}>
       <textarea
         ref={(el) => autoGrow(el)}
         value={objectif}
@@ -780,11 +782,11 @@ function ObjectifBlock({ blockId, initialContent }: { blockId: string; initialCo
   );
 }
 
-function TheorieBlock({ blockId, initialContent }: { blockId: string; initialContent: string | null }) {
+function TheorieBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
   const [theorie, setTheorie] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12, marginBottom: 32, marginLeft: indent }}>
       {theorie.map((p, i) => (
         <div key={i} style={{ display: "flex", gap: 8 }}>
           <textarea
@@ -808,17 +810,19 @@ function BulletListBlock({
   icon,
   iconColor,
   iconBg,
+  indent = HEADER_INDENT,
 }: {
   blockId: string;
   initialContent: string | null;
   icon: string;
   iconColor: string;
   iconBg: string;
+  indent?: number;
 }) {
   const [items, setItems] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 12, marginBottom: 32, marginLeft: indent }}>
       {items.map((k, i) => (
         <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
           <span style={{ width: 16, height: 16, flex: "none", marginTop: 2, borderRadius: 5, border: `1.5px solid ${iconColor}`, background: iconBg, color: iconColor, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -839,7 +843,7 @@ function BulletListBlock({
   );
 }
 
-function ReglesBlock({ blockId, initialContent }: { blockId: string; initialContent: string | null }) {
+function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
   const parsed = useMemo(() => parseReglesBlock(initialContent), [initialContent]);
   const [label, setLabel] = useState(parsed.label);
   const [regles, setRegles] = useState<RegleItem[]>(parsed.items);
@@ -850,12 +854,13 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
   const reglesDetailRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const save = (items: RegleItem[], lbl: string = label) => updateNoteBlockContent(blockId, JSON.stringify({ label: lbl, items }));
+  const canFloatLabelButton = indent >= 78;
 
   return (
     <div
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={{ position: "relative", marginTop: 12, marginBottom: 32, marginLeft: HEADER_INDENT }}
+      style={{ position: "relative", marginTop: 12, marginBottom: 32, marginLeft: indent }}
     >
       {(label || addingLabel) && (
         <input
@@ -882,9 +887,11 @@ function ReglesBlock({ blockId, initialContent }: { blockId: string; initialCont
           onClick={() => setAddingLabel(true)}
           title="Ajouter un titre"
           style={{
-            position: "absolute",
-            left: -78,
-            top: 3,
+            position: canFloatLabelButton ? "absolute" : "static",
+            left: canFloatLabelButton ? -78 : undefined,
+            top: canFloatLabelButton ? 3 : undefined,
+            display: canFloatLabelButton ? undefined : "inline-block",
+            marginBottom: canFloatLabelButton ? undefined : 8,
             fontFamily: "var(--font-jetbrains-mono), monospace",
             fontSize: 10,
             padding: "3px 10px",
@@ -1093,7 +1100,7 @@ function AddBlockButton({ visible, onAdd }: { visible: boolean; onAdd: (type: st
   );
 }
 
-function CategoryBlock({ block, onDelete }: { block: BlockRecord; onDelete: () => void }) {
+function CategoryBlock({ block, onDelete, indent }: { block: BlockRecord; onDelete: () => void; indent?: number }) {
   const [hover, setHover] = useState(false);
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ position: "relative" }}>
@@ -1119,7 +1126,7 @@ function CategoryBlock({ block, onDelete }: { block: BlockRecord; onDelete: () =
       >
         ✕
       </span>
-      <NoteBlockContent block={block} />
+      <NoteBlockContent block={block} indent={indent} />
     </div>
   );
 }
@@ -1135,6 +1142,7 @@ function ExampleCategory({
   blocks,
   onAddBlock,
   onDeleteBlock,
+  exampleBlocks,
   storageKey,
 }: {
   title: string;
@@ -1147,6 +1155,7 @@ function ExampleCategory({
   blocks?: BlockRecord[];
   onAddBlock?: (type: string) => void;
   onDeleteBlock?: (blockId: string) => void;
+  exampleBlocks?: BlockRecord[];
   storageKey?: string;
 }) {
   const [name, setName] = useState(title);
@@ -1238,7 +1247,12 @@ function ExampleCategory({
                   </span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <ExampleCard example={ex} images={images.filter((i) => i.exampleId === ex.id)} onChanged={onChanged} />
+                  <ExampleCard
+                    example={ex}
+                    images={images.filter((i) => i.exampleId === ex.id)}
+                    blocks={(exampleBlocks ?? []).filter((b) => b.exampleId === ex.id)}
+                    onChanged={onChanged}
+                  />
                 </div>
               </div>
             ))}
@@ -1346,9 +1360,9 @@ function ExampleImage({ img, onOpen, onRemove }: { img: ImageRecord; onOpen: () 
   );
 }
 
-function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; images: ImageRecord[]; onChanged: () => void }) {
+function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleRecord; images: ImageRecord[]; blocks: BlockRecord[]; onChanged: () => void }) {
   const [title, setTitle] = useState(example.title);
-  const [caption, setCaption] = useState(example.caption ?? "");
+  const [exampleBlocks, setExampleBlocks] = useState<BlockRecord[]>(blocks);
   const [headerHover, setHeaderHover] = useState(false);
   const [showTradePicker, setShowTradePicker] = useState(false);
   const [showPasteBox, setShowPasteBox] = useState(false);
@@ -1357,7 +1371,7 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
   const [pasteLoading, setPasteLoading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [editingCaption, setEditingCaption] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [imagesPerRow, setImagesPerRow] = useState<1 | 2>(example.imagesPerRow === 1 ? 1 : 2);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -1368,13 +1382,19 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
   };
 
   return (
-    <div style={{ border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, overflow: "hidden", background: "oklch(0.185 0.02 290)" }}>
+    <div style={{ border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, background: "oklch(0.185 0.02 290)" }}>
       <div
         onMouseEnter={() => setHeaderHover(true)}
         onMouseLeave={() => setHeaderHover(false)}
         style={{ padding: "14px 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span
+            onClick={() => setCollapsed((c) => !c)}
+            style={{ width: 14, height: 22, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+          >
+            <ChevronIcon color="oklch(0.5 0.02 290)" down={!collapsed} />
+          </span>
           {title || editingTitle ? (
             <input
               autoFocus={editingTitle}
@@ -1426,6 +1446,14 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
           >
             {imagesPerRow} img/ligne
           </span>
+          <AddBlockButton
+            visible={headerHover}
+            onAdd={async (type) => {
+              const created = await createNoteBlock(example.noteId, type, null, example.id);
+              setExampleBlocks((prev) => [...prev, created]);
+              onChanged();
+            }}
+          />
           <MoreMenuButton
             visible={headerHover}
             onDelete={async () => {
@@ -1434,39 +1462,25 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
             }}
           />
         </div>
-        {caption || editingCaption ? (
-          <textarea
-            autoFocus={editingCaption}
-            ref={(el) => autoGrow(el)}
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            onBlur={() => {
-              updateExample(example.id, { caption });
-              setEditingCaption(false);
-            }}
-            rows={1}
-            style={{ fontSize: 13.5, lineHeight: 1.6, color: "oklch(0.72 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
-          />
-        ) : headerHover ? (
-          <span
-            onClick={() => setEditingCaption(true)}
-            title="Ajouter un sous-titre"
-            style={{
-              width: "fit-content",
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-              fontSize: 10,
-              padding: "3px 10px",
-              borderRadius: 999,
-              border: "1px dashed oklch(0.34 0.02 290)",
-              color: "oklch(0.6 0.02 290)",
-              cursor: "pointer",
-            }}
-          >
-            + sous-titre
-          </span>
-        ) : null}
       </div>
+      {!collapsed && (
       <div style={{ borderTop: "1px solid oklch(0.24 0.02 290)" }}>
+        {exampleBlocks.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", padding: "10px 12px 0" }}>
+            {exampleBlocks.map((b) => (
+              <CategoryBlock
+                key={b.id}
+                block={b}
+                indent={0}
+                onDelete={async () => {
+                  setExampleBlocks((prev) => prev.filter((x) => x.id !== b.id));
+                  await deleteNoteBlock(b.id);
+                  onChanged();
+                }}
+              />
+            ))}
+          </div>
+        )}
         {images.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: images.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10 }}>
             {images.map((img) => (
@@ -1604,6 +1618,7 @@ function ExampleCard({ example, images, onChanged }: { example: ExampleRecord; i
           )}
         </div>
       </div>
+      )}
       {lightboxUrl && (
         <div
           onClick={() => setLightboxUrl(null)}
