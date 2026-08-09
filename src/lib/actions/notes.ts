@@ -199,24 +199,6 @@ async function saveImage(file: File): Promise<string> {
   return `/api/uploads/${filename}`;
 }
 
-// Re-hosts a pasted image URL under our own /api/uploads instead of storing the
-// remote URL directly: many hosts (Notion, private CDNs, expiring signed URLs)
-// block hotlinking or require a browser session, so the raw URL would render as
-// broken. Fetching it once here and saving the bytes makes it as reliable as an
-// uploaded file.
-async function saveImageFromUrl(url: string): Promise<string> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
-  const contentType = res.headers.get("content-type") ?? "";
-  if (!contentType.startsWith("image/")) throw new Error(`not an image: ${contentType}`);
-  const ext = "." + (contentType.split("/")[1]?.split(";")[0] || "png");
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  const filename = `${randomUUID()}${ext}`;
-  const buffer = Buffer.from(await res.arrayBuffer());
-  await writeFile(path.join(UPLOAD_DIR, filename), buffer);
-  return `/api/uploads/${filename}`;
-}
-
 async function deleteImageFile(imagePath: string | null | undefined) {
   if (!imagePath) return;
   const filename = imagePath.split("/").pop();
@@ -334,21 +316,6 @@ export async function addExampleImage(exampleId: string, formData: FormData) {
   const count = await prisma.noteExampleImage.count({ where: { exampleId } });
   await prisma.noteExampleImage.create({ data: { exampleId, url, order: count } });
   revalidatePath("/notes");
-}
-
-export async function addExampleImageByUrl(exampleId: string, url: string): Promise<{ ok: boolean }> {
-  const trimmed = url.trim();
-  if (!trimmed) return { ok: false };
-  let hostedUrl: string;
-  try {
-    hostedUrl = await saveImageFromUrl(trimmed);
-  } catch {
-    return { ok: false };
-  }
-  const count = await prisma.noteExampleImage.count({ where: { exampleId } });
-  await prisma.noteExampleImage.create({ data: { exampleId, url: hostedUrl, order: count } });
-  revalidatePath("/notes");
-  return { ok: true };
 }
 
 export async function updateExampleImageCaption(imageId: string, caption: string) {
