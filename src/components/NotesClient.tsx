@@ -28,6 +28,7 @@ import {
 } from "@/lib/actions/notes";
 
 const lossColor = "oklch(0.65 0.18 25)";
+const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
 const TEXT_WIDTH = 1040;
 const HEADER_INDENT = 75;
 
@@ -1369,6 +1370,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [pasteValue, setPasteValue] = useState("");
   const [pasteError, setPasteError] = useState(false);
   const [pasteLoading, setPasteLoading] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -1504,11 +1506,24 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
-            const fd = new FormData();
-            fd.append("image", file);
-            await addExampleImage(example.id, fd);
-            if (fileRef.current) fileRef.current.value = "";
-            onChanged();
+            setFileError(null);
+            if (file.size > MAX_IMAGE_BYTES) {
+              setFileError(
+                `Image trop volumineuse (${(file.size / (1024 * 1024)).toFixed(1)} Mo, max ${MAX_IMAGE_BYTES / (1024 * 1024)} Mo). Compresse-la ou réduis sa résolution avant de l'ajouter.`
+              );
+              if (fileRef.current) fileRef.current.value = "";
+              return;
+            }
+            try {
+              const fd = new FormData();
+              fd.append("image", file);
+              await addExampleImage(example.id, fd);
+              onChanged();
+            } catch {
+              setFileError("Échec de l'ajout de l'image. Réessaie avec un fichier plus léger.");
+            } finally {
+              if (fileRef.current) fileRef.current.value = "";
+            }
           }}
         />
         <div style={{ margin: "0 12px 12px" }}>
@@ -1544,6 +1559,9 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               <span style={{ fontSize: 16 }}>+</span> coller
             </div>
           </div>
+          {fileError && (
+            <div style={{ marginTop: 5, fontSize: 11.5, color: lossColor }}>{fileError}</div>
+          )}
           {showPasteBox && (
             <div style={{ marginTop: 8 }}>
               <input
@@ -1562,10 +1580,21 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
                       e.preventDefault();
                       const file = item.getAsFile();
                       if (file) {
-                        const fd = new FormData();
-                        fd.append("image", file);
-                        await addExampleImage(example.id, fd);
-                        onChanged();
+                        setFileError(null);
+                        if (file.size > MAX_IMAGE_BYTES) {
+                          setFileError(
+                            `Image trop volumineuse (${(file.size / (1024 * 1024)).toFixed(1)} Mo, max ${MAX_IMAGE_BYTES / (1024 * 1024)} Mo). Compresse-la ou réduis sa résolution avant de l'ajouter.`
+                          );
+                        } else {
+                          try {
+                            const fd = new FormData();
+                            fd.append("image", file);
+                            await addExampleImage(example.id, fd);
+                            onChanged();
+                          } catch {
+                            setFileError("Échec de l'ajout de l'image. Réessaie avec un fichier plus léger.");
+                          }
+                        }
                       }
                       setShowPasteBox(false);
                       setPasteValue("");
