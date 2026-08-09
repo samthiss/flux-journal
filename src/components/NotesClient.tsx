@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { compressImage, MAX_SOURCE_BYTES } from "@/lib/compressImage";
 import Link from "next/link";
 import { accentColor } from "@/lib/theme";
 import {
@@ -26,7 +27,9 @@ import {
 } from "@/lib/actions/notes";
 
 const lossColor = "oklch(0.65 0.18 25)";
-const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
+// Kept under the ~1MB ceiling the deployment stalls at, with room for the
+// multipart envelope. See src/lib/compressImage.ts.
+const MAX_IMAGE_BYTES = 850 * 1024;
 const TEXT_WIDTH = 1040;
 const HEADER_INDENT = 75;
 
@@ -1501,17 +1504,28 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             const file = e.target.files?.[0];
             if (!file) return;
             setFileError(null);
-            if (file.size > MAX_IMAGE_BYTES) {
+            if (file.size > MAX_SOURCE_BYTES) {
               setFileError(
-                `Image trop volumineuse (${(file.size / (1024 * 1024)).toFixed(1)} Mo, max ${MAX_IMAGE_BYTES / (1024 * 1024)} Mo). Compresse-la ou réduis sa résolution avant de l'ajouter.`
+                `Image trop volumineuse (${(file.size / (1024 * 1024)).toFixed(1)} Mo). Réduis sa résolution avant de l'ajouter.`
               );
               if (fileRef.current) fileRef.current.value = "";
               return;
             }
             try {
+              let upload = file;
+              try {
+                upload = await compressImage(file, MAX_IMAGE_BYTES);
+              } catch {
+                // Undecodable image: send it as-is and let the size check below speak.
+              }
+              if (upload.size > MAX_IMAGE_BYTES) {
+                setFileError("Impossible de compresser cette image assez pour l'envoyer. Réduis sa résolution avant de l'ajouter.");
+                if (fileRef.current) fileRef.current.value = "";
+                return;
+              }
               const fd = new FormData();
               fd.append("exampleId", example.id);
-              fd.append("image", file);
+              fd.append("image", upload);
               const res = await fetch("/api/uploads", { method: "POST", body: fd });
               if (!res.ok) {
                 const { error } = await res.json().catch(() => ({ error: null }));
