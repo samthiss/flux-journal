@@ -20,7 +20,6 @@ import {
   deleteExample,
   reorderExamples,
   addExampleImage,
-  addExampleImageByUrl,
   updateExampleImageCaption,
   removeExampleImage,
   searchTrades,
@@ -1366,10 +1365,6 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [exampleBlocks, setExampleBlocks] = useState<BlockRecord[]>(blocks);
   const [headerHover, setHeaderHover] = useState(false);
   const [showTradePicker, setShowTradePicker] = useState(false);
-  const [showPasteBox, setShowPasteBox] = useState(false);
-  const [pasteValue, setPasteValue] = useState("");
-  const [pasteError, setPasteError] = useState(false);
-  const [pasteLoading, setPasteLoading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -1552,98 +1547,9 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
                 />
               )}
             </div>
-            <div
-              onClick={() => setShowPasteBox((s) => !s)}
-              style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: "1px dashed oklch(0.34 0.02 290)", borderRadius: 8, color: "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11 }}
-            >
-              <span style={{ fontSize: 16 }}>+</span> coller
-            </div>
           </div>
           {fileError && (
             <div style={{ marginTop: 5, fontSize: 11.5, color: lossColor }}>{fileError}</div>
-          )}
-          {showPasteBox && (
-            <div style={{ marginTop: 8 }}>
-              <input
-                autoFocus
-                value={pasteValue}
-                disabled={pasteLoading}
-                onChange={(e) => {
-                  setPasteValue(e.target.value);
-                  setPasteError(false);
-                }}
-                onPaste={async (e) => {
-                  const items = e.clipboardData?.items;
-                  if (!items) return;
-                  for (const item of Array.from(items)) {
-                    if (item.type.startsWith("image/")) {
-                      e.preventDefault();
-                      const file = item.getAsFile();
-                      if (file) {
-                        setFileError(null);
-                        if (file.size > MAX_IMAGE_BYTES) {
-                          setFileError(
-                            `Image trop volumineuse (${(file.size / (1024 * 1024)).toFixed(1)} Mo, max ${MAX_IMAGE_BYTES / (1024 * 1024)} Mo). Compresse-la ou réduis sa résolution avant de l'ajouter.`
-                          );
-                        } else {
-                          try {
-                            const fd = new FormData();
-                            fd.append("image", file);
-                            await addExampleImage(example.id, fd);
-                            onChanged();
-                          } catch {
-                            setFileError("Échec de l'ajout de l'image. Réessaie avec un fichier plus léger.");
-                          }
-                        }
-                      }
-                      setShowPasteBox(false);
-                      setPasteValue("");
-                      return;
-                    }
-                  }
-                }}
-                onKeyDown={async (e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    const v = pasteValue.trim();
-                    if (!v) return;
-                    setPasteLoading(true);
-                    setPasteError(false);
-                    const { ok } = await addExampleImageByUrl(example.id, v);
-                    setPasteLoading(false);
-                    if (ok) {
-                      onChanged();
-                      setShowPasteBox(false);
-                      setPasteValue("");
-                    } else {
-                      setPasteError(true);
-                    }
-                  } else if (e.key === "Escape") {
-                    setShowPasteBox(false);
-                    setPasteValue("");
-                    setPasteError(false);
-                  }
-                }}
-                placeholder={pasteLoading ? "Chargement de l'image…" : "Collez (Cmd/Ctrl+V) une image ou une adresse d'image, puis Entrée…"}
-                style={{
-                  width: "100%",
-                  height: 42,
-                  boxSizing: "border-box",
-                  padding: "0 12px",
-                  fontSize: 12.5,
-                  borderRadius: 8,
-                  border: `1px dashed ${pasteError ? lossColor : accentColor}`,
-                  background: "oklch(0.68 0.19 293 / 0.08)",
-                  color: "oklch(0.88 0.02 290)",
-                  outline: "none",
-                }}
-              />
-              {pasteError && (
-                <div style={{ marginTop: 5, fontSize: 11.5, color: lossColor }}>
-                  Impossible de charger cette image (lien invalide, protégé, ou pas une image). Réessaie avec un autre lien, ou colle l&apos;image elle-même (Cmd/Ctrl+V).
-                </div>
-              )}
-            </div>
           )}
         </div>
       </div>
