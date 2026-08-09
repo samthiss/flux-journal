@@ -83,7 +83,10 @@ function dateForDay(dayIndex: number): string {
   sunday.setDate(now.getDate() - now.getDay());
   const target = new Date(sunday);
   target.setDate(sunday.getDate() + dayIndex);
-  return target.toISOString().slice(0, 10);
+  // "en-CA" formats as YYYY-MM-DD in the *local* timezone. toISOString() would
+  // give UTC, which lags Paris by 1-2h, so between midnight and 02:00 local it
+  // still reads as yesterday and would file those ticks under the wrong day.
+  return target.toLocaleDateString("en-CA");
 }
 
 function storageKey(market: string, dateKey: string) {
