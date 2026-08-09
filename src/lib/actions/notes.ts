@@ -2,8 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile, unlink } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { UPLOAD_DIR } from "@/lib/uploadDir";
 import { NOTES_SEED } from "@/lib/notesSeed";
@@ -190,15 +189,6 @@ async function collectDescendantIds(id: string): Promise<string[]> {
   return ids;
 }
 
-async function saveImage(file: File): Promise<string> {
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  const ext = path.extname(file.name) || ".png";
-  const filename = `${randomUUID()}${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(UPLOAD_DIR, filename), buffer);
-  return `/api/uploads/${filename}`;
-}
-
 async function deleteImageFile(imagePath: string | null | undefined) {
   if (!imagePath) return;
   const filename = imagePath.split("/").pop();
@@ -306,15 +296,6 @@ export async function deleteExample(id: string) {
   await prisma.noteExampleImage.deleteMany({ where: { exampleId: id } });
   await prisma.noteBlock.deleteMany({ where: { exampleId: id } });
   await prisma.noteExample.delete({ where: { id } });
-  revalidatePath("/notes");
-}
-
-export async function addExampleImage(exampleId: string, formData: FormData) {
-  const file = formData.get("image");
-  if (!(file instanceof File) || file.size === 0) return;
-  const url = await saveImage(file);
-  const count = await prisma.noteExampleImage.count({ where: { exampleId } });
-  await prisma.noteExampleImage.create({ data: { exampleId, url, order: count } });
   revalidatePath("/notes");
 }
 

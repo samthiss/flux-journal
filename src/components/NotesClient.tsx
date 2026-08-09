@@ -19,7 +19,6 @@ import {
   updateExample,
   deleteExample,
   reorderExamples,
-  addExampleImage,
   updateExampleImageCaption,
   removeExampleImage,
   searchTrades,
@@ -1511,11 +1510,17 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             }
             try {
               const fd = new FormData();
+              fd.append("exampleId", example.id);
               fd.append("image", file);
-              await addExampleImage(example.id, fd);
-              onChanged();
+              const res = await fetch("/api/uploads", { method: "POST", body: fd });
+              if (!res.ok) {
+                const { error } = await res.json().catch(() => ({ error: null }));
+                setFileError(error ?? "Échec de l'ajout de l'image. Réessaie.");
+              } else {
+                onChanged();
+              }
             } catch {
-              setFileError("Échec de l'ajout de l'image. Réessaie avec un fichier plus léger.");
+              setFileError("Échec de l'ajout de l'image. Vérifie ta connexion et réessaie.");
             } finally {
               if (fileRef.current) fileRef.current.value = "";
             }
