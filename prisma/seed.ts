@@ -17,14 +17,19 @@ const TRADES_SEED = [
 
 async function main() {
   // Demo trades are only useful for local development, never for a real
-  // deployment — gated behind an explicit opt-in flag.
+  // deployment — gated behind an explicit opt-in flag. `npm start` seeds on
+  // every boot, so the count guard matters: without it each restart appended
+  // another five phantom trades to the journal.
   if (process.env.SEED_DEMO_TRADES === "true") {
-    await prisma.trade.createMany({
-      data: TRADES_SEED.map((t) => ({
-        ...t,
-        date: new Date(t.date),
-      })),
-    });
+    const tradeCount = await prisma.trade.count();
+    if (tradeCount === 0) {
+      await prisma.trade.createMany({
+        data: TRADES_SEED.map((t) => ({
+          ...t,
+          date: new Date(t.date),
+        })),
+      });
+    }
   }
 
   // Checklist items are real app content (the pre-market routine), not demo

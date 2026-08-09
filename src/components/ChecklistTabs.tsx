@@ -7,7 +7,7 @@ import VolumeChecklist from "@/components/VolumeChecklist";
 import ColorCode from "@/components/ColorCode";
 import ChecklistClient from "@/components/ChecklistClient";
 
-type ChecklistItem = { id: string; group: string; label: string; checked: boolean };
+type ChecklistItem = { id: string; group: string; label: string };
 
 const TABS = [
   { key: "volume", label: "Lignes de volumes" },

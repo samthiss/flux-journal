@@ -4,11 +4,17 @@ import { useEffect, useState, useTransition } from "react";
 import { accentColor, glassCard } from "@/lib/theme";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem } from "@/lib/actions/checklist";
 
-type ChecklistItem = { id: string; group: string; label: string; checked: boolean };
+type ChecklistItem = { id: string; group: string; label: string };
+
+// "en-CA" formats as YYYY-MM-DD in the *local* timezone. toISOString() would
+// give UTC, which lags Paris by 1-2h, so between midnight and 02:00 local it
+// still reads as yesterday and would file those ticks under the wrong day.
+function todayKey() {
+  return new Date().toLocaleDateString("en-CA");
+}
 
 function marketStorageKey(market: string) {
-  const dateKey = new Date().toISOString().slice(0, 10);
-  return `checklistChecked:${market}:${dateKey}`;
+  return `checklistChecked:${market}:${todayKey()}`;
 }
 
 // countries: 5 United States, 72 Euro Zone, 22 France, 17 Germany, 4 United

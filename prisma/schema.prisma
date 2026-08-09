@@ -35,15 +35,6 @@ model ChecklistItem {
   order Int
 }
 
-model ChecklistLog {
-  id      String   @id @default(cuid())
-  date    DateTime
-  itemId  String
-  checked Boolean  @default(false)
-
-  @@unique([date, itemId])
-}
-
 model Note {
   id        String   @id @default(cuid())
   parentId  String?

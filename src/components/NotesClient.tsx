@@ -1165,7 +1165,14 @@ function ExampleCategory({
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    if (storageKey && localStorage.getItem(`exCatCollapsed:${storageKey}`) === "1") setCollapsed(true);
+    let saved = false;
+    try {
+      saved = !!storageKey && window.localStorage.getItem(`exCatCollapsed:${storageKey}`) === "1";
+    } catch {
+      saved = false;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate collapsed state from localStorage for this category
+    setCollapsed(saved);
   }, [storageKey]);
 
   const setCollapsedPersist = (fn: (c: boolean) => boolean) => {
