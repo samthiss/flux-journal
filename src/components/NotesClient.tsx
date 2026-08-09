@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { compressImage, MAX_SOURCE_BYTES } from "@/lib/compressImage";
 import Link from "next/link";
+import Image from "next/image";
 import { accentColor } from "@/lib/theme";
 import {
   renameNote,
@@ -1290,21 +1291,40 @@ function ExampleCategory({
   );
 }
 
-function ExampleImage({ img, onOpen, onRemove }: { img: ImageRecord; onOpen: () => void; onRemove: () => void }) {
+function ExampleImage({
+  img,
+  onOpen,
+  onRemove,
+  imagesPerRow,
+}: {
+  img: ImageRecord;
+  onOpen: () => void;
+  onRemove: () => void;
+  imagesPerRow: number;
+}) {
   const [caption, setCaption] = useState(img.caption ?? "");
   const [hover, setHover] = useState(false);
+  // Screenshots are stored at their capture resolution — 1600 to 3200px wide —
+  // but a thumbnail is only ever a few hundred pixels. next/image resizes and
+  // re-encodes on the fly: measured on a real note image, 503KB of PNG comes
+  // back as 17KB of WebP at w=640.
+  //
+  // Images imported from a trade still point at the old external host, which is
+  // not in images.remotePatterns; serve those untouched rather than 400.
+  const isLocal = img.url.startsWith("/");
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <div style={{ position: "relative", aspectRatio: "16 / 9" }}>
-        <div
+        <Image
+          src={img.url}
+          alt={img.caption ?? ""}
+          fill
+          unoptimized={!isLocal}
+          sizes={imagesPerRow === 1 ? "(max-width: 900px) 100vw, 900px" : "(max-width: 900px) 50vw, 460px"}
           onClick={onOpen}
           style={{
-            width: "100%",
-            height: "100%",
+            objectFit: "cover",
             borderRadius: 8,
-            backgroundImage: `url(${img.url})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
             border: "1px solid oklch(0.32 0.02 290 / 0.5)",
             cursor: "zoom-in",
           }}
@@ -1493,6 +1513,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               <ExampleImage
                 key={img.id}
                 img={img}
+                imagesPerRow={images.length === 1 ? 1 : imagesPerRow}
                 onOpen={() => setLightboxUrl(img.url)}
                 onRemove={async () => {
                   await removeExampleImage(img.id);
