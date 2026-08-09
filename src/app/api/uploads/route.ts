@@ -42,10 +42,13 @@ export async function POST(request: Request) {
 
     const url = `/api/uploads/${filename}`;
     const count = await prisma.noteExampleImage.count({ where: { exampleId } });
-    await prisma.noteExampleImage.create({ data: { exampleId, url, order: count } });
+    // The caller inserts this straight into its list, so it needs the whole
+    // record — the id above all, without which it could not later remove the
+    // image or edit its caption.
+    const image = await prisma.noteExampleImage.create({ data: { exampleId, url, order: count } });
 
     revalidatePath("/notes");
-    return Response.json({ url });
+    return Response.json({ image });
   } catch {
     return Response.json({ error: "Enregistrement de l'image impossible." }, { status: 500 });
   }

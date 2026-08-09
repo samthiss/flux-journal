@@ -31,6 +31,8 @@ const lossColor = "oklch(0.65 0.18 25)";
 // Kept under the ~1MB ceiling the deployment stalls at, with room for the
 // multipart envelope. See src/lib/compressImage.ts.
 const MAX_IMAGE_BYTES = 850 * 1024;
+// Marks a locally-previewed image that has no database row yet.
+const PENDING_PREFIX = "pending:";
 const TEXT_WIDTH = 1040;
 const HEADER_INDENT = 75;
 
@@ -1296,11 +1298,13 @@ function ExampleImage({
   onOpen,
   onRemove,
   imagesPerRow,
+  pending = false,
 }: {
   img: ImageRecord;
   onOpen: () => void;
   onRemove: () => void;
   imagesPerRow: number;
+  pending?: boolean;
 }) {
   const [caption, setCaption] = useState(img.caption ?? "");
   const [hover, setHover] = useState(false);
@@ -1321,14 +1325,34 @@ function ExampleImage({
           fill
           unoptimized={!isLocal}
           sizes={imagesPerRow === 1 ? "(max-width: 900px) 100vw, 900px" : "(max-width: 900px) 50vw, 460px"}
-          onClick={onOpen}
+          onClick={pending ? undefined : onOpen}
           style={{
             objectFit: "cover",
             borderRadius: 8,
             border: "1px solid oklch(0.32 0.02 290 / 0.5)",
-            cursor: "zoom-in",
+            cursor: pending ? "progress" : "zoom-in",
+            opacity: pending ? 0.55 : 1,
+            transition: "opacity 0.2s",
           }}
         />
+        {pending && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10.5,
+              letterSpacing: 0.3,
+              color: "oklch(0.9 0.005 290)",
+              pointerEvents: "none",
+            }}
+          >
+            envoi…
+          </div>
+        )}
         {img.tradeId && (
           <Link
             href={`/trades/${img.tradeId}`}
@@ -1351,14 +1375,17 @@ function ExampleImage({
             Trade ↗
           </Link>
         )}
-        <div
-          onClick={onRemove}
-          style={{ position: "absolute", top: 7, right: 7, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, borderRadius: 6, background: "oklch(0.15 0.02 290 / 0.75)", color: "oklch(0.9 0.005 290)", cursor: "pointer" }}
-        >
-          ✕
-        </div>
+        {!pending && (
+          <div
+            onClick={onRemove}
+            style={{ position: "absolute", top: 7, right: 7, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, borderRadius: 6, background: "oklch(0.15 0.02 290 / 0.75)", color: "oklch(0.9 0.005 290)", cursor: "pointer" }}
+          >
+            ✕
+          </div>
+        )}
       </div>
-      {(caption || hover) && (
+      {/* No row exists to attach a caption to until the upload lands. */}
+      {!pending && (caption || hover) && (
         <textarea
           ref={(el) => autoGrow(el)}
           value={caption}
@@ -1400,6 +1427,21 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [collapsed, setCollapsed] = useState(false);
   const [imagesPerRow, setImagesPerRow] = useState<1 | 2>(example.imagesPerRow === 1 ? 1 : 2);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Adding or removing an image used to go through router.refresh(), which
+  // re-fetches the whole notes page — 1.25MB and five queries to show one new
+  // thumbnail, with nothing on screen until it came back. The list is held here
+  // instead so those two actions can be applied on the spot.
+  const [localImages, setLocalImages] = useState<ImageRecord[]>(images);
+  // Re-sync when the server actually sends a different set, but not on every
+  // re-render, which would wipe an optimistic entry the props do not know about.
+  const imagesKey = images.map((i) => i.id).join(",");
+  const syncedKey = useRef(imagesKey);
+  useEffect(() => {
+    if (syncedKey.current === imagesKey) return;
+    syncedKey.current = imagesKey;
+    setLocalImages(images);
+  }, [imagesKey, images]);
 
   const toggleImagesPerRow = () => {
     const next: 1 | 2 = imagesPerRow === 2 ? 1 : 2;
@@ -1507,17 +1549,24 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             ))}
           </div>
         )}
-        {images.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: images.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10 }}>
-            {images.map((img) => (
+        {localImages.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: localImages.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10 }}>
+            {localImages.map((img) => (
               <ExampleImage
                 key={img.id}
                 img={img}
-                imagesPerRow={images.length === 1 ? 1 : imagesPerRow}
+                imagesPerRow={localImages.length === 1 ? 1 : imagesPerRow}
+                pending={img.id.startsWith(PENDING_PREFIX)}
                 onOpen={() => setLightboxUrl(img.url)}
                 onRemove={async () => {
-                  await removeExampleImage(img.id);
-                  onChanged();
+                  const removed = localImages;
+                  setLocalImages((list) => list.filter((i) => i.id !== img.id));
+                  try {
+                    await removeExampleImage(img.id);
+                  } catch {
+                    setLocalImages(removed);
+                    setFileError("Suppression impossible. Réessaie.");
+                  }
                 }}
               />
             ))}
@@ -1551,15 +1600,38 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
                 if (fileRef.current) fileRef.current.value = "";
                 return;
               }
+              // Show the image straight away from the local file, so the grid
+              // fills in while the upload is still in flight.
+              const pendingId = `${PENDING_PREFIX}${crypto.randomUUID()}`;
+              const previewUrl = URL.createObjectURL(upload);
+              setLocalImages((list) => [
+                ...list,
+                { id: pendingId, exampleId: example.id, url: previewUrl, caption: null, tradeId: null, order: list.length },
+              ]);
+
               const fd = new FormData();
               fd.append("exampleId", example.id);
               fd.append("image", upload);
-              const res = await fetch("/api/uploads", { method: "POST", body: fd });
+              let res: Response;
+              try {
+                res = await fetch("/api/uploads", { method: "POST", body: fd });
+              } catch {
+                setLocalImages((list) => list.filter((i) => i.id !== pendingId));
+                URL.revokeObjectURL(previewUrl);
+                throw new Error("network");
+              }
+
               if (!res.ok) {
                 const { error } = await res.json().catch(() => ({ error: null }));
+                setLocalImages((list) => list.filter((i) => i.id !== pendingId));
+                URL.revokeObjectURL(previewUrl);
                 setFileError(error ?? "Échec de l'ajout de l'image. Réessaie.");
               } else {
-                onChanged();
+                const { image } = (await res.json()) as { image: ImageRecord };
+                // Swap the local preview for the stored record, which carries the
+                // id needed to remove it or caption it later.
+                setLocalImages((list) => list.map((i) => (i.id === pendingId ? image : i)));
+                URL.revokeObjectURL(previewUrl);
               }
             } catch {
               setFileError("Échec de l'ajout de l'image. Vérifie ta connexion et réessaie.");
