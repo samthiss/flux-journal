@@ -7,25 +7,40 @@ datasource db {
   provider = "sqlite"
 }
 
+// The note tree — note, category, example, block, image — is held together by
+// foreign keys the database now enforces. Every delete rule below matches what
+// the actions in src/lib/actions/notes.ts already do by hand: deleting a note
+// takes its categories, examples, blocks and images with it. Those hand-written
+// deletes stay, because rows are only half the job — the image files on the
+// volume have to be unlinked before their rows disappear, and no cascade can do
+// that. What the cascades add is the guarantee that a delete which stops
+// halfway, or a row inserted by a script, cannot leave an example pointing at a
+// note that no longer exists.
+//
+// Every foreign key is indexed. SQLite does not do it on its own, and each one
+// is queried directly — `where exampleId = ?` runs on every note view.
+
 model Trade {
-  id           String   @id @default(cuid())
-  date         DateTime
-  time         String?
-  symbol       String
-  market       String?
-  side         String
-  size         Float
-  pnl          Float
-  rr           Float?
-  setup        String
-  emotion      String?
+  id             String   @id @default(cuid())
+  date           DateTime
+  time           String?
+  symbol         String
+  market         String?
+  side           String
+  size           Float
+  pnl            Float
+  rr             Float?
+  setup          String
+  emotion        String?
   preTradeNotes  String?
   postTradeNotes String?
-  chartCluster String?
-  chartReverse String?
-  chartBox     String?
-  chartTrading String?
-  createdAt    DateTime @default(now())
+  chartCluster   String?
+  chartReverse   String?
+  chartBox       String?
+  chartTrading   String?
+  createdAt      DateTime @default(now())
+
+  noteImages NoteExampleImage[]
 }
 
 model ChecklistItem {
@@ -41,6 +56,14 @@ model Note {
   title     String
   order     Int      @default(0)
   createdAt DateTime @default(now())
+
+  parent     Note?          @relation("NoteTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children   Note[]         @relation("NoteTree")
+  categories NoteCategory[]
+  examples   NoteExample[]
+  blocks     NoteBlock[]
+
+  @@index([parentId])
 }
 
 model NoteBlock {
@@ -52,6 +75,14 @@ model NoteBlock {
   content    String?
   order      Int      @default(0)
   createdAt  DateTime @default(now())
+
+  note     Note          @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  category NoteCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  example  NoteExample?  @relation(fields: [exampleId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+  @@index([categoryId])
+  @@index([exampleId])
 }
 
 model NoteCategory {
@@ -59,6 +90,12 @@ model NoteCategory {
   noteId String
   name   String
   order  Int    @default(0)
+
+  note     Note          @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  examples NoteExample[]
+  blocks   NoteBlock[]
+
+  @@index([noteId])
 }
 
 model NoteExample {
@@ -72,6 +109,14 @@ model NoteExample {
   imagesPerRow Int      @default(2)
   order        Int      @default(0)
   createdAt    DateTime @default(now())
+
+  note     Note               @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  category NoteCategory?      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  images   NoteExampleImage[]
+  blocks   NoteBlock[]
+
+  @@index([noteId])
+  @@index([categoryId])
 }
 
 model NoteExampleImage {
@@ -81,4 +126,17 @@ model NoteExampleImage {
   caption   String?
   tradeId   String?
   order     Int     @default(0)
+
+  example NoteExample @relation(fields: [exampleId], references: [id], onDelete: Cascade)
+
+  // `tradeId` records that this image was imported from a trade and still shares
+  // the file with it, which is what tells the delete paths not to unlink that
+  // file. Deleting the trade therefore clears the link rather than the row: the
+  // image belongs to the example, and once no trade points at the file the
+  // example is free to remove it. (The file itself is still unlinked by
+  // deleteTrade while the note keeps showing it — that bug is untouched here.)
+  trade Trade? @relation(fields: [tradeId], references: [id], onDelete: SetNull)
+
+  @@index([exampleId])
+  @@index([tradeId])
 }
