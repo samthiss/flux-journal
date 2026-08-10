@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { accentColor } from "@/lib/theme";
 import { getNoteTree, createNote, reorderNote, deleteNote } from "@/lib/actions/notes";
+import { signOut } from "@/app/login/actions";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", match: (p: string) => p === "/" },
@@ -48,6 +49,15 @@ function NotesIcon({ color }: { color: string }) {
     <svg width="18" height="18" viewBox="0 0 18 18">
       <path d="M4 1.5h7l3 3v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z" fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
       <path d="M6 7.5h6M6 10.5h6M6 13.5h4" stroke={color} strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+    </svg>
+  );
+}
+
+function SignOutIcon({ color }: { color: string }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+      <path d="M6 2.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1H6" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M9.5 5.5 12.5 8l-3 2.5M12 8H6" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -256,6 +266,11 @@ export default function Sidebar() {
     document.getElementById("note-" + id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // The sidebar lives in the root layout, which the login page inherits too.
+  // Nothing in it is reachable before signing in, and a nav sitting next to a
+  // password field only suggests otherwise.
+  if (pathname === "/login") return null;
+
   return (
     <>
       {sidebarHidden && (
@@ -286,6 +301,23 @@ export default function Sidebar() {
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.02em" }}>
             FLUX<span style={{ color: accentColor }}>JOURNAL</span>
           </div>
+          <form action={signOut} style={{ marginLeft: "auto" }}>
+            <button
+              type="submit"
+              title="Se déconnecter"
+              style={{
+                background: "none",
+                border: "none",
+                padding: 4,
+                cursor: "pointer",
+                color: "oklch(0.5 0.02 290)",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <SignOutIcon color="currentColor" />
+            </button>
+          </form>
         </div>
 
         <div className="sidebar-nav">
