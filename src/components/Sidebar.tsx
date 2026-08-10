@@ -167,12 +167,12 @@ function flattenDFS(nodes: TreeNode[], depth = 0, out: Array<{ node: TreeNode; d
   return out;
 }
 
-export default function Sidebar() {
+export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
   const pathname = usePathname();
   const router = useRouter();
   const onNotes = pathname.startsWith("/notes");
 
-  const [tree, setTree] = useState<NoteRow[]>([]);
+  const [tree, setTree] = useState<NoteRow[]>(initialTree);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -218,8 +218,23 @@ export default function Sidebar() {
     setTree(t);
   }
 
+  // The tree arrived with the document. Fetching it again on the first render
+  // would repeat, over the network, a query whose answer is already on screen —
+  // which is what used to make the note list appear a moment after the page.
+  // Coming back to /notes later still refetches: by then a mutation elsewhere
+  // may have moved a note, and this layout was rendered once, several
+  // navigations ago.
+  // Empty means the layout had nothing to give — no session, or no notes yet.
+  // Falling back to the fetch there costs one request and keeps the sidebar
+  // working even if the server side of this ever stops providing the tree.
+  const serverTreeIsFresh = useRef(initialTree.length > 0);
+
   useEffect(() => {
     if (!onNotes) return;
+    if (serverTreeIsFresh.current) {
+      serverTreeIsFresh.current = false;
+      return;
+    }
     let ignore = false;
     getNoteTree().then((t) => {
       if (!ignore) setTree(t);
