@@ -2,6 +2,7 @@ import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 import { prisma } from "@/lib/prisma";
+import { deleteThumbnails } from "@/lib/thumbnails";
 import { UPLOAD_DIR } from "@/lib/uploadDir";
 
 // A file on the volume can be pointed at from more than one place. Importing a
@@ -38,6 +39,9 @@ export async function deleteImageFileIfUnused(url: string | null | undefined) {
   if (usedByTrade > 0) return;
 
   await unlink(path.join(UPLOAD_DIR, filename)).catch(() => {});
+  // The derivatives go with it. A thumbnail whose source is gone is a file
+  // nothing can reach any more, and it would never be swept by anything else.
+  await deleteThumbnails(filename);
 }
 
 /** Same rule, for a batch — the same URL twice only gets looked at once. */

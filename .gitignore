@@ -47,3 +47,8 @@ next-env.d.ts
 /dev.db-journal
 /prisma/*.db
 /prisma/*.db-journal
+
+# generated thumbnails — rebuilt on demand from the file next to them, and
+# public/uploads is already tracked, so committing these would grow a
+# repository whose image weight is a known problem
+/public/uploads-cache

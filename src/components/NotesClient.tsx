@@ -1309,12 +1309,16 @@ function ExampleImage({
   const [caption, setCaption] = useState(img.caption ?? "");
   const [hover, setHover] = useState(false);
   // Screenshots are stored at their capture resolution — 1600 to 3200px wide —
-  // but a thumbnail is only ever a few hundred pixels. next/image resizes and
-  // re-encodes on the fly: measured on a real note image, 503KB of PNG comes
-  // back as 17KB of WebP at w=640.
+  // but a thumbnail is only ever a few hundred pixels.
   //
-  // Images imported from a trade still point at the old external host, which is
-  // not in images.remotePatterns; serve those untouched rather than 400.
+  // The resizing is asked of our own route rather than of next/image: the
+  // built-in optimizer fetches the source over HTTP forwarding no headers, so
+  // behind the session proxy it only ever gets a 401. `loader` keeps everything
+  // else next/image does — srcset, sizes, lazy loading — and only changes the
+  // URL those point at.
+  //
+  // Images imported from a trade still point at the old external host, which
+  // knows nothing of `?w=`; serve those untouched rather than break them.
   const isLocal = img.url.startsWith("/");
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
@@ -1324,7 +1328,11 @@ function ExampleImage({
           alt={img.caption ?? ""}
           fill
           unoptimized={!isLocal}
-          sizes={imagesPerRow === 1 ? "(max-width: 900px) 100vw, 900px" : "(max-width: 900px) 50vw, 460px"}
+          loader={isLocal ? ({ src, width }) => `${src}?w=${width}` : undefined}
+          // The tile is about 505px wide at two per row and about 1020px at one,
+          // inside a 1040px column. Understating these made the browser pick a
+          // source a size too small, which is its own kind of blur.
+          sizes={imagesPerRow === 1 ? "(max-width: 900px) 100vw, 1020px" : "(max-width: 900px) 50vw, 505px"}
           onClick={pending ? undefined : onOpen}
           style={{
             objectFit: "cover",
