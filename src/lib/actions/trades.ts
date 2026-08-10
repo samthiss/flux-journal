@@ -8,13 +8,19 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 import { deleteImageFileIfUnused, deleteImageFilesIfUnused } from "@/lib/imageFiles";
+import { sniffImageType } from "@/lib/imageType";
 import { UPLOAD_DIR } from "@/lib/uploadDir";
 
 async function saveImage(file: File): Promise<string> {
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  const ext = path.extname(file.name) || ".png";
-  const filename = `${randomUUID()}${ext}`;
+  // Same rule as /api/uploads: what a file claims to be comes from the request,
+  // so the first bytes decide whether it is kept and under what extension —
+  // that extension is what the serving route turns back into a Content-Type.
   const buffer = Buffer.from(await file.arrayBuffer());
+  const type = sniffImageType(buffer);
+  if (!type) throw new Error("Ce fichier n'est pas une image PNG, JPEG, WebP ou GIF.");
+
+  await mkdir(UPLOAD_DIR, { recursive: true });
+  const filename = `${randomUUID()}${type.ext}`;
   await writeFile(path.join(UPLOAD_DIR, filename), buffer);
   return `/api/uploads/${filename}`;
 }
@@ -68,6 +74,14 @@ export async function updateTrade(tradeId: string, formData: FormData) {
   const data = parseTradeForm(formData);
   const chartFields = await parseChartFields(formData);
 
+  // Replacing a chart used to leave the old file on the volume for good: the
+  // column moved on and nothing else remembered the name. Read the outgoing
+  // URLs before they are overwritten, and sweep them once the row is saved.
+  const replacedSlots = Object.keys(chartFields);
+  const previous = replacedSlots.length
+    ? await prisma.trade.findUnique({ where: { id: tradeId } })
+    : null;
+
   await prisma.trade.update({
     where: { id: tradeId },
     data: {
@@ -76,6 +90,11 @@ export async function updateTrade(tradeId: string, formData: FormData) {
       ...chartFields,
     },
   });
+
+  if (previous) {
+    const outgoing = previous as unknown as Record<string, string | null>;
+    await deleteImageFilesIfUnused(replacedSlots.map((field) => outgoing[field]));
+  }
 
   revalidatePath("/");
   revalidatePath("/trades");

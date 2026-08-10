@@ -41,6 +41,10 @@ const inputStyle: React.CSSProperties = {
 
 const monoInputStyle: React.CSSProperties = { ...inputStyle, fontFamily: "var(--font-jetbrains-mono), monospace" };
 
+// Exactly what the serving route can hand back with a real Content-Type.
+// `image/*` would also offer SVG, which is a document that can carry script.
+const ACCEPTED_CHART_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
 function fieldLabel(text: string) {
   return <div style={{ fontSize: 12, color: "oklch(0.6 0.02 290)", marginBottom: 6 }}>{text}</div>;
 }
@@ -58,10 +62,20 @@ function ChartSlotInput({
 }) {
   const [preview, setPreview] = useState(initialSrc ?? "");
   const [dragOver, setDragOver] = useState(false);
+  const [typeError, setTypeError] = useState(false);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
   function loadFile(file: File) {
+    // The server reads the bytes and refuses anything else, but it refuses by
+    // throwing, which costs the whole form. Catching it here keeps an ordinary
+    // mistake — an SVG dropped in, which `image/*` happily offers — a line of
+    // text instead of an error page.
+    if (!ACCEPTED_CHART_TYPES.includes(file.type)) {
+      setTypeError(true);
+      return;
+    }
+    setTypeError(false);
     const dt = new DataTransfer();
     dt.items.add(file);
     if (inputRef.current) inputRef.current.files = dt.files;
@@ -140,11 +154,16 @@ function ChartSlotInput({
           )}
         </div>
       )}
+      {typeError && (
+        <div style={{ marginTop: 6, fontSize: 11, color: "oklch(0.65 0.18 25)" }}>
+          Formats acceptés : PNG, JPEG, WebP, GIF.
+        </div>
+      )}
       <input
         ref={inputRef}
         type="file"
         name={`chart_${slotKey}`}
-        accept="image/*"
+        accept={ACCEPTED_CHART_TYPES.join(",")}
         style={{ display: "none" }}
         onChange={(e) => {
           const file = e.target.files?.[0];
