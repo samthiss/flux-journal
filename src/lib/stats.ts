@@ -10,6 +10,31 @@ export type TradeForStats = {
   rr: number | null;
 };
 
+/**
+ * The columns above, as a Prisma `select`.
+ *
+ * The dashboard and the trades table both read a trade list and both need
+ * exactly these fields. Left to `findMany` with no select, they instead carry
+ * every column — the two free-text note fields and the four chart URLs
+ * included, which on the current data is nine tenths of the bytes and none of
+ * the information either screen draws.
+ *
+ * Kept beside the type so the two cannot drift: a field added here without a
+ * matching line above is unused, and one added above without a line here fails
+ * to typecheck where the query result is passed on.
+ */
+export const TRADE_FOR_STATS_SELECT = {
+  id: true,
+  date: true,
+  symbol: true,
+  side: true,
+  size: true,
+  pnl: true,
+  setup: true,
+  market: true,
+  rr: true,
+} as const;
+
 export type TradeWithOutcome = TradeForStats & { outcome: "win" | "loss" };
 
 export function withOutcome(trades: TradeForStats[]): TradeWithOutcome[] {

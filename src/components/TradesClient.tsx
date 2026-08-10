@@ -3,18 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
-
-type Trade = {
-  id: string;
-  date: Date;
-  symbol: string;
-  side: string;
-  size: number;
-  pnl: number;
-  rr: number | null;
-  setup: string;
-  market: string | null;
-};
+import type { TradeForStats as Trade } from "@/lib/stats";
 
 const selectStyle: React.CSSProperties = {
   background: "oklch(0.18 0.02 290)",
