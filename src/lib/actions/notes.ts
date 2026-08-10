@@ -2,9 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { unlink } from "node:fs/promises";
-import path from "node:path";
-import { UPLOAD_DIR } from "@/lib/uploadDir";
+import { deleteImageFileIfUnused, deleteImageFilesIfUnused } from "@/lib/imageFiles";
 import { NOTES_SEED } from "@/lib/notesSeed";
 
 async function seedNotesTree(nodes: typeof NOTES_SEED, parentId: string | null) {
@@ -189,24 +187,19 @@ async function collectDescendantIds(id: string): Promise<string[]> {
   return ids;
 }
 
-async function deleteImageFile(imagePath: string | null | undefined) {
-  if (!imagePath) return;
-  const filename = imagePath.split("/").pop();
-  if (!filename) return;
-  await unlink(path.join(UPLOAD_DIR, filename)).catch(() => {});
-}
-
 export async function deleteNote(id: string) {
   const ids = [id, ...(await collectDescendantIds(id))];
   const examples = await prisma.noteExample.findMany({ where: { noteId: { in: ids } } });
   const exampleIds = examples.map((e) => e.id);
+  let urls: string[] = [];
   if (exampleIds.length) {
     const images = await prisma.noteExampleImage.findMany({ where: { exampleId: { in: exampleIds } } });
-    for (const img of images) if (!img.tradeId) await deleteImageFile(img.url);
+    urls = images.map((img) => img.url);
     await prisma.noteExampleImage.deleteMany({ where: { exampleId: { in: exampleIds } } });
     await prisma.noteBlock.deleteMany({ where: { exampleId: { in: exampleIds } } });
     await prisma.noteExample.deleteMany({ where: { noteId: { in: ids } } });
   }
+  await deleteImageFilesIfUnused(urls);
   await prisma.noteCategory.deleteMany({ where: { noteId: { in: ids } } });
   await prisma.noteBlock.deleteMany({ where: { noteId: { in: ids } } });
   await prisma.note.deleteMany({ where: { id: { in: ids } } });
@@ -230,13 +223,15 @@ export async function renameCategory(id: string, name: string) {
 export async function deleteCategory(id: string) {
   const examples = await prisma.noteExample.findMany({ where: { categoryId: id } });
   const exampleIds = examples.map((e) => e.id);
+  let urls: string[] = [];
   if (exampleIds.length) {
     const images = await prisma.noteExampleImage.findMany({ where: { exampleId: { in: exampleIds } } });
-    for (const img of images) if (!img.tradeId) await deleteImageFile(img.url);
+    urls = images.map((img) => img.url);
     await prisma.noteExampleImage.deleteMany({ where: { exampleId: { in: exampleIds } } });
     await prisma.noteBlock.deleteMany({ where: { exampleId: { in: exampleIds } } });
     await prisma.noteExample.deleteMany({ where: { categoryId: id } });
   }
+  await deleteImageFilesIfUnused(urls);
   await prisma.noteBlock.deleteMany({ where: { categoryId: id } });
   await prisma.noteCategory.delete({ where: { id } });
   revalidatePath("/notes");
@@ -245,13 +240,15 @@ export async function deleteCategory(id: string) {
 export async function clearNoteExamples(noteId: string) {
   const examples = await prisma.noteExample.findMany({ where: { noteId } });
   const exampleIds = examples.map((e) => e.id);
+  let urls: string[] = [];
   if (exampleIds.length) {
     const images = await prisma.noteExampleImage.findMany({ where: { exampleId: { in: exampleIds } } });
-    for (const img of images) if (!img.tradeId) await deleteImageFile(img.url);
+    urls = images.map((img) => img.url);
     await prisma.noteExampleImage.deleteMany({ where: { exampleId: { in: exampleIds } } });
     await prisma.noteBlock.deleteMany({ where: { exampleId: { in: exampleIds } } });
     await prisma.noteExample.deleteMany({ where: { noteId } });
   }
+  await deleteImageFilesIfUnused(urls);
   await prisma.noteBlock.deleteMany({ where: { noteId, categoryId: { not: null } } });
   await prisma.noteCategory.deleteMany({ where: { noteId } });
   revalidatePath("/notes");
@@ -292,10 +289,10 @@ export async function updateExample(id: string, data: { title?: string; caption?
 
 export async function deleteExample(id: string) {
   const images = await prisma.noteExampleImage.findMany({ where: { exampleId: id } });
-  for (const img of images) if (!img.tradeId) await deleteImageFile(img.url);
   await prisma.noteExampleImage.deleteMany({ where: { exampleId: id } });
   await prisma.noteBlock.deleteMany({ where: { exampleId: id } });
   await prisma.noteExample.delete({ where: { id } });
+  await deleteImageFilesIfUnused(images.map((img) => img.url));
   revalidatePath("/notes");
 }
 
@@ -307,8 +304,8 @@ export async function updateExampleImageCaption(imageId: string, caption: string
 export async function removeExampleImage(imageId: string) {
   const img = await prisma.noteExampleImage.findUnique({ where: { id: imageId } });
   if (!img) return;
-  if (!img.tradeId) await deleteImageFile(img.url);
   await prisma.noteExampleImage.delete({ where: { id: imageId } });
+  await deleteImageFileIfUnused(img.url);
   revalidatePath("/notes");
 }
 
