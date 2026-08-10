@@ -1422,6 +1422,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [headerHover, setHeaderHover] = useState(false);
   const [showTradePicker, setShowTradePicker] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [dropping, setDropping] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -1447,6 +1448,94 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
     const next: 1 | 2 = imagesPerRow === 2 ? 1 : 2;
     setImagesPerRow(next);
     updateExample(example.id, { imagesPerRow: next });
+  };
+
+  // Sends one already-previewed file and swaps its preview for the stored
+  // record, which carries the id needed to remove it or caption it later.
+  // Returns why it failed, or null when it went through.
+  const uploadPreviewed = async (file: File, pendingId: string, previewUrl: string): Promise<string | null> => {
+    const drop = (reason: string) => {
+      setLocalImages((list) => list.filter((i) => i.id !== pendingId));
+      URL.revokeObjectURL(previewUrl);
+      return reason;
+    };
+
+    let upload = file;
+    try {
+      upload = await compressImage(file, MAX_IMAGE_BYTES);
+    } catch {
+      // Undecodable image: send it as-is and let the size check below speak.
+    }
+    if (upload.size > MAX_IMAGE_BYTES) {
+      return drop("compression insuffisante, réduis la résolution");
+    }
+
+    const fd = new FormData();
+    fd.append("exampleId", example.id);
+    fd.append("image", upload);
+    let res: Response;
+    try {
+      res = await fetch("/api/uploads", { method: "POST", body: fd });
+    } catch {
+      return drop("connexion interrompue");
+    }
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: null }));
+      return drop(error ?? "refusée par le serveur");
+    }
+
+    const { image } = (await res.json()) as { image: ImageRecord };
+    setLocalImages((list) => list.map((i) => (i.id === pendingId ? image : i)));
+    URL.revokeObjectURL(previewUrl);
+    return null;
+  };
+
+  // Every file gets its preview up front, so dropping six screenshots fills the
+  // grid at once instead of one tile every second or so. The uploads themselves
+  // run one at a time: several in parallel would put more than the ~1MB this
+  // network path can carry on the wire together, which is what makes a request
+  // hang and never answer (see src/lib/compressImage.ts).
+  const addImageFiles = async (selected: File[]) => {
+    const files = selected.filter((f) => f.type.startsWith("image/"));
+    if (!files.length) return;
+    setFileError(null);
+
+    const failures: { name: string; reason: string }[] = [];
+    const queue: { file: File; pendingId: string; previewUrl: string }[] = [];
+    for (const file of files) {
+      if (file.size > MAX_SOURCE_BYTES) {
+        failures.push({ name: file.name, reason: `trop volumineuse (${(file.size / (1024 * 1024)).toFixed(1)} Mo)` });
+        continue;
+      }
+      queue.push({ file, pendingId: `${PENDING_PREFIX}${crypto.randomUUID()}`, previewUrl: URL.createObjectURL(file) });
+    }
+
+    setLocalImages((list) => [
+      ...list,
+      ...queue.map((q, i) => ({
+        id: q.pendingId,
+        exampleId: example.id,
+        url: q.previewUrl,
+        caption: null,
+        tradeId: null,
+        order: list.length + i,
+      })),
+    ]);
+
+    for (const q of queue) {
+      const reason = await uploadPreviewed(q.file, q.pendingId, q.previewUrl);
+      if (reason) failures.push({ name: q.file.name, reason });
+    }
+
+    if (failures.length) {
+      // One line per reason rather than per file: dropping eight screenshots
+      // from one folder tends to fail the same way eight times.
+      const byReason = new Map<string, string[]>();
+      for (const f of failures) byReason.set(f.reason, [...(byReason.get(f.reason) ?? []), f.name]);
+      setFileError(
+        [...byReason].map(([reason, names]) => `${names.join(", ")} — ${reason}.`).join(" ")
+      );
+    }
   };
 
   return (
@@ -1549,6 +1638,33 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             ))}
           </div>
         )}
+        <div
+          // The drop target covers the images and the buttons under them, not
+          // the whole card: the text blocks above are their own editing surface
+          // and a file dropped there means nothing.
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            if (!dropping) setDropping(true);
+          }}
+          onDragLeave={(e) => {
+            // Fires when crossing into a child too, so only a pointer that has
+            // really left the zone counts.
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false);
+          }}
+          onDrop={async (e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            setDropping(false);
+            await addImageFiles(Array.from(e.dataTransfer.files));
+          }}
+          style={{
+            outline: `1px dashed ${dropping ? accentColor : "transparent"}`,
+            outlineOffset: -3,
+            borderRadius: 10,
+            transition: "outline-color 0.12s ease",
+          }}
+        >
         {localImages.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: localImages.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10 }}>
             {localImages.map((img) => (
@@ -1576,77 +1692,21 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
           ref={fileRef}
           type="file"
           accept="image/*"
+          multiple
           style={{ display: "none" }}
           onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            setFileError(null);
-            if (file.size > MAX_SOURCE_BYTES) {
-              setFileError(
-                `Image trop volumineuse (${(file.size / (1024 * 1024)).toFixed(1)} Mo). Réduis sa résolution avant de l'ajouter.`
-              );
-              if (fileRef.current) fileRef.current.value = "";
-              return;
-            }
-            try {
-              let upload = file;
-              try {
-                upload = await compressImage(file, MAX_IMAGE_BYTES);
-              } catch {
-                // Undecodable image: send it as-is and let the size check below speak.
-              }
-              if (upload.size > MAX_IMAGE_BYTES) {
-                setFileError("Impossible de compresser cette image assez pour l'envoyer. Réduis sa résolution avant de l'ajouter.");
-                if (fileRef.current) fileRef.current.value = "";
-                return;
-              }
-              // Show the image straight away from the local file, so the grid
-              // fills in while the upload is still in flight.
-              const pendingId = `${PENDING_PREFIX}${crypto.randomUUID()}`;
-              const previewUrl = URL.createObjectURL(upload);
-              setLocalImages((list) => [
-                ...list,
-                { id: pendingId, exampleId: example.id, url: previewUrl, caption: null, tradeId: null, order: list.length },
-              ]);
-
-              const fd = new FormData();
-              fd.append("exampleId", example.id);
-              fd.append("image", upload);
-              let res: Response;
-              try {
-                res = await fetch("/api/uploads", { method: "POST", body: fd });
-              } catch {
-                setLocalImages((list) => list.filter((i) => i.id !== pendingId));
-                URL.revokeObjectURL(previewUrl);
-                throw new Error("network");
-              }
-
-              if (!res.ok) {
-                const { error } = await res.json().catch(() => ({ error: null }));
-                setLocalImages((list) => list.filter((i) => i.id !== pendingId));
-                URL.revokeObjectURL(previewUrl);
-                setFileError(error ?? "Échec de l'ajout de l'image. Réessaie.");
-              } else {
-                const { image } = (await res.json()) as { image: ImageRecord };
-                // Swap the local preview for the stored record, which carries the
-                // id needed to remove it or caption it later.
-                setLocalImages((list) => list.map((i) => (i.id === pendingId ? image : i)));
-                URL.revokeObjectURL(previewUrl);
-              }
-            } catch {
-              setFileError("Échec de l'ajout de l'image. Vérifie ta connexion et réessaie.");
-            } finally {
-              if (fileRef.current) fileRef.current.value = "";
-            }
+            const files = Array.from(e.target.files ?? []);
+            if (fileRef.current) fileRef.current.value = "";
+            await addImageFiles(files);
           }}
         />
         <div style={{ margin: "0 12px 12px" }}>
           <div style={{ display: "flex", gap: 8 }}>
             <div
               onClick={() => fileRef.current?.click()}
-              style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: "1px dashed oklch(0.34 0.02 290)", borderRadius: 8, color: "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11 }}
+              style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px dashed ${dropping ? accentColor : "oklch(0.34 0.02 290)"}`, borderRadius: 8, color: dropping ? accentColor : "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, transition: "border-color 0.12s ease, color 0.12s ease" }}
             >
-              <span style={{ fontSize: 16 }}>+</span> image
+              {dropping ? "dépose tes images" : (<><span style={{ fontSize: 16 }}>+</span> images</>)}
             </div>
             <div style={{ position: "relative", flex: 1 }}>
               <div
@@ -1670,6 +1730,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
           {fileError && (
             <div style={{ marginTop: 5, fontSize: 11.5, color: lossColor }}>{fileError}</div>
           )}
+        </div>
         </div>
       </div>
       )}
