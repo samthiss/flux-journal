@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { sniffImageType } from "@/lib/imageType";
 import { prisma } from "@/lib/prisma";
 import { UPLOAD_DIR } from "@/lib/uploadDir";
 
@@ -35,9 +36,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    await mkdir(UPLOAD_DIR, { recursive: true });
-    const filename = `${randomUUID()}${path.extname(file.name) || ".png"}`;
+    // What the file says it is cannot be trusted: `file.type` and the extension
+    // in `file.name` both come from the request, so either can claim to be a
+    // PNG. The first bytes cannot be dressed up that way, so they decide both
+    // whether we keep the file and the extension it is stored under — that
+    // extension is what the serving route turns back into a Content-Type.
     const buffer = Buffer.from(await file.arrayBuffer());
+    const type = sniffImageType(buffer);
+    if (!type) {
+      return Response.json(
+        { error: "Ce fichier n'est pas une image PNG, JPEG, WebP ou GIF." },
+        { status: 415 }
+      );
+    }
+
+    await mkdir(UPLOAD_DIR, { recursive: true });
+    const filename = `${randomUUID()}${type.ext}`;
     await writeFile(path.join(UPLOAD_DIR, filename), buffer);
 
     const url = `/api/uploads/${filename}`;
