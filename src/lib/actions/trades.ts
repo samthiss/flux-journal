@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile, unlink } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CHART_SLOTS } from "@/lib/chartSlots";
+import { deleteImageFileIfUnused, deleteImageFilesIfUnused } from "@/lib/imageFiles";
 import { UPLOAD_DIR } from "@/lib/uploadDir";
 
 async function saveImage(file: File): Promise<string> {
@@ -16,13 +17,6 @@ async function saveImage(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(path.join(UPLOAD_DIR, filename), buffer);
   return `/api/uploads/${filename}`;
-}
-
-async function deleteImageFile(imagePath: string | null | undefined) {
-  if (!imagePath) return;
-  const filename = imagePath.split("/").pop();
-  if (!filename) return;
-  await unlink(path.join(UPLOAD_DIR, filename)).catch(() => {});
 }
 
 async function parseChartFields(formData: FormData) {
@@ -97,9 +91,11 @@ export async function removeChartSlot(tradeId: string, slotKey: string) {
   if (!trade) return;
 
   const current = (trade as unknown as Record<string, string | null>)[slot.field];
-  await deleteImageFile(current);
-
+  // Clear the column first: the file is only removed once nothing points at it,
+  // and this trade is one of the things that points at it.
   await prisma.trade.update({ where: { id: tradeId }, data: { [slot.field]: null } });
+  await deleteImageFileIfUnused(current);
+
   revalidatePath(`/trades/${tradeId}/edit`);
   revalidatePath(`/trades/${tradeId}`);
 }
@@ -107,10 +103,11 @@ export async function removeChartSlot(tradeId: string, slotKey: string) {
 export async function deleteTrade(tradeId: string) {
   const trade = await prisma.trade.findUnique({ where: { id: tradeId } });
   if (trade) {
-    for (const slot of CHART_SLOTS) {
-      await deleteImageFile((trade as unknown as Record<string, string | null>)[slot.field]);
-    }
+    const charts = CHART_SLOTS.map((slot) => (trade as unknown as Record<string, string | null>)[slot.field]);
+    // The trade goes first, so that a chart a note imported is still spoken for
+    // when the files are swept: the note keeps the image it was shown.
     await prisma.trade.delete({ where: { id: tradeId } });
+    await deleteImageFilesIfUnused(charts);
   }
   revalidatePath("/");
   revalidatePath("/trades");

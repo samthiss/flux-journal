@@ -129,12 +129,11 @@ model NoteExampleImage {
 
   example NoteExample @relation(fields: [exampleId], references: [id], onDelete: Cascade)
 
-  // `tradeId` records that this image was imported from a trade and still shares
-  // the file with it, which is what tells the delete paths not to unlink that
-  // file. Deleting the trade therefore clears the link rather than the row: the
-  // image belongs to the example, and once no trade points at the file the
-  // example is free to remove it. (The file itself is still unlinked by
-  // deleteTrade while the note keeps showing it — that bug is untouched here.)
+  // `tradeId` records that this image was imported from a trade; the note links
+  // back to it. Deleting the trade therefore clears the link rather than the
+  // row — the image belongs to the example, and it stays on the page with its
+  // link gone. Whether the file behind it survives is decided elsewhere, by
+  // counting what still points at that URL (see src/lib/imageFiles.ts).
   trade Trade? @relation(fields: [tradeId], references: [id], onDelete: SetNull)
 
   @@index([exampleId])
