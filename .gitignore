@@ -52,3 +52,7 @@ next-env.d.ts
 # public/uploads is already tracked, so committing these would grow a
 # repository whose image weight is a known problem
 /public/uploads-cache
+
+# staging output of scripts/migrate-base44-charts.sh — 78MB of images to be
+# uploaded to the volume, not committed, for the same reason as above
+/out-base44
