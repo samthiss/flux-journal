@@ -59,15 +59,25 @@ if [ "$WITH_IMAGES" = "1" ]; then
   echo "backup: telechargement des images..."
   railway volume files --volume "$VOLUME" download /uploads "$TMP/uploads" >/dev/null
 
-  # Copy without clobbering: a backup must not lose an image just because it was
-  # deleted in the app, and re-copying 54MB every run would be wasteful anyway.
-  cp -Rn "$TMP/uploads/." "$BACKUP_REPO/uploads/" 2>/dev/null || true
+  # Flatten rather than copy the tree: the Railway CLI writes the remote folder
+  # *inside* the target, so the download lands in $TMP/uploads/uploads, and a
+  # recursive copy reproduced that nesting in the backup. Walking the files
+  # instead handles either layout. AppleDouble sidecars are macOS noise.
+  #
+  # -n keeps it non-clobbering: a backup must not lose an image just because it
+  # was deleted in the app, and re-copying 54MB every run would be wasteful.
+  find "$TMP/uploads" -type f ! -name '._*' \
+    -exec cp -n {} "$BACKUP_REPO/uploads/" \; 2>/dev/null || true
 fi
 
 TRADES="$(sqlite3 "$TMP/prod.db" "select count(*) from Trade;")"
 NOTES="$(sqlite3 "$TMP/prod.db" "select count(*) from Note;")"
 IMAGES="$(sqlite3 "$TMP/prod.db" "select count(*) from NoteExampleImage;")"
-FILES="$(find "$BACKUP_REPO/uploads" -type f | wc -l | tr -d ' ')"
+# Count only the images themselves. A plain -type f sweep also picks up macOS
+# AppleDouble sidecars (._name), .gitkeep, and anything left in a subdirectory
+# by an interrupted download, which inflated this number to 270 for 228 images.
+FILES="$(find "$BACKUP_REPO/uploads" -maxdepth 1 -type f \
+  ! -name '._*' ! -name '.gitkeep' | wc -l | tr -d ' ')"
 
 if [ "$WITH_IMAGES" = "1" ]; then
   IMAGES_LINE="Fichiers uploads   $FILES (sauvegardes)"
