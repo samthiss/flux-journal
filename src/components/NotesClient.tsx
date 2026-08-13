@@ -36,6 +36,26 @@ const PENDING_PREFIX = "pending:";
 const TEXT_WIDTH = 1040;
 const HEADER_INDENT = 75;
 
+/**
+ * How much wider than its tile an image is actually drawn.
+ *
+ * Thumbnails sit in a 16/9 box under `objectFit: cover`, which scales the image
+ * until it covers the box and crops the overflow. A capture wider than 16/9 is
+ * therefore drawn wider than the tile — so the browser needs more pixels than
+ * the tile width alone suggests, and `sizes` has to say so or it picks a source
+ * a size too small. That is the blur that survived fixing the srcset widths.
+ *
+ * Measured over the 226 stored images: half sit near 16/9, but 123 are wider,
+ * up to a ratio of 2.81 — a 1.58x overshoot. This covers all of them.
+ *
+ * One constant rather than each image's own ratio, which is not known until it
+ * has loaded, by which point the source has already been chosen. It is close to
+ * free: the width buckets are coarse enough that 1.0x and 1.58x usually land on
+ * the same one, and `withoutEnlargement` means a source is never billed for
+ * pixels it does not have.
+ */
+const COVER_OVERSHOOT = 1.6;
+
 type NoteRecord = {
   id: string;
   parentId: string | null;
@@ -1330,9 +1350,13 @@ function ExampleImage({
           unoptimized={!isLocal}
           loader={isLocal ? ({ src, width }) => `${src}?w=${width}` : undefined}
           // The tile is about 505px wide at two per row and about 1020px at one,
-          // inside a 1040px column. Understating these made the browser pick a
-          // source a size too small, which is its own kind of blur.
-          sizes={imagesPerRow === 1 ? "(max-width: 900px) 100vw, 1020px" : "(max-width: 900px) 50vw, 505px"}
+          // inside a 1040px column — then widened by COVER_OVERSHOOT, because
+          // `cover` draws a wide capture past the edges of its tile.
+          sizes={
+            imagesPerRow === 1
+              ? `(max-width: 900px) ${100 * COVER_OVERSHOOT}vw, ${Math.round(1020 * COVER_OVERSHOOT)}px`
+              : `(max-width: 900px) ${50 * COVER_OVERSHOOT}vw, ${Math.round(505 * COVER_OVERSHOOT)}px`
+          }
           onClick={pending ? undefined : onOpen}
           style={{
             objectFit: "cover",
