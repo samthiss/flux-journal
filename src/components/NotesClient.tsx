@@ -37,24 +37,13 @@ const TEXT_WIDTH = 1040;
 const HEADER_INDENT = 75;
 
 /**
- * How much wider than its tile an image is actually drawn.
+ * The width a thumbnail tile occupies, per images-per-row setting.
  *
- * Thumbnails sit in a 16/9 box under `objectFit: cover`, which scales the image
- * until it covers the box and crops the overflow. A capture wider than 16/9 is
- * therefore drawn wider than the tile — so the browser needs more pixels than
- * the tile width alone suggests, and `sizes` has to say so or it picks a source
- * a size too small. That is the blur that survived fixing the srcset widths.
- *
- * Measured over the 226 stored images: half sit near 16/9, but 123 are wider,
- * up to a ratio of 2.81 — a 1.58x overshoot. This covers all of them.
- *
- * One constant rather than each image's own ratio, which is not known until it
- * has loaded, by which point the source has already been chosen. It is close to
- * free: the width buckets are coarse enough that 1.0x and 1.58x usually land on
- * the same one, and `withoutEnlargement` means a source is never billed for
- * pixels it does not have.
+ * Inside the 1040px column, minus the grid padding and the gap between two
+ * tiles. A tile now keeps its image's own proportions, so the image is drawn at
+ * exactly this width — which is what makes these numbers usable as `sizes`.
  */
-const COVER_OVERSHOOT = 1.6;
+const TILE_WIDTH = { 1: 1020, 2: 505 } as const;
 
 type NoteRecord = {
   id: string;
@@ -1342,24 +1331,36 @@ function ExampleImage({
   const isLocal = img.url.startsWith("/");
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <div style={{ position: "relative", aspectRatio: "16 / 9" }}>
+      <div style={{ position: "relative" }}>
         <Image
           src={img.url}
           alt={img.caption ?? ""}
-          fill
+          // Chart captures are all shapes — 123 of the 226 stored are wider than
+          // 16/9, out to 2.81:1. A fixed 16/9 box with `cover` cropped the sides
+          // off every one of them, so the tile takes the height the image asks
+          // for instead: `width: 100%` with `height: auto`, per the responsive
+          // recipe in the next/image docs.
+          //
+          // width/height are the zeroes that recipe uses for an image whose
+          // dimensions are not known ahead of time — nothing stores them. The
+          // style below overrides both; their only cost is that a tile has no
+          // reserved height until its image arrives.
+          width={0}
+          height={0}
           unoptimized={!isLocal}
           loader={isLocal ? ({ src, width }) => `${src}?w=${width}` : undefined}
-          // The tile is about 505px wide at two per row and about 1020px at one,
-          // inside a 1040px column — then widened by COVER_OVERSHOOT, because
-          // `cover` draws a wide capture past the edges of its tile.
           sizes={
             imagesPerRow === 1
-              ? `(max-width: 900px) ${100 * COVER_OVERSHOOT}vw, ${Math.round(1020 * COVER_OVERSHOOT)}px`
-              : `(max-width: 900px) ${50 * COVER_OVERSHOOT}vw, ${Math.round(505 * COVER_OVERSHOOT)}px`
+              ? `(max-width: 900px) 100vw, ${TILE_WIDTH[1]}px`
+              : `(max-width: 900px) 50vw, ${TILE_WIDTH[2]}px`
           }
           onClick={pending ? undefined : onOpen}
           style={{
-            objectFit: "cover",
+            width: "100%",
+            height: "auto",
+            // Without this the img sits on the text baseline and leaves a few
+            // stray pixels under every tile.
+            display: "block",
             borderRadius: 8,
             border: "1px solid oklch(0.32 0.02 290 / 0.5)",
             cursor: pending ? "progress" : "zoom-in",
@@ -1697,8 +1698,11 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             transition: "outline-color 0.12s ease",
           }}
         >
+        {/* alignItems: start — grid cells stretch to the tallest in the row by
+            default, which would hang empty space under the shorter tiles now
+            that tiles no longer share one height. */}
         {localImages.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: localImages.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: localImages.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10, alignItems: "start" }}>
             {localImages.map((img) => (
               <ExampleImage
                 key={img.id}
