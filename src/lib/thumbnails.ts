@@ -28,7 +28,7 @@ const CACHE_DIR = path.join(UPLOAD_DIR, "..", "uploads-cache");
  * distinct `?w=` would write another file, and a browser window dragged across
  * the screen would be enough to fill the volume.
  */
-const WIDTHS = [640, 828, 1080, 1200, 1920] as const;
+const WIDTHS = [640, 828, 1080, 1200, 1920, 2560, 3200] as const;
 
 export function snapWidth(requested: number) {
   return WIDTHS.find((w) => w >= requested) ?? WIDTHS[WIDTHS.length - 1];
