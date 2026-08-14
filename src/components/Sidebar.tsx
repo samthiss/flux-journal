@@ -174,9 +174,17 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
 
   const [tree, setTree] = useState<NoteRow[]>(initialTree);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Folding a branch is a statement about how they want to read the tree, not a
+  // detail of this page load, so it outlives the reload — the same way the
+  // sidebar's width and the folded example categories already do.
+  const collapsedHydrated = useRef(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
+  // Tears down the scroll anchoring in scrollTo — on the next click, on a
+  // scroll of their own, or on unmount.
+  const cancelAnchor = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelAnchor.current?.(), []);
 
   const [sidebarHidden, setSidebarHidden] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(252);
@@ -188,6 +196,31 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
     const savedWidth = Number(localStorage.getItem("sidebar-width"));
     if (savedWidth >= 200 && savedWidth <= 420) setSidebarWidth(savedWidth);
   }, []);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("sidebar-collapsed");
+      // Only the folded ids are stored, so a note that was never touched — or
+      // one created since — simply is not in the list and opens as usual.
+      if (saved) {
+        const ids: unknown = JSON.parse(saved);
+        if (Array.isArray(ids)) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage on mount
+          setCollapsed(Object.fromEntries(ids.filter((id) => typeof id === "string").map((id: string) => [id, true])));
+        }
+      }
+    } catch {
+      // Unreadable or absent storage: everything opens, which is the old
+      // behaviour and no worse than it was.
+    }
+    collapsedHydrated.current = true;
+  }, []);
+  useEffect(() => {
+    // Writing before the read above would save the empty default over what is
+    // stored, and the fold would be lost on the very reload meant to restore it.
+    if (!collapsedHydrated.current) return;
+    localStorage.setItem("sidebar-collapsed", JSON.stringify(Object.keys(collapsed).filter((id) => collapsed[id])));
+  }, [collapsed]);
+
   useEffect(() => {
     localStorage.setItem("sidebar-hidden", sidebarHidden ? "1" : "0");
   }, [sidebarHidden]);
@@ -277,8 +310,73 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
     return true;
   });
 
+  // A note tile reserves no height until its image arrives — the thumbnails are
+  // drawn `height: auto` because nothing stores their dimensions (see
+  // ExampleImage in NotesClient). Every thumbnail that finishes loading above
+  // the target therefore pushes it further down while the scroll is still
+  // running, and the click lands on whichever section has slid into place
+  // meanwhile. Holding the anchor until the page stops growing is what keeps
+  // the click honest.
   function scrollTo(id: string) {
-    document.getElementById("note-" + id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const el = document.getElementById("note-" + id);
+    if (!el) return;
+    cancelAnchor.current?.();
+
+    const root = document.querySelector<HTMLElement>(".app-main");
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!root) return;
+
+    let raf = 0;
+    let previousTop = root.scrollTop;
+    let framesAtRest = 0;
+    // Where the section sits once the smooth scroll has come to rest. That
+    // resting position is by definition the alignment scrollIntoView aimed for,
+    // so it doubles as the reference to restore when the page shifts under it.
+    let restingTop: number | null = null;
+    // Timestamps come from the frame callback rather than a clock read, which
+    // would be an impure call in the render body.
+    let startedAt: number | null = null;
+
+    const stop = () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("keydown", stop);
+      cancelAnchor.current = null;
+    };
+
+    const step = (now: number) => {
+      if (startedAt === null) startedAt = now;
+      if (Math.abs(root.scrollTop - previousTop) > 0.5) {
+        previousTop = root.scrollTop;
+        framesAtRest = 0;
+      } else {
+        previousTop = root.scrollTop;
+        framesAtRest++;
+      }
+
+      // Correcting mid-animation would fight the browser's own scroll, which
+      // rewrites scrollTop every frame towards the offset it fixed at the start.
+      if (framesAtRest >= 3) {
+        const top = el.getBoundingClientRect().top;
+        if (restingTop === null) restingTop = top;
+        else if (Math.abs(top - restingTop) > 2) {
+          el.scrollIntoView({ behavior: "auto", block: "start" });
+          restingTop = el.getBoundingClientRect().top;
+        }
+      }
+
+      if (now - startedAt > 3000) return stop();
+      raf = requestAnimationFrame(step);
+    };
+
+    // Any deliberate scroll of their own means they no longer want to be held
+    // at that section.
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchstart", stop, { passive: true });
+    window.addEventListener("keydown", stop);
+    cancelAnchor.current = stop;
+    raf = requestAnimationFrame(step);
   }
 
   // The sidebar lives in the root layout, which the login page inherits too.
