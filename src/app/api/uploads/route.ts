@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { measureImage } from "@/lib/imageSize";
 import { sniffImageType } from "@/lib/imageType";
 import { prisma } from "@/lib/prisma";
 import { UPLOAD_DIR } from "@/lib/uploadDir";
@@ -56,10 +57,16 @@ export async function POST(request: Request) {
 
     const url = `/api/uploads/${filename}`;
     const count = await prisma.noteExampleImage.count({ where: { exampleId } });
+    // Measured here, while the bytes are already in hand, so the tile can
+    // reserve its height the first time the page draws it. Unreadable
+    // dimensions are stored as null and cost nothing but the old behaviour.
+    const size = await measureImage(buffer);
     // The caller inserts this straight into its list, so it needs the whole
     // record — the id above all, without which it could not later remove the
     // image or edit its caption.
-    const image = await prisma.noteExampleImage.create({ data: { exampleId, url, order: count } });
+    const image = await prisma.noteExampleImage.create({
+      data: { exampleId, url, order: count, width: size?.width ?? null, height: size?.height ?? null },
+    });
 
     revalidatePath("/notes");
     return Response.json({ image });

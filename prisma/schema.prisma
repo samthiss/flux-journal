@@ -127,6 +127,18 @@ model NoteExampleImage {
   tradeId   String?
   order     Int     @default(0)
 
+  // The capture's own pixel dimensions, so a tile can reserve its height before
+  // the image arrives. Without them next/image is given `width={0} height={0}`
+  // and every tile is zero-high until it loads — which made the page grow under
+  // the reader, and made a click in the sidebar land on the wrong section.
+  //
+  // Nullable because they are not always knowable: the charts still hosted on
+  // base44 are remote, and rows written before this column existed are filled
+  // in by scripts/backfill-image-dimensions.ts on the next boot. A null simply
+  // falls back to the old unreserved behaviour.
+  width  Int?
+  height Int?
+
   example NoteExample @relation(fields: [exampleId], references: [id], onDelete: Cascade)
 
   // `tradeId` records that this image was imported from a trade; the note links

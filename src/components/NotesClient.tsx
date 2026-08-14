@@ -87,7 +87,7 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
 
 type CategoryRecord = { id: string; noteId: string; name: string; order: number };
 type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; order: number };
-type ImageRecord = { id: string; exampleId: string; url: string; caption: string | null; tradeId: string | null; order: number };
+type ImageRecord = { id: string; exampleId: string; url: string; caption: string | null; tradeId: string | null; order: number; width: number | null; height: number | null };
 type TradeSearchResult = { id: string; symbol: string; date: string; setup: string; side: string; pnl: number; imageCount: number };
 
 function parseArr(s: string | null): string[] {
@@ -1362,12 +1362,18 @@ function ExampleImage({
           // for instead: `width: 100%` with `height: auto`, per the responsive
           // recipe in the next/image docs.
           //
-          // width/height are the zeroes that recipe uses for an image whose
-          // dimensions are not known ahead of time — nothing stores them. The
-          // style below overrides both; their only cost is that a tile has no
-          // reserved height until its image arrives.
-          width={0}
-          height={0}
+          // The stored dimensions are handed over whenever they are known, not
+          // to size the tile — the style below overrides both — but so that
+          // next/image can reserve the height from the ratio before the image
+          // arrives. Without them the tile is zero-high until it loads, the page
+          // grows under the reader, and a click in the sidebar lands on whatever
+          // section slid into place meanwhile.
+          //
+          // Falling back to the zeroes of the responsive recipe covers what
+          // cannot be measured: base44 charts, and rows the backfill has not
+          // reached yet. Those tiles behave as they did before.
+          width={img.width ?? 0}
+          height={img.height ?? 0}
           unoptimized={!isLocal}
           loader={isLocal ? ({ src, width }) => `${src}?w=${width}` : undefined}
           sizes={
@@ -1580,6 +1586,11 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
         caption: null,
         tradeId: null,
         order: list.length + i,
+        // Not measured yet — the server answers with the real ones a moment
+        // later. A tile being sent is the one place a shift costs nothing: it
+        // is on screen because they just dropped it there.
+        width: null,
+        height: null,
       })),
     ]);
 

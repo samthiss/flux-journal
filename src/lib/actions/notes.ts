@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { deleteImageFileIfUnused, deleteImageFilesIfUnused } from "@/lib/imageFiles";
+import { measureStoredImage } from "@/lib/imageSize";
 import { NOTES_SEED } from "@/lib/notesSeed";
 
 async function seedNotesTree(nodes: typeof NOTES_SEED, parentId: string | null) {
@@ -379,7 +380,13 @@ async function importTradeImagesInto(exampleId: string, tradeId: string) {
   if (!urls.length) return;
   let count = await prisma.noteExampleImage.count({ where: { exampleId } });
   for (const url of urls) {
-    await prisma.noteExampleImage.create({ data: { exampleId, url, tradeId, order: count } });
+    // Read off the volume rather than carried over from the trade, which never
+    // stored them either. A base44 chart answers null and keeps the old
+    // unreserved tile.
+    const size = await measureStoredImage(url);
+    await prisma.noteExampleImage.create({
+      data: { exampleId, url, tradeId, order: count, width: size?.width ?? null, height: size?.height ?? null },
+    });
     count++;
   }
 }
