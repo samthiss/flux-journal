@@ -6,6 +6,7 @@ import { compressImage, MAX_SOURCE_BYTES } from "@/lib/compressImage";
 import Link from "next/link";
 import Image from "next/image";
 import { accentColor } from "@/lib/theme";
+import ImageLightbox from "@/components/ImageLightbox";
 import {
   renameNote,
   deleteNote,
@@ -1356,6 +1357,13 @@ function ExampleImage({
           }
           onClick={pending ? undefined : onOpen}
           style={{
+            // A tile always fills its column, even when the capture holds fewer
+            // pixels than that and has to be stretched to get there. Capping at
+            // the native size was tried and dropped: it left 69 of the 224
+            // stored images drawn narrower than their tile, down to 285px, and
+            // an even grid is worth more than the sharpness of the few small
+            // captures. `sizes` asking for OVERSAMPLE above the tile is what
+            // carries the sharpness now.
             width: "100%",
             height: "auto",
             // Without this the img sits on the text baseline and leaves a few
@@ -1770,49 +1778,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
         </div>
       </div>
       )}
-      {lightboxUrl && (
-        <div
-          onClick={() => setLightboxUrl(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            background: "oklch(0.08 0.01 290 / 0.9)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 40,
-            cursor: "zoom-out",
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lightboxUrl}
-            alt=""
-            style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 10, boxShadow: "0 20px 60px -10px oklch(0 0 0 / 0.6)" }}
-          />
-          <div
-            onClick={() => setLightboxUrl(null)}
-            style={{
-              position: "absolute",
-              top: 20,
-              right: 24,
-              width: 36,
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 18,
-              borderRadius: 8,
-              background: "oklch(0.18 0.02 290 / 0.8)",
-              color: "oklch(0.9 0.005 290)",
-              cursor: "pointer",
-            }}
-          >
-            ✕
-          </div>
-        </div>
-      )}
+      <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
     </div>
   );
 }
