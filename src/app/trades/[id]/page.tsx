@@ -5,6 +5,7 @@ import { CHART_SLOTS } from "@/lib/chartSlots";
 import { deleteTrade } from "@/lib/actions/trades";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import AddTradeToNoteButton from "@/components/AddTradeToNoteButton";
+import TradeCharts from "@/components/TradeCharts";
 
 export const dynamic = "force-dynamic";
 
@@ -195,45 +196,9 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
         <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
           Charts
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
-          {CHART_SLOTS.map((slot) => {
-            const src = chartValues[slot.key];
-            return (
-              <div key={slot.key}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.78 0.02 290)", marginBottom: 8 }}>{slot.label}</div>
-                {src ? (
-                  <div
-                    style={{
-                      width: "100%",
-                      aspectRatio: "16/10",
-                      backgroundImage: `url(${src})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      borderRadius: 10,
-                      border: "1px solid oklch(0.32 0.03 290 / 0.5)",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      aspectRatio: "16/10",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px dashed oklch(0.36 0.03 290 / 0.6)",
-                      borderRadius: 10,
-                      color: "oklch(0.5 0.02 290)",
-                      fontSize: 12,
-                    }}
-                  >
-                    No image
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <TradeCharts
+          charts={CHART_SLOTS.map((slot) => ({ key: slot.key, label: slot.label, src: chartValues[slot.key] }))}
+        />
       </div>
     </div>
   );
