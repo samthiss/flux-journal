@@ -276,6 +276,50 @@ export async function reorderExamples(orderedIds: string[]) {
   revalidatePath("/notes");
 }
 
+// Moves an example — with its images and its own text blocks — under another
+// note, another category, or none. The destination is where the example lands
+// last in the list, so a move never displaces what is already there.
+export async function moveExample(exampleId: string, noteId: string, categoryId: string | null) {
+  const example = await prisma.noteExample.findUnique({ where: { id: exampleId } });
+  if (!example) return;
+  if (example.noteId === noteId && example.categoryId === categoryId) return;
+
+  const note = await prisma.note.findUnique({ where: { id: noteId } });
+  if (!note) return;
+  // A category belongs to one note. Accepting one from another note would put
+  // the example somewhere neither of the two notes displays.
+  if (categoryId) {
+    const category = await prisma.noteCategory.findUnique({ where: { id: categoryId } });
+    if (!category || category.noteId !== noteId) return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Examples are only rendered inside an "exemples" block. A note that never
+    // had one would swallow the example silently, so it gets one here.
+    const exemplesBlock = await tx.noteBlock.findFirst({ where: { noteId, type: "exemples" } });
+    if (!exemplesBlock) {
+      const blockCount = await tx.noteBlock.count({ where: { noteId } });
+      await tx.noteBlock.create({ data: { noteId, type: "exemples", content: null, order: blockCount } });
+    }
+
+    const destinationCount = await tx.noteExample.count({ where: { noteId, categoryId } });
+    await tx.noteExample.update({ where: { id: exampleId }, data: { noteId, categoryId, order: destinationCount } });
+    // The example's own blocks travel with it; they are addressed by exampleId
+    // but still carry the noteId they were created under.
+    await tx.noteBlock.updateMany({ where: { exampleId }, data: { noteId } });
+
+    // Close the gap left behind, so the source list keeps consecutive orders.
+    const left = await tx.noteExample.findMany({
+      where: { noteId: example.noteId, categoryId: example.categoryId },
+      orderBy: { order: "asc" },
+      select: { id: true },
+    });
+    for (const [i, e] of left.entries()) await tx.noteExample.update({ where: { id: e.id }, data: { order: i } });
+  });
+
+  revalidatePath("/notes");
+}
+
 export async function updateExample(id: string, data: { title?: string; caption?: string; tags?: string[]; hideText?: boolean; imagesPerRow?: number }) {
   const payload: Record<string, string | boolean | number> = {};
   if (data.title !== undefined) payload.title = data.title;

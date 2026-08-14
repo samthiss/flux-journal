@@ -6,6 +6,7 @@ import { compressImage, MAX_SOURCE_BYTES } from "@/lib/compressImage";
 import Link from "next/link";
 import Image from "next/image";
 import { accentColor } from "@/lib/theme";
+import MoveExampleMenu from "@/components/MoveExampleMenu";
 import {
   renameNote,
   deleteNote,
@@ -1636,6 +1637,13 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
           >
             {imagesPerRow} img/ligne
           </span>
+          <MoveExampleMenu
+            exampleId={example.id}
+            currentNoteId={example.noteId}
+            currentCategoryId={example.categoryId}
+            visible={headerHover}
+            onMoved={onChanged}
+          />
           <AddBlockButton
             visible={headerHover}
             onAdd={async (type) => {
