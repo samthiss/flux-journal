@@ -46,6 +46,25 @@ const HEADER_INDENT = 75;
  */
 const TILE_WIDTH = { 1: 1020, 2: 505 } as const;
 
+/**
+ * How much wider than the tile to ask for.
+ *
+ * `sizes` only decides which srcset candidate the browser downloads, never the
+ * layout, so overstating it buys resolution headroom and nothing else.
+ *
+ * Without it a tile at two images per row asks for exactly what it draws — 1080
+ * real pixels on a retina screen — and the route hands back a lossy q90
+ * downscale of a 1641px capture rendered at 1:1, with nothing in reserve. That
+ * is the whole reason these read softer than the trade charts, which are served
+ * untouched at capture resolution and downscaled by the browser.
+ *
+ * At 1.4 the same tile asks for 1920, gets the 1641px original back losslessly
+ * (nothing to resize below its own width) and lets the browser do the reduction
+ * — the trade-chart path exactly. Measured over 28 stored captures: 80KB per
+ * image at 1080, 123KB at 1920.
+ */
+const OVERSAMPLE = 1.4;
+
 type NoteRecord = {
   id: string;
   parentId: string | null;
@@ -1352,8 +1371,8 @@ function ExampleImage({
           loader={isLocal ? ({ src, width }) => `${src}?w=${width}` : undefined}
           sizes={
             imagesPerRow === 1
-              ? `(max-width: 900px) 100vw, ${TILE_WIDTH[1]}px`
-              : `(max-width: 900px) 50vw, ${TILE_WIDTH[2]}px`
+              ? `(max-width: 900px) ${100 * OVERSAMPLE}vw, ${Math.round(TILE_WIDTH[1] * OVERSAMPLE)}px`
+              : `(max-width: 900px) ${50 * OVERSAMPLE}vw, ${Math.round(TILE_WIDTH[2] * OVERSAMPLE)}px`
           }
           onClick={pending ? undefined : onOpen}
           style={{
