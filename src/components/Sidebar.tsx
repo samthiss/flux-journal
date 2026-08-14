@@ -177,6 +177,10 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
+  // Tears down the scroll anchoring in scrollTo — on the next click, on a
+  // scroll of their own, or on unmount.
+  const cancelAnchor = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelAnchor.current?.(), []);
 
   const [sidebarHidden, setSidebarHidden] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(252);
@@ -277,8 +281,73 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
     return true;
   });
 
+  // A note tile reserves no height until its image arrives — the thumbnails are
+  // drawn `height: auto` because nothing stores their dimensions (see
+  // ExampleImage in NotesClient). Every thumbnail that finishes loading above
+  // the target therefore pushes it further down while the scroll is still
+  // running, and the click lands on whichever section has slid into place
+  // meanwhile. Holding the anchor until the page stops growing is what keeps
+  // the click honest.
   function scrollTo(id: string) {
-    document.getElementById("note-" + id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const el = document.getElementById("note-" + id);
+    if (!el) return;
+    cancelAnchor.current?.();
+
+    const root = document.querySelector<HTMLElement>(".app-main");
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!root) return;
+
+    let raf = 0;
+    let previousTop = root.scrollTop;
+    let framesAtRest = 0;
+    // Where the section sits once the smooth scroll has come to rest. That
+    // resting position is by definition the alignment scrollIntoView aimed for,
+    // so it doubles as the reference to restore when the page shifts under it.
+    let restingTop: number | null = null;
+    // Timestamps come from the frame callback rather than a clock read, which
+    // would be an impure call in the render body.
+    let startedAt: number | null = null;
+
+    const stop = () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("keydown", stop);
+      cancelAnchor.current = null;
+    };
+
+    const step = (now: number) => {
+      if (startedAt === null) startedAt = now;
+      if (Math.abs(root.scrollTop - previousTop) > 0.5) {
+        previousTop = root.scrollTop;
+        framesAtRest = 0;
+      } else {
+        previousTop = root.scrollTop;
+        framesAtRest++;
+      }
+
+      // Correcting mid-animation would fight the browser's own scroll, which
+      // rewrites scrollTop every frame towards the offset it fixed at the start.
+      if (framesAtRest >= 3) {
+        const top = el.getBoundingClientRect().top;
+        if (restingTop === null) restingTop = top;
+        else if (Math.abs(top - restingTop) > 2) {
+          el.scrollIntoView({ behavior: "auto", block: "start" });
+          restingTop = el.getBoundingClientRect().top;
+        }
+      }
+
+      if (now - startedAt > 3000) return stop();
+      raf = requestAnimationFrame(step);
+    };
+
+    // Any deliberate scroll of their own means they no longer want to be held
+    // at that section.
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchstart", stop, { passive: true });
+    window.addEventListener("keydown", stop);
+    cancelAnchor.current = stop;
+    raf = requestAnimationFrame(step);
   }
 
   // The sidebar lives in the root layout, which the login page inherits too.
