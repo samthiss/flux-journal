@@ -174,6 +174,10 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
 
   const [tree, setTree] = useState<NoteRow[]>(initialTree);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Folding a branch is a statement about how they want to read the tree, not a
+  // detail of this page load, so it outlives the reload — the same way the
+  // sidebar's width and the folded example categories already do.
+  const collapsedHydrated = useRef(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
@@ -192,6 +196,31 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
     const savedWidth = Number(localStorage.getItem("sidebar-width"));
     if (savedWidth >= 200 && savedWidth <= 420) setSidebarWidth(savedWidth);
   }, []);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("sidebar-collapsed");
+      // Only the folded ids are stored, so a note that was never touched — or
+      // one created since — simply is not in the list and opens as usual.
+      if (saved) {
+        const ids: unknown = JSON.parse(saved);
+        if (Array.isArray(ids)) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage on mount
+          setCollapsed(Object.fromEntries(ids.filter((id) => typeof id === "string").map((id: string) => [id, true])));
+        }
+      }
+    } catch {
+      // Unreadable or absent storage: everything opens, which is the old
+      // behaviour and no worse than it was.
+    }
+    collapsedHydrated.current = true;
+  }, []);
+  useEffect(() => {
+    // Writing before the read above would save the empty default over what is
+    // stored, and the fold would be lost on the very reload meant to restore it.
+    if (!collapsedHydrated.current) return;
+    localStorage.setItem("sidebar-collapsed", JSON.stringify(Object.keys(collapsed).filter((id) => collapsed[id])));
+  }, [collapsed]);
+
   useEffect(() => {
     localStorage.setItem("sidebar-hidden", sidebarHidden ? "1" : "0");
   }, [sidebarHidden]);

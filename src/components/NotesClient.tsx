@@ -1492,8 +1492,33 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [dropping, setDropping] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
   const [imagesPerRow, setImagesPerRow] = useState<1 | 2>(example.imagesPerRow === 1 ? 1 : 2);
+
+  // Folded on purpose, so it stays folded across a reload — the same storage
+  // the categories above already use, keyed by example rather than by category.
+  const [collapsed, setCollapsed] = useState(false);
+  const storageKey = `exampleCollapsed:${example.id}`;
+  useEffect(() => {
+    let saved = false;
+    try {
+      saved = window.localStorage.getItem(storageKey) === "1";
+    } catch {
+      saved = false;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate collapsed state from localStorage for this example
+    setCollapsed(saved);
+  }, [storageKey]);
+
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      // Only the folded ones are written. An example left open stores nothing,
+      // so deleting it leaves no key behind to be cleaned up later.
+      if (next) localStorage.setItem(storageKey, "1");
+      else localStorage.removeItem(storageKey);
+      return next;
+    });
+  };
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Adding or removing an image used to go through router.refresh(), which
@@ -1619,7 +1644,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span
-            onClick={() => setCollapsed((c) => !c)}
+            onClick={toggleCollapsed}
             style={{ width: 14, height: 22, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
           >
             <ChevronIcon color="oklch(0.5 0.02 290)" down={!collapsed} />
