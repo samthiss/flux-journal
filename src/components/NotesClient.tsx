@@ -27,6 +27,7 @@ import {
   removeExampleImage,
   setCategoryCollapsed,
   setExampleCollapsed,
+  setUncategorizedCollapsed,
   searchTrades,
   importTradeImages,
 } from "@/lib/actions/notes";
@@ -73,6 +74,7 @@ type NoteRecord = {
   parentId: string | null;
   title: string;
   order: number;
+  uncategorizedCollapsed: boolean;
 };
 
 type BlockRecord = { id: string; noteId: string; categoryId: string | null; exampleId: string | null; type: string; content: string | null; order: number };
@@ -624,6 +626,8 @@ function NoteSection({
                         images={images}
                         onChanged={onChanged}
                         exampleBlocks={blockList}
+                        noteId={note.id}
+                        initialCollapsed={note.uncategorizedCollapsed}
                       />
                     )}
                   </div>
@@ -1181,6 +1185,7 @@ function ExampleCategory({
   onDeleteBlock,
   exampleBlocks,
   categoryId,
+  noteId,
   initialCollapsed = false,
 }: {
   title: string;
@@ -1194,9 +1199,10 @@ function ExampleCategory({
   onAddBlock?: (type: string) => void;
   onDeleteBlock?: (blockId: string) => void;
   exampleBlocks?: BlockRecord[];
-  // Absent for the "Sans catégorie" bucket, which is not a row and so has
-  // nowhere to store a fold. That one reopens on reload, as it always did.
   categoryId?: string;
+  // Set instead of categoryId for the "Sans catégorie" bucket, which is not a
+  // NoteCategory row — its fold is stored on the note itself.
+  noteId?: string;
   initialCollapsed?: boolean;
 }) {
   const [name, setName] = useState(title);
@@ -1209,6 +1215,7 @@ function ExampleCategory({
     setCollapsed((c) => {
       const next = fn(c);
       if (categoryId) setCategoryCollapsed(categoryId, next);
+      else if (noteId) setUncategorizedCollapsed(noteId, next);
       return next;
     });
   };

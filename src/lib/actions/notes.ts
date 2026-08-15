@@ -83,6 +83,12 @@ export async function setExampleCollapsed(id: string, collapsed: boolean) {
   await prisma.noteExample.update({ where: { id }, data: { collapsed } });
 }
 
+// The "Sans catégorie" bucket has no row of its own, so its fold lives on the
+// note instead. See the comment on Note.uncategorizedCollapsed in schema.prisma.
+export async function setUncategorizedCollapsed(noteId: string, collapsed: boolean) {
+  await prisma.note.update({ where: { id: noteId }, data: { uncategorizedCollapsed: collapsed } });
+}
+
 export async function getNotesPageData() {
   await ensureNotesSeeded();
   const [notes, blocks, categories, examples] = await Promise.all([

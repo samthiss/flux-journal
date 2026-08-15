@@ -51,15 +51,20 @@ model ChecklistItem {
 }
 
 model Note {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   parentId  String?
   title     String
-  order     Int      @default(0)
+  order     Int     @default(0)
   // Folded in the sidebar. Kept here rather than in localStorage so the server
   // renders the tree already folded: reading it after hydration meant the page
   // painted every branch open for a moment before snapping shut.
-  collapsed Boolean  @default(false)
-  createdAt DateTime @default(now())
+  collapsed Boolean @default(false)
+
+  // Whether the note's "Sans catégorie" bucket is folded. That bucket is not a
+  // NoteCategory row — it is whatever is left over — so it has no row of its own
+  // to carry the flag, and it lives here on the note instead.
+  uncategorizedCollapsed Boolean  @default(false)
+  createdAt              DateTime @default(now())
 
   parent     Note?          @relation("NoteTree", fields: [parentId], references: [id], onDelete: Cascade)
   children   Note[]         @relation("NoteTree")
