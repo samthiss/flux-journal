@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import type { TradeForStats as Trade } from "@/lib/stats";
@@ -15,12 +15,26 @@ const selectStyle: React.CSSProperties = {
   fontSize: 13,
 };
 
+const OPEN_NEW_TAB_KEY = "trades-open-new-tab";
+
 export default function TradesClient({ trades }: { trades: Trade[] }) {
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterSide, setFilterSide] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
   const [filterMarket, setFilterMarket] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
+  const [openInNewTab, setOpenInNewTab] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate the preference from localStorage after mount
+    setOpenInNewTab(localStorage.getItem(OPEN_NEW_TAB_KEY) === "1");
+  }, []);
+
+  const changeOpenInNewTab = (value: string) => {
+    const next = value === "new-tab";
+    setOpenInNewTab(next);
+    localStorage.setItem(OPEN_NEW_TAB_KEY, next ? "1" : "0");
+  };
 
   const symbolOptions = useMemo(() => [...new Set(trades.map((t) => t.symbol))], [trades]);
   const setupOptions = useMemo(() => [...new Set(trades.map((t) => t.setup))], [trades]);
@@ -90,6 +104,10 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
             </option>
           ))}
         </select>
+        <select value={openInNewTab ? "new-tab" : "same-page"} onChange={(e) => changeOpenInNewTab(e.target.value)} style={selectStyle}>
+          <option value="same-page">Ouvrir sur la même page</option>
+          <option value="new-tab">Ouvrir dans un nouvel onglet</option>
+        </select>
       </div>
 
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>
@@ -122,6 +140,8 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
             <Link
               key={t.id}
               href={`/trades/${t.id}`}
+              target={openInNewTab ? "_blank" : undefined}
+              rel={openInNewTab ? "noopener noreferrer" : undefined}
               style={{
                 display: "grid",
                 gridTemplateColumns: "100px 90px 70px 120px 70px 110px 90px 90px",

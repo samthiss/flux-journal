@@ -42,14 +42,17 @@ async function sidebarTree() {
 
 export default async function RootLayout({
   children,
+  modal,
 }: Readonly<{
   children: React.ReactNode;
+  modal: React.ReactNode;
 }>) {
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
       <body className="app-shell">
         <Sidebar initialTree={await sidebarTree()} />
         <div className="app-main">{children}</div>
+        {modal}
       </body>
     </html>
   );
