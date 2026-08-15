@@ -103,6 +103,20 @@ function parseArr(s: string | null): string[] {
   }
 }
 
+// Captions predate the multi-bullet format and were stored as plain text —
+// falling back to a single-item list keeps those readable instead of blanking
+// them out the first time this parses their content.
+function parseCaptionBullets(s: string | null): string[] {
+  if (!s) return [""];
+  try {
+    const parsed = JSON.parse(s);
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  } catch {
+    // Not JSON: pre-existing plain-text caption.
+  }
+  return [s];
+}
+
 type RegleItem = { title: string; details: string[] };
 
 function normalizeRegleItems(parsed: unknown): RegleItem[] {
@@ -1337,7 +1351,10 @@ function ExampleImage({
   imagesPerRow: number;
   pending?: boolean;
 }) {
-  const [caption, setCaption] = useState(img.caption ?? "");
+  const [bullets, setBullets] = useState<string[]>(() => parseCaptionBullets(img.caption));
+  const bulletRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const saveBullets = (next: string[]) => updateExampleImageCaption(img.id, JSON.stringify(next));
+  const hasCaption = bullets.some((b) => b.trim());
   const [hover, setHover] = useState(false);
   // Screenshots are stored at their capture resolution — 1600 to 3200px wide —
   // but a thumbnail is only ever a few hundred pixels.
@@ -1353,10 +1370,70 @@ function ExampleImage({
   const isLocal = img.url.startsWith("/");
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      {/* No row exists to attach a caption to until the upload lands. */}
+      {!pending && (hasCaption || hover) && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 5,
+            marginTop: 12,
+            marginBottom: 12,
+            padding: "7px 10px",
+            borderRadius: 8,
+            background: "oklch(0.68 0.19 293 / 0.09)",
+            border: `1px solid ${accentColor}33`,
+          }}
+        >
+          {bullets.map((b, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <span
+                style={{
+                  flex: "none",
+                  width: 5,
+                  height: 5,
+                  borderRadius: "50%",
+                  background: accentColor,
+                  marginTop: 8,
+                }}
+              />
+              <textarea
+                ref={(el) => {
+                  bulletRefs.current[i] = el;
+                  autoGrow(el);
+                }}
+                value={b}
+                onChange={(e) => setBullets((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
+                onBlur={() => saveBullets(bullets)}
+                onKeyDown={(e) => handleListKeyDown(e, i, bullets, (next) => { setBullets(next); saveBullets(next); }, bulletRefs, { allowEnter: true })}
+                placeholder="Légende de l'image"
+                rows={1}
+                style={{
+                  display: "block",
+                  flex: 1,
+                  minWidth: 0,
+                  boxSizing: "border-box",
+                  fontSize: 13.5,
+                  lineHeight: 1.5,
+                  color: "oklch(0.92 0.004 290)",
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  resize: "none",
+                  overflow: "hidden",
+                  overflowWrap: "anywhere",
+                  fontFamily: "inherit",
+                  textAlign: "left",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ position: "relative" }}>
         <Image
           src={img.url}
-          alt={img.caption ?? ""}
+          alt={bullets.filter((b) => b.trim()).join(" · ")}
           // Chart captures are all shapes — 123 of the 226 stored are wider than
           // 16/9, out to 2.81:1. A fixed 16/9 box with `cover` cropped the sides
           // off every one of them, so the tile takes the height the image asks
@@ -1452,34 +1529,6 @@ function ExampleImage({
           </div>
         )}
       </div>
-      {/* No row exists to attach a caption to until the upload lands. */}
-      {!pending && (caption || hover) && (
-        <textarea
-          ref={(el) => autoGrow(el)}
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          onBlur={() => updateExampleImageCaption(img.id, caption)}
-          placeholder="Légende de l'image"
-          rows={1}
-          style={{
-            display: "block",
-            width: "100%",
-            boxSizing: "border-box",
-            marginTop: 5,
-            fontSize: 13.5,
-            lineHeight: 1.5,
-            color: "oklch(0.92 0.004 290)",
-            background: "transparent",
-            border: "none",
-            outline: "none",
-            resize: "none",
-            overflow: "hidden",
-            overflowWrap: "anywhere",
-            fontFamily: "inherit",
-            textAlign: "left",
-          }}
-        />
-      )}
     </div>
   );
 }
