@@ -25,6 +25,8 @@ import {
   reorderExamples,
   updateExampleImageCaption,
   removeExampleImage,
+  setCategoryCollapsed,
+  setExampleCollapsed,
   searchTrades,
   importTradeImages,
 } from "@/lib/actions/notes";
@@ -85,8 +87,8 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   exemples: "Exemples",
 };
 
-type CategoryRecord = { id: string; noteId: string; name: string; order: number };
-type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; order: number };
+type CategoryRecord = { id: string; noteId: string; name: string; order: number; collapsed: boolean };
+type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; order: number; collapsed: boolean };
 type ImageRecord = { id: string; exampleId: string; url: string; caption: string | null; tradeId: string | null; order: number; width: number | null; height: number | null };
 type TradeSearchResult = { id: string; symbol: string; date: string; setup: string; side: string; pnl: number; imageCount: number };
 
@@ -599,7 +601,8 @@ function NoteSection({
                         onAddBlock={(type) => addBlock(type, cat.id)}
                         onDeleteBlock={deleteBlock}
                         exampleBlocks={blockList}
-                        storageKey={cat.id}
+                        categoryId={cat.id}
+                        initialCollapsed={cat.collapsed}
                       />
                     ))}
                     {(uncategorized.length > 0 || categories.length === 0) && (
@@ -621,7 +624,6 @@ function NoteSection({
                         images={images}
                         onChanged={onChanged}
                         exampleBlocks={blockList}
-                        storageKey={note.id + "-uncategorized"}
                       />
                     )}
                   </div>
@@ -1178,7 +1180,8 @@ function ExampleCategory({
   onAddBlock,
   onDeleteBlock,
   exampleBlocks,
-  storageKey,
+  categoryId,
+  initialCollapsed = false,
 }: {
   title: string;
   onRename?: (name: string) => void;
@@ -1191,30 +1194,21 @@ function ExampleCategory({
   onAddBlock?: (type: string) => void;
   onDeleteBlock?: (blockId: string) => void;
   exampleBlocks?: BlockRecord[];
-  storageKey?: string;
+  // Absent for the "Sans catégorie" bucket, which is not a row and so has
+  // nowhere to store a fold. That one reopens on reload, as it always did.
+  categoryId?: string;
+  initialCollapsed?: boolean;
 }) {
   const [name, setName] = useState(title);
   const [hover, setHover] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
 
-  useEffect(() => {
-    let saved = false;
-    try {
-      saved = !!storageKey && window.localStorage.getItem(`exCatCollapsed:${storageKey}`) === "1";
-    } catch {
-      saved = false;
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate collapsed state from localStorage for this category
-    setCollapsed(saved);
-  }, [storageKey]);
-
+  // As for the examples: the fold comes from the server so the first paint is
+  // right, and the click writes it back without revalidating.
   const setCollapsedPersist = (fn: (c: boolean) => boolean) => {
     setCollapsed((c) => {
       const next = fn(c);
-      if (storageKey) {
-        if (next) localStorage.setItem(`exCatCollapsed:${storageKey}`, "1");
-        else localStorage.removeItem(`exCatCollapsed:${storageKey}`);
-      }
+      if (categoryId) setCategoryCollapsed(categoryId, next);
       return next;
     });
   };
@@ -1494,29 +1488,14 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [editingTitle, setEditingTitle] = useState(false);
   const [imagesPerRow, setImagesPerRow] = useState<1 | 2>(example.imagesPerRow === 1 ? 1 : 2);
 
-  // Folded on purpose, so it stays folded across a reload — the same storage
-  // the categories above already use, keyed by example rather than by category.
-  const [collapsed, setCollapsed] = useState(false);
-  const storageKey = `exampleCollapsed:${example.id}`;
-  useEffect(() => {
-    let saved = false;
-    try {
-      saved = window.localStorage.getItem(storageKey) === "1";
-    } catch {
-      saved = false;
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate collapsed state from localStorage for this example
-    setCollapsed(saved);
-  }, [storageKey]);
-
+  // Starts from what the server sent, so a folded example is already folded in
+  // the very first paint. The write is not awaited and nothing is revalidated:
+  // the fold is applied here, and the next load reads the stored value.
+  const [collapsed, setCollapsed] = useState(example.collapsed);
   const toggleCollapsed = () => {
     setCollapsed((c) => {
-      const next = !c;
-      // Only the folded ones are written. An example left open stores nothing,
-      // so deleting it leaves no key behind to be cleaned up later.
-      if (next) localStorage.setItem(storageKey, "1");
-      else localStorage.removeItem(storageKey);
-      return next;
+      setExampleCollapsed(example.id, !c);
+      return !c;
     });
   };
   const fileRef = useRef<HTMLInputElement>(null);

@@ -55,6 +55,10 @@ model Note {
   parentId  String?
   title     String
   order     Int      @default(0)
+  // Folded in the sidebar. Kept here rather than in localStorage so the server
+  // renders the tree already folded: reading it after hydration meant the page
+  // painted every branch open for a moment before snapping shut.
+  collapsed Boolean  @default(false)
   createdAt DateTime @default(now())
 
   parent     Note?          @relation("NoteTree", fields: [parentId], references: [id], onDelete: Cascade)
@@ -91,6 +95,9 @@ model NoteCategory {
   name   String
   order  Int    @default(0)
 
+  // Folded, for the same reason as Note.collapsed.
+  collapsed Boolean @default(false)
+
   note     Note          @relation(fields: [noteId], references: [id], onDelete: Cascade)
   examples NoteExample[]
   blocks   NoteBlock[]
@@ -99,16 +106,19 @@ model NoteCategory {
 }
 
 model NoteExample {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   noteId       String
   categoryId   String?
   title        String
   caption      String?
   tags         String?
-  hideText     Boolean  @default(false)
-  imagesPerRow Int      @default(2)
-  order        Int      @default(0)
-  createdAt    DateTime @default(now())
+  hideText     Boolean @default(false)
+  imagesPerRow Int     @default(2)
+
+  // Folded, for the same reason as Note.collapsed.
+  collapsed Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
 
   note     Note               @relation(fields: [noteId], references: [id], onDelete: Cascade)
   category NoteCategory?      @relation(fields: [categoryId], references: [id], onDelete: Cascade)

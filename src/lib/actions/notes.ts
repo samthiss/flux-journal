@@ -58,8 +58,29 @@ export async function getNoteTree() {
   await ensureNotesSeeded();
   return prisma.note.findMany({
     orderBy: { order: "asc" },
-    select: { id: true, title: true, parentId: true, order: true },
+    select: { id: true, title: true, parentId: true, order: true, collapsed: true },
   });
+}
+
+// Folding is a display preference, but it is stored and read on the server so
+// that the first paint is already correct. Held in localStorage it could only be
+// applied after hydration, which showed every branch open for a moment and then
+// snapped them shut — the flash these three actions exist to remove.
+//
+// None of them revalidate: nothing else on the page depends on the flag, and
+// revalidatePath("/notes") would refetch the whole notes payload on every click
+// of a chevron. The next render reads the new value anyway, the page being
+// dynamic.
+export async function setNoteCollapsed(id: string, collapsed: boolean) {
+  await prisma.note.update({ where: { id }, data: { collapsed } });
+}
+
+export async function setCategoryCollapsed(id: string, collapsed: boolean) {
+  await prisma.noteCategory.update({ where: { id }, data: { collapsed } });
+}
+
+export async function setExampleCollapsed(id: string, collapsed: boolean) {
+  await prisma.noteExample.update({ where: { id }, data: { collapsed } });
 }
 
 export async function getNotesPageData() {
