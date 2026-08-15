@@ -391,23 +391,6 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.02em" }}>
             FLUX<span style={{ color: accentColor }}>JOURNAL</span>
           </div>
-          <form action={signOut} style={{ marginLeft: "auto" }}>
-            <button
-              type="submit"
-              title="Se déconnecter"
-              style={{
-                background: "none",
-                border: "none",
-                padding: 4,
-                cursor: "pointer",
-                color: "oklch(0.5 0.02 290)",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <SignOutIcon color="currentColor" />
-            </button>
-          </form>
         </div>
 
         <div className="sidebar-nav">
@@ -553,6 +536,24 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
           );
         })}
         </div>
+        <form action={signOut} className="sidebar-signout-btn">
+          <button
+            type="submit"
+            title="Se déconnecter"
+            style={{
+              ...toggleBtnStyle,
+              borderRadius: 9,
+              width: "auto",
+              height: "auto",
+              padding: "9px 12px",
+              gap: 8,
+              color: "oklch(0.6 0.02 290)",
+            }}
+          >
+            <SignOutIcon color="currentColor" />
+            <span style={{ fontSize: 12.5, fontWeight: 500 }}>Se déconnecter</span>
+          </button>
+        </form>
       </div>
     </>
   );

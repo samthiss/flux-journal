@@ -91,6 +91,11 @@ body {
   left: 20px;
   z-index: 50;
 }
+.sidebar-signout-btn {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+}
 .sidebar-brand {
   display: flex;
   align-items: center;
@@ -143,6 +148,9 @@ body {
     display: none !important;
   }
   .sidebar-brand {
+    display: none !important;
+  }
+  .sidebar-signout-btn {
     display: none !important;
   }
   .sidebar-nav {
