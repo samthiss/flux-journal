@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { accentColor } from "@/lib/theme";
-import { getNoteTree, createNote, reorderNote, deleteNote } from "@/lib/actions/notes";
+import { getNoteTree, createNote, reorderNote, deleteNote, setNoteCollapsed } from "@/lib/actions/notes";
 import { signOut } from "@/app/login/actions";
 
 const NAV_ITEMS = [
@@ -139,7 +139,7 @@ function MoreMenuButton({ onDelete, className }: { onDelete: () => void; classNa
 
 const ICONS = [DashboardIcon, TradesIcon, ChecklistIcon, NotesIcon];
 
-type NoteRow = { id: string; title: string; parentId: string | null; order: number };
+type NoteRow = { id: string; title: string; parentId: string | null; order: number; collapsed: boolean };
 type TreeNode = NoteRow & { children: TreeNode[] };
 
 function buildTree(flat: NoteRow[]): TreeNode[] {
@@ -173,11 +173,13 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
   const onNotes = pathname.startsWith("/notes");
 
   const [tree, setTree] = useState<NoteRow[]>(initialTree);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  // Folding a branch is a statement about how they want to read the tree, not a
-  // detail of this page load, so it outlives the reload — the same way the
-  // sidebar's width and the folded example categories already do.
-  const collapsedHydrated = useRef(false);
+  // Which branches are folded is read off the tree the server sent, not out of
+  // localStorage: the fold has to be known before the first paint, or the
+  // sidebar draws itself fully open and snaps shut a moment later.
+  const collapsed = useMemo(
+    () => Object.fromEntries(tree.filter((n) => n.collapsed).map((n) => [n.id, true])),
+    [tree]
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
@@ -196,31 +198,6 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
     const savedWidth = Number(localStorage.getItem("sidebar-width"));
     if (savedWidth >= 200 && savedWidth <= 420) setSidebarWidth(savedWidth);
   }, []);
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("sidebar-collapsed");
-      // Only the folded ids are stored, so a note that was never touched — or
-      // one created since — simply is not in the list and opens as usual.
-      if (saved) {
-        const ids: unknown = JSON.parse(saved);
-        if (Array.isArray(ids)) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage on mount
-          setCollapsed(Object.fromEntries(ids.filter((id) => typeof id === "string").map((id: string) => [id, true])));
-        }
-      }
-    } catch {
-      // Unreadable or absent storage: everything opens, which is the old
-      // behaviour and no worse than it was.
-    }
-    collapsedHydrated.current = true;
-  }, []);
-  useEffect(() => {
-    // Writing before the read above would save the empty default over what is
-    // stored, and the fold would be lost on the very reload meant to restore it.
-    if (!collapsedHydrated.current) return;
-    localStorage.setItem("sidebar-collapsed", JSON.stringify(Object.keys(collapsed).filter((id) => collapsed[id])));
-  }, [collapsed]);
-
   useEffect(() => {
     localStorage.setItem("sidebar-hidden", sidebarHidden ? "1" : "0");
   }, [sidebarHidden]);
@@ -495,7 +472,11 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
                       <span
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (row.hasChildren) setCollapsed((s) => ({ ...s, [row.id]: !s[row.id] }));
+                          if (row.hasChildren) {
+                            const next = !collapsed[row.id];
+                            setTree((prev) => prev.map((n) => (n.id === row.id ? { ...n, collapsed: next } : n)));
+                            setNoteCollapsed(row.id, next);
+                          }
                         }}
                         style={{ width: 10, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: row.hasChildren ? "pointer" : "default" }}
                       >

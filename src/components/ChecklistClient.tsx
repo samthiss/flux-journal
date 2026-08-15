@@ -17,33 +17,17 @@ function marketStorageKey(market: string) {
   return `checklistChecked:${market}:${todayKey()}`;
 }
 
-// countries: 5 United States, 72 Euro Zone, 22 France, 17 Germany, 4 United
-// Kingdom, 12 Switzerland. timeZone=16 was confirmed empirically (Initial
-// Jobless Claims — always released 8:30am US Eastern — showed as 14:30, the
-// correct Paris/CEST time). All toggle controls (date picker, day/week/month
-// tabs, filters) are dropped from "features" so the filters below stay fixed
-// for every visitor.
-const INVESTING_CALENDAR_SRC =
-  "https://sslecal2.investing.com/?ecoDayBackground=%23131722&columns=exc_flag,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&countries=5,72,22,17,4,12&importance=3&calType=day&timeZone=16&lang=1";
-// Investing.com always renders its own logo + app-store badges as a fixed
-// header (~64px) above the table; there's no URL flag to remove it, so we
-// crop it by rendering the iframe taller than its visible wrapper and
-// shifting it up. Nudge INVESTING_HEADER_CROP if the crop line is off.
-const INVESTING_HEADER_CROP = 64;
-const INVESTING_VISIBLE_HEIGHT = 360;
 
 export default function ChecklistClient({
   items,
   market,
   title = "Checklist & News",
   subtitle = "Routine avant-marché",
-  showCalendar = true,
 }: {
   items: ChecklistItem[];
   market: string;
   title?: string;
   subtitle?: string;
-  showCalendar?: boolean;
 }) {
   const [, startTransition] = useTransition();
   const [editMode, setEditMode] = useState(false);
@@ -350,28 +334,6 @@ export default function ChecklistClient({
           )}
         </div>
 
-        {showCalendar && (
-          <div style={{ ...glassCard, padding: 0, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid oklch(0.3 0.02 290 / 0.6)" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor }} />
-              <div style={{ fontSize: 13, fontWeight: 600 }}>Calendrier économique</div>
-              <div style={{ fontSize: 11, color: "oklch(0.55 0.02 290)", marginLeft: "auto", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
-                investing.com
-              </div>
-            </div>
-            <div style={{ height: INVESTING_VISIBLE_HEIGHT, overflow: "hidden auto" }}>
-              <iframe
-                src={INVESTING_CALENDAR_SRC}
-                title="Economic Calendar"
-                width="100%"
-                height={900}
-                frameBorder={0}
-                allowTransparency
-                style={{ display: "block", border: "none", marginTop: -INVESTING_HEADER_CROP }}
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

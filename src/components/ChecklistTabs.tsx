@@ -6,16 +6,23 @@ import { DEFAULT_MARKETS, loadMarkets, saveMarkets } from "@/lib/markets";
 import VolumeChecklist from "@/components/VolumeChecklist";
 import ColorCode from "@/components/ColorCode";
 import ChecklistClient from "@/components/ChecklistClient";
+import EconomicCalendar from "@/components/EconomicCalendar";
 
 type ChecklistItem = { id: string; group: string; label: string };
 
 const TABS = [
+  { key: "calendar", label: "Calendrier économique" },
   { key: "volume", label: "Lignes de volumes" },
   { key: "premarket", label: "Pre-Market Analyse" },
   { key: "postmarket", label: "Post-Market Analyse" },
 ] as const;
 
 const POSTMARKET_GROUP = "Bilan";
+
+// Cards stretched to whatever the window was, which on a wide screen left a
+// checklist line ending a third of the way across and a lot of empty card to
+// its right. Capped at the width the notes page already reads at.
+const CONTENT_WIDTH = 900;
 
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -42,7 +49,7 @@ const marketPillStyle = (active: boolean): CSSProperties => ({
 });
 
 export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
-  const [tab, setTab] = useState<TabKey>("volume");
+  const [tab, setTab] = useState<TabKey>("calendar");
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
   const [market, setMarket] = useState(DEFAULT_MARKETS[0]);
   const [editMarkets, setEditMarkets] = useState(false);
@@ -73,7 +80,7 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
   }
 
   return (
-    <div>
+    <div style={{ maxWidth: CONTENT_WIDTH }}>
       <div style={{ ...glassCard, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: editMarkets ? 12 : 0 }}>
           <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -162,6 +169,19 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
         ))}
       </div>
 
+      {tab === "calendar" && (
+        <div>
+          {/* Titled over the card rather than over the column, so the heading
+              and the widget read as one centred block. */}
+          <div style={{ marginBottom: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 26, fontWeight: 700 }}>Calendrier économique</div>
+            <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
+              Publications à fort impact du jour — US, zone euro, France, Allemagne, UK, Suisse
+            </div>
+          </div>
+          <EconomicCalendar height={620} />
+        </div>
+      )}
       {tab === "volume" && (
         <div>
           <VolumeChecklist market={market} />
@@ -177,7 +197,6 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
           market={market}
           title="Post-Market Analyse"
           subtitle="Bilan post-marché"
-          showCalendar={false}
         />
       )}
     </div>
