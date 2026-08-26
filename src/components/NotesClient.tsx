@@ -402,7 +402,17 @@ export default function NotesClient({
   const router = useRouter();
   const treeNodes = useMemo(() => buildTree(notes), [notes]);
   const flat = useMemo(() => flattenDFS(treeNodes), [treeNodes]);
-  const [collapsedNotes, setCollapsedNotes] = useState<Set<string>>(new Set());
+  const [collapsedNotes, setCollapsedNotes] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("collapsed-notes");
+      if (raw) return new Set(JSON.parse(raw));
+    } catch {}
+    return new Set();
+  });
+
+  useEffect(() => {
+    localStorage.setItem("collapsed-notes", JSON.stringify([...collapsedNotes]));
+  }, [collapsedNotes]);
 
   function toggleNote(noteId: string) {
     setCollapsedNotes((prev) => {
