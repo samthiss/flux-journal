@@ -392,17 +392,20 @@ export default function NotesClient({
   categories,
   examples,
   images,
+  initialCollapsedNotes,
 }: {
   notes: NoteRecord[];
   blocks: BlockRecord[];
   categories: CategoryRecord[];
   examples: ExampleRecord[];
   images: ImageRecord[];
+  initialCollapsedNotes: string[];
 }) {
   const router = useRouter();
   const treeNodes = useMemo(() => buildTree(notes), [notes]);
   const flat = useMemo(() => flattenDFS(treeNodes), [treeNodes]);
   const [collapsedNotes, setCollapsedNotes] = useState<Set<string>>(() => {
+    if (initialCollapsedNotes.length > 0) return new Set(initialCollapsedNotes);
     try {
       const raw = localStorage.getItem("collapsed-notes");
       if (raw) return new Set(JSON.parse(raw));
@@ -411,7 +414,13 @@ export default function NotesClient({
   });
 
   useEffect(() => {
-    localStorage.setItem("collapsed-notes", JSON.stringify([...collapsedNotes]));
+    const arr = [...collapsedNotes];
+    try {
+      document.cookie = `collapsed-notes=${encodeURIComponent(JSON.stringify(arr))}; path=/; max-age=${60 * 60 * 24 * 365}`;
+    } catch {}
+    try {
+      localStorage.setItem("collapsed-notes", JSON.stringify(arr));
+    } catch {}
   }, [collapsedNotes]);
 
   function toggleNote(noteId: string) {
