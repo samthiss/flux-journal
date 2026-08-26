@@ -651,7 +651,7 @@ function NoteSection({
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-                    {categories.map((cat) => (
+                    {categories.map((cat, catIdx) => (
                       <div
                         key={cat.id}
                         draggable
@@ -702,6 +702,20 @@ function NoteSection({
                             exampleBlocks={blockList}
                             categoryId={cat.id}
                             initialCollapsed={cat.collapsed}
+                            onMoveUp={catIdx > 0 ? async () => {
+                              const next = [...categories];
+                              [next[catIdx - 1], next[catIdx]] = [next[catIdx], next[catIdx - 1]];
+                              await reorderCategories(next.map((c) => c.id));
+                              onChanged();
+                            } : undefined}
+                            onMoveDown={catIdx < categories.length - 1 ? async () => {
+                              const next = [...categories];
+                              [next[catIdx], next[catIdx + 1]] = [next[catIdx + 1], next[catIdx]];
+                              await reorderCategories(next.map((c) => c.id));
+                              onChanged();
+                            } : undefined}
+                            canMoveUp={catIdx > 0}
+                            canMoveDown={catIdx < categories.length - 1}
                           />
                         </div>
                       </div>
@@ -1271,6 +1285,10 @@ function ExampleCategory({
   categoryId,
   noteId,
   initialCollapsed = false,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
 }: {
   title: string;
   onRename?: (name: string) => void;
@@ -1286,6 +1304,10 @@ function ExampleCategory({
   categoryId?: string;
   noteId?: string;
   initialCollapsed?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }) {
   const [name, setName] = useState(title);
   const [hover, setHover] = useState(false);
@@ -1328,6 +1350,24 @@ function ExampleCategory({
           </span>
         )}
         <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: "oklch(0.5 0.02 290)" }}>{examples.length}</span>
+        {onMoveUp && (
+          <span
+            onClick={onMoveUp}
+            title="Monter"
+            style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: canMoveUp ? "pointer" : "default", opacity: canMoveUp ? 1 : 0.25, color: "oklch(0.55 0.02 290)", transform: "rotate(-90deg)" }}
+          >
+            <ChevronIcon color="currentColor" down={false} />
+          </span>
+        )}
+        {onMoveDown && (
+          <span
+            onClick={onMoveDown}
+            title="Descendre"
+            style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: canMoveDown ? "pointer" : "default", opacity: canMoveDown ? 1 : 0.25, color: "oklch(0.55 0.02 290)" }}
+          >
+            <ChevronIcon color="currentColor" down={true} />
+          </span>
+        )}
         {onAddBlock && <AddBlockButton visible={hover} onAdd={onAddBlock} />}
       </div>
       {!collapsed && blocks && blocks.length > 0 && (
