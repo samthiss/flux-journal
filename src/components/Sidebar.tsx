@@ -377,6 +377,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
           title="Redimensionner"
           style={{ position: "absolute", top: 0, right: -3, bottom: 0, width: 6, cursor: "col-resize", zIndex: 10 }}
         />
+        <div className="sidebar-scroll">
         <div className="sidebar-brand">
           <div
             style={{
@@ -535,6 +536,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
             </div>
           );
         })}
+        </div>
         </div>
         <form action={signOut} className="sidebar-signout-btn">
           <button

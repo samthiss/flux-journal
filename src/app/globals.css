@@ -79,8 +79,11 @@ body {
   backdrop-filter: blur(16px);
   border: 1px solid oklch(0.36 0.03 290 / 0.45);
   box-shadow: 0 0 0 1px oklch(0.68 0.19 293 / 0.04), 0 10px 40px -12px oklch(0.68 0.19 293 / 0.25);
-  overflow-y: auto;
   position: relative;
+}
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
 }
 .sidebar.sidebar-collapsed {
   display: none;
@@ -92,9 +95,7 @@ body {
   z-index: 50;
 }
 .sidebar-signout-btn {
-  position: absolute;
-  bottom: 14px;
-  left: 14px;
+  margin-top: 12px;
 }
 .sidebar-brand {
   display: flex;
