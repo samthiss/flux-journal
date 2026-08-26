@@ -402,6 +402,16 @@ export default function NotesClient({
   const router = useRouter();
   const treeNodes = useMemo(() => buildTree(notes), [notes]);
   const flat = useMemo(() => flattenDFS(treeNodes), [treeNodes]);
+  const [collapsedNotes, setCollapsedNotes] = useState<Set<string>>(new Set());
+
+  function toggleNote(noteId: string) {
+    setCollapsedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(noteId)) next.delete(noteId);
+      else next.add(noteId);
+      return next;
+    });
+  }
 
   return (
     <div>
@@ -415,6 +425,8 @@ export default function NotesClient({
             examples={examples.filter((e) => e.noteId === node.id)}
             images={images}
             onChanged={() => router.refresh()}
+            collapsed={collapsedNotes.has(node.id)}
+            onToggleCollapse={() => toggleNote(node.id)}
           />
         ))}
       </div>
@@ -429,6 +441,8 @@ function NoteSection({
   examples,
   images,
   onChanged,
+  collapsed,
+  onToggleCollapse,
 }: {
   note: NoteRecord;
   blocks: BlockRecord[];
@@ -436,6 +450,8 @@ function NoteSection({
   examples: ExampleRecord[];
   images: ImageRecord[];
   onChanged: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
   const [title, setTitle] = useState(note.title);
   const [blockList, setBlockList] = useState<BlockRecord[]>(() => [...blocks].sort((a, b) => a.order - b.order));
@@ -454,16 +470,6 @@ function NoteSection({
   const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const draggingIdRef = useRef<string | null>(null);
   const [blockHover, setBlockHover] = useState<string | null>(null);
-  const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
-
-  function toggleBlock(blockId: string) {
-    setCollapsedBlocks((prev) => {
-      const next = new Set(prev);
-      if (next.has(blockId)) next.delete(blockId);
-      else next.add(blockId);
-      return next;
-    });
-  }
 
   function startBlockDrag(id: string) {
     return (e: React.MouseEvent) => {
@@ -536,7 +542,12 @@ function NoteSection({
           onMouseLeave={() => setHeaderHover(false)}
           style={{ display: "flex", alignItems: "center", marginBottom: 20 }}
         >
-          <div style={{ width: HEADER_INDENT, flex: "none" }} />
+          <div
+            onClick={onToggleCollapse}
+            style={{ width: HEADER_INDENT, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+          >
+            <ChevronIcon color="oklch(0.5 0.02 290)" down={!collapsed} />
+          </div>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -566,8 +577,24 @@ function NoteSection({
         </div>
       </div>
 
-      {blockList.filter((block) => !block.categoryId).map((block) => {
-        if (block.type === "exemples") {
+      {!collapsed && blockList.filter((block) => !block.categoryId && block.type !== "exemples").map((block) => {
+        return (
+          <div key={block.id} style={{ maxWidth: TEXT_WIDTH }}>
+            <DraggableBlock
+              blockKey={block.id}
+              setRef={(el) => { blockRefs.current[block.id] = el; }}
+              hoverKey={blockHover}
+              setHoverKey={setBlockHover}
+              onDragStart={startBlockDrag(block.id)}
+              onDelete={() => deleteBlock(block.id)}
+            >
+              <NoteBlockContent block={block} />
+            </DraggableBlock>
+          </div>
+        );
+      })}
+
+      {blockList.filter((block) => !block.categoryId && block.type === "exemples").map((block) => {
           return (
             <DraggableBlock
               key={block.id}
@@ -658,33 +685,7 @@ function NoteSection({
                 </div>
             </DraggableBlock>
           );
-        }
-        return (
-          <div key={block.id} style={{ maxWidth: TEXT_WIDTH }}>
-            <DraggableBlock
-              blockKey={block.id}
-              setRef={(el) => { blockRefs.current[block.id] = el; }}
-              hoverKey={blockHover}
-              setHoverKey={setBlockHover}
-              onDragStart={startBlockDrag(block.id)}
-              onDelete={() => deleteBlock(block.id)}
-            >
-              <div>
-                <div
-                  onClick={() => toggleBlock(block.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 4, userSelect: "none" }}
-                >
-                  <ChevronIcon color="oklch(0.5 0.02 290)" down={!collapsedBlocks.has(block.id)} />
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "oklch(0.55 0.02 290)" }}>
-                    {BLOCK_TYPE_LABELS[block.type] || block.type}
-                  </span>
-                </div>
-                {!collapsedBlocks.has(block.id) && <NoteBlockContent block={block} />}
-              </div>
-            </DraggableBlock>
-          </div>
-        );
-      })}
+        })}
 
       <div style={{ maxWidth: TEXT_WIDTH }}>
       {(() => {
