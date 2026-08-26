@@ -23,6 +23,7 @@ import {
   updateExample,
   deleteExample,
   reorderExamples,
+  reorderCategories,
   updateExampleImageCaption,
   removeExampleImage,
   setCategoryCollapsed,
@@ -489,6 +490,33 @@ function NoteSection({
   const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const draggingIdRef = useRef<string | null>(null);
   const [blockHover, setBlockHover] = useState<string | null>(null);
+  const [categoryDragId, setCategoryDragId] = useState<string | null>(null);
+
+  function onCategoryDragStart(e: React.DragEvent, catId: string) {
+    setCategoryDragId(catId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", catId);
+  }
+
+  function onCategoryDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  async function onCategoryDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    const dragId = categoryDragId;
+    setCategoryDragId(null);
+    if (!dragId || dragId === targetId) return;
+    const current = categories.map((c) => c.id);
+    const dragIdx = current.indexOf(dragId);
+    const targetIdx = current.indexOf(targetId);
+    if (dragIdx === -1 || targetIdx === -1) return;
+    current.splice(dragIdx, 1);
+    current.splice(targetIdx, 0, dragId);
+    await reorderCategories(current);
+    onChanged();
+  }
 
   function startBlockDrag(id: string) {
     return (e: React.MouseEvent) => {
@@ -651,31 +679,54 @@ function NoteSection({
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
                     {categories.map((cat) => (
-                      <ExampleCategory
+                      <div
                         key={cat.id}
-                        title={cat.name}
-                        onRename={(name) => {
-                          renameCategory(cat.id, name);
-                          onChanged();
-                        }}
-                        onDelete={async () => {
-                          await deleteCategory(cat.id);
-                          onChanged();
-                        }}
-                        onAddExample={async () => {
-                          await createExample(note.id, cat.id);
-                          onChanged();
-                        }}
-                        examples={examples.filter((e) => e.categoryId === cat.id)}
-                        images={images}
-                        onChanged={onChanged}
-                        blocks={blockList.filter((b) => b.categoryId === cat.id && !b.exampleId)}
-                        onAddBlock={(type) => addBlock(type, cat.id)}
-                        onDeleteBlock={deleteBlock}
-                        exampleBlocks={blockList}
-                        categoryId={cat.id}
-                        initialCollapsed={cat.collapsed}
-                      />
+                        draggable
+                        onDragStart={(e) => onCategoryDragStart(e, cat.id)}
+                        onDragOver={onCategoryDragOver}
+                        onDrop={(e) => onCategoryDrop(e, cat.id)}
+                        style={{ display: "flex", gap: 8, alignItems: "flex-start" }}
+                      >
+                        <span
+                          style={{ width: 18, flex: "none", marginTop: 6, cursor: "grab", color: "oklch(0.45 0.02 290)", opacity: 0.6 }}
+                          title="Glisser pour réorganiser"
+                        >
+                          <svg width="11" height="15" viewBox="0 0 11 15" fill="currentColor">
+                            <circle cx="2.5" cy="2" r="1.3" />
+                            <circle cx="8" cy="2" r="1.3" />
+                            <circle cx="2.5" cy="7.5" r="1.3" />
+                            <circle cx="8" cy="7.5" r="1.3" />
+                            <circle cx="2.5" cy="13" r="1.3" />
+                            <circle cx="8" cy="13" r="1.3" />
+                          </svg>
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <ExampleCategory
+                            title={cat.name}
+                            onRename={(name) => {
+                              renameCategory(cat.id, name);
+                              onChanged();
+                            }}
+                            onDelete={async () => {
+                              await deleteCategory(cat.id);
+                              onChanged();
+                            }}
+                            onAddExample={async () => {
+                              await createExample(note.id, cat.id);
+                              onChanged();
+                            }}
+                            examples={examples.filter((e) => e.categoryId === cat.id)}
+                            images={images}
+                            onChanged={onChanged}
+                            blocks={blockList.filter((b) => b.categoryId === cat.id && !b.exampleId)}
+                            onAddBlock={(type) => addBlock(type, cat.id)}
+                            onDeleteBlock={deleteBlock}
+                            exampleBlocks={blockList}
+                            categoryId={cat.id}
+                            initialCollapsed={cat.collapsed}
+                          />
+                        </div>
+                      </div>
                     ))}
                     {(uncategorized.length > 0 || categories.length === 0) && (
                       <ExampleCategory

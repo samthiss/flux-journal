@@ -304,6 +304,11 @@ export async function reorderExamples(orderedIds: string[]) {
   revalidatePath("/notes");
 }
 
+export async function reorderCategories(orderedIds: string[]) {
+  await prisma.$transaction(orderedIds.map((id, i) => prisma.noteCategory.update({ where: { id }, data: { order: i } })));
+  revalidatePath("/notes");
+}
+
 // Moves an example — with its images and its own text blocks — under another
 // note, another category, or none. The destination is where the example lands
 // last in the list, so a move never displaces what is already there.
