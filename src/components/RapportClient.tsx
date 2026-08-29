@@ -56,7 +56,7 @@ export default function RapportClient({
       </div>
 
       <ProfitabilityCard stats={stats} setups={setupStats} />
-      <ChallengeCard trades={periodTrades} initialSettings={initialChallenge} />
+      <ChallengeCard initialSettings={initialChallenge} />
     </div>
   );
 }

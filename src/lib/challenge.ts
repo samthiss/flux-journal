@@ -1,47 +1,27 @@
 /**
- * Monte Carlo for a prop-firm challenge, run on the journal's own trades.
+ * Monte Carlo for a prop-firm challenge.
  *
  * A closed formula cannot answer this. Whether a trailing drawdown is hit
  * depends on the *order* the wins and losses arrive in, not on their averages:
  * the same set of trades passes comfortably in one sequence and busts in
- * another. So each run replays a plausible sequence — trades drawn with
- * replacement from what the journal actually recorded, which keeps the real
- * shape of the results, outliers included, instead of assuming every win is the
- * average win.
+ * another. So each run replays a sequence, trade by trade, against the account's
+ * rules.
  *
  * What the model assumes, and what it therefore cannot tell you:
  *   - Trades are independent. A losing streak driven by a market regime, or by
- *     the tilt that follows a bad day, is not in the data and not modelled.
- *   - P&L scales linearly with size. Doubling the contracts doubles the result,
- *     which ignores the slippage and the fill quality that come with size.
+ *     the tilt that follows a bad day, is not modelled.
+ *   - The risk is the same on every trade.
  *   - The trailing drawdown is measured on closed-trade equity. A firm that
  *     measures it intraday, on unrealised P&L, will stop you sooner.
- *   - The future resembles the recorded past. On a few dozen trades that is a
- *     strong assumption, and the narrower the sample the stronger it gets.
  */
 
 /**
- * A stress test on the sample itself.
+ * The trades a set of parameters describes: a win worth `payoff` times the
+ * risk, a loss worth the risk, in the proportion the win rate gives.
  *
- * The journal is a few dozen trades long, and a good run of them flatters every
- * figure derived from it — a setup that shows no losing sequence has not proven
- * it has none, it has proven the sample is short. `haircut` shaves the winners
- * by a fraction and leaves the losses alone, which is what a weaker edge than
- * the recorded one actually looks like.
- */
-export function applyHaircut(pnls: number[], haircut: number) {
-  if (haircut <= 0) return pnls;
-  return pnls.map((p) => (p > 0 ? p * (1 - haircut) : p));
-}
-
-/**
- * A sample built from parameters rather than from history: what the trades
- * would look like at a given win rate and reward-to-risk, risking a fixed
- * amount each time.
- *
- * A thousand entries in the right proportion, drawn from uniformly, reproduce
- * the win rate to a tenth of a point — enough for a simulation whose inputs are
- * themselves round numbers, and it lets the same engine run both modes.
+ * A thousand entries reproduce the win rate to a tenth of a point — enough for
+ * a simulation whose inputs are themselves round numbers — and drawing from
+ * them lets the same engine run on described trades and on recorded ones.
  */
 export function syntheticSample(winRate: number, payoff: number, risk: number, size = 1000) {
   const wins = Math.round(Math.min(Math.max(winRate, 0), 1) * size);
