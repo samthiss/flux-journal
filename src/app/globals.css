@@ -435,6 +435,11 @@ body::after {
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
+@media (max-width: 900px) {
+  .challenge-fields {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
 @media (max-width: 720px) {
   /* Ratio, projection and the sustainable rate stack rather than squeeze. */
   .profit-target {

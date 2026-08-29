@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import ProfitabilityCard from "@/components/ProfitabilityCard";
+import ChallengeCard from "@/components/ChallengeCard";
 import PeriodFilter from "@/components/PeriodFilter";
 import { PageTitle } from "@/components/NeonText";
 import {
@@ -15,9 +16,11 @@ import {
 export default function RapportClient({
   trades,
   initialPeriod,
+  initialChallenge,
 }: {
   trades: TradeForStats[];
   initialPeriod: string;
+  initialChallenge: Record<string, number>;
 }) {
   // The period is shared with the dashboard, through the same cookie: the two
   // pages read the same journal, and having them disagree on which weeks are
@@ -53,6 +56,7 @@ export default function RapportClient({
       </div>
 
       <ProfitabilityCard stats={stats} setups={setupStats} />
+      <ChallengeCard trades={periodTrades} initialSettings={initialChallenge} />
     </div>
   );
 }
