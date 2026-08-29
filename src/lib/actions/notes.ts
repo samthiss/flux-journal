@@ -353,13 +353,29 @@ export async function moveExample(exampleId: string, noteId: string, categoryId:
   revalidatePath("/notes");
 }
 
-export async function updateExample(id: string, data: { title?: string; caption?: string; tags?: string[]; hideText?: boolean; imagesPerRow?: number }) {
-  const payload: Record<string, string | boolean | number> = {};
+export async function updateExample(
+  id: string,
+  data: {
+    title?: string;
+    caption?: string;
+    tags?: string[];
+    hideText?: boolean;
+    imagesPerRow?: number;
+    confirmations?: string[];
+    // null clears the choice: an example that is neither validated nor invalidated.
+    validity?: "valid" | "invalid" | null;
+    invalidReasons?: string[];
+  }
+) {
+  const payload: Record<string, string | boolean | number | null> = {};
   if (data.title !== undefined) payload.title = data.title;
   if (data.caption !== undefined) payload.caption = data.caption;
   if (data.tags !== undefined) payload.tags = JSON.stringify(data.tags);
   if (data.hideText !== undefined) payload.hideText = data.hideText;
   if (data.imagesPerRow !== undefined) payload.imagesPerRow = data.imagesPerRow;
+  if (data.confirmations !== undefined) payload.confirmations = JSON.stringify(data.confirmations);
+  if (data.validity !== undefined) payload.validity = data.validity;
+  if (data.invalidReasons !== undefined) payload.invalidReasons = JSON.stringify(data.invalidReasons);
   await prisma.noteExample.update({ where: { id }, data: payload });
   revalidatePath("/notes");
 }

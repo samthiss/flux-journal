@@ -91,7 +91,7 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
 };
 
 type CategoryRecord = { id: string; noteId: string; name: string; order: number; collapsed: boolean };
-type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; order: number; collapsed: boolean };
+type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; validity: string | null; invalidReasons: string | null; order: number; collapsed: boolean };
 type ImageRecord = { id: string; exampleId: string; url: string; caption: string | null; tradeId: string | null; order: number; width: number | null; height: number | null };
 type TradeSearchResult = { id: string; symbol: string; date: string; setup: string; side: string; pnl: number; imageCount: number };
 
@@ -1641,6 +1641,139 @@ function ExampleImage({
   );
 }
 
+type Validity = "valid" | "invalid" | null;
+
+// Valide and Invalid keep the page's two existing accents — the violet used for
+// wins, and the red already used for losses and errors — each with the soft
+// fill and hairline that the chips are drawn with.
+const VALID_TONE = { fg: accentColor, bg: "oklch(0.68 0.19 293 / 0.16)", line: "oklch(0.68 0.19 293 / 0.5)" };
+const INVALID_TONE = { fg: lossColor, bg: "oklch(0.65 0.18 25 / 0.14)", line: "oklch(0.65 0.18 25 / 0.45)" };
+
+function normalizeValidity(s: string | null): Validity {
+  return s === "valid" || s === "invalid" ? s : null;
+}
+
+// The chip rows an example carries under its title: the confirmations that were
+// present, and — once it is marked invalid — the reasons why. Both lists are
+// free text the reader types themselves, so there is no preset vocabulary here.
+// The input commits on Enter and on blur, the way the tag input in
+// AddTradeToNoteButton already does.
+function ChipList({
+  label,
+  values,
+  tone,
+  placeholder,
+  visible,
+  onChange,
+}: {
+  label: string;
+  values: string[];
+  tone: { fg: string; bg: string; line: string };
+  placeholder: string;
+  visible: boolean;
+  onChange: (next: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const commit = () => {
+    const v = draft.trim();
+    setDraft("");
+    if (v) onChange([...values, v]);
+  };
+
+  // Nothing written yet and the pointer is elsewhere: the row would be a lone
+  // label, so it stays out of the card until the header is hovered.
+  if (!values.length && !visible) return null;
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 290)" }}>{label}</span>
+      {values.map((v, i) => (
+        <span
+          key={i}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            fontFamily: "var(--font-jetbrains-mono), monospace",
+            fontSize: 10,
+            padding: "3px 6px 3px 9px",
+            borderRadius: 999,
+            background: tone.bg,
+            border: `1px solid ${tone.line}`,
+            color: tone.fg,
+          }}
+        >
+          {v}
+          <span onClick={() => onChange(values.filter((_, xi) => xi !== i))} style={{ cursor: "pointer", fontSize: 11, opacity: 0.7 }}>
+            ✕
+          </span>
+        </span>
+      ))}
+      {visible && (
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+            if (e.key === "Escape") setDraft("");
+          }}
+          placeholder={placeholder}
+          style={{
+            width: 130,
+            fontFamily: "var(--font-jetbrains-mono), monospace",
+            fontSize: 10,
+            padding: "3px 8px",
+            borderRadius: 999,
+            border: "1px dashed oklch(0.34 0.02 290)",
+            background: "transparent",
+            color: "oklch(0.8 0.02 290)",
+            outline: "none",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Valide / Invalid. Clicking the side already chosen clears it, so an example
+// can go back to undecided without a third button. Once a side is picked the
+// other one is hidden unless the header is hovered: the card should read as its
+// verdict, not as a pair of buttons.
+function ValidityToggle({ value, visible, onChange }: { value: Validity; visible: boolean; onChange: (next: Validity) => void }) {
+  if (!value && !visible) return null;
+  const chip = (side: "valid" | "invalid", text: string, tone: { fg: string; bg: string; line: string }) => {
+    const on = value === side;
+    if (!on && !visible) return null;
+    return (
+      <span
+        onClick={() => onChange(on ? null : side)}
+        style={{
+          fontFamily: "var(--font-jetbrains-mono), monospace",
+          fontSize: 10,
+          padding: "3px 10px",
+          borderRadius: 999,
+          cursor: "pointer",
+          border: `1px solid ${on ? tone.line : "oklch(0.34 0.02 290)"}`,
+          background: on ? tone.bg : "transparent",
+          color: on ? tone.fg : "oklch(0.55 0.02 290)",
+        }}
+      >
+        {text}
+      </span>
+    );
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {chip("valid", "Valide", VALID_TONE)}
+      {chip("invalid", "Invalid", INVALID_TONE)}
+    </div>
+  );
+}
+
 function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleRecord; images: ImageRecord[]; blocks: BlockRecord[]; onChanged: () => void }) {
   const [title, setTitle] = useState(example.title);
   const [exampleBlocks, setExampleBlocks] = useState<BlockRecord[]>(blocks);
@@ -1651,6 +1784,13 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [imagesPerRow, setImagesPerRow] = useState<1 | 2>(example.imagesPerRow === 1 ? 1 : 2);
+
+  // The three hand-written annotations. Each write is fire-and-forget, like the
+  // title above it: the value on screen is already the new one, and the action
+  // revalidates /notes for the next load.
+  const [confirmations, setConfirmations] = useState<string[]>(() => parseArr(example.confirmations));
+  const [validity, setValidity] = useState<Validity>(() => normalizeValidity(example.validity));
+  const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseArr(example.invalidReasons));
 
   // Starts from what the server sent, so a folded example is already folded in
   // the very first paint. The write is not awaited and nothing is revalidated:
@@ -1866,6 +2006,38 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             }}
           />
         </div>
+        <ChipList
+          label="Confirmation:"
+          values={confirmations}
+          tone={VALID_TONE}
+          placeholder="+ confirmation"
+          visible={headerHover}
+          onChange={(next) => {
+            setConfirmations(next);
+            updateExample(example.id, { confirmations: next });
+          }}
+        />
+        <ValidityToggle
+          value={validity}
+          visible={headerHover}
+          onChange={(next) => {
+            setValidity(next);
+            updateExample(example.id, { validity: next });
+          }}
+        />
+        {validity === "invalid" && (
+          <ChipList
+            label="Invalid reason:"
+            values={invalidReasons}
+            tone={INVALID_TONE}
+            placeholder="+ raison"
+            visible={headerHover}
+            onChange={(next) => {
+              setInvalidReasons(next);
+              updateExample(example.id, { invalidReasons: next });
+            }}
+          />
+        )}
       </div>
       {!collapsed && (
       <div style={{ borderTop: "1px solid oklch(0.24 0.02 290)" }}>

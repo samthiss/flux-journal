@@ -120,6 +120,15 @@ model NoteExample {
   hideText     Boolean @default(false)
   imagesPerRow Int     @default(2)
 
+  // Three annotations the reader fills in by hand on an example: the
+  // confirmations they saw, whether the setup turned out valid, and — when it
+  // did not — why. `confirmations` and `invalidReasons` are JSON arrays of free
+  // text, written by the same chip inputs that already store `tags`; `validity`
+  // is "valid", "invalid", or null while nothing has been decided.
+  confirmations  String?
+  validity       String?
+  invalidReasons String?
+
   // Folded, for the same reason as Note.collapsed.
   collapsed Boolean  @default(false)
   order     Int      @default(0)
