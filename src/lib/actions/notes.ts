@@ -385,6 +385,54 @@ export async function reorderCategories(orderedIds: string[]) {
 // Moves an example — with its images and its own text blocks — under another
 // note, another category, or none. The destination is where the example lands
 // last in the list, so a move never displaces what is already there.
+/**
+ * Moves a whole category — its examples and every block hanging off them — to
+ * another note.
+ *
+ * Everything that belongs to the category carries a `noteId` of its own even
+ * though it is addressed by `categoryId`, so all four kinds of row have to be
+ * repointed together or the category would arrive somewhere while its contents
+ * stayed behind, visible in neither note.
+ */
+export async function moveCategory(categoryId: string, noteId: string) {
+  const category = await prisma.noteCategory.findUnique({ where: { id: categoryId } });
+  if (!category || category.noteId === noteId) return;
+  const note = await prisma.note.findUnique({ where: { id: noteId } });
+  if (!note) return;
+
+  await prisma.$transaction(async (tx) => {
+    // Categories are only rendered inside an "exemples" block, as examples are.
+    const exemplesBlock = await tx.noteBlock.findFirst({ where: { noteId, type: "exemples" } });
+    if (!exemplesBlock) {
+      const blockCount = await tx.noteBlock.count({ where: { noteId } });
+      await tx.noteBlock.create({ data: { noteId, type: "exemples", content: null, order: blockCount } });
+    }
+
+    const destinationCount = await tx.noteCategory.count({ where: { noteId } });
+    await tx.noteCategory.update({ where: { id: categoryId }, data: { noteId, order: destinationCount } });
+    await tx.noteExample.updateMany({ where: { categoryId }, data: { noteId } });
+    // The category's own text blocks, and those belonging to its examples.
+    await tx.noteBlock.updateMany({ where: { categoryId }, data: { noteId } });
+    const examples = await tx.noteExample.findMany({ where: { categoryId }, select: { id: true } });
+    if (examples.length) {
+      await tx.noteBlock.updateMany({
+        where: { exampleId: { in: examples.map((e) => e.id) } },
+        data: { noteId },
+      });
+    }
+
+    // Close the gap left behind, so the source note keeps consecutive orders.
+    const left = await tx.noteCategory.findMany({
+      where: { noteId: category.noteId },
+      orderBy: { order: "asc" },
+      select: { id: true },
+    });
+    for (const [i, c] of left.entries()) await tx.noteCategory.update({ where: { id: c.id }, data: { order: i } });
+  });
+
+  revalidatePath("/notes");
+}
+
 export async function moveExample(exampleId: string, noteId: string, categoryId: string | null) {
   const example = await prisma.noteExample.findUnique({ where: { id: exampleId } });
   if (!example) return;

@@ -8,6 +8,7 @@ import Image from "next/image";
 import { accentColor } from "@/lib/theme";
 import ImageLightbox from "@/components/ImageLightbox";
 import MoveExampleMenu from "@/components/MoveExampleMenu";
+import MoveCategoryMenu from "@/components/MoveCategoryMenu";
 import {
   renameNote,
   deleteNote,
@@ -793,6 +794,9 @@ function NoteSection({
                             onDeleteBlock={deleteBlock}
                             exampleBlocks={blockList}
                             categoryId={cat.id}
+                            // Passed for the move menu. The fold still keys off
+                            // categoryId, which takes precedence over it.
+                            noteId={note.id}
                             initialCollapsed={cat.collapsed}
                             onMoveUp={catIdx > 0 ? async () => {
                               const next = [...categories];
@@ -1608,6 +1612,9 @@ function ExampleCategory({
           >
             <ChevronIcon color="currentColor" down={true} />
           </span>
+        )}
+        {categoryId && noteId && (
+          <MoveCategoryMenu categoryId={categoryId} currentNoteId={noteId} visible={hover} onMoved={onChanged} />
         )}
         {onAddBlock && <AddBlockButton visible={hover} onAdd={onAddBlock} />}
       </div>
