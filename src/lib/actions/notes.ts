@@ -438,6 +438,7 @@ export async function updateExample(
     // null clears the choice: an example with no verdict yet.
     validity?: "valid" | "invalid" | "risk" | null;
     invalidReasons?: string[];
+    zone?: "retournement" | "stunden" | null;
   }
 ) {
   const payload: Record<string, string | boolean | number | null> = {};
@@ -449,6 +450,7 @@ export async function updateExample(
   if (data.confirmations !== undefined) payload.confirmations = JSON.stringify(data.confirmations);
   if (data.validity !== undefined) payload.validity = data.validity;
   if (data.invalidReasons !== undefined) payload.invalidReasons = JSON.stringify(data.invalidReasons);
+  if (data.zone !== undefined) payload.zone = data.zone;
   await prisma.noteExample.update({ where: { id }, data: payload });
   revalidatePath("/notes");
 }

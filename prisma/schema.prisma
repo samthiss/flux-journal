@@ -140,6 +140,11 @@ model NoteExample {
   validity       String?
   invalidReasons String?
 
+  // Which kind of zone the trade was taken on: "retournement" or "stunden".
+  // One of a fixed pair rather than free text, since it is the same question
+  // asked of every example — and null until it is answered.
+  zone           String?
+
   // Folded, for the same reason as Note.collapsed.
   collapsed Boolean  @default(false)
   order     Int      @default(0)

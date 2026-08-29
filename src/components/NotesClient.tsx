@@ -127,7 +127,7 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
 };
 
 type CategoryRecord = { id: string; noteId: string; name: string; order: number; collapsed: boolean };
-type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; validity: string | null; invalidReasons: string | null; order: number; collapsed: boolean };
+type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; validity: string | null; invalidReasons: string | null; zone: string | null; order: number; collapsed: boolean };
 type ImageRecord = { id: string; exampleId: string; url: string; caption: string | null; tradeId: string | null; order: number; width: number | null; height: number | null };
 type TradeSearchResult = { id: string; symbol: string; date: string; setup: string; side: string; pnl: number; imageCount: number };
 
@@ -1469,6 +1469,7 @@ function ExampleCategory({
   const [confirmationFilter, setConfirmationFilter] = useState<string[]>([]);
   const [validityFilter, setValidityFilter] = useState<Validity>(null);
   const [reasonFilter, setReasonFilter] = useState<string[]>([]);
+  const [zoneFilter, setZoneFilter] = useState<Zone>(null);
 
   const available = useMemo(() => {
     const collect = (pick: (e: ExampleRecord) => string | null) => {
@@ -1483,10 +1484,12 @@ function ExampleCategory({
       confirmations: collect((e) => e.confirmations),
       reasons: collect((e) => e.invalidReasons),
       hasValidity: examples.some((e) => normalizeValidity(e.validity) !== null),
+      hasZone: examples.some((e) => normalizeZone(e.zone) !== null),
     };
   }, [examples]);
 
-  const filtering = confirmationFilter.length > 0 || validityFilter !== null || reasonFilter.length > 0;
+  const filtering =
+    confirmationFilter.length > 0 || validityFilter !== null || reasonFilter.length > 0 || zoneFilter !== null;
 
   // Every selected chip has to match, across the three rows and within each of
   // them: picking two confirmations asks for the examples that showed both, not
@@ -1499,21 +1502,24 @@ function ExampleCategory({
       return (
         confirmationFilter.every((v) => confirmations.includes(v)) &&
         (validityFilter === null || normalizeValidity(e.validity) === validityFilter) &&
+        (zoneFilter === null || normalizeZone(e.zone) === zoneFilter) &&
         reasonFilter.every((v) => reasons.includes(v))
       );
     });
-  }, [examples, filtering, confirmationFilter, validityFilter, reasonFilter]);
+  }, [examples, filtering, confirmationFilter, validityFilter, reasonFilter, zoneFilter]);
 
   const clearFilter = () => {
     setConfirmationFilter([]);
     setValidityFilter(null);
     setReasonFilter([]);
+    setZoneFilter(null);
   };
 
   const toggleIn = (list: string[], set: (next: string[]) => void, value: string) =>
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
-  const hasAnythingToFilter = available.confirmations.length > 0 || available.reasons.length > 0 || available.hasValidity;
+  const hasAnythingToFilter =
+    available.confirmations.length > 0 || available.reasons.length > 0 || available.hasValidity || available.hasZone;
 
   // As for the examples: the fold comes from the server so the first paint is
   // right, and the click writes it back without revalidating.
@@ -1613,6 +1619,20 @@ function ExampleCategory({
             selected={confirmationFilter}
             onToggle={(v) => toggleIn(confirmationFilter, setConfirmationFilter, v)}
           />
+          {available.hasZone && (
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+              <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 250)" }}>Zone:</span>
+              {ZONES.map(([key, text]) => (
+                <FilterChip
+                  key={key}
+                  label={text}
+                  tone={tagTone(text)}
+                  on={zoneFilter === key}
+                  onClick={() => setZoneFilter(zoneFilter === key ? null : key)}
+                />
+              ))}
+            </div>
+          )}
           {available.hasValidity && (
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
               <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>Verdict:</span>
@@ -1956,6 +1976,22 @@ function tagTone(value: string) {
   };
 }
 
+/**
+ * The kind of zone the trade was taken on — one of a fixed pair, since it is
+ * the same question asked of every example. Their colours come from the tag
+ * palette so they sit naturally among the chips beside them.
+ */
+type Zone = "retournement" | "stunden" | null;
+
+const ZONES: [Exclude<Zone, null>, string][] = [
+  ["retournement", "Zone de retournement"],
+  ["stunden", "Stunden Cluster"],
+];
+
+function normalizeZone(s: string | null): Zone {
+  return s === "retournement" || s === "stunden" ? s : null;
+}
+
 const VERDICTS: [Exclude<Validity, null>, string, typeof VALID_TONE][] = [
   ["valid", "Valide", VALID_TONE],
   ["invalid", "Invalid", INVALID_TONE],
@@ -2129,6 +2165,40 @@ function ChipList({
 // can go back to undecided without a third button. Once a side is picked the
 // other one is hidden unless the header is hovered: the card should read as its
 // verdict, not as a pair of buttons.
+function ZoneToggle({ value, visible, onChange }: { value: Zone; visible: boolean; onChange: (next: Zone) => void }) {
+  if (!value && !visible) return null;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {ZONES.map(([key, text]) => {
+        const on = value === key;
+        // Once a zone is chosen the other one steps out of the way, unless the
+        // header is hovered: the card should read as its answer, not as the
+        // question.
+        if (!on && !visible) return null;
+        const tone = tagTone(text);
+        return (
+          <span
+            key={key}
+            onClick={() => onChange(on ? null : key)}
+            style={{
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "3px 10px",
+              borderRadius: 999,
+              cursor: "pointer",
+              border: `1px solid ${on ? tone.line : "oklch(0.34 0.02 250)"}`,
+              background: on ? tone.bg : "transparent",
+              color: on ? tone.fg : "oklch(0.55 0.02 250)",
+            }}
+          >
+            {text}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function ValidityToggle({ value, visible, onChange }: { value: Validity; visible: boolean; onChange: (next: Validity) => void }) {
   if (!value && !visible) return null;
   return (
@@ -2176,6 +2246,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [confirmations, setConfirmations] = useState<string[]>(() => parseArr(example.confirmations));
   const [validity, setValidity] = useState<Validity>(() => normalizeValidity(example.validity));
   const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseArr(example.invalidReasons));
+  const [zone, setZone] = useState<Zone>(() => normalizeZone(example.zone));
 
   // Starts from what the server sent, so a folded example is already folded in
   // the very first paint. The write is not awaited and nothing is revalidated:
@@ -2409,6 +2480,14 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             onChange={(next) => {
               setConfirmations(next);
               updateExample(example.id, { confirmations: next });
+            }}
+          />
+          <ZoneToggle
+            value={zone}
+            visible={headerHover}
+            onChange={(next) => {
+              setZone(next);
+              updateExample(example.id, { zone: next });
             }}
           />
           <ValidityToggle
