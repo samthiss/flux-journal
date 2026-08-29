@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
+import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor, pageTitle } from "@/lib/theme";
 import type { TradeForStats as Trade } from "@/lib/stats";
 
 const selectStyle: React.CSSProperties = {
-  background: "oklch(0.18 0.02 290)",
-  border: "1px solid oklch(0.32 0.03 290 / 0.6)",
+  background: "oklch(0.18 0.034 250)",
+  border: "1px solid oklch(0.32 0.051 250 / 0.6)",
   borderRadius: 8,
   padding: "10px 14px",
-  color: "oklch(0.96 0.004 290)",
+  color: "oklch(0.96 0.0068 250)",
   fontFamily: "var(--font-space-grotesk), sans-serif",
   fontSize: 13,
 };
@@ -58,12 +58,12 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
     <div>
       <div className="trades-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div style={{ fontSize: 26, fontWeight: 700 }}>Trades</div>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>{filteredTrades.length} trades</div>
+          <div style={pageTitle}>Trades</div>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{filteredTrades.length} trades</div>
         </div>
         <Link
           href="/trades/new"
-          style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.01 290)", textDecoration: "none" }}
+          style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", textDecoration: "none" }}
         >
           + Add Trade
         </Link>
@@ -120,8 +120,8 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
             fontSize: 11,
             textTransform: "uppercase",
             letterSpacing: "0.06em",
-            color: "oklch(0.55 0.02 290)",
-            borderBottom: "1px solid oklch(0.3 0.02 290 / 0.6)",
+            color: "oklch(0.55 0.034 250)",
+            borderBottom: "1px solid oklch(0.3 0.034 250 / 0.6)",
           }}
         >
           <div>Date</div>
@@ -148,24 +148,24 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
                 padding: "15px 20px",
                 fontSize: 13,
                 alignItems: "center",
-                borderBottom: "1px solid oklch(0.24 0.02 290 / 0.5)",
+                borderBottom: "1px solid oklch(0.24 0.034 250 / 0.5)",
                 textDecoration: "none",
                 color: "inherit",
               }}
             >
-              <div style={{ color: "oklch(0.62 0.02 290)", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12 }}>
+              <div style={{ color: "oklch(0.62 0.034 250)", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12 }}>
                 {t.date.toISOString().slice(0, 10)}
               </div>
               <div style={{ fontWeight: 600 }}>{t.symbol}</div>
-              <div style={{ color: t.side === "Long" ? accentColor : "oklch(0.6 0.02 290)", fontSize: 12 }}>{t.side}</div>
-              <div style={{ fontSize: 12, color: "oklch(0.65 0.01 290)" }}>{t.setup}</div>
-              <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.72 0.01 290)" }}>
+              <div style={{ color: t.side === "Long" ? accentColor : "oklch(0.6 0.034 250)", fontSize: 12 }}>{t.side}</div>
+              <div style={{ fontSize: 12, color: "oklch(0.65 0.017 250)" }}>{t.setup}</div>
+              <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.72 0.017 250)" }}>
                 {t.size}
               </div>
               <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontWeight: 600, color: pnlColor }}>
                 {fmtMoney(t.pnl)}
               </div>
-              <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.6 0.02 290)" }}>
+              <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.6 0.034 250)" }}>
                 {t.rr != null ? `1 : ${t.rr.toFixed(1)}` : "—"}
               </div>
               <div>
@@ -175,8 +175,8 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
                     fontWeight: 600,
                     padding: "4px 10px",
                     borderRadius: 20,
-                    background: outcome === "win" ? accentSoft : "oklch(0.3 0.01 290)",
-                    color: outcome === "win" ? winColor : "oklch(0.7 0.01 290)",
+                    background: outcome === "win" ? accentSoft : "oklch(0.72 0.27 340 / 0.16)",
+                    color: outcome === "win" ? winColor : lossColor,
                   }}
                 >
                   {outcome === "win" ? "Win" : "Loss"}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
-import { accentColor, glassCard } from "@/lib/theme";
+import { accentColor, glassCard, pageTitle } from "@/lib/theme";
 import { DEFAULT_MARKETS, loadMarkets, saveMarkets } from "@/lib/markets";
 import VolumeChecklist from "@/components/VolumeChecklist";
 import ColorCode from "@/components/ColorCode";
@@ -33,8 +33,8 @@ const tabStyle = (active: boolean): CSSProperties => ({
   fontWeight: 600,
   cursor: "pointer",
   background: active ? accentColor : "transparent",
-  color: active ? "oklch(0.12 0.01 290)" : "oklch(0.7 0.02 290)",
-  border: `1px solid ${active ? accentColor : "oklch(0.4 0.02 290)"}`,
+  color: active ? "oklch(0.12 0.017 250)" : "oklch(0.7 0.034 250)",
+  border: `1px solid ${active ? accentColor : "oklch(0.4 0.034 250)"}`,
 });
 
 const marketPillStyle = (active: boolean): CSSProperties => ({
@@ -44,8 +44,8 @@ const marketPillStyle = (active: boolean): CSSProperties => ({
   fontWeight: 600,
   cursor: "pointer",
   background: active ? accentColor : "transparent",
-  color: active ? "oklch(0.12 0.01 290)" : "oklch(0.7 0.02 290)",
-  border: `1px solid ${active ? accentColor : "oklch(0.4 0.02 290)"}`,
+  color: active ? "oklch(0.12 0.017 250)" : "oklch(0.7 0.034 250)",
+  border: `1px solid ${active ? accentColor : "oklch(0.4 0.034 250)"}`,
 });
 
 export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
@@ -83,7 +83,7 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
     <div style={{ maxWidth: CONTENT_WIDTH }}>
       <div style={{ ...glassCard, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: editMarkets ? 12 : 0 }}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Marché
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -113,9 +113,9 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
                 fontSize: 12,
                 padding: "5px 10px",
                 borderRadius: 6,
-                border: `1px solid ${editMarkets ? accentColor : "oklch(0.4 0.02 290)"}`,
+                border: `1px solid ${editMarkets ? accentColor : "oklch(0.4 0.034 250)"}`,
                 background: editMarkets ? accentColor : "transparent",
-                color: editMarkets ? "oklch(0.12 0.01 290)" : "oklch(0.75 0.02 290)",
+                color: editMarkets ? "oklch(0.12 0.017 250)" : "oklch(0.75 0.034 250)",
                 cursor: "pointer",
               }}
             >
@@ -136,9 +136,9 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
               style={{
                 flex: "1 1 160px",
                 fontSize: 14,
-                color: "oklch(0.88 0.01 290)",
+                color: "oklch(0.88 0.017 250)",
                 background: "transparent",
-                border: "1px dashed oklch(0.4 0.02 290)",
+                border: "1px dashed oklch(0.4 0.034 250)",
                 borderRadius: 6,
                 padding: "6px 8px",
               }}
@@ -174,8 +174,8 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
           {/* Titled over the card rather than over the column, so the heading
               and the widget read as one centred block. */}
           <div style={{ marginBottom: 24, textAlign: "center" }}>
-            <div style={{ fontSize: 26, fontWeight: 700 }}>Calendrier économique</div>
-            <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
+            <div style={pageTitle}>Calendrier économique</div>
+            <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
               Publications à fort impact du jour — US, zone euro, France, Allemagne, UK, Suisse
             </div>
           </div>

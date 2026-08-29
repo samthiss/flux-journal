@@ -33,7 +33,7 @@ import {
   importTradeImages,
 } from "@/lib/actions/notes";
 
-const lossColor = "oklch(0.65 0.18 25)";
+const lossColor = "oklch(0.7 0.25 18)";
 // Kept under the ~1MB ceiling the deployment stalls at, with room for the
 // multipart envelope. See src/lib/compressImage.ts.
 const MAX_IMAGE_BYTES = 850 * 1024;
@@ -253,7 +253,7 @@ function GripMenuButton({ onDelete, onDragStart, visible }: { onDelete: () => vo
           setOpen((o) => !o);
         }}
         title={onDragStart ? "Glisser pour réorganiser · cliquer pour les options" : "Options"}
-        style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", color: "oklch(0.5 0.02 290)", borderRadius: 5, cursor: onDragStart ? "grab" : "pointer" }}
+        style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", color: "oklch(0.5 0.034 250)", borderRadius: 5, cursor: onDragStart ? "grab" : "pointer" }}
       >
         <GripIcon />
       </span>
@@ -264,8 +264,8 @@ function GripMenuButton({ onDelete, onDragStart, visible }: { onDelete: () => vo
             top: 0,
             left: "110%",
             zIndex: 30,
-            background: "oklch(0.21 0.02 290)",
-            border: "1px solid oklch(0.34 0.02 290)",
+            background: "oklch(0.21 0.034 250)",
+            border: "1px solid oklch(0.34 0.034 250)",
             borderRadius: 8,
             boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
             padding: 4,
@@ -323,7 +323,7 @@ function PlusGripCluster({
           alignItems: "center",
           justifyContent: "center",
           fontSize: 16,
-          color: "oklch(0.5 0.02 290)",
+          color: "oklch(0.5 0.034 250)",
           borderRadius: 5,
           cursor: busy ? "default" : "pointer",
           pointerEvents: busy ? "none" : "auto",
@@ -351,7 +351,7 @@ function MoreMenuButton({ onDelete, visible }: { onDelete: () => void; visible: 
           setOpen((o) => !o);
         }}
         title="Plus d'options"
-        style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, letterSpacing: "-1px", color: "oklch(0.55 0.02 290)", borderRadius: 6, cursor: "pointer" }}
+        style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, letterSpacing: "-1px", color: "oklch(0.55 0.034 250)", borderRadius: 6, cursor: "pointer" }}
       >
         ⋯
       </span>
@@ -362,8 +362,8 @@ function MoreMenuButton({ onDelete, visible }: { onDelete: () => void; visible: 
             top: "110%",
             right: 0,
             zIndex: 30,
-            background: "oklch(0.21 0.02 290)",
-            border: "1px solid oklch(0.34 0.02 290)",
+            background: "oklch(0.21 0.034 250)",
+            border: "1px solid oklch(0.34 0.034 250)",
             borderRadius: 8,
             boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
             padding: 4,
@@ -608,7 +608,7 @@ function NoteSection({
   const hasExemples = blockList.some((b) => b.type === "exemples");
 
   return (
-    <div data-note-section={note.id} id={"note-" + note.id} style={{ paddingBottom: 48, marginBottom: 40, borderBottom: "1px solid oklch(0.22 0.02 290)" }}>
+    <div data-note-section={note.id} id={"note-" + note.id} style={{ paddingBottom: 48, marginBottom: 40, borderBottom: "1px solid oklch(0.22 0.034 250)" }}>
       <div style={{ maxWidth: TEXT_WIDTH }}>
         <div
           onMouseEnter={() => setHeaderHover(true)}
@@ -619,7 +619,7 @@ function NoteSection({
             onClick={onToggleCollapse}
             style={{ width: HEADER_INDENT, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
           >
-            <ChevronIcon color="oklch(0.5 0.02 290)" down={!collapsed} />
+            <ChevronIcon color="oklch(0.5 0.034 250)" down={!collapsed} />
           </div>
           <input
             value={title}
@@ -634,7 +634,7 @@ function NoteSection({
               background: "transparent",
               border: "none",
               outline: "none",
-              color: "oklch(0.96 0.004 290)",
+              color: "oklch(0.96 0.0068 250)",
               padding: "2px 0",
             }}
           />
@@ -842,7 +842,7 @@ function NoteSection({
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: 22,
-                color: "oklch(0.5 0.02 290)",
+                color: "oklch(0.5 0.034 250)",
                 borderRadius: 6,
                 cursor: "pointer",
                 opacity: addLineActive ? 1 : 0,
@@ -872,7 +872,7 @@ function NoteSection({
                 width: "100%",
                 fontSize: 14,
                 lineHeight: 1.5,
-                color: "oklch(0.88 0.01 290)",
+                color: "oklch(0.88 0.017 250)",
                 background: "transparent",
                 border: "none",
                 outline: "none",
@@ -889,8 +889,8 @@ function NoteSection({
                   top: "130%",
                   left: 0,
                   zIndex: 30,
-                  background: "oklch(0.21 0.02 290)",
-                  border: "1px solid oklch(0.34 0.02 290)",
+                  background: "oklch(0.21 0.034 250)",
+                  border: "1px solid oklch(0.34 0.034 250)",
                   borderRadius: 8,
                   boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
                   padding: 4,
@@ -930,9 +930,9 @@ function NoteBlockContent({ block, indent = HEADER_INDENT }: { block: BlockRecor
     case "regles":
       return <ReglesBlock blockId={block.id} initialContent={block.content} indent={indent} />;
     case "retenir":
-      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✓" iconColor={accentColor} iconBg="oklch(0.68 0.19 293 / 0.14)" indent={indent} />;
+      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✓" iconColor={accentColor} iconBg="oklch(0.84 0.17 196 / 0.14)" indent={indent} />;
     case "invalide":
-      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✕" iconColor={lossColor} iconBg="oklch(0.65 0.18 25 / 0.14)" indent={indent} />;
+      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✕" iconColor={lossColor} iconBg="oklch(0.7 0.25 18 / 0.14)" indent={indent} />;
     default:
       return null;
   }
@@ -951,7 +951,7 @@ function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
           onChange={(e) => setHeadings((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
           onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(headings))}
           onKeyDown={(e) => handleListKeyDown(e, i, headings, (next) => { setHeadings(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
-          style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.01em", color: "oklch(0.94 0.004 290)", background: "transparent", border: "none", outline: "none" }}
+          style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.01em", color: "oklch(0.94 0.0068 250)", background: "transparent", border: "none", outline: "none" }}
         />
       ))}
     </div>
@@ -961,14 +961,14 @@ function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
 function ObjectifBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
   const [objectif, setObjectif] = useState(initialContent ?? "");
   return (
-    <div style={{ border: `1px solid ${accentColor}59`, background: "oklch(0.68 0.19 293 / 0.07)", borderRadius: 12, padding: "15px 18px", marginLeft: indent, marginBottom: 24 }}>
+    <div style={{ border: `1px solid ${accentColor}59`, background: "oklch(0.84 0.17 196 / 0.07)", borderRadius: 12, padding: "15px 18px", marginLeft: indent, marginBottom: 24 }}>
       <textarea
         ref={(el) => autoGrow(el)}
         value={objectif}
         onChange={(e) => setObjectif(e.target.value)}
         onBlur={() => updateNoteBlockContent(blockId, objectif)}
         rows={1}
-        style={{ width: "100%", boxSizing: "border-box", fontSize: 15, lineHeight: 1.6, color: "oklch(0.92 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
+        style={{ width: "100%", boxSizing: "border-box", fontSize: 15, lineHeight: 1.6, color: "oklch(0.92 0.034 250)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
       />
     </div>
   );
@@ -988,7 +988,7 @@ function TheorieBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blo
             onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(theorie))}
             onKeyDown={(e) => handleListKeyDown(e, i, theorie, (next) => { setTheorie(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs)}
             rows={1}
-            style={{ flex: 1, fontSize: 15, lineHeight: 1.72, color: "oklch(0.84 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
+            style={{ flex: 1, fontSize: 15, lineHeight: 1.72, color: "oklch(0.84 0.034 250)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
           />
         </div>
       ))}
@@ -1027,7 +1027,7 @@ function BulletListBlock({
             onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(items))}
             onKeyDown={(e) => handleListKeyDown(e, i, items, (next) => { setItems(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
             rows={1}
-            style={{ flex: 1, fontSize: 14.5, lineHeight: 1.5, color: "oklch(0.86 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", overflowWrap: "anywhere", fontFamily: "inherit" }}
+            style={{ flex: 1, fontSize: 14.5, lineHeight: 1.5, color: "oklch(0.86 0.034 250)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", overflowWrap: "anywhere", fontFamily: "inherit" }}
           />
         </div>
       ))}
@@ -1071,7 +1071,7 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
             }
           }}
           placeholder="Titre de la liste"
-          style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 600, letterSpacing: "0.02em", color: "oklch(0.7 0.02 290)", background: "transparent", border: "none", outline: "none", width: "100%", fontFamily: "inherit" }}
+          style={{ display: "block", marginBottom: 8, fontSize: 13, fontWeight: 600, letterSpacing: "0.02em", color: "oklch(0.7 0.034 250)", background: "transparent", border: "none", outline: "none", width: "100%", fontFamily: "inherit" }}
         />
       )}
       {!label && !addingLabel && (
@@ -1088,8 +1088,8 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
             fontSize: 10,
             padding: "3px 10px",
             borderRadius: 999,
-            border: "1px dashed oklch(0.34 0.02 290)",
-            color: "oklch(0.6 0.02 290)",
+            border: "1px dashed oklch(0.34 0.034 250)",
+            color: "oklch(0.6 0.034 250)",
             cursor: "pointer",
             whiteSpace: "nowrap",
             opacity: hover ? 1 : 0,
@@ -1099,13 +1099,13 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
           + titre
         </span>
       )}
-      <div style={{ border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ border: "1px solid oklch(0.26 0.034 250)", borderRadius: 12, overflow: "hidden" }}>
       {regles.map((r, i) => (
         <div
           key={i}
           onMouseEnter={() => setHoverIdx(i)}
           onMouseLeave={() => setHoverIdx((cur) => (cur === i ? null : cur))}
-          style={{ padding: "13px 18px", background: "oklch(0.185 0.02 290)", borderBottom: i < regles.length - 1 ? "1px solid oklch(0.22 0.02 290)" : "none" }}
+          style={{ padding: "13px 18px", background: "oklch(0.185 0.034 250)", borderBottom: i < regles.length - 1 ? "1px solid oklch(0.22 0.034 250)" : "none" }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: 13 }}>
             <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: accentColor, flex: "none", paddingTop: 3 }}>{i + 1}</span>
@@ -1133,7 +1133,7 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
                 }
               }}
               rows={1}
-              style={{ flex: 1, fontSize: 14.5, lineHeight: 1.6, color: "oklch(0.86 0.02 290)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", overflowWrap: "anywhere", fontFamily: "inherit" }}
+              style={{ flex: 1, fontSize: 14.5, lineHeight: 1.6, color: "oklch(0.86 0.034 250)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", overflowWrap: "anywhere", fontFamily: "inherit" }}
             />
           </div>
           {r.details.map((d, di) => (
@@ -1155,7 +1155,7 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
                   marginTop: 3,
                   borderRadius: 4,
                   border: `1.5px solid ${accentColor}`,
-                  background: "oklch(0.68 0.19 293 / 0.14)",
+                  background: "oklch(0.84 0.17 196 / 0.14)",
                   color: accentColor,
                   fontSize: 8.5,
                   display: "flex",
@@ -1202,7 +1202,7 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
                   minWidth: 0,
                   fontSize: 13.5,
                   lineHeight: 1.6,
-                  color: "oklch(0.68 0.02 290)",
+                  color: "oklch(0.68 0.034 250)",
                   background: "transparent",
                   border: "none",
                   outline: "none",
@@ -1227,7 +1227,7 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
               marginTop: 4,
               display: "inline-block",
               fontSize: 11.5,
-              color: "oklch(0.5 0.02 290)",
+              color: "oklch(0.5 0.034 250)",
               cursor: "pointer",
               opacity: hoverIdx === i ? 1 : 0,
               transition: "opacity 0.12s ease",
@@ -1254,7 +1254,7 @@ function AddBlockButton({ visible, onAdd }: { visible: boolean; onAdd: (type: st
           setOpen((o) => !o);
         }}
         title="Ajouter un bloc"
-        style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 10px", borderRadius: 999, border: "1px dashed oklch(0.34 0.02 290)", color: "oklch(0.6 0.02 290)", cursor: "pointer" }}
+        style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 10px", borderRadius: 999, border: "1px dashed oklch(0.34 0.034 250)", color: "oklch(0.6 0.034 250)", cursor: "pointer" }}
       >
         + bloc
       </span>
@@ -1265,8 +1265,8 @@ function AddBlockButton({ visible, onAdd }: { visible: boolean; onAdd: (type: st
             top: "110%",
             left: 0,
             zIndex: 30,
-            background: "oklch(0.21 0.02 290)",
-            border: "1px solid oklch(0.34 0.02 290)",
+            background: "oklch(0.21 0.034 250)",
+            border: "1px solid oklch(0.34 0.034 250)",
             borderRadius: 8,
             padding: 4,
             display: "flex",
@@ -1281,7 +1281,7 @@ function AddBlockButton({ visible, onAdd }: { visible: boolean; onAdd: (type: st
                 onAdd(key);
                 setOpen(false);
               }}
-              style={{ fontSize: 12.5, padding: "6px 10px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.02 290)", whiteSpace: "nowrap" }}
+              style={{ fontSize: 12.5, padding: "6px 10px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.034 250)", whiteSpace: "nowrap" }}
             >
               {label}
             </span>
@@ -1310,7 +1310,7 @@ function CategoryBlock({ block, onDelete, indent }: { block: BlockRecord; onDele
           justifyContent: "center",
           fontSize: 13,
           borderRadius: 6,
-          color: "oklch(0.55 0.02 290)",
+          color: "oklch(0.55 0.034 250)",
           cursor: "pointer",
           opacity: hover ? 1 : 0,
           transition: "opacity 0.12s ease",
@@ -1342,7 +1342,7 @@ function FilterRow({
   if (!values.length) return null;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 290)" }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>{label}</span>
       {values.map((v) => (
         <FilterChip key={v} label={v} tone={tone} on={selected.includes(v)} onClick={() => onToggle(v)} />
       ))}
@@ -1370,9 +1370,9 @@ function FilterChip({
         padding: "3px 9px",
         borderRadius: 999,
         cursor: "pointer",
-        border: `1px solid ${on ? tone.line : "oklch(0.32 0.02 290)"}`,
+        border: `1px solid ${on ? tone.line : "oklch(0.32 0.034 250)"}`,
         background: on ? tone.bg : "transparent",
-        color: on ? tone.fg : "oklch(0.58 0.02 290)",
+        color: on ? tone.fg : "oklch(0.58 0.034 250)",
       }}
     >
       {label}
@@ -1500,21 +1500,21 @@ function ExampleCategory({
           onClick={() => setCollapsedPersist((c) => !c)}
           style={{ width: 14, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
         >
-          <ChevronIcon color="oklch(0.5 0.02 290)" down={!collapsed} />
+          <ChevronIcon color="oklch(0.5 0.034 250)" down={!collapsed} />
         </span>
         {onRename ? (
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => onRename(name)}
-            style={{ fontSize: 14, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.92 0.005 290)", padding: "2px 4px", marginLeft: -4, width: `${Math.max(name.length + 2, 6)}ch`, minWidth: 0 }}
+            style={{ fontSize: 14, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.92 0.0085 250)", padding: "2px 4px", marginLeft: -4, width: `${Math.max(name.length + 2, 6)}ch`, minWidth: 0 }}
           />
         ) : (
-          <span onClick={() => setCollapsedPersist((c) => !c)} style={{ fontSize: 14, fontWeight: 600, color: "oklch(0.7 0.02 290)", cursor: "pointer" }}>
+          <span onClick={() => setCollapsedPersist((c) => !c)} style={{ fontSize: 14, fontWeight: 600, color: "oklch(0.7 0.034 250)", cursor: "pointer" }}>
             {title}
           </span>
         )}
-        <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: "oklch(0.5 0.02 290)" }}>
+        <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: "oklch(0.5 0.034 250)" }}>
           {filtering ? `${shown.length}/${examples.length}` : examples.length}
         </span>
         {hasAnythingToFilter && (
@@ -1527,9 +1527,9 @@ function ExampleCategory({
               padding: "2px 8px",
               borderRadius: 999,
               cursor: "pointer",
-              border: `1px solid ${filtering ? "oklch(0.68 0.19 293 / 0.5)" : "oklch(0.34 0.02 290)"}`,
-              background: filtering ? "oklch(0.68 0.19 293 / 0.16)" : "transparent",
-              color: filtering ? accentColor : "oklch(0.55 0.02 290)",
+              border: `1px solid ${filtering ? "oklch(0.84 0.17 196 / 0.5)" : "oklch(0.34 0.034 250)"}`,
+              background: filtering ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
+              color: filtering ? accentColor : "oklch(0.55 0.034 250)",
               // Out of the way until the row is hovered, unless a filter is on:
               // a list showing a subset must say so even when nothing is hovered.
               opacity: hover || filtering || filterOpen ? 1 : 0,
@@ -1543,7 +1543,7 @@ function ExampleCategory({
           <span
             onClick={clearFilter}
             title="Retirer le filtre"
-            style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 290)", cursor: "pointer" }}
+            style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)", cursor: "pointer" }}
           >
             ✕
           </span>
@@ -1552,7 +1552,7 @@ function ExampleCategory({
           <span
             onClick={onMoveUp}
             title="Monter"
-            style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: canMoveUp ? "pointer" : "default", opacity: canMoveUp ? 1 : 0.25, color: "oklch(0.55 0.02 290)", transform: "rotate(-90deg)" }}
+            style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: canMoveUp ? "pointer" : "default", opacity: canMoveUp ? 1 : 0.25, color: "oklch(0.55 0.034 250)", transform: "rotate(-90deg)" }}
           >
             <ChevronIcon color="currentColor" down={false} />
           </span>
@@ -1561,7 +1561,7 @@ function ExampleCategory({
           <span
             onClick={onMoveDown}
             title="Descendre"
-            style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: canMoveDown ? "pointer" : "default", opacity: canMoveDown ? 1 : 0.25, color: "oklch(0.55 0.02 290)" }}
+            style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: canMoveDown ? "pointer" : "default", opacity: canMoveDown ? 1 : 0.25, color: "oklch(0.55 0.034 250)" }}
           >
             <ChevronIcon color="currentColor" down={true} />
           </span>
@@ -1579,7 +1579,7 @@ function ExampleCategory({
           />
           {available.hasValidity && (
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-              <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 290)" }}>Verdict:</span>
+              <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>Verdict:</span>
               {(["valid", "invalid"] as const).map((side) => (
                 <FilterChip
                   key={side}
@@ -1610,7 +1610,7 @@ function ExampleCategory({
       {!collapsed && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginLeft: HEADER_INDENT }}>
           {shown.length === 0 && (
-            <div style={{ fontSize: 13, color: "oklch(0.5 0.02 290)" }}>
+            <div style={{ fontSize: 13, color: "oklch(0.5 0.034 250)" }}>
               {filtering ? "Aucun exemple ne correspond au filtre." : "Aucun exemple."}
             </div>
           )}
@@ -1633,7 +1633,7 @@ function ExampleCategory({
                       onChanged();
                     }}
                     title="Monter"
-                    style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: exIdx === 0 ? "default" : "pointer", opacity: exIdx === 0 ? 0.25 : 1, color: "oklch(0.55 0.02 290)", transform: "rotate(-90deg)" }}
+                    style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: exIdx === 0 ? "default" : "pointer", opacity: exIdx === 0 ? 0.25 : 1, color: "oklch(0.55 0.034 250)", transform: "rotate(-90deg)" }}
                   >
                     <ChevronIcon color="currentColor" down={false} />
                   </span>
@@ -1646,7 +1646,7 @@ function ExampleCategory({
                       onChanged();
                     }}
                     title="Descendre"
-                    style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: exIdx === examples.length - 1 ? "default" : "pointer", opacity: exIdx === examples.length - 1 ? 0.25 : 1, color: "oklch(0.55 0.02 290)" }}
+                    style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: exIdx === examples.length - 1 ? "default" : "pointer", opacity: exIdx === examples.length - 1 ? 0.25 : 1, color: "oklch(0.55 0.034 250)" }}
                   >
                     <ChevronIcon color="currentColor" down={true} />
                   </span>
@@ -1674,8 +1674,8 @@ function ExampleCategory({
               width: 28,
               height: 28,
               borderRadius: 8,
-              border: "1px dashed oklch(0.34 0.02 290)",
-              color: "oklch(0.6 0.02 290)",
+              border: "1px dashed oklch(0.34 0.034 250)",
+              color: "oklch(0.6 0.034 250)",
               fontSize: 16,
               cursor: "pointer",
             }}
@@ -1731,7 +1731,7 @@ function ExampleImage({
             marginBottom: 12,
             padding: "7px 10px",
             borderRadius: 8,
-            background: "oklch(0.68 0.19 293 / 0.09)",
+            background: "oklch(0.84 0.17 196 / 0.09)",
             border: `1px solid ${accentColor}33`,
           }}
         >
@@ -1765,7 +1765,7 @@ function ExampleImage({
                   boxSizing: "border-box",
                   fontSize: 13.5,
                   lineHeight: 1.5,
-                  color: "oklch(0.92 0.004 290)",
+                  color: "oklch(0.92 0.0068 250)",
                   background: "transparent",
                   border: "none",
                   outline: "none",
@@ -1824,7 +1824,7 @@ function ExampleImage({
             // stray pixels under every tile.
             display: "block",
             borderRadius: 8,
-            border: "1px solid oklch(0.32 0.02 290 / 0.5)",
+            border: "1px solid oklch(0.32 0.034 250 / 0.5)",
             cursor: pending ? "progress" : "zoom-in",
             opacity: pending ? 0.55 : 1,
             transition: "opacity 0.2s",
@@ -1841,7 +1841,7 @@ function ExampleImage({
               fontFamily: "var(--font-jetbrains-mono), monospace",
               fontSize: 10.5,
               letterSpacing: 0.3,
-              color: "oklch(0.9 0.005 290)",
+              color: "oklch(0.9 0.0085 250)",
               pointerEvents: "none",
             }}
           >
@@ -1863,8 +1863,8 @@ function ExampleImage({
               fontSize: 10,
               padding: "3px 8px",
               borderRadius: 999,
-              background: "oklch(0.15 0.02 290 / 0.75)",
-              color: "oklch(0.85 0.02 290)",
+              background: "oklch(0.15 0.034 250 / 0.75)",
+              color: "oklch(0.85 0.034 250)",
             }}
           >
             Trade ↗
@@ -1873,7 +1873,7 @@ function ExampleImage({
         {!pending && (
           <div
             onClick={onRemove}
-            style={{ position: "absolute", top: 7, right: 7, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, borderRadius: 6, background: "oklch(0.15 0.02 290 / 0.75)", color: "oklch(0.9 0.005 290)", cursor: "pointer" }}
+            style={{ position: "absolute", top: 7, right: 7, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, borderRadius: 6, background: "oklch(0.15 0.034 250 / 0.75)", color: "oklch(0.9 0.0085 250)", cursor: "pointer" }}
           >
             ✕
           </div>
@@ -1888,8 +1888,8 @@ type Validity = "valid" | "invalid" | null;
 // Valide and Invalid keep the page's two existing accents — the violet used for
 // wins, and the red already used for losses and errors — each with the soft
 // fill and hairline that the chips are drawn with.
-const VALID_TONE = { fg: accentColor, bg: "oklch(0.68 0.19 293 / 0.16)", line: "oklch(0.68 0.19 293 / 0.5)" };
-const INVALID_TONE = { fg: lossColor, bg: "oklch(0.65 0.18 25 / 0.14)", line: "oklch(0.65 0.18 25 / 0.45)" };
+const VALID_TONE = { fg: accentColor, bg: "oklch(0.84 0.17 196 / 0.16)", line: "oklch(0.84 0.17 196 / 0.5)" };
+const INVALID_TONE = { fg: lossColor, bg: "oklch(0.7 0.25 18 / 0.14)", line: "oklch(0.7 0.25 18 / 0.45)" };
 
 function normalizeValidity(s: string | null): Validity {
   return s === "valid" || s === "invalid" ? s : null;
@@ -1947,7 +1947,7 @@ function ChipList({
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 290)" }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>{label}</span>
       {values.map((v, i) => (
         <span
           key={i}
@@ -1997,9 +1997,9 @@ function ChipList({
               fontSize: 10,
               padding: "3px 8px",
               borderRadius: 999,
-              border: "1px dashed oklch(0.34 0.02 290)",
+              border: "1px dashed oklch(0.34 0.034 250)",
               background: "transparent",
-              color: "oklch(0.8 0.02 290)",
+              color: "oklch(0.8 0.034 250)",
               outline: "none",
             }}
           />
@@ -2015,8 +2015,8 @@ function ChipList({
                 overflowY: "auto",
                 padding: 4,
                 borderRadius: 8,
-                border: "1px solid oklch(0.34 0.02 290)",
-                background: "oklch(0.21 0.02 290)",
+                border: "1px solid oklch(0.34 0.034 250)",
+                background: "oklch(0.21 0.034 250)",
                 boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
               }}
             >
@@ -2069,9 +2069,9 @@ function ValidityToggle({ value, visible, onChange }: { value: Validity; visible
           padding: "3px 10px",
           borderRadius: 999,
           cursor: "pointer",
-          border: `1px solid ${on ? tone.line : "oklch(0.34 0.02 290)"}`,
+          border: `1px solid ${on ? tone.line : "oklch(0.34 0.034 250)"}`,
           background: on ? tone.bg : "transparent",
-          color: on ? tone.fg : "oklch(0.55 0.02 290)",
+          color: on ? tone.fg : "oklch(0.55 0.034 250)",
         }}
       >
         {text}
@@ -2231,7 +2231,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   };
 
   return (
-    <div style={{ border: "1px solid oklch(0.26 0.02 290)", borderRadius: 12, background: "oklch(0.185 0.02 290)" }}>
+    <div style={{ border: "1px solid oklch(0.26 0.034 250)", borderRadius: 12, background: "oklch(0.185 0.034 250)" }}>
       <div
         onMouseEnter={() => setHeaderHover(true)}
         onMouseLeave={() => setHeaderHover(false)}
@@ -2242,7 +2242,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             onClick={toggleCollapsed}
             style={{ width: 14, height: 22, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
           >
-            <ChevronIcon color="oklch(0.5 0.02 290)" down={!collapsed} />
+            <ChevronIcon color="oklch(0.5 0.034 250)" down={!collapsed} />
           </span>
           {title || editingTitle ? (
             <input
@@ -2256,7 +2256,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               onKeyDown={(e) => {
                 if (e.key === "Enter") (e.target as HTMLInputElement).blur();
               }}
-              style={{ flex: 1, fontSize: 15, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.94 0.004 290)" }}
+              style={{ flex: 1, fontSize: 15, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.94 0.0068 250)" }}
             />
           ) : headerHover ? (
             <span
@@ -2267,8 +2267,8 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
                 fontSize: 10,
                 padding: "3px 10px",
                 borderRadius: 999,
-                border: "1px dashed oklch(0.34 0.02 290)",
-                color: "oklch(0.6 0.02 290)",
+                border: "1px dashed oklch(0.34 0.034 250)",
+                color: "oklch(0.6 0.034 250)",
                 cursor: "pointer",
                 width: "fit-content",
               }}
@@ -2285,8 +2285,8 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               fontSize: 10,
               padding: "3px 8px",
               borderRadius: 999,
-              border: "1px solid oklch(0.34 0.02 290)",
-              color: "oklch(0.6 0.02 290)",
+              border: "1px solid oklch(0.34 0.034 250)",
+              color: "oklch(0.6 0.034 250)",
               cursor: "pointer",
               opacity: headerHover ? 1 : 0,
               transition: "opacity 0.12s ease",
@@ -2354,7 +2354,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
         )}
       </div>
       {!collapsed && (
-      <div style={{ borderTop: "1px solid oklch(0.24 0.02 290)" }}>
+      <div style={{ borderTop: "1px solid oklch(0.24 0.034 250)" }}>
         {exampleBlocks.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", padding: "10px 12px 0" }}>
             {exampleBlocks.map((b) => (
@@ -2440,14 +2440,14 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
           <div style={{ display: "flex", gap: 8 }}>
             <div
               onClick={() => fileRef.current?.click()}
-              style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px dashed ${dropping ? accentColor : "oklch(0.34 0.02 290)"}`, borderRadius: 8, color: dropping ? accentColor : "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, transition: "border-color 0.12s ease, color 0.12s ease" }}
+              style={{ flex: 1, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: `1px dashed ${dropping ? accentColor : "oklch(0.34 0.034 250)"}`, borderRadius: 8, color: dropping ? accentColor : "oklch(0.6 0.034 250)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, transition: "border-color 0.12s ease, color 0.12s ease" }}
             >
               {dropping ? "dépose tes images" : (<><span style={{ fontSize: 16 }}>+</span> images</>)}
             </div>
             <div style={{ position: "relative", flex: 1 }}>
               <div
                 onClick={() => setShowTradePicker((s) => !s)}
-                style={{ height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: "1px dashed oklch(0.34 0.02 290)", borderRadius: 8, color: "oklch(0.6 0.02 290)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11 }}
+                style={{ height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, border: "1px dashed oklch(0.34 0.034 250)", borderRadius: 8, color: "oklch(0.6 0.034 250)", cursor: "pointer", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11 }}
               >
                 <span style={{ fontSize: 16 }}>+</span> importer un trade
               </div>
@@ -2508,8 +2508,8 @@ function TradePicker({ onSelect, onClose }: { onSelect: (tradeId: string) => voi
         zIndex: 40,
         maxHeight: 320,
         overflowY: "auto",
-        background: "oklch(0.21 0.02 290)",
-        border: "1px solid oklch(0.34 0.02 290)",
+        background: "oklch(0.21 0.034 250)",
+        border: "1px solid oklch(0.34 0.034 250)",
         borderRadius: 10,
         boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
         padding: 8,
@@ -2520,10 +2520,10 @@ function TradePicker({ onSelect, onClose }: { onSelect: (tradeId: string) => voi
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Chercher un symbole..."
-        style={{ width: "100%", fontSize: 12.5, padding: "7px 9px", borderRadius: 7, border: "1px solid oklch(0.32 0.02 290)", background: "oklch(0.16 0.02 290)", color: "oklch(0.9 0.005 290)", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
+        style={{ width: "100%", fontSize: 12.5, padding: "7px 9px", borderRadius: 7, border: "1px solid oklch(0.32 0.034 250)", background: "oklch(0.16 0.034 250)", color: "oklch(0.9 0.0085 250)", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
       />
-      {loading && <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", padding: "6px 4px" }}>Chargement...</div>}
-      {!loading && results.length === 0 && <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", padding: "6px 4px" }}>Aucun trade trouvé.</div>}
+      {loading && <div style={{ fontSize: 12, color: "oklch(0.55 0.034 250)", padding: "6px 4px" }}>Chargement...</div>}
+      {!loading && results.length === 0 && <div style={{ fontSize: 12, color: "oklch(0.55 0.034 250)", padding: "6px 4px" }}>Aucun trade trouvé.</div>}
       {!loading &&
         results.map((t) => (
           <div
@@ -2531,8 +2531,8 @@ function TradePicker({ onSelect, onClose }: { onSelect: (tradeId: string) => voi
             onClick={() => onSelect(t.id)}
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 6, cursor: "pointer", fontSize: 12.5 }}
           >
-            <span style={{ color: "oklch(0.9 0.005 290)", fontWeight: 600 }}>
-              {t.symbol} <span style={{ fontWeight: 400, color: "oklch(0.6 0.02 290)" }}>· {t.setup}</span>
+            <span style={{ color: "oklch(0.9 0.0085 250)", fontWeight: 600 }}>
+              {t.symbol} <span style={{ fontWeight: 400, color: "oklch(0.6 0.034 250)" }}>· {t.setup}</span>
             </span>
             <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: t.pnl >= 0 ? accentColor : lossColor }}>
               {t.date.slice(0, 10)} · {t.imageCount} img
@@ -2547,7 +2547,7 @@ function ExemplesSectionTitle({ initialTitle, onRename }: { initialTitle: string
   const [title, setTitle] = useState(initialTitle);
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
-      <ChartIcon color="oklch(0.92 0.004 290)" />
+      <ChartIcon color="oklch(0.92 0.0068 250)" />
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -2564,7 +2564,7 @@ function ExemplesSectionTitle({ initialTitle, onRename }: { initialTitle: string
           fontSize: 11,
           letterSpacing: "0.14em",
           textTransform: "uppercase",
-          color: "oklch(0.92 0.004 290)",
+          color: "oklch(0.92 0.0068 250)",
           background: "transparent",
           border: "none",
           outline: "none",
@@ -2613,7 +2613,7 @@ const addMenuItemStyle: React.CSSProperties = {
   alignItems: "center",
   padding: "8px 10px",
   fontSize: 13,
-  color: "oklch(0.82 0.01 290)",
+  color: "oklch(0.82 0.017 250)",
   borderRadius: 6,
   cursor: "pointer",
   whiteSpace: "nowrap",

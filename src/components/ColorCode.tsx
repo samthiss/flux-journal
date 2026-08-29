@@ -33,8 +33,8 @@ const ROWS: Row[] = [
 const cellStyle: CSSProperties = {
   padding: "8px 10px",
   fontSize: 12,
-  color: "oklch(0.85 0.01 290)",
-  borderBottom: "1px solid oklch(0.3 0.02 290 / 0.6)",
+  color: "oklch(0.85 0.017 250)",
+  borderBottom: "1px solid oklch(0.3 0.034 250 / 0.6)",
 };
 
 const headStyle: CSSProperties = {
@@ -42,17 +42,17 @@ const headStyle: CSSProperties = {
   fontSize: 11,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
-  color: "oklch(0.62 0.02 290)",
-  borderBottom: "1px solid oklch(0.35 0.02 290)",
+  color: "oklch(0.62 0.034 250)",
+  borderBottom: "1px solid oklch(0.35 0.034 250)",
 };
 
 export default function ColorCode() {
   return (
     <div style={{ ...glassCard, padding: 0, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid oklch(0.3 0.02 290 / 0.6)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid oklch(0.3 0.034 250 / 0.6)" }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#e6231e" }} />
         <div style={{ fontSize: 13, fontWeight: 600 }}>Le code couleur</div>
-        <div style={{ fontSize: 11, color: "oklch(0.55 0.02 290)", marginLeft: "auto", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
+        <div style={{ fontSize: 11, color: "oklch(0.55 0.034 250)", marginLeft: "auto", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
           Mr. Volume Academy
         </div>
       </div>
@@ -79,14 +79,14 @@ export default function ColorCode() {
                       height: 16,
                       borderRadius: 4,
                       background: r.color,
-                      border: "1px solid oklch(0.4 0.02 290)",
+                      border: "1px solid oklch(0.4 0.034 250)",
                     }}
                   />
                 </td>
                 <td style={{ ...cellStyle, fontFamily: "var(--font-jetbrains-mono), monospace", fontWeight: 600 }}>{r.code}</td>
                 <td style={cellStyle}>{r.meaning}</td>
                 <td style={cellStyle}>{r.positions}</td>
-                <td style={{ ...cellStyle, color: "oklch(0.62 0.02 290)" }}>{r.note ?? ""}</td>
+                <td style={{ ...cellStyle, color: "oklch(0.62 0.034 250)" }}>{r.note ?? ""}</td>
               </tr>
             ))}
           </tbody>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
+import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor, pageTitle } from "@/lib/theme";
 import {
   withOutcome,
   filterByPeriod,
@@ -43,8 +43,8 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
   const metricCards = [
     { label: "Avg Win", value: fmtMoney(stats.avgWin), sub: `${stats.wins.length} winning trades`, color: winColor },
     { label: "Avg Loss", value: fmtMoney(stats.avgLoss), sub: `${stats.losses.length} losing trades`, color: lossColor },
-    { label: "Profit Factor", value: stats.profitFactor.toFixed(2), sub: "gross win / gross loss", color: "oklch(0.96 0.004 290)" },
-    { label: "Risk / Reward", value: `1 : ${stats.avgRR.toFixed(2)}`, sub: "average across trades", color: "oklch(0.96 0.004 290)" },
+    { label: "Profit Factor", value: stats.profitFactor.toFixed(2), sub: "gross win / gross loss", color: "oklch(0.96 0.0068 250)" },
+    { label: "Risk / Reward", value: `1 : ${stats.avgRR.toFixed(2)}`, sub: "average across trades", color: "oklch(0.96 0.0068 250)" },
     { label: "Best Trade", value: fmtMoney(stats.best), sub: "single-trade high", color: winColor },
     { label: "Worst Trade", value: fmtMoney(stats.worst), sub: "single-trade low", color: lossColor },
     {
@@ -53,16 +53,16 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
       sub: "consecutive trades",
       color: stats.streakType === "win" ? winColor : lossColor,
     },
-    { label: "Total Trades", value: `${periodTrades.length}`, sub: "this period", color: "oklch(0.96 0.004 290)" },
+    { label: "Total Trades", value: `${periodTrades.length}`, sub: "this period", color: "oklch(0.96 0.0068 250)" },
   ];
 
   const selectStyle: React.CSSProperties = {
     fontFamily: "var(--font-space-grotesk), sans-serif",
     fontSize: 13,
-    color: "oklch(0.9 0.005 290)",
-    background: "oklch(0.18 0.02 290)",
+    color: "oklch(0.9 0.0085 250)",
+    background: "oklch(0.18 0.034 250)",
     padding: "9px 14px",
-    border: "1px solid oklch(0.32 0.03 290 / 0.6)",
+    border: "1px solid oklch(0.32 0.051 250 / 0.6)",
     borderRadius: 8,
     whiteSpace: "nowrap",
     outline: "none",
@@ -73,8 +73,8 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
     <div>
       <div className="dash-header">
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 26, fontWeight: 700 }}>Dashboard</div>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4, whiteSpace: "nowrap" }}>
+          <div style={pageTitle}>Dashboard</div>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4, whiteSpace: "nowrap" }}>
             {periodTrades.length} trades in period
           </div>
         </div>
@@ -107,7 +107,7 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
           </select>
           <Link
             href="/trades/new"
-            style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.01 290)", textDecoration: "none", whiteSpace: "nowrap" }}
+            style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", textDecoration: "none", whiteSpace: "nowrap" }}
           >
             + Add Trade
           </Link>
@@ -165,8 +165,8 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
               style={{
                 ...selectStyle,
                 cursor: "pointer",
-                color: "oklch(0.65 0.18 25)",
-                border: "1px solid oklch(0.55 0.18 25 / 0.5)",
+                color: "oklch(0.7 0.25 18)",
+                border: "1px solid oklch(0.62 0.24 18 / 0.5)",
               }}
             >
               Clear
@@ -178,7 +178,7 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
       <div className="dash-top-grid">
         <div style={{ ...glassCard, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
           <svg width="140" height="140" viewBox="0 0 140 140">
-            <circle cx="70" cy="70" r="58" fill="none" stroke="oklch(0.28 0.02 290)" strokeWidth="12" />
+            <circle cx="70" cy="70" r="58" fill="none" stroke="oklch(0.28 0.034 250)" strokeWidth="12" />
             <circle
               cx="70"
               cy="70"
@@ -194,18 +194,18 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
             <text x="70" y="68" textAnchor="middle" fontFamily="var(--font-jetbrains-mono), monospace" fontSize="26" fontWeight="600" fill="#f5f4f8">
               {Math.round(stats.winRate * 100)}%
             </text>
-            <text x="70" y="86" textAnchor="middle" fontFamily="var(--font-space-grotesk), sans-serif" fontSize="11" letterSpacing="0.06em" fill="oklch(0.6 0.02 290)">
+            <text x="70" y="86" textAnchor="middle" fontFamily="var(--font-space-grotesk), sans-serif" fontSize="11" letterSpacing="0.06em" fill="oklch(0.6 0.034 250)">
               WIN RATE
             </text>
           </svg>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
             {stats.wins.length}W &nbsp;/&nbsp; {stats.losses.length}L
           </div>
         </div>
 
         <div style={{ ...glassCard, display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               Equity Curve
             </div>
             <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 18, fontWeight: 600, color: stats.totalPnl >= 0 ? winColor : lossColor }}>
@@ -213,7 +213,7 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
             </div>
           </div>
           <svg viewBox="0 0 600 150" style={{ width: "100%", height: 150, flex: 1 }} preserveAspectRatio="none">
-            <line x1="0" y1="75" x2="600" y2="75" stroke="oklch(0.3 0.02 290)" strokeWidth="1" strokeDasharray="4 4" />
+            <line x1="0" y1="75" x2="600" y2="75" stroke="oklch(0.3 0.034 250)" strokeWidth="1" strokeDasharray="4 4" />
             <polyline
               points={stats.equityPoints}
               fill="none"
@@ -229,27 +229,27 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
       <div className="dash-metrics-grid">
         {metricCards.map((m) => (
           <div key={m.label} style={glassCard}>
-            <div style={{ fontSize: 12, color: "oklch(0.6 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{m.label}</div>
+            <div style={{ fontSize: 12, color: "oklch(0.6 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{m.label}</div>
             <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 24, fontWeight: 600, marginTop: 8, color: m.color }}>
               {m.value}
             </div>
-            <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", marginTop: 4 }}>{m.sub}</div>
+            <div style={{ fontSize: 12, color: "oklch(0.55 0.034 250)", marginTop: 4 }}>{m.sub}</div>
           </div>
         ))}
       </div>
 
       <div style={{ ...glassCard, marginTop: 20 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Monthly Calendar
           </div>
-          <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 13, color: "oklch(0.6 0.02 290)" }}>
+          <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 13, color: "oklch(0.6 0.034 250)" }}>
             {calendarMonthLabel}
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 8, marginBottom: 8 }}>
           {WEEKDAY_LABELS.map((d, i) => (
-            <div key={i} style={{ textAlign: "center", fontSize: 11, color: "oklch(0.5 0.02 290)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div key={i} style={{ textAlign: "center", fontSize: 11, color: "oklch(0.5 0.034 250)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               {d}
             </div>
           ))}
@@ -258,8 +258,8 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
           {calendarCells.map((c, i) => {
             const has = c.hasTrades;
             const isWin = c.isWin;
-            const bg = has ? (isWin ? accentSoft : "oklch(0.3 0.01 290 / 0.5)") : "oklch(0.17 0.015 290 / 0.4)";
-            const border = has ? (isWin ? "oklch(0.68 0.19 293 / 0.5)" : "oklch(0.45 0.01 290 / 0.4)") : "oklch(0.28 0.02 290 / 0.4)";
+            const bg = has ? (isWin ? accentSoft : "oklch(0.3 0.017 250 / 0.5)") : "oklch(0.17 0.0255 250 / 0.4)";
+            const border = has ? (isWin ? "oklch(0.84 0.17 196 / 0.5)" : "oklch(0.45 0.017 250 / 0.4)") : "oklch(0.28 0.034 250 / 0.4)";
             return (
               <div
                 key={i}
@@ -278,7 +278,7 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
               >
                 {c.isDay && (
                   <>
-                    <div style={{ fontSize: 12, color: "oklch(0.75 0.02 290)" }}>{c.dayNum}</div>
+                    <div style={{ fontSize: 12, color: "oklch(0.75 0.034 250)" }}>{c.dayNum}</div>
                     <div
                       style={{
                         fontFamily: "var(--font-jetbrains-mono), monospace",

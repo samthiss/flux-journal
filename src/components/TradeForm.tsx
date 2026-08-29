@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { accentColor, glassCard } from "@/lib/theme";
+import { accentColor, glassCard, pageTitle } from "@/lib/theme";
 import { removeChartSlot } from "@/lib/actions/trades";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 
@@ -29,11 +29,11 @@ export type ExistingCharts = Partial<Record<(typeof CHART_SLOTS)[number]["key"],
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  background: "oklch(0.18 0.02 290)",
-  border: "1px solid oklch(0.32 0.03 290 / 0.6)",
+  background: "oklch(0.18 0.034 250)",
+  border: "1px solid oklch(0.32 0.051 250 / 0.6)",
   borderRadius: 8,
   padding: "10px 12px",
-  color: "oklch(0.96 0.004 290)",
+  color: "oklch(0.96 0.0068 250)",
   fontFamily: "var(--font-space-grotesk), sans-serif",
   fontSize: 13,
   outline: "none",
@@ -46,7 +46,7 @@ const monoInputStyle: React.CSSProperties = { ...inputStyle, fontFamily: "var(--
 const ACCEPTED_CHART_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 function fieldLabel(text: string) {
-  return <div style={{ fontSize: 12, color: "oklch(0.6 0.02 290)", marginBottom: 6 }}>{text}</div>;
+  return <div style={{ fontSize: 12, color: "oklch(0.6 0.034 250)", marginBottom: 6 }}>{text}</div>;
 }
 
 function ChartSlotInput({
@@ -105,16 +105,16 @@ function ChartSlotInput({
       }}
       style={{
         display: "block",
-        border: `1.5px dashed ${dragOver ? accentColor : "oklch(0.36 0.03 290 / 0.6)"}`,
+        border: `1.5px dashed ${dragOver ? accentColor : "oklch(0.36 0.051 250 / 0.6)"}`,
         borderRadius: 10,
         padding: 14,
-        background: "oklch(0.16 0.018 290)",
+        background: "oklch(0.16 0.0306 250)",
         cursor: "pointer",
         opacity: isPending ? 0.5 : 1,
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.78 0.02 290)" }}>{label}</div>
-      {!preview && <div style={{ fontSize: 11, color: "oklch(0.5 0.02 290)", marginTop: 4 }}>Drag &amp; drop or click</div>}
+      <div style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.78 0.034 250)" }}>{label}</div>
+      {!preview && <div style={{ fontSize: 11, color: "oklch(0.5 0.034 250)", marginTop: 4 }}>Drag &amp; drop or click</div>}
       {preview && (
         <div style={{ position: "relative", marginTop: 8 }}>
           <div
@@ -125,7 +125,7 @@ function ChartSlotInput({
               backgroundImage: `url(${preview})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
-              border: "1px solid oklch(0.32 0.03 290 / 0.5)",
+              border: "1px solid oklch(0.32 0.051 250 / 0.5)",
             }}
           />
           {tradeId && (
@@ -141,7 +141,7 @@ function ChartSlotInput({
                 width: 22,
                 height: 22,
                 borderRadius: "50%",
-                background: "oklch(0.15 0.02 290 / 0.85)",
+                background: "oklch(0.15 0.034 250 / 0.85)",
                 color: "oklch(0.9 0 0)",
                 fontSize: 13,
                 display: "flex",
@@ -155,7 +155,7 @@ function ChartSlotInput({
         </div>
       )}
       {typeError && (
-        <div style={{ marginTop: 6, fontSize: 11, color: "oklch(0.65 0.18 25)" }}>
+        <div style={{ marginTop: 6, fontSize: 11, color: "oklch(0.7 0.25 18)" }}>
           Formats acceptés : PNG, JPEG, WebP, GIF.
         </div>
       )}
@@ -203,8 +203,8 @@ export default function TradeForm({
     fontSize: 13,
     fontWeight: 600,
     background: active ? accentColor : "transparent",
-    color: active ? "oklch(0.12 0.01 290)" : "oklch(0.7 0.02 290)",
-    border: `1px solid ${active ? accentColor : "oklch(0.36 0.03 290 / 0.6)"}`,
+    color: active ? "oklch(0.12 0.017 250)" : "oklch(0.7 0.034 250)",
+    border: `1px solid ${active ? accentColor : "oklch(0.36 0.051 250 / 0.6)"}`,
   });
 
   return (
@@ -220,17 +220,17 @@ export default function TradeForm({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            border: "1px solid oklch(0.36 0.03 290 / 0.6)",
-            background: "oklch(0.18 0.02 290)",
+            border: "1px solid oklch(0.36 0.051 250 / 0.6)",
+            background: "oklch(0.18 0.034 250)",
           }}
         >
           <svg width="16" height="16" viewBox="0 0 16 16">
-            <path d="M10 3L5 8l5 5" fill="none" stroke="oklch(0.85 0.01 290)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 3L5 8l5 5" fill="none" stroke="oklch(0.85 0.017 250)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Link>
         <div>
-          <div style={{ fontSize: 26, fontWeight: 700 }}>{title}</div>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 2 }}>{subtitle}</div>
+          <div style={pageTitle}>{title}</div>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 2 }}>{subtitle}</div>
         </div>
       </div>
 
@@ -343,7 +343,7 @@ export default function TradeForm({
           <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
             <button
               type="submit"
-              style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "11px 20px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.01 290)", border: "none" }}
+              style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "11px 20px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", border: "none" }}
             >
               Save Trade
             </button>
@@ -355,8 +355,8 @@ export default function TradeForm({
                 fontWeight: 600,
                 padding: "11px 20px",
                 borderRadius: 9,
-                border: "1px solid oklch(0.36 0.03 290 / 0.6)",
-                color: "oklch(0.75 0.02 290)",
+                border: "1px solid oklch(0.36 0.051 250 / 0.6)",
+                color: "oklch(0.75 0.034 250)",
                 textDecoration: "none",
               }}
             >
@@ -374,9 +374,9 @@ export default function TradeForm({
                 fontWeight: 600,
                 padding: "11px 20px",
                 borderRadius: 9,
-                border: "1px solid oklch(0.55 0.18 25 / 0.5)",
+                border: "1px solid oklch(0.62 0.24 18 / 0.5)",
                 background: "transparent",
-                color: "oklch(0.65 0.18 25)",
+                color: "oklch(0.7 0.25 18)",
               }}
             >
               Delete Trade

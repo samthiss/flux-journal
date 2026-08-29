@@ -54,7 +54,7 @@ export default function ImageLightbox({ url, onClose }: { url: string | null; on
         position: "fixed",
         inset: 0,
         zIndex: 100,
-        background: "oklch(0.08 0.01 290 / 0.94)",
+        background: "oklch(0.08 0.017 250 / 0.94)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -80,8 +80,8 @@ export default function ImageLightbox({ url, onClose }: { url: string | null; on
           justifyContent: "center",
           fontSize: 18,
           borderRadius: 8,
-          background: "oklch(0.18 0.02 290 / 0.8)",
-          color: "oklch(0.9 0.005 290)",
+          background: "oklch(0.18 0.034 250 / 0.8)",
+          color: "oklch(0.9 0.0085 250)",
           cursor: "pointer",
         }}
       >

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { accentColor } from "@/lib/theme";
+import { accentColor, neonGlow } from "@/lib/theme";
 import { getNoteTree, createNote, reorderNote, deleteNote, setNoteCollapsed } from "@/lib/actions/notes";
 import { signOut } from "@/app/login/actions";
 
@@ -102,7 +102,7 @@ function MoreMenuButton({ onDelete, className }: { onDelete: () => void; classNa
           setOpen((o) => !o);
         }}
         title="Plus d'options"
-        style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, letterSpacing: "-1px", color: "oklch(0.55 0.02 290)", borderRadius: 5, cursor: "pointer" }}
+        style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, letterSpacing: "-1px", color: "oklch(0.55 0.034 250)", borderRadius: 5, cursor: "pointer" }}
       >
         ⋯
       </span>
@@ -113,8 +113,8 @@ function MoreMenuButton({ onDelete, className }: { onDelete: () => void; classNa
             top: "110%",
             right: 0,
             zIndex: 30,
-            background: "oklch(0.21 0.02 290)",
-            border: "1px solid oklch(0.34 0.02 290)",
+            background: "oklch(0.21 0.034 250)",
+            border: "1px solid oklch(0.34 0.034 250)",
             borderRadius: 8,
             boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
             padding: 4,
@@ -127,7 +127,7 @@ function MoreMenuButton({ onDelete, className }: { onDelete: () => void; classNa
               setOpen(false);
               onDelete();
             }}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", fontSize: 12.5, color: "oklch(0.65 0.18 25)", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", fontSize: 12.5, color: "oklch(0.7 0.25 18)", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}
           >
             <TrashIcon /> Supprimer
           </span>
@@ -365,12 +365,12 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
     <>
       {sidebarHidden && (
         <button className="sidebar-expand-btn" onClick={() => setSidebarHidden(false)} title="Afficher le menu" style={toggleBtnStyle}>
-          <SidebarToggleIcon color="oklch(0.72 0.02 290)" />
+          <SidebarToggleIcon color="oklch(0.72 0.034 250)" />
         </button>
       )}
       <div className={sidebarHidden ? "sidebar sidebar-collapsed" : "sidebar"} style={sidebarHidden ? undefined : { width: sidebarWidth }}>
         <button onClick={() => setSidebarHidden(true)} title="Cacher le menu" style={{ ...toggleBtnStyle, position: "absolute", top: 14, right: 14 }}>
-          <SidebarToggleIcon color="oklch(0.72 0.02 290)" />
+          <SidebarToggleIcon color="oklch(0.72 0.034 250)" />
         </button>
         <div
           onMouseDown={startResize}
@@ -385,7 +385,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
               height: 10,
               borderRadius: "50%",
               background: accentColor,
-              boxShadow: `0 0 12px ${accentColor}`,
+              boxShadow: neonGlow(accentColor, 3),
               animation: "pulseDot 2.4s ease-in-out infinite",
             }}
           />
@@ -406,11 +406,11 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
                 style={{
                   cursor: "pointer",
                   fontWeight: active ? 600 : 500,
-                  color: active ? "oklch(0.97 0.004 290)" : "oklch(0.66 0.02 290)",
-                  background: active ? "oklch(0.68 0.19 293 / 0.14)" : "transparent",
+                  color: active ? "oklch(0.97 0.0068 250)" : "oklch(0.66 0.034 250)",
+                  background: active ? "oklch(0.84 0.17 196 / 0.14)" : "transparent",
                 }}
               >
-                <Icon color={active ? accentColor : "oklch(0.55 0.02 290)"} />
+                <Icon color={active ? accentColor : "oklch(0.55 0.034 250)"} />
                 <span className="sidebar-nav-label">{item.label}</span>
               </Link>
 
@@ -449,7 +449,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
                         padding: `5px 6px 5px ${6 + row.depth * 13}px`,
                         borderRadius: 6,
                         cursor: "grab",
-                        background: row.id === activeId ? "oklch(0.68 0.19 293 / 0.14)" : "transparent",
+                        background: row.id === activeId ? "oklch(0.84 0.17 196 / 0.14)" : "transparent",
                         borderTop: dragOverId === row.id ? `2px solid ${accentColor}` : "2px solid transparent",
                       }}
                     >
@@ -464,7 +464,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
                         }}
                         style={{ width: 10, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: row.hasChildren ? "pointer" : "default" }}
                       >
-                        {row.hasChildren && <ChevronIcon color="oklch(0.5 0.02 290)" down={!row.isCollapsed} />}
+                        {row.hasChildren && <ChevronIcon color="oklch(0.5 0.034 250)" down={!row.isCollapsed} />}
                       </span>
                       <span
                         onClick={() => scrollTo(row.id)}
@@ -473,7 +473,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
                           fontSize: 12.5,
                           lineHeight: 1.3,
                           fontWeight: row.id === activeId ? 600 : 400,
-                          color: row.id === activeId ? "oklch(0.95 0.005 290)" : "oklch(0.68 0.02 290)",
+                          color: row.id === activeId ? "oklch(0.95 0.0085 250)" : "oklch(0.68 0.034 250)",
                           cursor: "pointer",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -492,7 +492,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
                           }}
                           title="Ajouter une note dans cette section"
                           className="sidebar-note-add"
-                          style={{ flex: "none", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "oklch(0.48 0.02 290)", borderRadius: 6, cursor: "pointer" }}
+                          style={{ flex: "none", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "oklch(0.48 0.034 250)", borderRadius: 6, cursor: "pointer" }}
                         >
                           +
                         </span>
@@ -522,10 +522,10 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
                       padding: "9px 12px",
                       fontSize: 12.5,
                       fontWeight: 500,
-                      color: "oklch(0.75 0.02 290)",
+                      color: "oklch(0.75 0.034 250)",
                       borderRadius: 9,
-                      border: "1px solid oklch(0.34 0.02 290)",
-                      background: "oklch(0.22 0.02 290)",
+                      border: "1px solid oklch(0.34 0.034 250)",
+                      background: "oklch(0.22 0.034 250)",
                       cursor: "pointer",
                     }}
                   >
@@ -549,7 +549,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
               height: "auto",
               padding: "9px 12px",
               gap: 8,
-              color: "oklch(0.6 0.02 290)",
+              color: "oklch(0.6 0.034 250)",
             }}
           >
             <SignOutIcon color="currentColor" />
@@ -568,9 +568,9 @@ const toggleBtnStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "oklch(0.24 0.02 290)",
-  border: "1px solid oklch(0.36 0.03 290 / 0.5)",
-  color: "oklch(0.72 0.02 290)",
+  background: "oklch(0.24 0.034 250)",
+  border: "1px solid oklch(0.36 0.051 250 / 0.5)",
+  color: "oklch(0.72 0.034 250)",
   cursor: "pointer",
   fontSize: 12,
   padding: 0,

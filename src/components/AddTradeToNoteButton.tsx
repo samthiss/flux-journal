@@ -99,9 +99,9 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
           fontWeight: 600,
           padding: "11px 18px",
           borderRadius: 9,
-          border: "1px solid oklch(0.36 0.03 290 / 0.6)",
-          background: done ? "oklch(0.68 0.19 293 / 0.16)" : "oklch(0.18 0.02 290)",
-          color: done ? accentColor : "oklch(0.85 0.01 290)",
+          border: "1px solid oklch(0.36 0.051 250 / 0.6)",
+          background: done ? "oklch(0.84 0.17 196 / 0.16)" : "oklch(0.18 0.034 250)",
+          color: done ? accentColor : "oklch(0.85 0.017 250)",
           flexShrink: 0,
         }}
       >
@@ -119,8 +119,8 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
             width: 300,
             maxHeight: 360,
             overflowY: "auto",
-            background: "oklch(0.21 0.02 290)",
-            border: "1px solid oklch(0.34 0.02 290)",
+            background: "oklch(0.21 0.034 250)",
+            border: "1px solid oklch(0.34 0.034 250)",
             borderRadius: 10,
             boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
             padding: 8,
@@ -133,10 +133,10 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Chercher une note..."
-                style={{ width: "100%", fontSize: 12.5, padding: "7px 9px", borderRadius: 7, border: "1px solid oklch(0.32 0.02 290)", background: "oklch(0.16 0.02 290)", color: "oklch(0.9 0.005 290)", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
+                style={{ width: "100%", fontSize: 12.5, padding: "7px 9px", borderRadius: 7, border: "1px solid oklch(0.32 0.034 250)", background: "oklch(0.16 0.034 250)", color: "oklch(0.9 0.0085 250)", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
               />
-              {loading && <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", padding: "6px 4px" }}>Chargement...</div>}
-              {!loading && rows.length === 0 && <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", padding: "6px 4px" }}>Aucune note.</div>}
+              {loading && <div style={{ fontSize: 12, color: "oklch(0.55 0.034 250)", padding: "6px 4px" }}>Chargement...</div>}
+              {!loading && rows.length === 0 && <div style={{ fontSize: 12, color: "oklch(0.55 0.034 250)", padding: "6px 4px" }}>Aucune note.</div>}
               {!loading &&
                 rows.map(({ node, depth }) => (
                   <div
@@ -147,7 +147,7 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
                       padding: `7px 8px 7px ${8 + depth * 14}px`,
                       borderRadius: 6,
                       cursor: "pointer",
-                      color: "oklch(0.85 0.01 290)",
+                      color: "oklch(0.85 0.017 250)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -168,11 +168,11 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
                     setTags([]);
                     setTagDraft("");
                   }}
-                  style={{ cursor: "pointer", fontSize: 12, color: "oklch(0.6 0.02 290)" }}
+                  style={{ cursor: "pointer", fontSize: 12, color: "oklch(0.6 0.034 250)" }}
                 >
                   ‹
                 </span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: "oklch(0.9 0.005 290)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "oklch(0.9 0.0085 250)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {selectedNote?.title}
                 </span>
               </div>
@@ -180,7 +180,7 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
                 {tags.map((t, ti) => (
                   <span
                     key={ti}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 5px 3px 9px", borderRadius: 999, background: "oklch(0.28 0.02 290)", color: "oklch(0.75 0.02 290)" }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 5px 3px 9px", borderRadius: 999, background: "oklch(0.28 0.034 250)", color: "oklch(0.75 0.034 250)" }}
                   >
                     {t}
                     <span onClick={() => setTags(tags.filter((_, xi) => xi !== ti))} style={{ cursor: "pointer", fontSize: 12, opacity: 0.7 }}>
@@ -200,25 +200,25 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
                     }
                   }}
                   placeholder="+ tag"
-                  style={{ width: 70, fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 8px", borderRadius: 999, border: "1px dashed oklch(0.34 0.02 290)", background: "transparent", color: "oklch(0.8 0.02 290)", outline: "none" }}
+                  style={{ width: 70, fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, padding: "3px 8px", borderRadius: 999, border: "1px dashed oklch(0.34 0.034 250)", background: "transparent", color: "oklch(0.8 0.034 250)", outline: "none" }}
                 />
               </div>
               {noteCategories.map((c) => (
                 <div
                   key={c.id}
                   onClick={() => handlePick(c.id)}
-                  style={{ fontSize: 12.5, padding: "7px 8px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.01 290)" }}
+                  style={{ fontSize: 12.5, padding: "7px 8px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.017 250)" }}
                 >
                   {c.name}
                 </div>
               ))}
               <div
                 onClick={() => handlePick(null)}
-                style={{ fontSize: 12.5, padding: "7px 8px", borderRadius: 6, cursor: "pointer", color: "oklch(0.6 0.02 290)" }}
+                style={{ fontSize: 12.5, padding: "7px 8px", borderRadius: 6, cursor: "pointer", color: "oklch(0.6 0.034 250)" }}
               >
                 Sans catégorie
               </div>
-              <div style={{ borderTop: "1px solid oklch(0.3 0.02 290)", margin: "6px 0" }} />
+              <div style={{ borderTop: "1px solid oklch(0.3 0.034 250)", margin: "6px 0" }} />
               {creatingCategory ? (
                 <input
                   autoFocus
@@ -233,7 +233,7 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
                     }
                   }}
                   placeholder="Nom de la catégorie"
-                  style={{ width: "100%", fontSize: 12.5, padding: "7px 8px", borderRadius: 6, border: `1px solid ${accentColor}`, background: "oklch(0.68 0.19 293 / 0.1)", color: "oklch(0.9 0.01 290)", outline: "none", boxSizing: "border-box" }}
+                  style={{ width: "100%", fontSize: 12.5, padding: "7px 8px", borderRadius: 6, border: `1px solid ${accentColor}`, background: "oklch(0.84 0.17 196 / 0.1)", color: "oklch(0.9 0.017 250)", outline: "none", boxSizing: "border-box" }}
                 />
               ) : (
                 <div

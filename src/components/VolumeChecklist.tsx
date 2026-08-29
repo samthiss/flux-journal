@@ -100,8 +100,8 @@ const pillStyle = (active: boolean): CSSProperties => ({
   fontWeight: 600,
   cursor: "pointer",
   background: active ? accentColor : "transparent",
-  color: active ? "oklch(0.12 0.01 290)" : "oklch(0.7 0.02 290)",
-  border: `1px solid ${active ? accentColor : "oklch(0.4 0.02 290)"}`,
+  color: active ? "oklch(0.12 0.017 250)" : "oklch(0.7 0.034 250)",
+  border: `1px solid ${active ? accentColor : "oklch(0.4 0.034 250)"}`,
 });
 
 export default function VolumeChecklist({ market }: { market: string }) {
@@ -151,7 +151,7 @@ export default function VolumeChecklist({ market }: { market: string }) {
   return (
     <div style={{ ...glassCard, marginBottom: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
           Mr. Volume Academy · {market}
         </div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -166,7 +166,7 @@ export default function VolumeChecklist({ market }: { market: string }) {
                     height: 4,
                     borderRadius: "50%",
                     marginLeft: 5,
-                    background: Number(idx) === dayIndex ? "oklch(0.12 0.01 290)" : accentColor,
+                    background: Number(idx) === dayIndex ? "oklch(0.12 0.017 250)" : accentColor,
                     verticalAlign: "middle",
                   }}
                 />
@@ -184,7 +184,7 @@ export default function VolumeChecklist({ market }: { market: string }) {
       </div>
 
       {plan.intro && (
-        <div style={{ fontSize: 13, color: "oklch(0.68 0.02 290)", margin: "10px 0 16px", lineHeight: 1.5 }}>
+        <div style={{ fontSize: 13, color: "oklch(0.68 0.034 250)", margin: "10px 0 16px", lineHeight: 1.5 }}>
           {plan.intro}
         </div>
       )}
@@ -206,13 +206,13 @@ export default function VolumeChecklist({ market }: { market: string }) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                border: `1.5px solid ${checked[i] ? accentColor : "oklch(0.42 0.02 290)"}`,
+                border: `1.5px solid ${checked[i] ? accentColor : "oklch(0.42 0.034 250)"}`,
                 background: checked[i] ? accentColor : "transparent",
               }}
             >
               {checked[i] && (
                 <svg width="12" height="12" viewBox="0 0 12 12">
-                  <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.01 290)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.017 250)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               )}
             </div>
@@ -220,7 +220,7 @@ export default function VolumeChecklist({ market }: { market: string }) {
               style={{
                 fontSize: 14,
                 lineHeight: 1.5,
-                color: checked[i] ? "oklch(0.5 0.015 290)" : "oklch(0.88 0.01 290)",
+                color: checked[i] ? "oklch(0.5 0.0255 250)" : "oklch(0.88 0.017 250)",
                 textDecoration: checked[i] ? "line-through" : "none",
               }}
             >

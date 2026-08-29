@@ -33,7 +33,7 @@ function flattenDFS(nodes: TreeNode[], depth = 0, out: Array<{ node: TreeNode; d
   return out;
 }
 
-const rowStyle = { fontSize: 12.5, padding: "7px 8px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.01 290)" } as const;
+const rowStyle = { fontSize: 12.5, padding: "7px 8px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.017 250)" } as const;
 
 // Two steps, note then category, for the same reason AddTradeToNoteButton uses
 // them: a flat list of every category across every note reads as noise once the
@@ -127,8 +127,8 @@ export default function MoveExampleMenu({
           fontSize: 10,
           padding: "3px 10px",
           borderRadius: 999,
-          border: "1px dashed oklch(0.34 0.02 290)",
-          color: "oklch(0.6 0.02 290)",
+          border: "1px dashed oklch(0.34 0.034 250)",
+          color: "oklch(0.6 0.034 250)",
           cursor: "pointer",
           whiteSpace: "nowrap",
         }}
@@ -146,8 +146,8 @@ export default function MoveExampleMenu({
             width: 280,
             maxHeight: 340,
             overflowY: "auto",
-            background: "oklch(0.21 0.02 290)",
-            border: "1px solid oklch(0.34 0.02 290)",
+            background: "oklch(0.21 0.034 250)",
+            border: "1px solid oklch(0.34 0.034 250)",
             borderRadius: 10,
             boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
             padding: 8,
@@ -160,10 +160,10 @@ export default function MoveExampleMenu({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Chercher une note..."
-                style={{ width: "100%", fontSize: 12.5, padding: "7px 9px", borderRadius: 7, border: "1px solid oklch(0.32 0.02 290)", background: "oklch(0.16 0.02 290)", color: "oklch(0.9 0.005 290)", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
+                style={{ width: "100%", fontSize: 12.5, padding: "7px 9px", borderRadius: 7, border: "1px solid oklch(0.32 0.034 250)", background: "oklch(0.16 0.034 250)", color: "oklch(0.9 0.0085 250)", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
               />
-              {loading && <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", padding: "6px 4px" }}>Chargement...</div>}
-              {!loading && rows.length === 0 && <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", padding: "6px 4px" }}>Aucune note.</div>}
+              {loading && <div style={{ fontSize: 12, color: "oklch(0.55 0.034 250)", padding: "6px 4px" }}>Chargement...</div>}
+              {!loading && rows.length === 0 && <div style={{ fontSize: 12, color: "oklch(0.55 0.034 250)", padding: "6px 4px" }}>Aucune note.</div>}
               {!loading &&
                 rows.map(({ node, depth }) => (
                   <div
@@ -185,10 +185,10 @@ export default function MoveExampleMenu({
           ) : (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "2px 4px" }}>
-                <span onClick={() => setSelectedNoteId(null)} style={{ cursor: "pointer", fontSize: 12, color: "oklch(0.6 0.02 290)" }}>
+                <span onClick={() => setSelectedNoteId(null)} style={{ cursor: "pointer", fontSize: 12, color: "oklch(0.6 0.034 250)" }}>
                   ‹
                 </span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: "oklch(0.9 0.005 290)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "oklch(0.9 0.0085 250)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {selectedNote?.title}
                 </span>
               </div>
@@ -197,14 +197,14 @@ export default function MoveExampleMenu({
                 return (
                   <div key={c.id} onClick={() => handlePick(c.id)} style={{ ...rowStyle, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                    {here && <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 9.5, color: "oklch(0.5 0.02 290)" }}>ici</span>}
+                    {here && <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 9.5, color: "oklch(0.5 0.034 250)" }}>ici</span>}
                   </div>
                 );
               })}
-              <div onClick={() => handlePick(null)} style={{ ...rowStyle, color: "oklch(0.6 0.02 290)" }}>
+              <div onClick={() => handlePick(null)} style={{ ...rowStyle, color: "oklch(0.6 0.034 250)" }}>
                 Sans catégorie
               </div>
-              <div style={{ borderTop: "1px solid oklch(0.3 0.02 290)", margin: "6px 0" }} />
+              <div style={{ borderTop: "1px solid oklch(0.3 0.034 250)", margin: "6px 0" }} />
               {creatingCategory ? (
                 <input
                   autoFocus
@@ -219,7 +219,7 @@ export default function MoveExampleMenu({
                     }
                   }}
                   placeholder="Nom de la catégorie"
-                  style={{ width: "100%", fontSize: 12.5, padding: "7px 8px", borderRadius: 6, border: `1px solid ${accentColor}`, background: "oklch(0.68 0.19 293 / 0.1)", color: "oklch(0.9 0.01 290)", outline: "none", boxSizing: "border-box" }}
+                  style={{ width: "100%", fontSize: 12.5, padding: "7px 8px", borderRadius: 6, border: `1px solid ${accentColor}`, background: "oklch(0.84 0.17 196 / 0.1)", color: "oklch(0.9 0.017 250)", outline: "none", boxSizing: "border-box" }}
                 />
               ) : (
                 <div onClick={() => setCreatingCategory(true)} style={{ ...rowStyle, color: accentColor, display: "flex", alignItems: "center", gap: 5 }}>

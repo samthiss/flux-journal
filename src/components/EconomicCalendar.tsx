@@ -39,10 +39,10 @@ const CALENDAR_WIDTH = 620;
 export default function EconomicCalendar({ height = 360 }: { height?: number }) {
   return (
     <div style={{ ...glassCard, padding: 0, overflow: "hidden", maxWidth: CALENDAR_WIDTH, marginInline: "auto" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid oklch(0.3 0.02 290 / 0.6)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid oklch(0.3 0.034 250 / 0.6)" }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor }} />
         <div style={{ fontSize: 13, fontWeight: 600 }}>Calendrier économique</div>
-        <div style={{ fontSize: 11, color: "oklch(0.55 0.02 290)", marginLeft: "auto", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
+        <div style={{ fontSize: 11, color: "oklch(0.55 0.034 250)", marginLeft: "auto", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
           investing.com
         </div>
       </div>

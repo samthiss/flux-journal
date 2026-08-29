@@ -1,18 +1,40 @@
 import type { CSSProperties } from "react";
 
-export const accentColor = "oklch(0.68 0.19 293)";
-export const accentSoft = "oklch(0.68 0.19 293 / 0.16)";
+// Cyberpunk palette: electric cyan against a cold near-black, with magenta as
+// the second neon. Wins glow cyan, losses glow magenta — the two colours the
+// whole interface is lit by, so nothing else needs to compete with them.
+export const accentColor = "oklch(0.84 0.17 196)";
+export const accentSoft = "oklch(0.84 0.17 196 / 0.16)";
+export const magentaColor = "oklch(0.72 0.27 340)";
 export const winColor = accentColor;
-export const lossColor = "oklch(0.58 0.015 290)";
+export const lossColor = magentaColor;
+
+/** The halo every lit element carries, sized to how loud the element should be. */
+export function neonGlow(color: string, strength: 1 | 2 | 3 = 2) {
+  const spread = { 1: 6, 2: 14, 3: 26 }[strength];
+  return `0 0 ${spread}px ${color.replace(")", " / 0.45)")}`;
+}
 
 export const glassCard: CSSProperties = {
-  background: "oklch(0.19 0.02 290 / 0.55)",
+  background: "oklch(0.17 0.03 250 / 0.62)",
   backdropFilter: "blur(16px)",
-  border: "1px solid oklch(0.36 0.03 290 / 0.45)",
-  borderRadius: 16,
+  border: "1px solid oklch(0.84 0.17 196 / 0.22)",
+  // Corners cut on the diagonal rather than rounded — the panel edge of every
+  // console in the genre. 14px matches the radius this card used to carry.
+  clipPath: "polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px)",
   padding: 24,
   boxShadow:
-    "0 0 0 1px oklch(0.68 0.19 293 / 0.04), 0 10px 40px -12px oklch(0.68 0.19 293 / 0.25)",
+    "inset 0 0 0 1px oklch(0.84 0.17 196 / 0.06), 0 0 24px -6px oklch(0.84 0.17 196 / 0.28), 0 14px 44px -14px oklch(0 0 0 / 0.8)",
+};
+
+/** Page headings: mono, spaced and lit, like a panel label rather than prose. */
+export const pageTitle: CSSProperties = {
+  fontFamily: "var(--font-jetbrains-mono), monospace",
+  fontSize: 22,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  textShadow: "0 0 14px oklch(0.84 0.17 196 / 0.35)",
 };
 
 export function fmtMoney(v: number) {

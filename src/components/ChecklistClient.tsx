@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { accentColor, glassCard } from "@/lib/theme";
+import { accentColor, glassCard, pageTitle } from "@/lib/theme";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem } from "@/lib/actions/checklist";
 
 type ChecklistItem = { id: string; group: string; label: string };
@@ -112,8 +112,8 @@ export default function ChecklistClient({
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 26, fontWeight: 700 }}>{title}</div>
-        <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
+        <div style={pageTitle}>{title}</div>
+        <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
           {subtitle} — {todayLabel} — {market}
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function ChecklistClient({
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={glassCard}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-            <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               Progression
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -134,9 +134,9 @@ export default function ChecklistClient({
                   fontSize: 12,
                   padding: "5px 10px",
                   borderRadius: 6,
-                  border: `1px solid ${editMode ? accentColor : "oklch(0.4 0.02 290)"}`,
+                  border: `1px solid ${editMode ? accentColor : "oklch(0.4 0.034 250)"}`,
                   background: editMode ? accentColor : "transparent",
-                  color: editMode ? "oklch(0.12 0.01 290)" : "oklch(0.75 0.02 290)",
+                  color: editMode ? "oklch(0.12 0.017 250)" : "oklch(0.75 0.034 250)",
                   cursor: "pointer",
                 }}
               >
@@ -144,7 +144,7 @@ export default function ChecklistClient({
               </button>
             </div>
           </div>
-          <div style={{ height: 6, borderRadius: 4, background: "oklch(0.26 0.02 290)", overflow: "hidden", marginBottom: 26 }}>
+          <div style={{ height: 6, borderRadius: 4, background: "oklch(0.26 0.034 250)", overflow: "hidden", marginBottom: 26 }}>
             <div
               style={{
                 height: "100%",
@@ -158,7 +158,7 @@ export default function ChecklistClient({
 
           {groups.map((g) => (
             <div key={g.title} style={{ marginBottom: 22 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.02 290)", marginBottom: 10 }}>{g.title}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>{g.title}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {g.items.map((item) => (
                   <div
@@ -175,13 +175,13 @@ export default function ChecklistClient({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        border: `1.5px solid ${checkedMap[item.id] ? accentColor : "oklch(0.42 0.02 290)"}`,
+                        border: `1.5px solid ${checkedMap[item.id] ? accentColor : "oklch(0.42 0.034 250)"}`,
                         background: checkedMap[item.id] ? accentColor : "transparent",
                       }}
                     >
                       {checkedMap[item.id] && (
                         <svg width="12" height="12" viewBox="0 0 12 12">
-                          <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.01 290)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.017 250)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                     </div>
@@ -196,9 +196,9 @@ export default function ChecklistClient({
                         style={{
                           flex: 1,
                           fontSize: 14,
-                          color: "oklch(0.88 0.01 290)",
-                          background: "oklch(0.2 0.02 290)",
-                          border: "1px solid oklch(0.35 0.02 290)",
+                          color: "oklch(0.88 0.017 250)",
+                          background: "oklch(0.2 0.034 250)",
+                          border: "1px solid oklch(0.35 0.034 250)",
                           borderRadius: 6,
                           padding: "4px 8px",
                         }}
@@ -207,7 +207,7 @@ export default function ChecklistClient({
                       <div
                         style={{
                           fontSize: 14,
-                          color: checkedMap[item.id] ? "oklch(0.5 0.015 290)" : "oklch(0.88 0.01 290)",
+                          color: checkedMap[item.id] ? "oklch(0.5 0.0255 250)" : "oklch(0.88 0.017 250)",
                           textDecoration: checkedMap[item.id] ? "line-through" : "none",
                         }}
                       >
@@ -226,9 +226,9 @@ export default function ChecklistClient({
                           width: 22,
                           height: 22,
                           borderRadius: 6,
-                          border: "1px solid oklch(0.4 0.02 290)",
+                          border: "1px solid oklch(0.4 0.034 250)",
                           background: "transparent",
-                          color: "oklch(0.65 0.02 290)",
+                          color: "oklch(0.65 0.034 250)",
                           cursor: "pointer",
                           fontSize: 13,
                           lineHeight: 1,
@@ -252,9 +252,9 @@ export default function ChecklistClient({
                       style={{
                         flex: 1,
                         fontSize: 14,
-                        color: "oklch(0.88 0.01 290)",
+                        color: "oklch(0.88 0.017 250)",
                         background: "transparent",
-                        border: "1px dashed oklch(0.4 0.02 290)",
+                        border: "1px dashed oklch(0.4 0.034 250)",
                         borderRadius: 6,
                         padding: "4px 8px",
                       }}
@@ -281,8 +281,8 @@ export default function ChecklistClient({
           ))}
 
           {editMode && (
-            <div style={{ paddingTop: 6, borderTop: "1px solid oklch(0.3 0.02 290 / 0.6)" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.02 290)", marginBottom: 10 }}>Nouveau groupe</div>
+            <div style={{ paddingTop: 6, borderTop: "1px solid oklch(0.3 0.034 250 / 0.6)" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>Nouveau groupe</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
                   placeholder="Nom du groupe…"
@@ -291,9 +291,9 @@ export default function ChecklistClient({
                   style={{
                     flex: "1 1 140px",
                     fontSize: 14,
-                    color: "oklch(0.88 0.01 290)",
+                    color: "oklch(0.88 0.017 250)",
                     background: "transparent",
-                    border: "1px dashed oklch(0.4 0.02 290)",
+                    border: "1px dashed oklch(0.4 0.034 250)",
                     borderRadius: 6,
                     padding: "6px 8px",
                   }}
@@ -308,9 +308,9 @@ export default function ChecklistClient({
                   style={{
                     flex: "1 1 140px",
                     fontSize: 14,
-                    color: "oklch(0.88 0.01 290)",
+                    color: "oklch(0.88 0.017 250)",
                     background: "transparent",
-                    border: "1px dashed oklch(0.4 0.02 290)",
+                    border: "1px dashed oklch(0.4 0.034 250)",
                     borderRadius: 6,
                     padding: "6px 8px",
                   }}
