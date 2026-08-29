@@ -1323,6 +1323,63 @@ function CategoryBlock({ block, onDelete, indent }: { block: BlockRecord; onDele
   );
 }
 
+// One row of the category filter: every value its examples carry, each chip a
+// toggle. A row with nothing in it draws nothing — a category where no reason
+// was ever written should not show an empty "Invalid reason:" line.
+function FilterRow({
+  label,
+  values,
+  selected,
+  tone,
+  onToggle,
+}: {
+  label: string;
+  values: string[];
+  selected: string[];
+  tone: { fg: string; bg: string; line: string };
+  onToggle: (value: string) => void;
+}) {
+  if (!values.length) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 290)" }}>{label}</span>
+      {values.map((v) => (
+        <FilterChip key={v} label={v} tone={tone} on={selected.includes(v)} onClick={() => onToggle(v)} />
+      ))}
+    </div>
+  );
+}
+
+function FilterChip({
+  label,
+  tone,
+  on,
+  onClick,
+}: {
+  label: string;
+  tone: { fg: string; bg: string; line: string };
+  on: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <span
+      onClick={onClick}
+      style={{
+        fontFamily: "var(--font-jetbrains-mono), monospace",
+        fontSize: 10,
+        padding: "3px 9px",
+        borderRadius: 999,
+        cursor: "pointer",
+        border: `1px solid ${on ? tone.line : "oklch(0.32 0.02 290)"}`,
+        background: on ? tone.bg : "transparent",
+        color: on ? tone.fg : "oklch(0.58 0.02 290)",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
 function ExampleCategory({
   title,
   onRename,
@@ -1366,6 +1423,61 @@ function ExampleCategory({
   const [hover, setHover] = useState(false);
   const [collapsed, setCollapsed] = useState(initialCollapsed);
 
+  // Filtering happens here rather than on the note as a whole: a category is
+  // the pile you actually read through, and the words worth filtering by are
+  // the ones its own examples carry. Values that appear nowhere in this
+  // category are not offered — a filter that can only ever empty the list is
+  // not a filter.
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [confirmationFilter, setConfirmationFilter] = useState<string[]>([]);
+  const [validityFilter, setValidityFilter] = useState<Validity>(null);
+  const [reasonFilter, setReasonFilter] = useState<string[]>([]);
+
+  const available = useMemo(() => {
+    const collect = (pick: (e: ExampleRecord) => string | null) => {
+      const counts = new Map<string, number>();
+      for (const value of examples.flatMap((e) => parseArr(pick(e)))) {
+        const v = value.trim();
+        if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+      }
+      return rankTagValues(counts);
+    };
+    return {
+      confirmations: collect((e) => e.confirmations),
+      reasons: collect((e) => e.invalidReasons),
+      hasValidity: examples.some((e) => normalizeValidity(e.validity) !== null),
+    };
+  }, [examples]);
+
+  const filtering = confirmationFilter.length > 0 || validityFilter !== null || reasonFilter.length > 0;
+
+  // Every selected chip has to match, across the three rows and within each of
+  // them: picking two confirmations asks for the examples that showed both, not
+  // for either one.
+  const shown = useMemo(() => {
+    if (!filtering) return examples;
+    return examples.filter((e) => {
+      const confirmations = parseArr(e.confirmations);
+      const reasons = parseArr(e.invalidReasons);
+      return (
+        confirmationFilter.every((v) => confirmations.includes(v)) &&
+        (validityFilter === null || normalizeValidity(e.validity) === validityFilter) &&
+        reasonFilter.every((v) => reasons.includes(v))
+      );
+    });
+  }, [examples, filtering, confirmationFilter, validityFilter, reasonFilter]);
+
+  const clearFilter = () => {
+    setConfirmationFilter([]);
+    setValidityFilter(null);
+    setReasonFilter([]);
+  };
+
+  const toggleIn = (list: string[], set: (next: string[]) => void, value: string) =>
+    set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+
+  const hasAnythingToFilter = available.confirmations.length > 0 || available.reasons.length > 0 || available.hasValidity;
+
   // As for the examples: the fold comes from the server so the first paint is
   // right, and the click writes it back without revalidating.
   const setCollapsedPersist = (fn: (c: boolean) => boolean) => {
@@ -1402,7 +1514,40 @@ function ExampleCategory({
             {title}
           </span>
         )}
-        <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: "oklch(0.5 0.02 290)" }}>{examples.length}</span>
+        <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: "oklch(0.5 0.02 290)" }}>
+          {filtering ? `${shown.length}/${examples.length}` : examples.length}
+        </span>
+        {hasAnythingToFilter && (
+          <span
+            onClick={() => setFilterOpen((f) => !f)}
+            title="Filtrer les exemples"
+            style={{
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "2px 8px",
+              borderRadius: 999,
+              cursor: "pointer",
+              border: `1px solid ${filtering ? "oklch(0.68 0.19 293 / 0.5)" : "oklch(0.34 0.02 290)"}`,
+              background: filtering ? "oklch(0.68 0.19 293 / 0.16)" : "transparent",
+              color: filtering ? accentColor : "oklch(0.55 0.02 290)",
+              // Out of the way until the row is hovered, unless a filter is on:
+              // a list showing a subset must say so even when nothing is hovered.
+              opacity: hover || filtering || filterOpen ? 1 : 0,
+              transition: "opacity 0.12s ease",
+            }}
+          >
+            filtre
+          </span>
+        )}
+        {filtering && (
+          <span
+            onClick={clearFilter}
+            title="Retirer le filtre"
+            style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 290)", cursor: "pointer" }}
+          >
+            ✕
+          </span>
+        )}
         {onMoveUp && (
           <span
             onClick={onMoveUp}
@@ -1423,6 +1568,38 @@ function ExampleCategory({
         )}
         {onAddBlock && <AddBlockButton visible={hover} onAdd={onAddBlock} />}
       </div>
+      {!collapsed && filterOpen && hasAnythingToFilter && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginLeft: HEADER_INDENT, marginBottom: 14 }}>
+          <FilterRow
+            label="Confirmation:"
+            values={available.confirmations}
+            selected={confirmationFilter}
+            tone={VALID_TONE}
+            onToggle={(v) => toggleIn(confirmationFilter, setConfirmationFilter, v)}
+          />
+          {available.hasValidity && (
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+              <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 290)" }}>Verdict:</span>
+              {(["valid", "invalid"] as const).map((side) => (
+                <FilterChip
+                  key={side}
+                  label={side === "valid" ? "Valide" : "Invalid"}
+                  tone={side === "valid" ? VALID_TONE : INVALID_TONE}
+                  on={validityFilter === side}
+                  onClick={() => setValidityFilter(validityFilter === side ? null : side)}
+                />
+              ))}
+            </div>
+          )}
+          <FilterRow
+            label="Invalid reason:"
+            values={available.reasons}
+            selected={reasonFilter}
+            tone={INVALID_TONE}
+            onToggle={(v) => toggleIn(reasonFilter, setReasonFilter, v)}
+          />
+        </div>
+      )}
       {!collapsed && blocks && blocks.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", marginBottom: 8 }}>
           {blocks.map((b) => (
@@ -1432,10 +1609,20 @@ function ExampleCategory({
       )}
       {!collapsed && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginLeft: HEADER_INDENT }}>
-          {examples.length === 0 && <div style={{ fontSize: 13, color: "oklch(0.5 0.02 290)" }}>Aucun exemple.</div>}
-          {examples.length > 0 &&
-            examples.map((ex, exIdx) => (
+          {shown.length === 0 && (
+            <div style={{ fontSize: 13, color: "oklch(0.5 0.02 290)" }}>
+              {filtering ? "Aucun exemple ne correspond au filtre." : "Aucun exemple."}
+            </div>
+          )}
+          {shown.map((ex) => {
+            // Reordering moves an example among all of them, not among the ones
+            // currently on screen, so the position comes from the full list —
+            // and the arrows are gone while a filter is on, where "up" would
+            // mean stepping over examples the filter is hiding.
+            const exIdx = examples.indexOf(ex);
+            return (
               <div key={ex.id} style={{ display: "flex", gap: 8 }}>
+                {!filtering && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: "none", paddingTop: 14 }}>
                   <span
                     onClick={async () => {
@@ -1464,6 +1651,7 @@ function ExampleCategory({
                     <ChevronIcon color="currentColor" down={true} />
                   </span>
                 </div>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <ExampleCard
                     example={ex}
@@ -1473,7 +1661,8 @@ function ExampleCategory({
                   />
                 </div>
               </div>
-            ))}
+            );
+          })}
           <span
             onClick={onAddExample}
             title="Ajouter un exemple"
