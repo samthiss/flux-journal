@@ -7,6 +7,8 @@ import { PageTitle } from "@/components/NeonText";
 import { removeChartSlot } from "@/lib/actions/trades";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 
+const SYMBOL_OPTIONS = ["6E", "6B", "6J", "ZS", "ZM"] as const;
+
 const SETUP_OPTIONS = ["Trend run", "Backtest reverse"];
 const EMOTIONS = ["Calm", "Cautious", "Nervous", "Impatient", "Frustrated", "Revenge", "Greedy"];
 
@@ -268,6 +270,7 @@ export default function TradeForm({
 
       <div style={{ ...glassCard, maxWidth: 640 }}>
         <form action={action}>
+          <input type="hidden" name="market" value={initial.market} />
           <div className="trade-form-grid">
             <div>
               {fieldLabel("Date")}
@@ -279,11 +282,18 @@ export default function TradeForm({
             </div>
             <div>
               {fieldLabel("Symbol")}
-              <input type="text" name="symbol" defaultValue={initial.symbol} placeholder="e.g. ES" style={inputStyle} />
-            </div>
-            <div>
-              {fieldLabel("Market")}
-              <input type="text" name="market" defaultValue={initial.market} placeholder="Futures / Stocks / Crypto" style={inputStyle} />
+              <select name="symbol" defaultValue={initial.symbol || SYMBOL_OPTIONS[0]} style={inputStyle}>
+                {/* A trade already recorded on something else keeps its symbol
+                    in the list rather than being silently switched to 6E. */}
+                {(SYMBOL_OPTIONS as readonly string[]).includes(initial.symbol) || !initial.symbol
+                  ? null
+                  : <option value={initial.symbol}>{initial.symbol}</option>}
+                {SYMBOL_OPTIONS.map((sym) => (
+                  <option key={sym} value={sym}>
+                    {sym}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               {fieldLabel("Setup")}
@@ -294,6 +304,17 @@ export default function TradeForm({
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              {fieldLabel("Size")}
+              <input
+                type="text"
+                name="size"
+                value={size}
+                onChange={(e) => onSizeChange(e.target.value)}
+                placeholder="0"
+                style={monoInputStyle}
+              />
             </div>
             <div>
               {fieldLabel("Risque $")}
@@ -327,6 +348,17 @@ export default function TradeForm({
                 )}
               </div>
             </div>
+            <div>
+              {fieldLabel("P&L")}
+              <input
+                type="text"
+                name="pnl"
+                value={pnl}
+                onChange={(e) => setPnl(e.target.value)}
+                placeholder="0.00"
+                style={monoInputStyle}
+              />
+            </div>
 
             <div style={{ gridColumn: "span 2" }}>
               {fieldLabel("Side")}
@@ -341,28 +373,6 @@ export default function TradeForm({
               </div>
             </div>
 
-            <div>
-              {fieldLabel("Size")}
-              <input
-                type="text"
-                name="size"
-                value={size}
-                onChange={(e) => onSizeChange(e.target.value)}
-                placeholder="0"
-                style={monoInputStyle}
-              />
-            </div>
-            <div>
-              {fieldLabel("P&L")}
-              <input
-                type="text"
-                name="pnl"
-                value={pnl}
-                onChange={(e) => setPnl(e.target.value)}
-                placeholder="0.00"
-                style={monoInputStyle}
-              />
-            </div>
 
             <div style={{ gridColumn: "span 2" }}>
               {fieldLabel("Emotion")}
