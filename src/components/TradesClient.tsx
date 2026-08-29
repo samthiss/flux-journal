@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
-import type { TradeForStats as Trade } from "@/lib/stats";
+import PeriodFilter from "@/components/PeriodFilter";
+import { filterByPeriod, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
 
 const selectStyle: React.CSSProperties = {
   background: "oklch(0.18 0.034 250)",
@@ -18,42 +19,44 @@ const selectStyle: React.CSSProperties = {
 
 const OPEN_NEW_TAB_KEY = "trades-open-new-tab";
 
-export default function TradesClient({ trades }: { trades: Trade[] }) {
+export default function TradesClient({ trades, initialPeriod }: { trades: Trade[]; initialPeriod: string }) {
   const [filterSymbol, setFilterSymbol] = useState("all");
-  const [filterSide, setFilterSide] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
-  const [filterMarket, setFilterMarket] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
   const [openInNewTab, setOpenInNewTab] = useState(false);
+
+  // The same period as the dashboard and the report, through the same cookie:
+  // three pages reading one journal should not disagree about which weeks are
+  // being counted.
+  const [period, setPeriod] = useState(initialPeriod);
+  const choosePeriod = (next: string) => {
+    setPeriod(next);
+    try {
+      document.cookie = `dash-period=${next}; path=/; max-age=${60 * 60 * 24 * 365}`;
+    } catch {}
+  };
+  const now = useMemo(() => new Date(), []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate the preference from localStorage after mount
     setOpenInNewTab(localStorage.getItem(OPEN_NEW_TAB_KEY) === "1");
   }, []);
 
-  const changeOpenInNewTab = (value: string) => {
-    const next = value === "new-tab";
+  const changeOpenInNewTab = (next: boolean) => {
     setOpenInNewTab(next);
     localStorage.setItem(OPEN_NEW_TAB_KEY, next ? "1" : "0");
   };
 
   const symbolOptions = useMemo(() => [...new Set(trades.map((t) => t.symbol))], [trades]);
   const setupOptions = useMemo(() => [...new Set(trades.map((t) => t.setup))], [trades]);
-  const marketOptions = useMemo(
-    () => [...new Set(trades.map((t) => t.market).filter((m): m is string => !!m))],
-    [trades]
-  );
-
   const filteredTrades = useMemo(() => {
-    return trades
+    return filterByPeriod(withOutcome(trades), period, now)
       .filter((t) => filterSymbol === "all" || t.symbol === filterSymbol)
-      .filter((t) => filterSide === "all" || t.side.toLowerCase() === filterSide)
       .filter((t) => filterOutcome === "all" || (t.pnl > 0 ? "win" : "loss") === filterOutcome)
-      .filter((t) => filterMarket === "all" || t.market === filterMarket)
       .filter((t) => filterSetup === "all" || t.setup === filterSetup)
       .slice()
       .reverse();
-  }, [trades, filterSymbol, filterSide, filterOutcome, filterMarket, filterSetup]);
+  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup]);
 
   return (
     <div>
@@ -79,23 +82,10 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
             </option>
           ))}
         </select>
-        <select value={filterSide} onChange={(e) => setFilterSide(e.target.value)} style={selectStyle}>
-          <option value="all">All sides</option>
-          <option value="long">Long</option>
-          <option value="short">Short</option>
-        </select>
         <select value={filterOutcome} onChange={(e) => setFilterOutcome(e.target.value)} style={selectStyle}>
           <option value="all">All outcomes</option>
           <option value="win">Wins</option>
           <option value="loss">Losses</option>
-        </select>
-        <select value={filterMarket} onChange={(e) => setFilterMarket(e.target.value)} style={selectStyle}>
-          <option value="all">All markets</option>
-          {marketOptions.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
         </select>
         <select value={filterSetup} onChange={(e) => setFilterSetup(e.target.value)} style={selectStyle}>
           <option value="all">All setups</option>
@@ -105,10 +95,49 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
             </option>
           ))}
         </select>
-        <select value={openInNewTab ? "new-tab" : "same-page"} onChange={(e) => changeOpenInNewTab(e.target.value)} style={selectStyle}>
-          <option value="same-page">Ouvrir sur la même page</option>
-          <option value="new-tab">Ouvrir dans un nouvel onglet</option>
-        </select>
+        <PeriodFilter period={period} onChange={choosePeriod} />
+        {/* A two-state preference reads better as a switch than as a list of
+            two sentences that both start with the same word. */}
+        <button
+          type="button"
+          onClick={() => changeOpenInNewTab(!openInNewTab)}
+          style={{
+            ...selectStyle,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            border: `1px solid ${openInNewTab ? "oklch(0.84 0.17 196 / 0.5)" : "oklch(0.32 0.051 250 / 0.6)"}`,
+            background: openInNewTab ? "oklch(0.84 0.17 196 / 0.12)" : "oklch(0.18 0.034 250)",
+            color: openInNewTab ? accentColor : "oklch(0.7 0.03 250)",
+          }}
+        >
+          <span
+            style={{
+              width: 28,
+              height: 16,
+              borderRadius: 999,
+              flex: "none",
+              background: openInNewTab ? accentColor : "oklch(0.3 0.04 250)",
+              position: "relative",
+              transition: "background 0.15s ease",
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: 2,
+                left: openInNewTab ? 14 : 2,
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                background: openInNewTab ? "oklch(0.12 0.017 250)" : "oklch(0.6 0.03 250)",
+                transition: "left 0.15s ease",
+              }}
+            />
+          </span>
+          Nouvel onglet
+        </button>
       </div>
 
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>

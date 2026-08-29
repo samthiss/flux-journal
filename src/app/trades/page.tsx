@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { TRADE_FOR_STATS_SELECT } from "@/lib/stats";
+import { cookies } from "next/headers";
+import { isValidPeriod, TRADE_FOR_STATS_SELECT } from "@/lib/stats";
 import TradesClient from "@/components/TradesClient";
 
 export const dynamic = "force-dynamic";
@@ -10,5 +11,8 @@ export default async function TradesPage() {
     select: TRADE_FOR_STATS_SELECT,
   });
 
-  return <TradesClient trades={trades} />;
+  const stored = (await cookies()).get("dash-period")?.value;
+  const initialPeriod = isValidPeriod(stored) ? stored : "week";
+
+  return <TradesClient trades={trades} initialPeriod={initialPeriod} />;
 }

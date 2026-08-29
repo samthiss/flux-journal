@@ -32,7 +32,7 @@ export default function LoginForm({ from }: { from: string }) {
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.2 }}>
-          FLUX<span style={{ color: accentColor }}>JOURNAL</span>
+          TRADING <span style={{ color: accentColor }}>JOURNAL</span>
         </div>
 
         <input type="hidden" name="from" value={from} />
