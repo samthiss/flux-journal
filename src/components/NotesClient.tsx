@@ -1619,11 +1619,11 @@ function ExampleCategory({
           {available.hasValidity && (
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
               <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>Verdict:</span>
-              {(["valid", "invalid"] as const).map((side) => (
+              {VERDICTS.map(([side, text, tone]) => (
                 <FilterChip
                   key={side}
-                  label={side === "valid" ? "Valide" : "Invalid"}
-                  tone={side === "valid" ? VALID_TONE : INVALID_TONE}
+                  label={text}
+                  tone={tone}
                   on={validityFilter === side}
                   onClick={() => setValidityFilter(validityFilter === side ? null : side)}
                 />
@@ -1922,17 +1922,26 @@ function ExampleImage({
   );
 }
 
-type Validity = "valid" | "invalid" | null;
+type Validity = "valid" | "invalid" | "risk" | null;
 
 // Valide and Invalid keep the page's two existing accents — the violet used for
 // wins, and the red already used for losses and errors — each with the soft
 // fill and hairline that the chips are drawn with.
 const VALID_TONE = { fg: accentColor, bg: "oklch(0.84 0.17 196 / 0.16)", line: "oklch(0.84 0.17 196 / 0.5)" };
 const INVALID_TONE = { fg: lossColor, bg: "oklch(0.7 0.25 18 / 0.14)", line: "oklch(0.7 0.25 18 / 0.45)" };
+// Amber, the third light: neither the cyan of a setup that worked nor the
+// magenta of one that did not — a trade that was taken and should not have been.
+const RISK_TONE = { fg: "oklch(0.82 0.16 78)", bg: "oklch(0.82 0.16 78 / 0.14)", line: "oklch(0.82 0.16 78 / 0.45)" };
 
 function normalizeValidity(s: string | null): Validity {
-  return s === "valid" || s === "invalid" ? s : null;
+  return s === "valid" || s === "invalid" || s === "risk" ? s : null;
 }
+
+const VERDICTS: [Exclude<Validity, null>, string, typeof VALID_TONE][] = [
+  ["valid", "Valide", VALID_TONE],
+  ["invalid", "Invalid", INVALID_TONE],
+  ["risk", "Risque", RISK_TONE],
+];
 
 // The chip rows an example carries under its title: the confirmations that were
 // present, and — once it is marked invalid — the reasons why. Both lists are
@@ -1948,7 +1957,7 @@ function ChipList({
   visible,
   onChange,
 }: {
-  label: string;
+  label?: string;
   values: string[];
   kind: TagKind;
   tone: { fg: string; bg: string; line: string };
@@ -2096,31 +2105,30 @@ function ChipList({
 // verdict, not as a pair of buttons.
 function ValidityToggle({ value, visible, onChange }: { value: Validity; visible: boolean; onChange: (next: Validity) => void }) {
   if (!value && !visible) return null;
-  const chip = (side: "valid" | "invalid", text: string, tone: { fg: string; bg: string; line: string }) => {
-    const on = value === side;
-    if (!on && !visible) return null;
-    return (
-      <span
-        onClick={() => onChange(on ? null : side)}
-        style={{
-          fontFamily: "var(--font-jetbrains-mono), monospace",
-          fontSize: 10,
-          padding: "3px 10px",
-          borderRadius: 999,
-          cursor: "pointer",
-          border: `1px solid ${on ? tone.line : "oklch(0.34 0.034 250)"}`,
-          background: on ? tone.bg : "transparent",
-          color: on ? tone.fg : "oklch(0.55 0.034 250)",
-        }}
-      >
-        {text}
-      </span>
-    );
-  };
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      {chip("valid", "Valide", VALID_TONE)}
-      {chip("invalid", "Invalid", INVALID_TONE)}
+      {VERDICTS.map(([side, text, tone]) => {
+        const on = value === side;
+        if (!on && !visible) return null;
+        return (
+          <span
+            key={side}
+            onClick={() => onChange(on ? null : side)}
+            style={{
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "3px 10px",
+              borderRadius: 999,
+              cursor: "pointer",
+              border: `1px solid ${on ? tone.line : "oklch(0.34 0.02 250)"}`,
+              background: on ? tone.bg : "transparent",
+              color: on ? tone.fg : "oklch(0.55 0.02 250)",
+            }}
+          >
+            {text}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -2361,40 +2369,43 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             }}
           />
         </div>
-        <ChipList
-          label="Confirmation:"
-          values={confirmations}
-          kind="confirmation"
-          tone={VALID_TONE}
-          placeholder="+ confirmation"
-          visible={headerHover}
-          onChange={(next) => {
-            setConfirmations(next);
-            updateExample(example.id, { confirmations: next });
-          }}
-        />
-        <ValidityToggle
-          value={validity}
-          visible={headerHover}
-          onChange={(next) => {
-            setValidity(next);
-            updateExample(example.id, { validity: next });
-          }}
-        />
-        {validity === "invalid" && (
+        {/* Confirmations, verdict and reasons read as one line of annotation
+            rather than three labelled rows: they describe the same trade, and
+            the chips say what they are without a word in front of them. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <ChipList
-            label="Invalid reason:"
-            values={invalidReasons}
-            kind="invalidReason"
-            tone={INVALID_TONE}
-            placeholder="+ raison"
+            values={confirmations}
+            kind="confirmation"
+            tone={VALID_TONE}
+            placeholder="+ confirmation"
             visible={headerHover}
             onChange={(next) => {
-              setInvalidReasons(next);
-              updateExample(example.id, { invalidReasons: next });
+              setConfirmations(next);
+              updateExample(example.id, { confirmations: next });
             }}
           />
-        )}
+          <ValidityToggle
+            value={validity}
+            visible={headerHover}
+            onChange={(next) => {
+              setValidity(next);
+              updateExample(example.id, { validity: next });
+            }}
+          />
+          {(validity === "invalid" || validity === "risk") && (
+            <ChipList
+              values={invalidReasons}
+              kind="invalidReason"
+              tone={validity === "risk" ? RISK_TONE : INVALID_TONE}
+              placeholder="+ raison"
+              visible={headerHover}
+              onChange={(next) => {
+                setInvalidReasons(next);
+                updateExample(example.id, { invalidReasons: next });
+              }}
+            />
+          )}
+        </div>
       </div>
       {!collapsed && (
       <div style={{ borderTop: "1px solid oklch(0.24 0.034 250)" }}>

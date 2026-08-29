@@ -435,8 +435,8 @@ export async function updateExample(
     hideText?: boolean;
     imagesPerRow?: number;
     confirmations?: string[];
-    // null clears the choice: an example that is neither validated nor invalidated.
-    validity?: "valid" | "invalid" | null;
+    // null clears the choice: an example with no verdict yet.
+    validity?: "valid" | "invalid" | "risk" | null;
     invalidReasons?: string[];
   }
 ) {
