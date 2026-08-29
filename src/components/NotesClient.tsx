@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { compressImage, MAX_SOURCE_BYTES } from "@/lib/compressImage";
 import Link from "next/link";
@@ -79,6 +79,32 @@ type NoteRecord = {
 };
 
 type BlockRecord = { id: string; noteId: string; categoryId: string | null; exampleId: string | null; type: string; content: string | null; order: number };
+
+// Confirmations and invalid reasons are meant to repeat: the same handful of
+// words describes example after example. So every value already written on any
+// example becomes a suggestion offered under the input of every other one —
+// typed once, picked from a list from then on. The vocabulary is derived from
+// the examples the page was given rather than stored in a table of its own: a
+// word exists exactly as long as some example still carries it.
+type TagKind = "confirmation" | "invalidReason";
+
+type TagVocabulary = {
+  values: (kind: TagKind) => string[];
+  // Keeps a value that was just typed in the list without waiting for the page
+  // data to come back, so it can be reused on the next example straight away.
+  remember: (kind: TagKind, value: string) => void;
+};
+
+const TagVocabularyContext = createContext<TagVocabulary>({ values: () => [], remember: () => {} });
+
+// Most-used first, then alphabetical — the words that describe half the journal
+// should not sit behind the one written once, and ties should not shuffle
+// between renders.
+function rankTagValues(counts: Map<string, number>): string[] {
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([value]) => value);
+}
 
 const BLOCK_TYPE_LABELS: Record<string, string> = {
   headings: "Titre",
@@ -433,7 +459,33 @@ export default function NotesClient({
     });
   }
 
+  // Words typed since the page was loaded. They are already stored on their own
+  // example, but the `examples` prop only catches up on the next refresh, and a
+  // confirmation should be reusable on the example right below immediately.
+  const [freshTags, setFreshTags] = useState<Record<TagKind, string[]>>({ confirmation: [], invalidReason: [] });
+
+  const vocabulary = useMemo<TagVocabulary>(() => {
+    const count = (pick: (e: ExampleRecord) => string | null, fresh: string[]) => {
+      const counts = new Map<string, number>();
+      for (const value of [...examples.flatMap((e) => parseArr(pick(e))), ...fresh]) {
+        const v = value.trim();
+        if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+      }
+      return rankTagValues(counts);
+    };
+    const ranked: Record<TagKind, string[]> = {
+      confirmation: count((e) => e.confirmations, freshTags.confirmation),
+      invalidReason: count((e) => e.invalidReasons, freshTags.invalidReason),
+    };
+    return {
+      values: (kind) => ranked[kind],
+      remember: (kind, value) =>
+        setFreshTags((prev) => (prev[kind].includes(value) ? prev : { ...prev, [kind]: [...prev[kind], value] })),
+    };
+  }, [examples, freshTags]);
+
   return (
+    <TagVocabularyContext.Provider value={vocabulary}>
     <div>
       <div>
         {flat.map(({ node }) => (
@@ -451,6 +503,7 @@ export default function NotesClient({
         ))}
       </div>
     </div>
+    </TagVocabularyContext.Provider>
   );
 }
 
@@ -1661,6 +1714,7 @@ function normalizeValidity(s: string | null): Validity {
 function ChipList({
   label,
   values,
+  kind,
   tone,
   placeholder,
   visible,
@@ -1668,17 +1722,35 @@ function ChipList({
 }: {
   label: string;
   values: string[];
+  kind: TagKind;
   tone: { fg: string; bg: string; line: string };
   placeholder: string;
   visible: boolean;
   onChange: (next: string[]) => void;
 }) {
   const [draft, setDraft] = useState("");
-  const commit = () => {
-    const v = draft.trim();
-    setDraft("");
-    if (v) onChange([...values, v]);
+  const [picking, setPicking] = useState(false);
+  const vocabulary = useContext(TagVocabularyContext);
+
+  const add = (value: string) => {
+    const v = value.trim();
+    if (!v || values.includes(v)) return;
+    vocabulary.remember(kind, v);
+    onChange([...values, v]);
   };
+  const commit = () => {
+    add(draft);
+    setDraft("");
+  };
+
+  // What has been written elsewhere and is not already on this example. The
+  // draft narrows it as it is typed, so the input is both a filter over the
+  // known words and the way to write a new one.
+  const query = draft.trim().toLowerCase();
+  const suggestions = vocabulary
+    .values(kind)
+    .filter((v) => !values.includes(v) && v.toLowerCase().includes(query))
+    .slice(0, 8);
 
   // Nothing written yet and the pointer is elsewhere: the row would be a lone
   // label, so it stays out of the card until the header is hovered.
@@ -1710,30 +1782,81 @@ function ChipList({
         </span>
       ))}
       {visible && (
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
+        <span style={{ position: "relative", display: "inline-flex" }}>
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onFocus={() => setPicking(true)}
+            onBlur={() => {
+              setPicking(false);
               commit();
-            }
-            if (e.key === "Escape") setDraft("");
-          }}
-          placeholder={placeholder}
-          style={{
-            width: 130,
-            fontFamily: "var(--font-jetbrains-mono), monospace",
-            fontSize: 10,
-            padding: "3px 8px",
-            borderRadius: 999,
-            border: "1px dashed oklch(0.34 0.02 290)",
-            background: "transparent",
-            color: "oklch(0.8 0.02 290)",
-            outline: "none",
-          }}
-        />
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+              }
+              if (e.key === "Escape") {
+                setDraft("");
+                setPicking(false);
+              }
+            }}
+            placeholder={placeholder}
+            style={{
+              width: 130,
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "3px 8px",
+              borderRadius: 999,
+              border: "1px dashed oklch(0.34 0.02 290)",
+              background: "transparent",
+              color: "oklch(0.8 0.02 290)",
+              outline: "none",
+            }}
+          />
+          {picking && suggestions.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 4px)",
+                left: 0,
+                zIndex: 30,
+                minWidth: 150,
+                maxHeight: 200,
+                overflowY: "auto",
+                padding: 4,
+                borderRadius: 8,
+                border: "1px solid oklch(0.34 0.02 290)",
+                background: "oklch(0.21 0.02 290)",
+                boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
+              }}
+            >
+              {suggestions.map((v) => (
+                <div
+                  key={v}
+                  // mousedown, not click: the blur that a click fires first
+                  // would close this list before the click ever landed.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    add(v);
+                    setDraft("");
+                  }}
+                  style={{
+                    fontFamily: "var(--font-jetbrains-mono), monospace",
+                    fontSize: 10,
+                    padding: "5px 8px",
+                    borderRadius: 5,
+                    cursor: "pointer",
+                    color: tone.fg,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {v}
+                </div>
+              ))}
+            </div>
+          )}
+        </span>
       )}
     </div>
   );
@@ -2009,6 +2132,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
         <ChipList
           label="Confirmation:"
           values={confirmations}
+          kind="confirmation"
           tone={VALID_TONE}
           placeholder="+ confirmation"
           visible={headerHover}
@@ -2029,6 +2153,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
           <ChipList
             label="Invalid reason:"
             values={invalidReasons}
+            kind="invalidReason"
             tone={INVALID_TONE}
             placeholder="+ raison"
             visible={headerHover}
