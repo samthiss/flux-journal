@@ -84,11 +84,23 @@ export default function ProfitabilityCard({
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={label}>Rentabilité</div>
-          <div style={{ ...mono, fontSize: 12, color: "oklch(0.55 0.03 250)", marginTop: 6 }}>
-            {/* Every trade is counted as a win or a loss, so the two lists
-                together are the period's whole population. */}
-            {stats.wins.length + stats.losses.length} trades · gain moyen {fmtMoney(avgWin)} · perte moyenne{" "}
-            {fmtMoney(avgLoss)}
+          {/* The three figures the rest of the card is computed from, so they
+              are lit like figures rather than set as a caption: the count in
+              full white, the two averages in the colour of what they are.
+              Every trade counts as a win or a loss, so the two lists together
+              are the period's whole population. */}
+          <div style={{ ...mono, fontSize: 15, marginTop: 8, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 600, color: "oklch(0.96 0.0068 250)" }}>
+              {stats.wins.length + stats.losses.length} trades
+            </span>
+            <span style={{ color: "oklch(0.45 0.03 250)" }}>·</span>
+            <span style={{ color: "oklch(0.62 0.03 250)", fontSize: 13 }}>
+              gain moyen <span style={{ color: winColor, fontWeight: 600, fontSize: 15 }}>{fmtMoney(avgWin)}</span>
+            </span>
+            <span style={{ color: "oklch(0.45 0.03 250)" }}>·</span>
+            <span style={{ color: "oklch(0.62 0.03 250)", fontSize: 13 }}>
+              perte moyenne <span style={{ color: lossColor, fontWeight: 600, fontSize: 15 }}>{fmtMoney(avgLoss)}</span>
+            </span>
           </div>
         </div>
         {/* The figure everything else in the card explains: what the period
