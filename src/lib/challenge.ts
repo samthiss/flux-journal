@@ -28,6 +28,99 @@ export function syntheticSample(winRate: number, payoff: number, risk: number, s
   return Array.from({ length: size }, (_, i) => (i < wins ? risk * payoff : -risk));
 }
 
+/**
+ * A trade taken off in two pieces.
+ *
+ * Scaling out turns a two-outcome trade into a three-outcome one, and the
+ * middle outcome is the whole point: the runner does not reach TP2, and what is
+ * left depends entirely on where the stop was by then. Moved to breakeven, the
+ * trade keeps the first piece; left where it was, the runner gives back its
+ * share of the risk and can turn a touched target into a losing trade.
+ */
+export type PartialExit = {
+  /** Share of the position closed at TP1, 0 to 1. */
+  share1: number;
+  /** Targets in multiples of the risk. */
+  tp1R: number;
+  tp2R: number;
+  /** How often TP1 is reached at all. */
+  tp1Rate: number;
+  /** How often TP2 follows, given TP1 was reached. */
+  tp2Rate: number;
+  /** Whether the stop moves to entry once TP1 is filled. */
+  breakevenAfterTp1: boolean;
+  risk: number;
+};
+
+export type PartialOutcomes = {
+  /** The three ways the trade can end: amount and how often. */
+  loss: { amount: number; probability: number };
+  tp1Only: { amount: number; probability: number };
+  both: { amount: number; probability: number };
+  expectancy: number;
+  /** Expectancy per unit of risk, comparable across position sizes. */
+  expectancyR: number;
+  /** The reward-to-risk this management actually produces, averaged over wins. */
+  effectivePayoff: number;
+};
+
+export function partialOutcomes(p: PartialExit): PartialOutcomes {
+  // A share outside 0-100% would give the runner a negative size, and every
+  // amount below it would be arithmetic on a position that cannot exist.
+  const share1 = Math.min(Math.max(p.share1, 0), 1);
+  const share2 = 1 - share1;
+  const tp1 = p.tp1Rate;
+  const tp2 = tp1 * p.tp2Rate;
+  const tp1Alone = tp1 - tp2;
+
+  const loss = -p.risk;
+  // The runner's fate when TP2 never comes: nothing at breakeven, its share of
+  // the risk otherwise.
+  const runnerBack = p.breakevenAfterTp1 ? 0 : -share2 * p.risk;
+  const tp1Only = share1 * p.tp1R * p.risk + runnerBack;
+  const both = (share1 * p.tp1R + share2 * p.tp2R) * p.risk;
+
+  const expectancy = (1 - tp1) * loss + tp1Alone * tp1Only + tp2 * both;
+
+  // Averaged over the outcomes that made money and those that lost it, so a
+  // TP1-only trade that ends negative counts on the losing side where it
+  // belongs.
+  const wins: [number, number][] = [];
+  const losses: [number, number][] = [];
+  for (const [amount, probability] of [
+    [loss, 1 - tp1],
+    [tp1Only, tp1Alone],
+    [both, tp2],
+  ] as [number, number][]) {
+    (amount >= 0 ? wins : losses).push([amount, probability]);
+  }
+  const mean = (rows: [number, number][]) => {
+    const weight = rows.reduce((a, [, prob]) => a + prob, 0);
+    return weight ? rows.reduce((a, [amount, prob]) => a + amount * prob, 0) / weight : 0;
+  };
+  const avgWin = mean(wins);
+  const avgLoss = Math.abs(mean(losses));
+
+  return {
+    loss: { amount: loss, probability: 1 - tp1 },
+    tp1Only: { amount: tp1Only, probability: tp1Alone },
+    both: { amount: both, probability: tp2 },
+    expectancy,
+    expectancyR: p.risk ? expectancy / p.risk : 0,
+    effectivePayoff: avgLoss ? avgWin / avgLoss : 0,
+  };
+}
+
+/** The same three outcomes as a sample the simulation can draw from. */
+export function partialSample(p: PartialExit, size = 1000) {
+  const o = partialOutcomes(p);
+  const nLoss = Math.round(o.loss.probability * size);
+  const nTp1 = Math.round(o.tp1Only.probability * size);
+  return Array.from({ length: size }, (_, i) =>
+    i < nLoss ? o.loss.amount : i < nLoss + nTp1 ? o.tp1Only.amount : o.both.amount
+  );
+}
+
 export type ChallengeParams = {
   /** Profit that ends the challenge. */
   target: number;
