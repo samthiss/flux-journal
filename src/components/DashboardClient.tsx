@@ -14,8 +14,19 @@ import {
 
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
-export default function DashboardClient({ trades }: { trades: TradeForStats[] }) {
-  const [period, setPeriod] = useState("week");
+export default function DashboardClient({ trades, initialPeriod }: { trades: TradeForStats[]; initialPeriod: string }) {
+  // The chosen period comes from the server, read out of a cookie, so the first
+  // paint is already the right one — the same reason the notes tree stores its
+  // folds server-side. Read after hydration it would have shown this week's
+  // figures for a moment and then counted them up a second time.
+  const [period, setPeriod] = useState(initialPeriod);
+
+  const choosePeriod = (next: string) => {
+    setPeriod(next);
+    try {
+      document.cookie = `dash-period=${next}; path=/; max-age=${60 * 60 * 24 * 365}`;
+    } catch {}
+  };
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -106,7 +117,7 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
               <path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <select value={period} onChange={(e) => setPeriod(e.target.value)} style={{ ...selectStyle, fontFamily: "var(--font-jetbrains-mono), monospace" }}>
+          <select value={period} onChange={(e) => choosePeriod(e.target.value)} style={{ ...selectStyle, fontFamily: "var(--font-jetbrains-mono), monospace" }}>
             <option value="today">Today</option>
             <option value="week">This Week</option>
             <option value="month">This Month</option>

@@ -1,3 +1,5 @@
+export const PERIODS = ["today", "week", "month", "all"] as const;
+
 export type TradeForStats = {
   id: string;
   date: Date;
