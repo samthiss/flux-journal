@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard", match: (p: string) => p === "/" },
   { href: "/trades", label: "Trades", match: (p: string) => p.startsWith("/trades") },
   { href: "/rapport", label: "Rapport", match: (p: string) => p.startsWith("/rapport") },
+  { href: "/risque", label: "Risque", match: (p: string) => p.startsWith("/risque") },
   { href: "/checklist", label: "Checklist & News", match: (p: string) => p.startsWith("/checklist") },
   { href: "/notes", label: "Notes", match: (p: string) => p.startsWith("/notes") },
 ];
@@ -146,7 +147,17 @@ function ReportIcon({ color }: { color: string }) {
   );
 }
 
-const ICONS = [DashboardIcon, TradesIcon, ReportIcon, ChecklistIcon, NotesIcon];
+function RiskIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M9 2.2 16.4 15H1.6L9 2.2Z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M9 7v3.4" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="9" cy="12.6" r="0.9" fill={color} />
+    </svg>
+  );
+}
+
+const ICONS = [DashboardIcon, TradesIcon, ReportIcon, RiskIcon, ChecklistIcon, NotesIcon];
 
 type NoteRow = { id: string; title: string; parentId: string | null; order: number; collapsed: boolean };
 type TreeNode = NoteRow & { children: TreeNode[] };
