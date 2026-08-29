@@ -1,4 +1,30 @@
-export const PERIODS = ["today", "week", "month", "all"] as const;
+export const PERIODS = ["today", "week", "month", "all", "custom"] as const;
+
+/**
+ * A custom range travels as one string, `custom:<from>:<to>`, so it fits the
+ * same cookie and the same `period` state as the four fixed choices. Either
+ * bound may be empty — "everything before that date" and "everything since" are
+ * both useful, and a range with neither bound is simply everything.
+ */
+export function parseCustomPeriod(period: string): { from: string; to: string } | null {
+  if (!period.startsWith("custom")) return null;
+  const [, from = "", to = ""] = period.split(":");
+  return { from, to };
+}
+
+export function buildCustomPeriod(from: string, to: string) {
+  return `custom:${from}:${to}`;
+}
+
+/** Accepts the four fixed periods and any custom range; anything else is rejected. */
+export function isValidPeriod(period: string | undefined): period is string {
+  if (!period) return false;
+  if (PERIODS.includes(period as (typeof PERIODS)[number])) return true;
+  const custom = parseCustomPeriod(period);
+  if (!custom) return false;
+  const dateOrEmpty = (v: string) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v);
+  return dateOrEmpty(custom.from) && dateOrEmpty(custom.to);
+}
 
 export type TradeForStats = {
   id: string;
@@ -59,7 +85,24 @@ export function filterByPeriod(trades: TradeWithOutcome[], period: string, refer
       (t) => t.date.getFullYear() === ref.getFullYear() && t.date.getMonth() === ref.getMonth()
     );
   }
+
+  const custom = parseCustomPeriod(period);
+  if (custom) {
+    // Both bounds are inclusive, and each is optional. The dates are parsed in
+    // local time rather than through `new Date("2026-01-05")`, which reads as
+    // UTC midnight and drops the first day of the range for anyone east of
+    // Greenwich.
+    const from = custom.from ? startOfLocalDay(custom.from) : null;
+    const to = custom.to ? endOfDay(startOfLocalDay(custom.to)) : null;
+    return trades.filter((t) => (!from || t.date >= from) && (!to || t.date <= to));
+  }
+
   return trades;
+}
+
+function startOfLocalDay(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0);
 }
 
 function sameDay(a: Date, b: Date) {

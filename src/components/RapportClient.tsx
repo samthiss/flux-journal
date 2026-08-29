@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import ProfitabilityCard from "@/components/ProfitabilityCard";
+import PeriodFilter from "@/components/PeriodFilter";
 import { PageTitle } from "@/components/NeonText";
 import {
   withOutcome,
@@ -10,13 +11,6 @@ import {
   computeSetupStats,
   type TradeForStats,
 } from "@/lib/stats";
-
-const PERIOD_LABELS: Record<string, string> = {
-  today: "Today",
-  week: "This Week",
-  month: "This Month",
-  all: "All Time",
-};
 
 export default function RapportClient({
   trades,
@@ -54,27 +48,7 @@ export default function RapportClient({
           </div>
         </div>
         <div className="dash-filters">
-          <select
-            value={period}
-            onChange={(e) => choosePeriod(e.target.value)}
-            style={{
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-              fontSize: 13,
-              padding: "10px 14px",
-              borderRadius: 9,
-              border: "1px solid oklch(0.36 0.05 250 / 0.6)",
-              background: "oklch(0.18 0.034 250)",
-              color: "oklch(0.85 0.017 250)",
-              cursor: "pointer",
-              outline: "none",
-            }}
-          >
-            {Object.entries(PERIOD_LABELS).map(([value, text]) => (
-              <option key={value} value={value}>
-                {text}
-              </option>
-            ))}
-          </select>
+          <PeriodFilter period={period} onChange={choosePeriod} />
         </div>
       </div>
 

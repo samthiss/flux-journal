@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import { CountUp, PageTitle } from "@/components/NeonText";
+import PeriodFilter from "@/components/PeriodFilter";
 import {
   withOutcome,
   filterByPeriod,
@@ -117,12 +118,7 @@ export default function DashboardClient({ trades, initialPeriod }: { trades: Tra
               <path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <select value={period} onChange={(e) => choosePeriod(e.target.value)} style={{ ...selectStyle, fontFamily: "var(--font-jetbrains-mono), monospace" }}>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="all">All Time</option>
-          </select>
+          <PeriodFilter period={period} onChange={choosePeriod} />
           <Link
             href="/trades/new"
             style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", textDecoration: "none", whiteSpace: "nowrap" }}

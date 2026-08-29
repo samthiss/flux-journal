@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { PERIODS, TRADE_FOR_STATS_SELECT } from "@/lib/stats";
+import { isValidPeriod, TRADE_FOR_STATS_SELECT } from "@/lib/stats";
 import DashboardClient from "@/components/DashboardClient";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export default async function DashboardPage() {
   // the cookie is whatever the browser sends, and an unknown value would filter
   // every trade out and show an empty dashboard.
   const stored = (await cookies()).get("dash-period")?.value;
-  const initialPeriod = PERIODS.includes(stored as (typeof PERIODS)[number]) ? stored! : "week";
+  const initialPeriod = isValidPeriod(stored) ? stored : "week";
 
   return <DashboardClient trades={trades} initialPeriod={initialPeriod} />;
 }
