@@ -126,7 +126,7 @@ export default function DashboardClient({ trades, initialPeriod }: { trades: Tra
           </div>
           <PeriodFilter period={period} onChange={choosePeriod} />
           <Link
-            href="/trades/new"
+            href="/trade/new"
             style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", textDecoration: "none", whiteSpace: "nowrap" }}
           >
             + Add Trade

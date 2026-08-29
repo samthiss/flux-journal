@@ -4,6 +4,12 @@ import { createTrade } from "@/lib/actions/trades";
 
 export const dynamic = "force-dynamic";
 
+// This page lives at /trade/new rather than /trades/new on purpose. One segment
+// under /trades is the space the trade-detail modal intercepts, so a click on
+// "Add Trade" was intercepted as a trade whose id is "new", found nothing, and
+// rendered a 404 — which a reload then "fixed", a reload being a fresh request
+// that no interceptor sees. Outside that segment there is nothing to intercept.
+
 /**
  * What one lot risked on the most recent trade that recorded it.
  *

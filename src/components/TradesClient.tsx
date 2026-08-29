@@ -63,7 +63,7 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
           <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{filteredTrades.length} trades</div>
         </div>
         <Link
-          href="/trades/new"
+          href="/trade/new"
           style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", textDecoration: "none" }}
         >
           + Add Trade
