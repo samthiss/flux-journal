@@ -34,6 +34,20 @@ export function applyHaircut(pnls: number[], haircut: number) {
   return pnls.map((p) => (p > 0 ? p * (1 - haircut) : p));
 }
 
+/**
+ * A sample built from parameters rather than from history: what the trades
+ * would look like at a given win rate and reward-to-risk, risking a fixed
+ * amount each time.
+ *
+ * A thousand entries in the right proportion, drawn from uniformly, reproduce
+ * the win rate to a tenth of a point — enough for a simulation whose inputs are
+ * themselves round numbers, and it lets the same engine run both modes.
+ */
+export function syntheticSample(winRate: number, payoff: number, risk: number, size = 1000) {
+  const wins = Math.round(Math.min(Math.max(winRate, 0), 1) * size);
+  return Array.from({ length: size }, (_, i) => (i < wins ? risk * payoff : -risk));
+}
+
 export type ChallengeParams = {
   /** Profit that ends the challenge. */
   target: number;
