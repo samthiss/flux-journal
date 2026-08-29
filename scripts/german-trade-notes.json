@@ -1,0 +1,322 @@
+[
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt war im unteren Bereich meiner Range angekommen und ist dann wieder in meinen Wendebereich zurückgestiegen. Er hat dort bereits einmal reagiert und abgeprallt, deshalb dachte ich, dass er erneut nach unten gehen könnte, falls er diese Zone wieder erreicht.\n\nAls er dann in meine Zone außerhalb der VA gekommen ist, gab es so eine Art Cluster mit zwei großen negativen Deltas. Danach hat sich der Markt etwas beruhigt, also bin ich in die Position eingestiegen.\nTake Profit an den Volumenlinien und am VWAP.",
+    "fr": "Le marché était arrivé dans le bas de ma range, puis il est remonté dans mon wändebereich. Il y avait déjà réagi une fois et rebondi, donc je me suis dit qu'il pouvait repartir à la baisse s'il revenait sur cette zone.\n\nQuand il est ensuite entré dans ma zone en dehors de la VA, il y a eu une sorte de cluster avec deux gros deltas négatifs. Le marché s'est ensuite un peu calmé, donc je suis entré en position.\nTake profit sur les lignes de volume et sur le VWAP."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "\"Der Markt befand sich für mich weiterhin im Long-Trend und ist auf die alte Range zurückgekehrt, von der er bereits 2 Tage zuvor abgeprallt war.\nDer Markt ist ruhig in die Zone zurückgekehrt und nachdem der Cluster ausgelöst wurde, zeigte das Delta positive Volumina – in diesem Moment bin ich eingestiegen.",
+    "fr": "Pour moi le marché restait en tendance long et il est revenu sur l'ancienne range, sur laquelle il avait déjà rebondi 2 jours plus tôt.\nLe marché est revenu calmement dans la zone et, une fois le cluster déclenché, le delta a montré des volumes positifs — c'est à ce moment-là que je suis entré."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "\"Der Markt ist in meine große Volumenzone auf dem Niveau des Tiefpunkts eingetreten.\n\nEr hat bereits heute auf diesem Niveau reagiert und ist erneut dorthin zurückgekehrt und hat einen Cluster in meiner Zone hinterlassen.\n\nEr ist heute sehr abrupt gefallen, weshalb ich es vorgezogen habe, eine längere Bestätigung in der Box Chart abzuwarten. Nachdem er den Cluster hinterlassen hatte, blieb er 3 Kerzen lang darüber und bei der 3. Kerze war das Delta stark positiv – in diesem Moment bin ich in die Position eingestiegen.\n\nIch habe gesehen, dass er nicht weiter nach oben wollte, deshalb habe ich meinen SL unterhalb der letzten Kerze gesetzt, da sich außerdem die SH nach unten verschoben hatte.\"",
+    "fr": "Le marché est entré dans ma grosse zone de volume, au niveau du point bas.\n\nIl avait déjà réagi à ce niveau aujourd'hui, il y est revenu et a lâché un cluster dans ma zone.\n\nIl est descendu très brutalement aujourd'hui, c'est pourquoi j'ai préféré attendre une confirmation plus longue sur le box chart. Après avoir lâché le cluster, il est resté au-dessus pendant 3 bougies et à la 3e le delta était fortement positif — c'est à ce moment-là que je suis entré en position.\n\nJ'ai vu qu'il ne voulait pas aller plus haut, donc j'ai placé mon SL sous la dernière bougie, d'autant que la SH s'était déplacée vers le bas."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt war hier in einer Range und ist auf den unteren Bereich meiner Volumenzone im Wändebereich vom Vortag zurückgekommen. Ich wollte hier ein Long im BR nehmen.",
+    "fr": "Ici le marché était en range et il est revenu sur le bas de ma zone de volume, dans le wändebereich de la veille. Je voulais prendre un long en BR ici."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier ist der Markt an der alten Range abgeprallt und anschließend in die Value Area gefallen. Der Markt hat dann ein Cluster gebildet und ist darüber geblieben; danach bin ich nach der Box der ersten Stunde in die Position eingestiegen.",
+    "fr": "Ici le marché a rebondi sur l'ancienne range puis est retombé dans la value area. Il a ensuite formé un cluster et est resté au-dessus ; je suis entré en position après la box de la première heure."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier wollte der Markt nach oben in Richtung des oberen Bereichs meiner Range gehen. Auf Höhe meines Stunden-Clusters hat er dann jedoch ein Cluster gebildet und ist darunter geblieben. Der Markt befand sich über meiner VA, daher habe ich einen Backtest-Reverse genommen.",
+    "fr": "Ici le marché voulait monter vers le haut de ma range. Mais au niveau de mon stunden cluster il a formé un cluster et est resté en dessous. Le marché était au-dessus de ma VA, donc j'ai pris un backtest reverse."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist wieder in meine Range zurückgekehrt, ist bis zum unteren Bereich meiner Range gefallen, und ich habe gedacht, dass er an der VWAP abprallen und weiter nach unten gehen würde. Aber das ergibt keinen Sinn – ich hätte den Trade nicht nehmen sollen, denn man sieht, dass er nach oben in Richtung der oberen Range will.",
+    "fr": "Le marché est revenu dans ma range, il est descendu jusqu'au bas de ma range, et j'ai pensé qu'il rebondirait sur le VWAP et continuerait vers le bas. Mais ça n'a aucun sens — je n'aurais pas dû prendre ce trade, on voit qu'il veut monter vers le haut de la range."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist erneut in meine obere Range zurückgekehrt und ich dachte, dass er bis zum oberen Bereich der Range steigen würde.\n\nDer Markt ist dann in Richtung der Mitte meiner Value Area zurückgekommen und hat einen Cluster gebildet, daher habe ich einen Trend-Run long genommen.",
+    "fr": "Le marché est revenu dans ma range haute et je pensais qu'il monterait jusqu'au haut de la range.\n\nIl est ensuite redescendu vers le milieu de ma value area et a formé un cluster, donc j'ai pris un trend run long."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier ist der Markt am oberen Bereich meiner Range abgeprallt, dann am Top der darunterliegenden Range, ist wieder gestiegen, und ich dachte, dass er erneut zum Top der unteren Range zurückkommen würde (short). Deshalb habe ich einen Trend-Run genommen.",
+    "fr": "Ici le marché a rebondi sur le haut de ma range, puis sur le top de la range en dessous, il est remonté, et je pensais qu'il reviendrait sur le top de la range basse (short). C'est pour ça que j'ai pris un trend run."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt hat sich zum unteren Bereich meiner Range bewegt, ist unter die Value Area gegangen, hat einen Cluster gebildet und ist anschließend darüber geblieben. Daraufhin habe ich einen Backtest-Reverse genommen und meine Take Profits an den beiden Volumenlinien erreicht.",
+    "fr": "Le marché est descendu vers le bas de ma range, il est passé sous la value area, a formé un cluster puis est resté au-dessus. J'ai donc pris un backtest reverse et j'ai atteint mes take profits sur les deux lignes de volume."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist in den unteren Bereich meiner Range gekommen.\n\nAls er unter meine Value Area gegangen ist, hat er im Bereich meiner Zone einen Cluster gebildet, und daraufhin bin ich in den Backtest-Reverse eingestiegen.",
+    "fr": "Le marché est arrivé dans le bas de ma range.\n\nQuand il est passé sous ma value area, il a formé un cluster au niveau de ma zone, et je suis entré sur le backtest reverse."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Ich wollte einen Trend-Run traden, als er am unteren Bereich der Range abgeprallt ist, aber ich bin zu früh eingestiegen, weil der Entry zu nah an der Value Area war.",
+    "fr": "Je voulais trader un trend run quand il a rebondi sur le bas de la range, mais je suis entré trop tôt parce que l'entrée était trop proche de la value area."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt hat sich zum unteren Bereich meiner Range bewegt, ist unter die Value Area gegangen, hat einen Cluster gebildet und ist anschließend darüber geblieben. Daraufhin habe ich einen Backtest-Reverse genommen und meine Take Profits an den beiden Volumenlinien erreicht.",
+    "fr": "Le marché est descendu vers le bas de ma range, il est passé sous la value area, a formé un cluster puis est resté au-dessus. J'ai donc pris un backtest reverse et j'ai atteint mes take profits sur les deux lignes de volume."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist am unteren Bereich meiner Range angekommen, ist etwas gestiegen, hat einen Cluster gebildet und ist darüber geblieben, daher bin ich in einen Trend-Run eingestiegen.",
+    "fr": "Le marché est arrivé sur le bas de ma range, il est un peu remonté, a formé un cluster et est resté au-dessus, donc je suis entré sur un trend run."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist aus der Range ausgebrochen und ist erneut zum oberen Bereich meiner vorherigen Range zurückgekehrt, genau wie gestern.\n\nEr ist dort abgeprallt, wieder gestiegen und hat anschließend in der Value Area einen Cluster gebildet. Daraufhin habe ich einen Trend-Run genommen und mein Take Profit an der nächsten Volumenlinie gesetzt.",
+    "fr": "Le marché est sorti de la range et il est revenu sur le haut de ma range précédente, exactement comme hier.\n\nIl y a rebondi, est remonté, puis a formé un cluster dans la value area. J'ai donc pris un trend run et placé mon take profit sur la ligne de volume suivante."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist für einige Stunden aus meiner Range ausgebrochen und dann zurückgekommen, um am oberen Bereich (Top) zu reagieren.\n\nIch habe einen Backtest-Reverse (BR) genommen, als er unter die Value Area gegangen ist, einen Cluster gebildet hat und anschließend darüber geblieben ist.",
+    "fr": "Le marché est sorti de ma range pendant quelques heures puis il est revenu réagir sur le haut (top).\n\nJ'ai pris un backtest reverse (BR) quand il est passé sous la value area, qu'il a formé un cluster et qu'il est resté au-dessus."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier ist der Markt zum oberen Punkt meiner Box gegangen und hat dann begonnen zu fallen, mit zwei abwärts gerichteten Kerzen im Cluster-Chart, sodass ich daraus geschlossen habe, dass er weiter fallen wollte.\n\nDanach hat er einen Cluster gebildet, und ich bin in einen Trend-Run eingestiegen und habe meine Take Profits an der VWAP und an der Volumenlinie gesetzt.",
+    "fr": "Ici le marché est monté jusqu'au point haut de ma box puis a commencé à descendre, avec deux bougies baissières sur le cluster chart, donc j'en ai déduit qu'il voulait continuer à descendre.\n\nIl a ensuite formé un cluster, je suis entré sur un trend run et j'ai placé mes take profits sur le VWAP et sur la ligne de volume."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist zum Tiefpunkt meiner Range zurückgekehrt und anschließend wieder gestiegen.\n\nAls er etwas in die Value Area zurückkam, hat er einen Cluster gebildet und ist über der Zone geblieben. Daraufhin habe ich den Trade genommen und mein Take Profit auf das Niveau meiner heutigen Session gesetzt.",
+    "fr": "Le marché est revenu sur le point bas de ma range puis est remonté.\n\nQuand il est un peu revenu dans la value area, il a formé un cluster et est resté au-dessus de la zone. J'ai donc pris le trade et placé mon take profit au niveau de ma session du jour."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt war in einem Aufwärtstrend und hat begonnen, seit einigen Tagen eine Range zu bilden. Danach ist er in meine Zone gekommen, auf die er bereits zweimal reagiert hatte, also war das ein gutes Setup für einen Backtest-Reverse.\n\nDer Markt war ziemlich volatil, daher habe ich meinen Stop-Loss etwas höher gesetzt. Dann bin ich in die Position eingestiegen und habe meine beiden Take Profits erreicht.",
+    "fr": "Le marché était en tendance haussière et a commencé à former une range depuis quelques jours. Il est ensuite venu dans ma zone, sur laquelle il avait déjà réagi deux fois, donc c'était un bon setup pour un backtest reverse.\n\nLe marché était assez volatil, j'ai donc placé mon stop loss un peu plus large. Je suis ensuite entré en position et j'ai atteint mes deux take profits."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist aus der Range ausgebrochen und hat anschließend am ehemaligen Tief der Range reagiert (abgeprallt).\n\nIch wollte einen Backtest-Reverse traden, als der Markt aus der Value Area herausgegangen ist, und konnte mein erstes Take Profit erreichen.",
+    "fr": "Le marché est sorti de la range puis a réagi (rebondi) sur l'ancien point bas de la range.\n\nJe voulais trader un backtest reverse quand le marché est sorti de la value area, et j'ai pu atteindre mon premier take profit."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt war in einem Aufwärtstrend und ist wieder in die Range zurückgekehrt, und ich wollte einen Trend-Run traden, als er in die Value Area zurückkam.\n\nAber im Nachhinein sehe ich, dass es einen Cluster gab, der den Markt blockiert hat, und dass der Markt über drei Kerzen hinweg short war.",
+    "fr": "Le marché était en tendance haussière et est revenu dans la range, et je voulais trader un trend run quand il est revenu dans la value area.\n\nMais avec le recul je vois qu'il y avait un cluster qui bloquait le marché, et que le marché était short sur trois bougies."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt war in einem Aufwärtstrend, ist über die Value Area hinausgegangen und dann in die vorherige Range zurückgekehrt.\nAnschließend hat er im Box-Chart einen Cluster gebildet, und ich bin in die Position eingestiegen.",
+    "fr": "Le marché était en tendance haussière, il est sorti au-dessus de la value area puis est revenu dans la range précédente.\nIl a ensuite formé un cluster sur le box chart, et je suis entré en position."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier ist der Markt aus meiner Range ausgebrochen und hat weiter nach oben tendiert.\n\nDanach ist er etwas unter die Value Area gefallen, und ich habe einen Trend-Run long genommen, in der Annahme, dass er weiter steigen würde.",
+    "fr": "Ici le marché est sorti de ma range et a continué à tendre vers le haut.\n\nIl est ensuite un peu retombé sous la value area, et j'ai pris un trend run long en pensant qu'il continuerait à monter."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier befand sich der Markt in einer Range. Ich habe gewartet, bis der Markt in die untere Zone der Range für einen Backtest Reverse gekommen ist.\n\nDer Markt hat einen Cluster gebildet, ich bin zur 10. Minute eingestiegen und kurz vor Marktschluss nach meinem TP1 ausgestiegen.",
+    "fr": "Ici le marché était en range. J'ai attendu qu'il vienne dans la zone basse de la range pour un backtest reverse.\n\nLe marché a formé un cluster, je suis entré à la 10e minute et je suis sorti sur mon TP1 juste avant la clôture."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier befand sich der Markt in einer großen Range und ist nach oben gekommen, bevor er seit 3 Tagen zu fallen begann.\nFür mich wollte der Markt tiefer gehen, da er heute bereits zweimal versucht hat, höher zu gehen, aber es nicht geschafft hat.\nEr ist noch etwas gestiegen, nachdem er unter die VA gefallen war, aber ich dachte, er würde weiter fallen – und genau das hat er getan.",
+    "fr": "Ici le marché était dans une grande range et était monté avant de commencer à descendre depuis 3 jours.\nPour moi le marché voulait aller plus bas, puisqu'il avait déjà essayé deux fois de monter aujourd'hui sans y arriver.\nIl est encore un peu remonté après être passé sous la VA, mais je pensais qu'il continuerait à descendre — et c'est exactement ce qu'il a fait."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier war der Markt in meine Umkehrzone gekommen. Dann ist er bis in die Value Area abgefallen.\nEr hat am unteren Ende der heutigen Session ein Cluster gebildet und ist darunter geblieben, dann habe ich den Short eingegangen und das TP auf den VWAP gesetzt.",
+    "fr": "Ici le marché était venu dans mon wändebereich. Il est ensuite redescendu jusque dans la value area.\nIl a formé un cluster sur le bas de la session du jour et est resté en dessous, donc j'ai pris le short et placé le TP sur le VWAP."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt war in einer Range und ist dann zurück in Richtung der unteren Zone meiner Range gefallen. Er hat dort heute bereits einmal abgeprallt und hat anschließend erneut auf die Zone unterhalb der VA reagiert. Danach ist er zurück in Richtung der Mitte meiner VA gekommen, hat dort einen Cluster gebildet und ist über meinem Cluster geblieben. Daraufhin habe ich einen Trend-Run genommen, wurde aber ausgestoppt.",
+    "fr": "Le marché était en range puis il est retombé vers la zone basse de ma range. Il y avait déjà rebondi une fois aujourd'hui et a de nouveau réagi sur la zone sous la VA. Il est ensuite revenu vers le milieu de ma VA, y a formé un cluster et est resté au-dessus de mon cluster. J'ai donc pris un trend run, mais je me suis fait stopper."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier hat der Markt meine Range nach oben gebrochen, und ich wollte einen Trend Run eingehen, als er auf meine Range zurückprallte.",
+    "fr": "Ici le marché a cassé ma range vers le haut, et je voulais prendre un trend run quand il est revenu rebondir sur ma range."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist am oberen Ende meiner Range angekommen. Als er einen Cluster gebildet hat, habe ich daher einen Backtest-Reverse genommen.",
+    "fr": "Le marché est arrivé sur le haut de ma range. Comme il a formé un cluster, j'ai pris un backtest reverse."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier hat der Markt die obere Zone meiner Range durchbrochen und anschließend am letzten Top abgeprallt.",
+    "fr": "Ici le marché a cassé la zone haute de ma range puis a rebondi sur le dernier top."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier bewegte sich der Markt in Richtung des oberen Endes meiner Volumenzone, bildete dann ein Doppeltop, fiel in meine Value Area hinein – und ich bin in die Position eingestiegen, nachdem er ein Cluster gebildet hatte und darunter geblieben war.",
+    "fr": "Ici le marché est monté vers le haut de ma zone de volume, a formé un double top, est retombé dans ma value area — et je suis entré en position après qu'il a formé un cluster et est resté en dessous."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt kam in den unteren Bereich meiner Range, bildete dort ein Cluster und blieb darüber – also habe ich einen Backtest Reverse eingegangen.",
+    "fr": "Le marché est venu dans le bas de ma range, y a formé un cluster et est resté au-dessus — donc j'ai pris un backtest reverse."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt war im 30-Tage-Trend (30D) im Aufwärtstrend, und in den letzten Tagen in einer Range.\n\nIch habe gewartet, bis er den oberen Teil der Range über der Value Area erreicht. Als der Markt in meine Zone kam, gab es so etwas wie einen Cluster, aber kurz danach gab es noch einen. Also bin ich im nächsten Cluster eingestiegen.\n\nDann wurde ich ausgestoppt (SL).",
+    "fr": "Le marché était en tendance haussière sur 30 jours (30D), et en range ces derniers jours.\n\nJ'ai attendu qu'il atteigne la partie haute de la range, au-dessus de la value area. Quand le marché est venu dans ma zone, il y a eu quelque chose comme un cluster, mais juste après il y en a eu un autre. Je suis donc entré sur le cluster suivant.\n\nEnsuite je me suis fait stopper (SL)."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier befand sich der Markt in einem Abwärtstrend, stieg dann zurück und begann erneut zu fallen, wobei er das letzte Tief unterschritt – also habe ich einen Trend Run eingegangen.",
+    "fr": "Ici le marché était en tendance baissière, il est remonté puis a recommencé à descendre en cassant le dernier point bas — donc j'ai pris un trend run."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "„Der Markt befand sich in einem Abwärtstrend, stieg dann über die VA hinaus und setzte anschließend seinen Abwärtstrend fort. Dabei bildete er ein Box-Cluster und blieb darunter, weshalb ich einen Short im Trend Run eingegangen bin.",
+    "fr": "Le marché était en tendance baissière, il est ensuite sorti au-dessus de la VA puis a repris sa tendance baissière. Il a formé un cluster sur la box et est resté en dessous, c'est pourquoi je suis entré en short sur un trend run."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier ist der Markt in Richtung meines Umkehrpunkts gekommen und hat dann begonnen zu steigen. Ich habe einen Trend-Run genommen, als der Box-Chart einen Cluster gebildet hat.\n\nHier wurde ich ausgestoppt (SL). Ich denke, das lag daran, dass ich die Volumenlinie der heutigen Session falsch platziert hatte, und ich wurde dafür schnell bestraft.",
+    "fr": "Ici le marché est venu vers mon point de retournement puis a commencé à monter. J'ai pris un trend run quand le box chart a formé un cluster.\n\nIci je me suis fait stopper (SL). Je pense que c'est parce que j'avais mal placé la ligne de volume de la session du jour, et je l'ai payé rapidement."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier ist der Markt am unteren Punkt meiner Umkehrzone angekommen und hat dann begonnen, in Richtung der anderen Seite der Value Area zu steigen. Als er angefangen hat zu steigen, habe ich einen Trend-Run genommen.\n\nIch war vom letzten verlorenen Trade frustriert und habe diesen Trade genommen, um meinen Verlust wieder reinzuholen. Das hätte ich vermeiden sollen, aber ich konnte nicht widerstehen.",
+    "fr": "Ici le marché est arrivé sur le point bas de mon wändebereich puis a commencé à monter vers l'autre côté de la value area. Quand il a commencé à monter, j'ai pris un trend run.\n\nJ'étais frustré par le trade perdu juste avant et j'ai pris celui-ci pour récupérer ma perte. J'aurais dû l'éviter, mais je n'ai pas pu résister."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Zu nah von Vwap & war noch nicht über die value area",
+    "fr": "Trop près du VWAP et il n'était pas encore sorti au-dessus de la value area."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Ich habe gewartet, bis der Markt wieder an das untere Ende meiner Range zurückgekommen ist, um einen Backtest-Reversal zu nehmen.\n\nHier hat er danach einen Cluster gebildet, und ich bin dann in den Trade eingestiegen und habe mein TP auf dem Niveau der nächsten Volumenlinie gesetzt.\n\nIch weiß nicht warum, aber ich hatte nur die Möglichkeit, ein TP zu setzen. Das hat mich frustriert und ich habe etwas später noch einen weiteren Trade genommen.",
+    "fr": "J'ai attendu que le marché revienne sur le bas de ma range pour prendre un backtest reverse.\n\nIl a ensuite formé un cluster, je suis entré dans le trade et j'ai placé mon TP au niveau de la ligne de volume suivante.\n\nJe ne sais pas pourquoi, mais je n'ai eu la possibilité de placer qu'un seul TP. Ça m'a frustré et j'ai pris un autre trade un peu plus tard."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier waren wir für mich in einem Aufwärtstrend.Danach habe ich meine obere und untere Wendebereich-Zone eingezeichnet und gewartet, bis der Markt den unteren Bereich meiner Zone unterhalb der Value Area erreicht.Anschließend hat der Markt ein Volumencluster gebildet und ich habe den Trade genommen.",
+    "fr": "Ici pour moi on était en tendance haussière. J'ai ensuite tracé mes zones de wändebereich haute et basse et j'ai attendu que le marché atteigne le bas de ma zone, sous la value area. Le marché a ensuite formé un cluster de volume et j'ai pris le trade."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Hier ist der Markt bis zum unteren Punkt meines Wendebereichs gekommen, ist unter die Value Area gefallen und hat heute bereits auf dieses Niveau reagiert. Deshalb habe ich den Trade genommen, als sich das Volumencluster gebildet hat.",
+    "fr": "Ici le marché est venu jusqu'au point bas de mon wändebereich, il est passé sous la value area et il avait déjà réagi sur ce niveau aujourd'hui. C'est pour ça que j'ai pris le trade quand le cluster de volume s'est formé."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist in einen meiner Volumenbereiche zurückgekommen. Er befand sich unterhalb der Value Area und hatte auf der linken Seite des Charts bereits mehrere Male von diesem Niveau aus reagiert. Als ich im Box Chart ein Volumencluster gesehen habe, bin ich davon ausgegangen, dass der Markt erneut von dieser Zone abprallen würde.",
+    "fr": "Le marché est revenu dans une de mes zones de volume. Il était sous la value area et il avait déjà réagi plusieurs fois depuis ce niveau sur la partie gauche du graphique. Quand j'ai vu un cluster de volume sur le box chart, je suis parti du principe que le marché rebondirait à nouveau sur cette zone."
+  },
+  {
+    "field": "preTradeNotes",
+    "de": "Der Markt ist mehrmals an derselben Zone oberhalb der Value Area abgeprallt und hat danach angefangen zu fallen. Deshalb bin ich davon ausgegangen, dass die Abwärtsbewegung weitergeht, und habe einen Trend-Run genommen.",
+    "fr": "Le marché a rebondi plusieurs fois sur la même zone au-dessus de la value area puis a commencé à descendre. J'ai donc considéré que le mouvement baissier continuait, et j'ai pris un trend run."
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "zu früh eingestiegen, es waren 08:08, ich denke er war nach der\nStunde noch etwas volatil, Strategie passte aber",
+    "fr": "entré trop tôt, il était 08:08, je pense qu'il était encore un peu volatil après l'heure, mais la stratégie était bonne"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "alles richtig gemacht",
+    "fr": "tout a été fait correctement"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "ganz genau gut analysiert",
+    "fr": "très bien analysé, exactement ça"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "sehr schöner Trade, aber neues Cluster nicht beachtet",
+    "fr": "très beau trade, mais le nouveau cluster n'a pas été pris en compte"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "guter Trade, insgesamt zu lange drin geblieben, nach dem neuen\nCluster raus",
+    "fr": "bon trade, resté dedans trop longtemps dans l'ensemble : il fallait sortir après le nouveau cluster"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "der Markt hatte ein starken shortmomentum, daher ist es riskant\nbeim ersten Cluster Long einzusteigen. An solchen Tagen, wenn er gerade\nstark short oder long ist dann lieber mit dem Trend traden, aber Trade war\nin Ordnung",
+    "fr": "le marché avait un fort momentum short, c'est donc risqué d'entrer en long sur le premier cluster. Les jours comme celui-là, quand il est fortement short ou long, mieux vaut trader dans le sens de la tendance ; mais le trade était correct"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Schöner Einstieg",
+    "fr": "Belle entrée"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Markt kommt gerne an die VWAP zurück bevoer er weiter in seine richtung geht",
+    "fr": "le marché aime revenir sur le VWAP avant de repartir dans sa direction"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Bei dem Fallen direkt das erst beste Cluster genutzt",
+    "fr": "Dans la baisse, tu as pris le tout premier cluster venu"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Markt stark am steigen und versuchst gegen ihn zu handeln ?",
+    "fr": "Le marché monte fortement et tu essaies de trader contre lui ?"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Schön gedacht leider Pech gehabt finde jetzt auch nichts",
+    "fr": "Bien raisonné, pas de chance ; je ne trouve rien à redire non plus"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Schau dir mal den Anstieg vom Markt an heute und die Tage davor. Irgendwann bricht der Markt auch aus",
+    "fr": "Regarde la hausse du marché aujourd'hui et les jours précédents. À un moment, le marché finit aussi par casser"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Wieder schön mit dem Markt mitgehandelt",
+    "fr": "De nouveau bien tradé dans le sens du marché"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Kein Einstieg nach Regelwerk. Der Markt ist stark am Fallen und du\nsteigst bei erst bester Gelegenheit in ein TR Long ein? Der Markt ist zwar\nübergeordnet Long unterwegs – allerding hat er bereits sein Starken Long\nmove hinter sich und ist am Fallen – Somit TR Long nicht die beste Wahl –\nhier hättest du besser abwarten und beobachten sollen.",
+    "fr": "Entrée non conforme aux règles. Le marché est en forte baisse et tu entres en TR long à la première occasion venue ? Le marché est certes long sur le fond — mais il a déjà fait son gros mouvement long derrière lui et il est en train de descendre. Le TR long n'est donc pas le meilleur choix : ici tu aurais mieux fait d'attendre et d'observer."
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Kein Einstieg nach Regelwerk – Trade hinter gerannt! Und mit 6 LOT\ngehandelt. Wenn du einen Einstieg verpasst, ist das eben so, versuche nicht\nirgendwo dann doch noch einzusteigen, das kann auch in die Hose gehen.\nUnd wenn du merkst das du frustriert bist wegen einem Verlust zuvor, dann\nschalte deinen PC aus und gehe eine Runde spazieren, Einkaufen, Kaffee\n\ntrinken oder sonst was \nFrust kann sehr schnell unsere Konten zerstören!",
+    "fr": "Entrée non conforme aux règles — tu as couru après le trade ! Et tradé avec 6 lots. Si tu rates une entrée, tant pis, n'essaie pas d'entrer quand même n'importe où, ça peut aussi mal tourner.\nEt si tu sens que tu es frustré à cause d'une perte précédente, éteins ton PC et va faire un tour, des courses, boire un café\n\nou autre chose.\nLa frustration peut détruire nos comptes très vite !"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Kein Einstieg nach Regelwerk. An Tageshochpunkten und an\nTagestiefpunkten, auch wenn es innerhalb der VA ist, gehen wir genau aus\ndiesem Grund keinen TR ein. Denn hier besteht die Gefahr das der Markt\nnicht in unsere Richtung möchte.",
+    "fr": "Entrée non conforme aux règles. Sur les points hauts et les points bas du jour, même à l'intérieur de la VA, on ne prend justement pas de TR pour cette raison : le risque est que le marché ne veuille pas aller dans notre sens."
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Dein erster Einstig war gut, aber dass du erneut 3 Lot nachgekauft\nhast, während du im Minus warst, ist gar nicht gut! Das war ein Trade mit 6\nLot! Oder bist du vorher ausgestiegen? Bitte gib mir zu diesem Trade im TMS\nRückmeldung.",
+    "fr": "Ta première entrée était bonne, mais avoir rajouté 3 lots alors que tu étais en négatif, ça n'est pas bon du tout ! C'était un trade à 6 lots ! Ou est-ce que tu étais sorti avant ? Merci de me faire un retour sur ce trade dans le TMS."
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Schöner Einstieg. Auch wenn du Nervös in diesem Trade warst, hast\ndu geduldig abgewartet. Wo wäre dein SL? SL nicht eingezeichnet.",
+    "fr": "Belle entrée. Même si tu étais nerveux sur ce trade, tu as attendu patiemment. Où serait ton SL ? Le SL n'est pas tracé."
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Kein Einstieg nach Regelwerk. So wie es im Cluster Chart aussieht\nwar der Markt noch in der VA. Der Markt hatte bereits einen Long push und\nwar auf dem Weg nach unten. Und hier direkt an der Grenze der VA einen\nBR Long einzugehen, obwohl der Markt an diesem Tag schon deutlich tiefer\nwar, ist sehr riskant.",
+    "fr": "Entrée non conforme aux règles. D'après ce que montre le cluster chart, le marché était encore dans la VA. Il avait déjà fait une poussée long et repartait vers le bas. Prendre ici un BR long juste à la limite de la VA, alors que le marché était déjà nettement plus bas ce jour-là, est très risqué."
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Schöner Trade. Auch wenn das kein TP war, hast du richtig reagiert\nin dem du dein SL nachgezogen hast, um nicht unnötige Verluste zu\nschreiben!",
+    "fr": "Beau trade. Même si ce n'était pas un TP, tu as bien réagi en remontant ton SL pour ne pas encaisser de pertes inutiles !"
+  },
+  {
+    "field": "postTradeNotes",
+    "de": "Sehr schöner Trade. Deutlich zu sehen, wie der Markt von\nWendebereich zu Wendebereich marschiert.",
+    "fr": "Très beau trade. On voit nettement le marché marcher d'un wändebereich à l'autre."
+  }
+]
