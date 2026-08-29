@@ -86,6 +86,24 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
   const best = hasTrades ? Math.max(...trades.map((t) => t.pnl)) : 0;
   const worst = hasTrades ? Math.min(...trades.map((t) => t.pnl)) : 0;
 
+  // What a strategy actually lives or dies by: the size of an average win
+  // against an average loss, and the win rate that pairing demands.
+  //
+  // `payoff` is the realised reward-to-risk — the planned one, Trade.rr, is
+  // rarely filled in and says nothing about what the exits really returned.
+  // `breakevenWinRate` is 1 / (1 + payoff): the share of trades that must win
+  // for the account to stand still. The distance between it and the real win
+  // rate is the only number that says whether a setup is profitable, and
+  // `expectancy` puts that distance in money — what one more trade is worth on
+  // average.
+  const absAvgLoss = Math.abs(avgLoss);
+  const payoff = absAvgLoss > 0 ? avgWin / absAvgLoss : 0;
+  const breakevenWinRate = payoff > 0 ? 1 / (1 + payoff) : 0;
+  const expectancy = hasTrades ? winRate * avgWin - (1 - winRate) * absAvgLoss : 0;
+  // The same expectancy expressed in R — in multiples of one average loss —
+  // which is what makes two setups risking different amounts comparable.
+  const expectancyR = absAvgLoss > 0 ? expectancy / absAvgLoss : 0;
+
   let streak = 0;
   const streakType: "win" | "loss" = hasTrades ? trades[trades.length - 1].outcome : "win";
   for (let i = trades.length - 1; i >= 0; i--) {
@@ -117,6 +135,10 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
     avgLoss,
     profitFactor,
     avgRR,
+    payoff,
+    breakevenWinRate,
+    expectancy,
+    expectancyR,
     best,
     worst,
     streak,
@@ -124,6 +146,34 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
     equityPoints,
     equityFillPoints,
   };
+}
+
+/**
+ * The same profitability read, one row per setup, busiest first.
+ *
+ * A setup with no losing trade yet has no average loss to divide by, so its
+ * payoff and its breakeven line are meaningless rather than infinite: those
+ * rows carry `payoff: 0` and are shown as "—".
+ */
+export function computeSetupStats(trades: TradeWithOutcome[]) {
+  const bySetup = new Map<string, TradeWithOutcome[]>();
+  for (const trade of trades) {
+    bySetup.set(trade.setup, [...(bySetup.get(trade.setup) ?? []), trade]);
+  }
+  return [...bySetup.entries()]
+    .map(([setup, rows]) => {
+      const stats = computeDashboardStats(rows);
+      return {
+        setup,
+        count: rows.length,
+        winRate: stats.winRate,
+        payoff: stats.payoff,
+        breakevenWinRate: stats.breakevenWinRate,
+        expectancy: stats.expectancy,
+        totalPnl: stats.totalPnl,
+      };
+    })
+    .sort((a, b) => b.count - a.count);
 }
 
 export function buildMonthlyCalendar(trades: TradeWithOutcome[], year: number, monthIndex0: number) {

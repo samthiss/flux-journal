@@ -1,0 +1,165 @@
+"use client";
+
+import { accentColor, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
+import { CountUp } from "@/components/NeonText";
+import type { computeDashboardStats, computeSetupStats } from "@/lib/stats";
+
+const pct = (n: number) => `${(n * 100).toFixed(1)} %`;
+
+const label = { fontSize: 12, color: "oklch(0.6 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" } as const;
+const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
+
+/**
+ * Win rate against the win rate this payoff demands.
+ *
+ * The bar is the whole point of the card: a number like "64.8 %" says nothing
+ * on its own, and the same number is excellent at a payoff of 1.2 and fatal at
+ * 0.4. The tick is the line the fill has to clear.
+ */
+function BreakevenBar({ winRate, breakeven, height = 10 }: { winRate: number; breakeven: number; height?: number }) {
+  const above = winRate >= breakeven;
+  const tone = above ? accentColor : lossColor;
+  return (
+    <div
+      style={{
+        position: "relative",
+        height,
+        borderRadius: 2,
+        background: "oklch(0.24 0.03 250)",
+        border: "1px solid oklch(0.3 0.04 250)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          width: `${Math.min(winRate, 1) * 100}%`,
+          height: "100%",
+          background: tone,
+          opacity: 0.55,
+          boxShadow: `0 0 12px ${tone}`,
+          transition: "width 0.5s ease",
+        }}
+      />
+      {breakeven > 0 && (
+        <div
+          title="Seuil de rentabilité"
+          style={{
+            position: "absolute",
+            top: -1,
+            bottom: -1,
+            left: `${Math.min(breakeven, 1) * 100}%`,
+            width: 2,
+            background: "oklch(0.95 0.005 250)",
+            boxShadow: "0 0 8px oklch(0.95 0.005 250)",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Figure({ title, value, hint, color }: { title: string; value: string; hint?: string; color?: string }) {
+  return (
+    <div>
+      <div style={label}>{title}</div>
+      <div style={{ ...mono, fontSize: 20, fontWeight: 600, marginTop: 6, color: color ?? "oklch(0.96 0.0068 250)" }}>{value}</div>
+      {hint && <div style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)", marginTop: 3 }}>{hint}</div>}
+    </div>
+  );
+}
+
+export default function ProfitabilityCard({
+  stats,
+  setups,
+}: {
+  stats: ReturnType<typeof computeDashboardStats>;
+  setups: ReturnType<typeof computeSetupStats>;
+}) {
+  const { winRate, payoff, breakevenWinRate, expectancy, expectancyR, avgWin, avgLoss } = stats;
+  const margin = winRate - breakevenWinRate;
+  const profitable = stats.hasTrades && margin > 0;
+
+  return (
+    <div style={{ ...glassCard, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={label}>Rentabilité</div>
+        <div style={{ ...mono, fontSize: 12, color: "oklch(0.55 0.03 250)" }}>
+          gain moyen {fmtMoney(avgWin)} · perte moyenne {fmtMoney(avgLoss)}
+        </div>
+      </div>
+
+      <div className="profit-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, margin: "18px 0 20px" }}>
+        <Figure
+          title="Ratio gain / perte"
+          value={payoff > 0 ? payoff.toFixed(2) : "—"}
+          hint="combien rapporte un gain pour une perte"
+        />
+        <Figure title="Win rate" value={pct(winRate)} hint={`${stats.wins.length}W / ${stats.losses.length}L`} />
+        <Figure
+          title="Win rate requis"
+          value={breakevenWinRate > 0 ? pct(breakevenWinRate) : "—"}
+          hint="pour être à zéro avec ce ratio"
+        />
+        <Figure
+          title="Espérance / trade"
+          value={fmtMoney(expectancy)}
+          hint={`${expectancyR >= 0 ? "+" : "−"}${Math.abs(expectancyR).toFixed(2)} R`}
+          color={expectancy >= 0 ? winColor : lossColor}
+        />
+      </div>
+
+      <BreakevenBar winRate={winRate} breakeven={breakevenWinRate} height={12} />
+      <div style={{ fontSize: 12.5, color: "oklch(0.62 0.03 250)", marginTop: 10 }}>
+        {!stats.hasTrades ? (
+          "Aucun trade sur la période."
+        ) : (
+          <>
+            <span style={{ color: profitable ? accentColor : lossColor, fontWeight: 600 }}>
+              {margin >= 0 ? "+" : "−"}
+              <CountUp value={Math.abs(margin) * 100} format={(n) => n.toFixed(1)} /> points
+            </span>{" "}
+            {profitable ? "au-dessus" : "en dessous"} du seuil. Avec un ratio de{" "}
+            {payoff > 0 ? payoff.toFixed(2) : "—"}, il faut gagner {breakevenWinRate > 0 ? pct(breakevenWinRate) : "—"} des
+            trades pour être à zéro.
+          </>
+        )}
+      </div>
+
+      {setups.length > 1 && (
+        <div style={{ marginTop: 22, borderTop: "1px solid oklch(0.28 0.04 250)", paddingTop: 16 }}>
+          <div style={{ ...label, marginBottom: 12 }}>Par setup</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {setups.map((s) => {
+              const setupMargin = s.winRate - s.breakevenWinRate;
+              const ok = s.expectancy >= 0;
+              return (
+                <div key={s.setup}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                      {s.setup} <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.03 250)" }}>n={s.count}</span>
+                    </div>
+                    <div style={{ ...mono, fontSize: 11.5, color: "oklch(0.62 0.03 250)", display: "flex", gap: 14, flexWrap: "wrap" }}>
+                      <span>RR {s.payoff > 0 ? s.payoff.toFixed(2) : "—"}</span>
+                      <span>WR {pct(s.winRate)}</span>
+                      <span>requis {s.breakevenWinRate > 0 ? pct(s.breakevenWinRate) : "—"}</span>
+                      <span style={{ color: ok ? winColor : lossColor, fontWeight: 600 }}>{fmtMoney(s.expectancy)} / trade</span>
+                    </div>
+                  </div>
+                  <BreakevenBar winRate={s.winRate} breakeven={s.breakevenWinRate} />
+                  {/* A setup living within a couple of points of its own breakeven
+                      line is the thing this card exists to surface: it reads as
+                      profitable in the totals and is one bad week from not. */}
+                  {s.payoff > 0 && setupMargin > 0 && setupMargin < 0.05 && (
+                    <div style={{ fontSize: 11.5, color: lossColor, marginTop: 5 }}>
+                      À {(setupMargin * 100).toFixed(1)} points seulement de son seuil.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

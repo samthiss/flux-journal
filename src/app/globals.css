@@ -435,6 +435,12 @@ body::after {
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
+@media (max-width: 720px) {
+  .profit-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 14px !important;
+  }
+}
 @media (max-width: 860px) {
   .dash-top-grid {
     grid-template-columns: 1fr !important;

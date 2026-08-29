@@ -4,10 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import { CountUp, PageTitle } from "@/components/NeonText";
+import ProfitabilityCard from "@/components/ProfitabilityCard";
 import {
   withOutcome,
   filterByPeriod,
   computeDashboardStats,
+  computeSetupStats,
   buildMonthlyCalendar,
   type TradeForStats,
 } from "@/lib/stats";
@@ -44,6 +46,7 @@ export default function DashboardClient({ trades, initialPeriod }: { trades: Tra
   }, [allTrades, period, filterSymbol, filterSetup, now]);
 
   const stats = useMemo(() => computeDashboardStats(periodTrades), [periodTrades]);
+  const setupStats = useMemo(() => computeSetupStats(periodTrades), [periodTrades]);
   const calendarCells = useMemo(
     () => buildMonthlyCalendar(allTrades, now.getFullYear(), now.getMonth()),
     [allTrades, now]
@@ -250,6 +253,8 @@ export default function DashboardClient({ trades, initialPeriod }: { trades: Tra
           </svg>
         </div>
       </div>
+
+      <ProfitabilityCard stats={stats} setups={setupStats} />
 
       <div className="dash-metrics-grid">
         {metricCards.map((m) => (
