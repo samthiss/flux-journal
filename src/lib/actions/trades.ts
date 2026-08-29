@@ -44,13 +44,17 @@ function parseTradeForm(formData: FormData) {
   const side = String(formData.get("side") ?? "Long");
   const size = parseFloat(String(formData.get("size") ?? "0")) || 0;
   const pnl = parseFloat(String(formData.get("pnl") ?? "0")) || 0;
-  const rr = formData.get("rr") ? parseFloat(String(formData.get("rr"))) : null;
+  // The risk is what gets typed; the reward-to-risk falls out of it, so a trade
+  // can no longer be saved with a P&L and an R:R that contradict each other.
+  const riskInput = formData.get("risk") ? parseFloat(String(formData.get("risk"))) : null;
+  const risk = riskInput && Number.isFinite(riskInput) && riskInput !== 0 ? Math.abs(riskInput) : null;
+  const rr = risk ? Number((pnl / risk).toFixed(2)) : null;
   const setup = String(formData.get("setup") ?? "");
   const emotion = String(formData.get("emotion") ?? "") || null;
   const preTradeNotes = String(formData.get("preTradeNotes") ?? "") || null;
   const postTradeNotes = String(formData.get("postTradeNotes") ?? "") || null;
 
-  return { date, time, symbol, market, side, size, pnl, rr, setup, emotion, preTradeNotes, postTradeNotes };
+  return { date, time, symbol, market, side, size, pnl, risk, rr, setup, emotion, preTradeNotes, postTradeNotes };
 }
 
 export async function createTrade(formData: FormData) {

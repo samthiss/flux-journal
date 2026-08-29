@@ -62,7 +62,13 @@ export default function DashboardClient({ trades, initialPeriod }: { trades: Tra
     { label: "Avg Win", value: stats.avgWin, format: fmtMoney, sub: `${stats.wins.length} winning trades`, color: winColor },
     { label: "Avg Loss", value: stats.avgLoss, format: fmtMoney, sub: `${stats.losses.length} losing trades`, color: lossColor },
     { label: "Profit Factor", value: stats.profitFactor, format: (n: number) => n.toFixed(2), sub: "gross win / gross loss", color: "oklch(0.96 0.0068 250)" },
-    { label: "Risk / Reward", value: stats.avgRR, format: (n: number) => `1 : ${n.toFixed(2)}`, sub: "average across trades", color: "oklch(0.96 0.0068 250)" },
+    {
+      label: "Risk / Reward",
+      value: stats.avgRR,
+      format: (n: number) => (stats.rrCount ? `1 : ${n.toFixed(2)}` : "—"),
+      sub: stats.rrCount ? `sur ${stats.rrCount} trade${stats.rrCount > 1 ? "s" : ""} renseigné${stats.rrCount > 1 ? "s" : ""}` : "risque non renseigné",
+      color: "oklch(0.96 0.0068 250)",
+    },
     { label: "Best Trade", value: stats.best, format: fmtMoney, sub: "single-trade high", color: winColor },
     { label: "Worst Trade", value: stats.worst, format: fmtMoney, sub: "single-trade low", color: lossColor },
     {

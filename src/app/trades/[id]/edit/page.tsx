@@ -5,12 +5,29 @@ import { updateTrade } from "@/lib/actions/trades";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * What one lot risked on the most recent trade that recorded it.
+ *
+ * The risk scales with the number of lots, so this is what lets the form fill
+ * the field in from a size instead of asking for the same figure every time.
+ */
+async function lastRiskPerLot() {
+  const last = await prisma.trade.findFirst({
+    where: { risk: { not: null }, size: { not: 0 } },
+    orderBy: { date: "desc" },
+    select: { risk: true, size: true },
+  });
+  return last?.risk ? last.risk / Math.abs(last.size) : null;
+}
+
+
 export default async function EditTradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const trade = await prisma.trade.findUnique({ where: { id } });
   if (!trade) notFound();
 
   const updateTradeWithId = updateTrade.bind(null, trade.id);
+  const riskPerLot = await lastRiskPerLot();
 
   const existingCharts: ExistingCharts = {
     cluster: trade.chartCluster ?? undefined,
@@ -23,6 +40,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
     <TradeForm
       action={updateTradeWithId}
       tradeId={trade.id}
+      riskPerLot={riskPerLot}
       title="Edit Trade"
       subtitle="Update this journal entry"
       existingCharts={existingCharts}
@@ -35,7 +53,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         side: trade.side,
         size: String(trade.size),
         pnl: String(trade.pnl),
-        rr: trade.rr != null ? String(trade.rr) : "",
+        risk: trade.risk != null ? String(trade.risk) : "",
         emotion: trade.emotion ?? "Calm",
         preTradeNotes: trade.preTradeNotes ?? "",
         postTradeNotes: trade.postTradeNotes ?? "",

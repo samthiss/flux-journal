@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { accentColor, glassCard } from "@/lib/theme";
+import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import { removeChartSlot } from "@/lib/actions/trades";
 import { CHART_SLOTS } from "@/lib/chartSlots";
@@ -19,7 +19,7 @@ export type TradeFormValues = {
   side: string;
   size: string;
   pnl: string;
-  rr: string;
+  risk: string;
   emotion: string;
   preTradeNotes: string;
   postTradeNotes: string;
@@ -183,17 +183,48 @@ export default function TradeForm({
   existingCharts = {},
   title,
   subtitle,
+  riskPerLot,
 }: {
   action: (formData: FormData) => void;
   deleteAction?: (formData: FormData) => void;
   tradeId?: string;
   initial: TradeFormValues;
+  /** What one lot risked on the last trade that recorded it, if any. */
+  riskPerLot?: number | null;
   existingCharts?: ExistingCharts;
   title: string;
   subtitle: string;
 }) {
   const [side, setSide] = useState(initial.side);
   const [emotion, setEmotion] = useState(initial.emotion);
+
+  // P&L, size and risk are held here rather than left uncontrolled, because the
+  // R:R is computed from them as they are typed.
+  const [pnl, setPnl] = useState(initial.pnl);
+  const [size, setSize] = useState(initial.size);
+  const [risk, setRisk] = useState(initial.risk);
+
+  const num = (v: string) => {
+    const n = parseFloat(v.replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  };
+  const riskValue = num(risk);
+  const pnlValue = num(pnl);
+  const computedRR = riskValue && pnlValue != null ? pnlValue / Math.abs(riskValue) : null;
+
+  // The risk scales with the number of lots, so typing a size fills it in from
+  // what one lot risked last time. It stays editable — a wider stop on one
+  // trade is exactly the case a fixed per-lot figure gets wrong.
+  const sizeValue = num(size);
+  const perLot = (lots: number) => String(Math.round(riskPerLot! * Math.abs(lots)));
+  const suggestedRisk = riskPerLot && sizeValue ? perLot(sizeValue) : null;
+  const onSizeChange = (next: string) => {
+    setSize(next);
+    const lots = num(next);
+    if (!riskPerLot || !lots) return;
+    // Only fills a field the reader has not written in themselves.
+    if (!risk || (sizeValue && risk === perLot(sizeValue))) setRisk(perLot(lots));
+  };
 
   const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
     flex: 1,
@@ -265,8 +296,36 @@ export default function TradeForm({
               </select>
             </div>
             <div>
-              {fieldLabel("R:R")}
-              <input type="text" name="rr" defaultValue={initial.rr} placeholder="1.5" style={monoInputStyle} />
+              {fieldLabel("Risque $")}
+              <input
+                type="text"
+                name="risk"
+                value={risk}
+                onChange={(e) => setRisk(e.target.value)}
+                placeholder={suggestedRisk ?? "250"}
+                style={monoInputStyle}
+              />
+              {/* The R:R is no longer a field: typed beside a P&L, the two could
+                  contradict each other. It is shown here as it is computed. */}
+              <div
+                style={{
+                  fontSize: 11.5,
+                  color: "oklch(0.55 0.03 250)",
+                  marginTop: 5,
+                  fontFamily: "var(--font-jetbrains-mono), monospace",
+                }}
+              >
+                {computedRR == null ? (
+                  suggestedRisk ? `≈ ${suggestedRisk} $ pour ${sizeValue} lot(s)` : "R:R calculé depuis le risque"
+                ) : (
+                  <>
+                    R:R{" "}
+                    <span style={{ color: computedRR >= 0 ? accentColor : lossColor, fontWeight: 600 }}>
+                      {computedRR.toFixed(2)}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
 
             <div style={{ gridColumn: "span 2" }}>
@@ -284,11 +343,25 @@ export default function TradeForm({
 
             <div>
               {fieldLabel("Size")}
-              <input type="text" name="size" defaultValue={initial.size} placeholder="0" style={monoInputStyle} />
+              <input
+                type="text"
+                name="size"
+                value={size}
+                onChange={(e) => onSizeChange(e.target.value)}
+                placeholder="0"
+                style={monoInputStyle}
+              />
             </div>
             <div>
               {fieldLabel("P&L")}
-              <input type="text" name="pnl" defaultValue={initial.pnl} placeholder="0.00" style={monoInputStyle} />
+              <input
+                type="text"
+                name="pnl"
+                value={pnl}
+                onChange={(e) => setPnl(e.target.value)}
+                placeholder="0.00"
+                style={monoInputStyle}
+              />
             </div>
 
             <div style={{ gridColumn: "span 2" }}>

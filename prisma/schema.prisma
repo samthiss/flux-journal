@@ -29,6 +29,17 @@ model Trade {
   side           String
   size           Float
   pnl            Float
+
+  // What the trade stood to lose: the distance to the initial stop, in money.
+  // It is the figure the journal was missing — a number of lots does not give
+  // it, since the same size risks a different amount depending on where the
+  // stop sits — and without it `rr` cannot be computed, which is why that
+  // column is empty on all 88 imported trades.
+  risk           Float?
+
+  // Realised reward-to-risk, `pnl / risk`. Derived on save rather than typed:
+  // a full loss is −1, a winner that made twice what it risked is 2. Still
+  // nullable, for the trades taken before `risk` was recorded.
   rr             Float?
   setup          String
   emotion        String?
