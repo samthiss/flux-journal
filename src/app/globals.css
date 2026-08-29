@@ -305,6 +305,14 @@ body::after {
   transition: top 0.22s cubic-bezier(0.22, 1, 0.36, 1), left 0.22s cubic-bezier(0.22, 1, 0.36, 1),
     width 0.22s cubic-bezier(0.22, 1, 0.36, 1), height 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* Rows in the notes tree are a pixel apart, so their highlight is smaller and
+   arrives a touch quicker than the one on the sections. */
+.sidebar-note-pill {
+  border-radius: 6px;
+  box-shadow: inset 2px 0 0 var(--neon), 0 0 14px -8px oklch(0.84 0.17 196 / 0.7);
+  transition-duration: 0.16s;
+}
+
 /* Above the highlight, or the icon and label would sit behind it. */
 .sidebar-nav-item {
   position: relative;

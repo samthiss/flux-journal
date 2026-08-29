@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { accentColor, neonGlow } from "@/lib/theme";
@@ -210,6 +210,12 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
   const navRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLAnchorElement>(null);
   const [pill, setPill] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+
+  // The notes tree gets the same treatment, on its own element: the section
+  // highlight stays on "Notes" while this one travels between the notes.
+  const treeRef = useRef<HTMLDivElement>(null);
+  const activeRowRef = useRef<HTMLDivElement>(null);
+  const [treePill, setTreePill] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const resizingRef = useRef(false);
 
   useEffect(() => {
@@ -225,33 +231,45 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
     localStorage.setItem("sidebar-width", String(sidebarWidth));
   }, [sidebarWidth]);
 
-  // Moves the highlight onto an entry, in the nav's own coordinates.
-  const moveTo = (item: HTMLElement | null) => {
-    const nav = navRef.current;
-    if (!nav || !item) return setPill(null);
-    const navBox = nav.getBoundingClientRect();
+  /** An element's rectangle, in its container's coordinates. */
+  const rectIn = useCallback((container: HTMLElement | null, item: HTMLElement | null) => {
+    if (!container || !item) return null;
+    const outer = container.getBoundingClientRect();
     const box = item.getBoundingClientRect();
-    setPill({
-      top: box.top - navBox.top,
-      left: box.left - navBox.left,
-      width: box.width,
-      height: box.height,
-    });
-  };
+    return { top: box.top - outer.top, left: box.left - outer.left, width: box.width, height: box.height };
+  }, []);
+
+  // Moves the section highlight onto an entry.
+  const moveTo = useCallback(
+    (item: HTMLElement | null) => setPill(rectIn(navRef.current, item)),
+    [rectIn]
+  );
 
   useLayoutEffect(() => {
-    const measure = () => moveTo(activeRef.current);
+    const measure = () => {
+      moveTo(activeRef.current);
+      // Scrolling through the page walks the reading position over notes whose
+      // branch is folded, and those have no row to sit on. The highlight holds
+      // its place through them rather than blinking out and back — it only
+      // moves when a note that is actually in the tree becomes the active one.
+      const row = activeRowRef.current;
+      if (row) setTreePill((prev) => rectIn(treeRef.current, row) ?? prev);
+    };
     measure();
     // The notes tree opens and closes under the Notes entry, and the window
     // itself resizes: both move the entry the highlight is sitting on.
     const observer = new ResizeObserver(measure);
     if (navRef.current) observer.observe(navRef.current);
+    if (treeRef.current) observer.observe(treeRef.current);
     window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [pathname, sidebarWidth]);
+    // Folding a branch changes the tree's height, which the observer above
+    // catches — hence no dependency on the visible rows, which are computed
+    // further down anyway.
+  }, [pathname, sidebarWidth, activeId, moveTo, rectIn]);
 
   function startResize(e: React.MouseEvent) {
     e.preventDefault();
@@ -470,10 +488,21 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
               </Link>
 
               {item.href === "/notes" && onNotes && (
-                <div className="sidebar-notes-tree" style={{ display: "flex", flexDirection: "column", gap: 1, margin: "12px 0 6px", paddingLeft: 18 }}>
+                <div
+                  className="sidebar-notes-tree"
+                  ref={treeRef}
+                  style={{ position: "relative", display: "flex", flexDirection: "column", gap: 1, margin: "12px 0 6px", paddingLeft: 18 }}
+                >
+                  {treePill && (
+                    <div
+                      className="sidebar-active-pill sidebar-note-pill"
+                      style={{ top: treePill.top, left: treePill.left, width: treePill.width, height: treePill.height }}
+                    />
+                  )}
                   {visibleRows.map((row) => (
                     <div
                       key={row.id}
+                      ref={row.id === activeId ? activeRowRef : undefined}
                       className="sidebar-note-row"
                       draggable
                       onDragStart={() => {
@@ -504,7 +533,9 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
                         padding: `5px 6px 5px ${6 + row.depth * 13}px`,
                         borderRadius: 6,
                         cursor: "grab",
-                        background: row.id === activeId ? "oklch(0.84 0.17 196 / 0.14)" : "transparent",
+                        // Painted by the travelling highlight above.
+                        background: "transparent",
+                        position: "relative",
                         borderTop: dragOverId === row.id ? `2px solid ${accentColor}` : "2px solid transparent",
                       }}
                     >
