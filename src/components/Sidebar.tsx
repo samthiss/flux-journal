@@ -360,13 +360,36 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
   // running, and the click lands on whichever section has slid into place
   // meanwhile. Holding the anchor until the page stops growing is what keeps
   // the click honest.
+  /**
+   * Lights the section that was just jumped to.
+   *
+   * Landing without warning in the middle of a long page is disorienting: this
+   * says "here" for three quarters of a second. The class is removed and forced
+   * to reflow before being added again, or clicking the same note twice would
+   * do nothing the second time — an animation already running does not restart
+   * on its own.
+   */
+  function flash(el: HTMLElement) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    el.classList.remove("note-landed");
+    void el.offsetWidth;
+    el.classList.add("note-landed");
+    window.setTimeout(() => el.classList.remove("note-landed"), 900);
+  }
+
   function scrollTo(id: string) {
     const el = document.getElementById("note-" + id);
     if (!el) return;
     cancelAnchor.current?.();
 
     const root = document.querySelector<HTMLElement>(".app-main");
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // A jump, not a glide. The journal is one long page — reaching a note near
+    // the bottom meant scrolling past forty thousand pixels of other notes,
+    // which took seconds and showed nothing anybody asked to see. What a smooth
+    // scroll buys is the sense of having moved; the flash below buys that back
+    // for a fraction of the time.
+    el.scrollIntoView({ behavior: "auto", block: "start" });
+    flash(el);
     if (!root) return;
 
     let raf = 0;

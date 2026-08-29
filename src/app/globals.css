@@ -207,6 +207,18 @@ body::after {
   }
 }
 
+/* The section a click in the sidebar just landed on. */
+@keyframes noteLanded {
+  from {
+    background: oklch(0.84 0.17 196 / 0.13);
+    box-shadow: inset 3px 0 0 var(--neon), 0 0 30px -10px oklch(0.84 0.17 196 / 0.6);
+  }
+  to {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
 @keyframes pulseDot {
   0%,
   100% {
@@ -660,4 +672,9 @@ a:hover {
   .example-images {
     grid-template-columns: 1fr !important;
   }
+}
+
+.note-landed {
+  border-radius: 10px;
+  animation: noteLanded 0.8s ease-out;
 }
