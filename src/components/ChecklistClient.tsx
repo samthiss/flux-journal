@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { accentColor, glassCard, pageTitle } from "@/lib/theme";
+import { accentColor, glassCard } from "@/lib/theme";
+import { PageTitle } from "@/components/NeonText";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem } from "@/lib/actions/checklist";
 
 type ChecklistItem = { id: string; group: string; label: string };
@@ -112,7 +113,7 @@ export default function ChecklistClient({
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <div style={pageTitle}>{title}</div>
+        <PageTitle>{title}</PageTitle>
         <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
           {subtitle} — {todayLabel} — {market}
         </div>

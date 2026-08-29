@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
-import { accentColor, glassCard, pageTitle } from "@/lib/theme";
+import { accentColor, glassCard } from "@/lib/theme";
+import { PageTitle } from "@/components/NeonText";
 import { DEFAULT_MARKETS, loadMarkets, saveMarkets } from "@/lib/markets";
 import VolumeChecklist from "@/components/VolumeChecklist";
 import ColorCode from "@/components/ColorCode";
@@ -174,7 +175,7 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
           {/* Titled over the card rather than over the column, so the heading
               and the widget read as one centred block. */}
           <div style={{ marginBottom: 24, textAlign: "center" }}>
-            <div style={pageTitle}>Calendrier économique</div>
+            <PageTitle>Calendrier économique</PageTitle>
             <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
               Publications à fort impact du jour — US, zone euro, France, Allemagne, UK, Suisse
             </div>

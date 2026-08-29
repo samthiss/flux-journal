@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor, pageTitle } from "@/lib/theme";
+import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
+import { CountUp, PageTitle } from "@/components/NeonText";
 import {
   withOutcome,
   filterByPeriod,
@@ -38,22 +39,28 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
   );
   const calendarMonthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  const winRateDash = `${(stats.winRate * 364).toFixed(1)} 364`;
+  // pathLength="1" on the circle below makes the arc one unit long whatever its
+  // radius, so the share of it that is drawn is the win rate itself.
+  const winRateArc = stats.winRate.toFixed(4);
 
+  // Each card counts up to its figure, so `value` is the number and `format`
+  // says how to write it at any point along the way.
+  const streakLabel = stats.streakType === "win" ? "Wins" : "Losses";
   const metricCards = [
-    { label: "Avg Win", value: fmtMoney(stats.avgWin), sub: `${stats.wins.length} winning trades`, color: winColor },
-    { label: "Avg Loss", value: fmtMoney(stats.avgLoss), sub: `${stats.losses.length} losing trades`, color: lossColor },
-    { label: "Profit Factor", value: stats.profitFactor.toFixed(2), sub: "gross win / gross loss", color: "oklch(0.96 0.0068 250)" },
-    { label: "Risk / Reward", value: `1 : ${stats.avgRR.toFixed(2)}`, sub: "average across trades", color: "oklch(0.96 0.0068 250)" },
-    { label: "Best Trade", value: fmtMoney(stats.best), sub: "single-trade high", color: winColor },
-    { label: "Worst Trade", value: fmtMoney(stats.worst), sub: "single-trade low", color: lossColor },
+    { label: "Avg Win", value: stats.avgWin, format: fmtMoney, sub: `${stats.wins.length} winning trades`, color: winColor },
+    { label: "Avg Loss", value: stats.avgLoss, format: fmtMoney, sub: `${stats.losses.length} losing trades`, color: lossColor },
+    { label: "Profit Factor", value: stats.profitFactor, format: (n: number) => n.toFixed(2), sub: "gross win / gross loss", color: "oklch(0.96 0.0068 250)" },
+    { label: "Risk / Reward", value: stats.avgRR, format: (n: number) => `1 : ${n.toFixed(2)}`, sub: "average across trades", color: "oklch(0.96 0.0068 250)" },
+    { label: "Best Trade", value: stats.best, format: fmtMoney, sub: "single-trade high", color: winColor },
+    { label: "Worst Trade", value: stats.worst, format: fmtMoney, sub: "single-trade low", color: lossColor },
     {
       label: "Current Streak",
-      value: `${stats.streak} ${stats.streakType === "win" ? "Wins" : "Losses"}`,
+      value: stats.streak,
+      format: (n: number) => `${Math.round(n)} ${streakLabel}`,
       sub: "consecutive trades",
       color: stats.streakType === "win" ? winColor : lossColor,
     },
-    { label: "Total Trades", value: `${periodTrades.length}`, sub: "this period", color: "oklch(0.96 0.0068 250)" },
+    { label: "Total Trades", value: periodTrades.length, format: (n: number) => `${Math.round(n)}`, sub: "this period", color: "oklch(0.96 0.0068 250)" },
   ];
 
   const selectStyle: React.CSSProperties = {
@@ -73,7 +80,7 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
     <div>
       <div className="dash-header">
         <div style={{ minWidth: 0 }}>
-          <div style={pageTitle}>Dashboard</div>
+          <PageTitle>Dashboard</PageTitle>
           <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4, whiteSpace: "nowrap" }}>
             {periodTrades.length} trades in period
           </div>
@@ -180,6 +187,7 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
           <svg width="140" height="140" viewBox="0 0 140 140">
             <circle cx="70" cy="70" r="58" fill="none" stroke="oklch(0.28 0.034 250)" strokeWidth="12" />
             <circle
+              className="ring-fill"
               cx="70"
               cy="70"
               r="58"
@@ -187,12 +195,13 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
               stroke={accentColor}
               strokeWidth="12"
               strokeLinecap="round"
-              strokeDasharray={winRateDash}
+              pathLength={1}
+              strokeDasharray={`${winRateArc} 1`}
               transform="rotate(-90 70 70)"
-              style={{ filter: `drop-shadow(0 0 6px ${accentColor})` }}
+              style={{ ["--arc" as string]: winRateArc, filter: `drop-shadow(0 0 6px ${accentColor})` }}
             />
             <text x="70" y="68" textAnchor="middle" fontFamily="var(--font-jetbrains-mono), monospace" fontSize="26" fontWeight="600" fill="#f5f4f8">
-              {Math.round(stats.winRate * 100)}%
+              <CountUp value={stats.winRate * 100} format={(n) => `${Math.round(n)}%`} duration={1100} />
             </text>
             <text x="70" y="86" textAnchor="middle" fontFamily="var(--font-space-grotesk), sans-serif" fontSize="11" letterSpacing="0.06em" fill="oklch(0.6 0.034 250)">
               WIN RATE
@@ -209,19 +218,24 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
               Equity Curve
             </div>
             <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 18, fontWeight: 600, color: stats.totalPnl >= 0 ? winColor : lossColor }}>
-              {fmtMoney(stats.totalPnl)}
+              <CountUp value={stats.totalPnl} format={fmtMoney} duration={1100} />
             </div>
           </div>
           <svg viewBox="0 0 600 150" style={{ width: "100%", height: 150, flex: 1 }} preserveAspectRatio="none">
             <line x1="0" y1="75" x2="600" y2="75" stroke="oklch(0.3 0.034 250)" strokeWidth="1" strokeDasharray="4 4" />
             <polyline
+              className="draw-stroke"
+              // Re-mounts when the shape changes, so switching period draws the
+              // new curve rather than leaving the old one's animation finished.
+              key={stats.equityPoints}
               points={stats.equityPoints}
+              pathLength={1}
               fill="none"
               stroke={accentColor}
               strokeWidth="2.5"
               style={{ filter: `drop-shadow(0 0 5px ${accentColor})` }}
             />
-            <polygon points={stats.equityFillPoints} fill={accentSoft} />
+            <polygon className="fade-in" key={stats.equityFillPoints} points={stats.equityFillPoints} fill={accentSoft} />
           </svg>
         </div>
       </div>
@@ -231,7 +245,7 @@ export default function DashboardClient({ trades }: { trades: TradeForStats[] })
           <div key={m.label} style={glassCard}>
             <div style={{ fontSize: 12, color: "oklch(0.6 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{m.label}</div>
             <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 24, fontWeight: 600, marginTop: 8, color: m.color }}>
-              {m.value}
+              <CountUp value={m.value} format={m.format} />
             </div>
             <div style={{ fontSize: 12, color: "oklch(0.55 0.034 250)", marginTop: 4 }}>{m.sub}</div>
           </div>

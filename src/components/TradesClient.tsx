@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor, pageTitle } from "@/lib/theme";
+import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
+import { PageTitle } from "@/components/NeonText";
 import type { TradeForStats as Trade } from "@/lib/stats";
 
 const selectStyle: React.CSSProperties = {
@@ -58,7 +59,7 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
     <div>
       <div className="trades-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div style={pageTitle}>Trades</div>
+          <PageTitle>Trades</PageTitle>
           <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{filteredTrades.length} trades</div>
         </div>
         <Link
@@ -133,16 +134,21 @@ export default function TradesClient({ trades }: { trades: Trade[] }) {
           <div>R:R</div>
           <div>Outcome</div>
         </div>
-        {filteredTrades.map((t) => {
+        {filteredTrades.map((t, i) => {
           const outcome = t.pnl > 0 ? "win" : "loss";
           const pnlColor = t.pnl > 0 ? winColor : lossColor;
           return (
             <Link
               key={t.id}
+              className="trade-row"
               href={`/trades/${t.id}`}
               target={openInNewTab ? "_blank" : undefined}
               rel={openInNewTab ? "noopener noreferrer" : undefined}
               style={{
+                // Capped at fifteen rows: past the first screenful the stagger
+                // is only a delay before a row nobody has scrolled to yet, and
+                // on 88 trades the last one would wait two seconds.
+                animationDelay: `${Math.min(i, 15) * 28}ms`,
                 display: "grid",
                 gridTemplateColumns: "100px 90px 70px 120px 70px 110px 90px 90px",
                 padding: "15px 20px",

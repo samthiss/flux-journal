@@ -2,7 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { accentColor, glassCard, pageTitle } from "@/lib/theme";
+import { accentColor, glassCard } from "@/lib/theme";
+import { PageTitle } from "@/components/NeonText";
 import { removeChartSlot } from "@/lib/actions/trades";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 
@@ -229,7 +230,7 @@ export default function TradeForm({
           </svg>
         </Link>
         <div>
-          <div style={pageTitle}>{title}</div>
+          <PageTitle>{title}</PageTitle>
           <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 2 }}>{subtitle}</div>
         </div>
       </div>

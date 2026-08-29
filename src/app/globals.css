@@ -69,8 +69,17 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   body::after,
   .sidebar-brand,
-  .sidebar-brand::after {
+  .sidebar-brand::after,
+  .trade-row,
+  .draw-stroke,
+  .ring-fill,
+  .fade-in {
     animation: none !important;
+  }
+  /* Without the animation the dash offset would leave the stroke invisible. */
+  .draw-stroke,
+  .ring-fill {
+    stroke-dashoffset: 0 !important;
   }
 }
 
@@ -130,6 +139,51 @@ body::after {
   }
   50%, 100% {
     opacity: 0;
+  }
+}
+
+/* The equity curve and the win-rate ring both draw themselves on: their SVG
+   carries pathLength="1", so one unit of dash covers the whole stroke whatever
+   its real length, and the offset animates from that unit down to nothing. */
+@keyframes drawStroke {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* The arc starts hidden by its own length, held in --arc by the element. */
+@keyframes ringFill {
+  from {
+    stroke-dashoffset: var(--arc);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Rows arrive from the left, each one a beat after the one above. */
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+    box-shadow: inset 2px 0 0 var(--neon);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+    box-shadow: inset 0 0 0 transparent;
   }
 }
 
@@ -473,4 +527,22 @@ a:hover {
 ::-webkit-scrollbar-thumb {
   background: oklch(0.84 0.17 196 / 0.35);
   border-radius: 0;
+}
+
+/* ---- Entrances ----
+   Everything here is `backwards`-filled so the element is already in its start
+   state on the first frame, and stays where it lands afterwards. */
+.trade-row {
+  animation: rowIn 0.34s ease-out backwards;
+}
+.draw-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: drawStroke 1.1s ease-out forwards;
+}
+.ring-fill {
+  animation: ringFill 1.1s ease-out backwards;
+}
+.fade-in {
+  animation: fadeIn 0.6s ease-out 0.7s backwards;
 }
