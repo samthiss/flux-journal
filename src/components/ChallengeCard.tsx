@@ -8,6 +8,8 @@ import type { TradeWithOutcome } from "@/lib/stats";
 const STORE_KEY = "challenge-params";
 
 type Settings = {
+  /** The funded account's size. It scales nothing — it is what the rest is read against. */
+  accountSize: number;
   target: number;
   trailingDrawdown: number;
   dailyLossLimit: number;
@@ -18,6 +20,7 @@ type Settings = {
 };
 
 const DEFAULTS: Settings = {
+  accountSize: 50000,
   target: 3000,
   trailingDrawdown: 2000,
   dailyLossLimit: 1000,
@@ -134,6 +137,8 @@ export default function ChallengeCard({
   // one in ten. Speed is worth nothing if the account is gone.
   const best = [...rows].reverse().find((r) => r.challenge.bustRate <= 0.1) ?? rows[0];
   const thin = sample.length < 60;
+  const ofAccount = (n: number) =>
+    settings.accountSize > 0 ? `${((n / settings.accountSize) * 100).toFixed(1)} %` : "—";
 
   return (
     <div style={{ ...glassCard, marginBottom: 20 }}>
@@ -146,8 +151,9 @@ export default function ChallengeCard({
 
       <div
         className="challenge-fields"
-        style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, margin: "18px 0" }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, margin: "18px 0 12px" }}
       >
+        <Field title="Compte" value={settings.accountSize} onChange={(n) => set("accountSize", n)} suffix="$" />
         <Field title="Objectif" value={settings.target} onChange={(n) => set("target", n)} suffix="$" />
         <Field
           title="Trailing DD"
@@ -169,6 +175,13 @@ export default function ChallengeCard({
           suffix="contrats"
         />
       </div>
+
+      {settings.accountSize > 0 && (
+        <div style={{ ...mono, fontSize: 11.5, color: "oklch(0.55 0.03 250)", marginBottom: 16 }}>
+          objectif {ofAccount(settings.target)} du compte · drawdown {ofAccount(settings.trailingDrawdown)} · perte
+          journalière {ofAccount(settings.dailyLossLimit)}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
         <select value={strategy} onChange={(e) => setStrategy(e.target.value)} style={{ ...fieldStyle, width: "auto", cursor: "pointer" }}>
@@ -299,7 +312,8 @@ export default function ChallengeCard({
           <span style={{ color: best.funded.median >= 0 ? winColor : lossColor, fontWeight: 600 }}>
             {fmtMoney(best.funded.median)}
           </span>
-          , et un mois sur dix est en dessous de {fmtMoney(best.funded.p10)}.
+          {settings.accountSize > 0 && <> — {ofAccount(best.funded.median)} du compte par mois</>}, et un mois sur dix
+          est en dessous de {fmtMoney(best.funded.p10)}.
         </div>
       )}
 
