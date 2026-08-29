@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 /**
  * Full-width overlay for a trade's detail, opened over the trades list via
@@ -13,9 +13,23 @@ import { useRouter } from "next/navigation";
  * navigation and a direct link to /trades/[id] (no @modal match) both
  * working the way the Next.js intercepting-routes convention expects.
  */
+
+/** /trades/<id>, and nothing deeper — /trades/<id>/edit is a page of its own. */
+const TRADE_DETAIL = /^\/trades\/[^/]+$/;
+
 export default function TradeModal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const close = () => router.back();
+
+  // On a client-side navigation, a parallel slot that no longer matches the URL
+  // keeps showing what it had — that is what Next.js does by design, and
+  // default.tsx only applies to a fresh request. So clicking "Edit" inside the
+  // modal loaded /trades/<id>/edit underneath while this overlay stayed on top
+  // of it: the URL changed and nothing appeared to happen, until a reload —
+  // which, being a fresh request, dropped the modal. The slot has to bow out on
+  // its own once the URL is no longer a trade's detail.
+  const showing = TRADE_DETAIL.test(pathname);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -27,12 +41,15 @@ export default function TradeModal({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
+    if (!showing) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previous;
     };
-  }, []);
+  }, [showing]);
+
+  if (!showing) return null;
 
   return (
     <div
