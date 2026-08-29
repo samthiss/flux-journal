@@ -10,6 +10,7 @@ import { signOut } from "@/app/login/actions";
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", match: (p: string) => p === "/" },
   { href: "/trades", label: "Trades", match: (p: string) => p.startsWith("/trades") },
+  { href: "/rapport", label: "Rapport", match: (p: string) => p.startsWith("/rapport") },
   { href: "/checklist", label: "Checklist & News", match: (p: string) => p.startsWith("/checklist") },
   { href: "/notes", label: "Notes", match: (p: string) => p.startsWith("/notes") },
 ];
@@ -137,7 +138,15 @@ function MoreMenuButton({ onDelete, className }: { onDelete: () => void; classNa
   );
 }
 
-const ICONS = [DashboardIcon, TradesIcon, ChecklistIcon, NotesIcon];
+function ReportIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M3 15V8M7.7 15V3M12.3 15v-5M17 15H1" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const ICONS = [DashboardIcon, TradesIcon, ReportIcon, ChecklistIcon, NotesIcon];
 
 type NoteRow = { id: string; title: string; parentId: string | null; order: number; collapsed: boolean };
 type TreeNode = NoteRow & { children: TreeNode[] };
