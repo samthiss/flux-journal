@@ -390,7 +390,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
             }}
           />
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.02em" }}>
-            FLUX<span style={{ color: accentColor }}>JOURNAL</span>
+            TRADING<span style={{ color: accentColor }}>JOURNAL</span>
           </div>
         </div>
 
