@@ -75,16 +75,37 @@ export default function ProfitabilityCard({
   stats: ReturnType<typeof computeDashboardStats>;
   setups: ReturnType<typeof computeSetupStats>;
 }) {
-  const { winRate, payoff, breakevenWinRate, expectancy, expectancyR, avgWin, avgLoss } = stats;
+  const { winRate, payoff, breakevenWinRate, expectancy, expectancyR, avgWin, avgLoss, totalPnl } = stats;
   const margin = winRate - breakevenWinRate;
   const profitable = stats.hasTrades && margin > 0;
 
   return (
     <div style={{ ...glassCard, marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={label}>Rentabilité</div>
-        <div style={{ ...mono, fontSize: 12, color: "oklch(0.55 0.03 250)" }}>
-          gain moyen {fmtMoney(avgWin)} · perte moyenne {fmtMoney(avgLoss)}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={label}>Rentabilité</div>
+          <div style={{ ...mono, fontSize: 12, color: "oklch(0.55 0.03 250)", marginTop: 6 }}>
+            {/* Every trade is counted as a win or a loss, so the two lists
+                together are the period's whole population. */}
+            {stats.wins.length + stats.losses.length} trades · gain moyen {fmtMoney(avgWin)} · perte moyenne{" "}
+            {fmtMoney(avgLoss)}
+          </div>
+        </div>
+        {/* The figure everything else in the card explains: what the period
+            actually paid, before it is broken into a rate and a ratio. */}
+        <div style={{ textAlign: "right" }}>
+          <div
+            style={{
+              ...mono,
+              fontSize: 26,
+              fontWeight: 700,
+              lineHeight: 1.1,
+              color: totalPnl >= 0 ? winColor : lossColor,
+            }}
+          >
+            <CountUp value={totalPnl} format={fmtMoney} duration={900} />
+          </div>
+          <div style={{ ...label, marginTop: 4 }}>P&amp;L total</div>
         </div>
       </div>
 
@@ -195,6 +216,7 @@ export default function ProfitabilityCard({
                       <span>WR {pct(s.winRate)}</span>
                       <span>requis {s.breakevenWinRate > 0 ? pct(s.breakevenWinRate) : "—"}</span>
                       <span style={{ color: ok ? winColor : lossColor, fontWeight: 600 }}>{fmtMoney(s.expectancy)} / trade</span>
+                      <span style={{ color: s.totalPnl >= 0 ? winColor : lossColor }}>{fmtMoney(s.totalPnl)} au total</span>
                     </div>
                   </div>
                   <BreakevenBar winRate={s.winRate} breakeven={s.breakevenWinRate} />
