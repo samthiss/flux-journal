@@ -162,7 +162,7 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+      <div className="checklist-tabs" style={{ display: "flex", gap: 10, marginBottom: 24 }}>
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)} style={tabStyle(tab === t.key)}>
             {t.label}

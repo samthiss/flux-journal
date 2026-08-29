@@ -43,6 +43,15 @@ const TEXT_WIDTH = 1040;
 const HEADER_INDENT = 75;
 
 /**
+ * The gutter as the browser should apply it.
+ *
+ * Blocks pass a number, because one of them compares it, and a nested block
+ * passes 0 to sit flush. The standard gutter is handed over as the CSS variable
+ * instead, which is the one that shrinks on a phone.
+ */
+const indentCss = (indent: number): string | number => (indent === HEADER_INDENT ? "var(--note-indent)" : indent);
+
+/**
  * The width a thumbnail tile occupies, per images-per-row setting.
  *
  * Inside the 1040px column, minus the grid padding and the gap between two
@@ -617,7 +626,7 @@ function NoteSection({
         >
           <div
             onClick={onToggleCollapse}
-            style={{ width: HEADER_INDENT, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            style={{ width: "var(--note-indent)", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
           >
             <ChevronIcon color="oklch(0.5 0.034 250)" down={!collapsed} />
           </div>
@@ -824,7 +833,7 @@ function NoteSection({
           <div
             onMouseEnter={() => setAddLineHover(true)}
             onMouseLeave={() => setAddLineHover(false)}
-            style={{ position: "relative", marginTop: 32, marginLeft: HEADER_INDENT, maxWidth: TEXT_WIDTH, height: 22 }}
+            style={{ position: "relative", marginTop: 32, marginLeft: "var(--note-indent)", maxWidth: TEXT_WIDTH, height: 22 }}
           >
             <span
               onClick={() => {
@@ -834,7 +843,7 @@ function NoteSection({
               title="Ajouter une section"
               style={{
                 position: "absolute",
-                left: -34,
+                left: "calc(var(--handle-offset) - 4px)",
                 top: -3,
                 width: 28,
                 height: 28,
@@ -942,7 +951,7 @@ function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
   const [headings, setHeadings] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, marginBottom: 32, marginLeft: indent }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, marginBottom: 32, marginLeft: indentCss(indent) }}>
       {headings.map((h, i) => (
         <input
           key={i}
@@ -961,7 +970,7 @@ function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
 function ObjectifBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
   const [objectif, setObjectif] = useState(initialContent ?? "");
   return (
-    <div style={{ border: `1px solid ${accentColor}59`, background: "oklch(0.84 0.17 196 / 0.07)", borderRadius: 12, padding: "15px 18px", marginLeft: indent, marginBottom: 24 }}>
+    <div style={{ border: `1px solid ${accentColor}59`, background: "oklch(0.84 0.17 196 / 0.07)", borderRadius: 12, padding: "15px 18px", marginLeft: indentCss(indent), marginBottom: 24 }}>
       <textarea
         ref={(el) => autoGrow(el)}
         value={objectif}
@@ -978,7 +987,7 @@ function TheorieBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blo
   const [theorie, setTheorie] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12, marginBottom: 32, marginLeft: indent }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12, marginBottom: 32, marginLeft: indentCss(indent) }}>
       {theorie.map((p, i) => (
         <div key={i} style={{ display: "flex", gap: 8 }}>
           <textarea
@@ -1014,7 +1023,7 @@ function BulletListBlock({
   const [items, setItems] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 12, marginBottom: 32, marginLeft: indent }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 12, marginBottom: 32, marginLeft: indentCss(indent) }}>
       {items.map((k, i) => (
         <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
           <span style={{ width: 16, height: 16, flex: "none", marginTop: 2, borderRadius: 5, border: `1.5px solid ${iconColor}`, background: iconBg, color: iconColor, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1052,7 +1061,7 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
     <div
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={{ position: "relative", marginTop: 12, marginBottom: 32, marginLeft: indent }}
+      style={{ position: "relative", marginTop: 12, marginBottom: 32, marginLeft: indentCss(indent) }}
     >
       {(label || addingLabel) && (
         <input
@@ -1569,7 +1578,7 @@ function ExampleCategory({
         {onAddBlock && <AddBlockButton visible={hover} onAdd={onAddBlock} />}
       </div>
       {!collapsed && filterOpen && hasAnythingToFilter && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginLeft: HEADER_INDENT, marginBottom: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginLeft: "var(--note-indent)", marginBottom: 14 }}>
           <FilterRow
             label="Confirmation:"
             values={available.confirmations}
@@ -1608,7 +1617,7 @@ function ExampleCategory({
         </div>
       )}
       {!collapsed && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginLeft: HEADER_INDENT }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginLeft: "var(--note-indent)" }}>
           {shown.length === 0 && (
             <div style={{ fontSize: 13, color: "oklch(0.5 0.034 250)" }}>
               {filtering ? "Aucun exemple ne correspond au filtre." : "Aucun exemple."}
@@ -2237,7 +2246,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
         onMouseLeave={() => setHeaderHover(false)}
         style={{ padding: "14px 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="example-header" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span
             onClick={toggleCollapsed}
             style={{ width: 14, height: 22, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
@@ -2256,7 +2265,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               onKeyDown={(e) => {
                 if (e.key === "Enter") (e.target as HTMLInputElement).blur();
               }}
-              style={{ flex: 1, fontSize: 15, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.94 0.0068 250)" }}
+              style={{ flex: 1, minWidth: 90, fontSize: 15, fontWeight: 600, background: "transparent", border: "none", outline: "none", color: "oklch(0.94 0.0068 250)" }}
             />
           ) : headerHover ? (
             <span
@@ -2402,7 +2411,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             default, which would hang empty space under the shorter tiles now
             that tiles no longer share one height. */}
         {localImages.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: localImages.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10, alignItems: "start" }}>
+          <div className="example-images" style={{ display: "grid", gridTemplateColumns: localImages.length === 1 ? "1fr" : `repeat(${imagesPerRow}, 1fr)`, gap: 10, padding: 10, alignItems: "start" }}>
             {localImages.map((img) => (
               <ExampleImage
                 key={img.id}
@@ -2600,7 +2609,7 @@ function DraggableBlock({
       onMouseLeave={() => setHoverKey((k) => (k === blockKey ? null : k))}
       style={{ position: "relative" }}
     >
-      <div style={{ position: "absolute", left: -30, top: 2 }}>
+      <div style={{ position: "absolute", left: "var(--handle-offset)", top: 2 }}>
         <GripMenuButton visible={hoverKey === blockKey} onDragStart={onDragStart} onDelete={onDelete} />
       </div>
       {children}

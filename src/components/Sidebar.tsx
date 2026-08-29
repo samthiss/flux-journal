@@ -369,10 +369,11 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
         </button>
       )}
       <div className={sidebarHidden ? "sidebar sidebar-collapsed" : "sidebar"} style={sidebarHidden ? undefined : { width: sidebarWidth }}>
-        <button onClick={() => setSidebarHidden(true)} title="Cacher le menu" style={{ ...toggleBtnStyle, position: "absolute", top: 14, right: 14 }}>
+        <button className="sidebar-hide-btn" onClick={() => setSidebarHidden(true)} title="Cacher le menu" style={{ ...toggleBtnStyle, position: "absolute", top: 14, right: 14 }}>
           <SidebarToggleIcon color="oklch(0.72 0.034 250)" />
         </button>
         <div
+          className="sidebar-resizer"
           onMouseDown={startResize}
           title="Redimensionner"
           style={{ position: "absolute", top: 0, right: -3, bottom: 0, width: 6, cursor: "col-resize", zIndex: 10 }}
