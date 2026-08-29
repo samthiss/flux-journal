@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "prisma migrate deploy && prisma db seed && sh scripts/seed-uploads.sh && npx tsx scripts/backfill-image-dimensions.ts && npx tsx scripts/translate-german-trade-notes.ts && next start -p ${PORT:-3000}",
+    "start": "prisma migrate deploy && prisma db seed && sh scripts/seed-uploads.sh && npx tsx scripts/backfill-image-dimensions.ts && npx tsx scripts/translate-german-trade-notes.ts && npx tsx scripts/translate-german-note-blocks.ts && next start -p ${PORT:-3000}",
     "lint": "eslint"
   },
   "dependencies": {

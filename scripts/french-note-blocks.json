@@ -1,0 +1,287 @@
+[
+ {
+  "id": "cmsik2kja0004ka8ocx78nroy",
+  "type": "retenir",
+  "fr": "[\"Les zones de volume non cassées servent de résistance ou de support. Elles tiennent tant qu'elles ne sont pas cassées.\",\"Quand tu traces les zones de volume, la pratique et l'expérience accumulée permettent de mieux reconnaître et d'évaluer l'évolution du marché.\",\"Cela sert entre autres de support pour une meilleure compréhension du marché.\",\"S'entraîner soi-même et recommencer sans cesse, c'est ça la pratique et l'expérience. Cela fait partie du chemin pour devenir un trader professionnel.\"]"
+ },
+ {
+  "id": "cmsik2kja0005ka8oey9gfya7",
+  "type": "regles",
+  "fr": "[{\"title\":\"Questions importantes qui peuvent t'aider dans le trade pour comprendre le marché : \\n1. Où le marché veut-il aller ?\",\"details\":[\"Chercher les zones de volume\",\"Chercher les cluster horaire des jours précédents\",\"Regarder les points de retournement des jours précédents\"]},{\"title\":\"Où le marché peut-il aller ?\",\"details\":[\"Y a-t-il une ancienne range qu'il veut retester ou vers laquelle il veut retourner\",\"Y a-t-il de grosses accumulations de volume qu'il veut peut-être atteindre\"]},{\"title\":\"Pourquoi va-t-il dans cette direction ?\",\"details\":[\"Fait-il juste une courte correction\",\"Teste-t-il juste une ligne d'analyse de volume\",\"Retourne-t-il vers la ligne VWAP ou vers la SG\"]}]"
+ },
+ {
+  "id": "cmsik2kjd000bka8o2v78cim1",
+  "type": "retenir",
+  "fr": "[\"Dans quelle phase de marché es-tu ? Le marché doit se trouver à l'intérieur de la Value Area, c'est-à-dire dans la zone de confort\",\"De gros clusters de volume doivent se former dans le Box Chart ! Moins il y en a sur toute la journée, mieux c'est \",\"Il ne doit pas casser le volume rejeté de plus de 1-4 ticks \",\"On peut entrer à partir de la troisième minute / jusqu'à 20 min. maximum après (tant qu'aucun nouveau cluster ne se forme)\",\"Dans les 10 dernières et 10 premières minutes de la nouvelle heure, le risque pour une entrée est très élevé et une entrée est à proscrire, car beaucoup\\nd'intervenants entrent et sortent du marché à ce moment. Jusqu'à 7 min. avant et à partir de 7 min. après une nouvelle heure, une entrée est possible, avec un risque accru, mais reste déconseillée \",\"Le Stop-Loss se place sous ou au-dessus du cluster de volume rejeté, soit 2-5 ticks, ou derrière une ligne d'analyse de volume, si elle\\nest à proximité\",\"Pour la prise de profit, observer les lignes d'analyse de volume, les gros clusters de volume dans le Box Chart et les gros clusters de volume des jours précédents\\ndans le Cluster Profile, les zones du P-Hist et l'order book, pour voir si de gros acheteurs/vendeurs se placent et forment un blocage. Surveiller la ligne VWAP : comme niveau de prise de profit et ligne de résistance \",\"En principe, le risque est plus élevé quand on trade contre les grandes lignes d'analyse de volume\"]"
+ },
+ {
+  "id": "cmsik2kjl000ska8oy1z39ghl",
+  "type": "objectif",
+  "fr": "1. LE PASSÉ DU MARCHÉ"
+ },
+ {
+  "id": "cmsik2kjm000tka8oxnn9w0jl",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"À quoi faut-il faire attention dans le passé ?\",\"details\":[\"Il faut prêter attention à l'ensemble du mouvement du marché ! Comment s'est-il comporté ces derniers jours ? D'où vient le\\nmarché ?\",\"Trend ou Range ?\"]},{\"title\":\"Que devons-nous comprendre ?\",\"details\":[\"Nous devons développer un regard sur le passé, qui nous dit comment le marché s'est comporté par le passé au niveau de prix\\nactuel\"]}]}"
+ },
+ {
+  "id": "cmsiobsv600099o8oq74nff8d",
+  "type": "objectif",
+  "fr": "QU'EST-CE QUI SE PASSE SUR LE MARCHÉ ?"
+ },
+ {
+  "id": "cmsiocag1000a9o8ou7ilonvs",
+  "type": "regles",
+  "fr": "[{\"title\":\"À quoi faut-il faire attention ?\",\"details\":[\"À quoi ressemble l'évolution du marché ? Y a-t-il des mouvements particuliers (Trend/Range), où en est le marché actuellement ?\",\"Maintenant - Aujourd'hui\"]},{\"title\":\"Que devons-nous comprendre ?\",\"details\":[\"La première étape est de prendre un ressenti dès le début et d'intérioriser les premières impressions de ce qui se passe sur le marché (rapide, lent, normal)\",\"Intérioriser le mouvement du marché\"]}]"
+ },
+ {
+  "id": "cmsioet7a000b9o8oq9wj9g57",
+  "type": "objectif",
+  "fr": "CHOIX DE LA STRATÉGIE"
+ },
+ {
+  "id": "cmsioewuh000c9o8ol5kf67m4",
+  "type": "regles",
+  "fr": "[{\"title\":\"Pourquoi choisir une stratégie ?\",\"details\":[\"Pour savoir exactement ce qu'on cherche et pouvoir s'y préparer. Pour ne réagir à aucune autre situation.\"]},{\"title\":\"Que devons-nous comprendre ?\",\"details\":[\"Ici, tu dois te fixer sur une stratégie ; cette décision te donne un schéma de recherche défini que tu ne dois pas enfreindre\"]}]"
+ },
+ {
+  "id": "cmsiohghb000d9o8ogj8kizps",
+  "type": "objectif",
+  "fr": "NEWS"
+ },
+ {
+  "id": "cmsiohjzj000e9o8od8hu5ylc",
+  "type": "regles",
+  "fr": "[{\"title\":\"Après le choix de la stratégie - vérifier les news\",\"details\":[\"Y a-t-il des événements importants à venir ?\",\"News, chiffres économiques, décisions de taux\"]},{\"title\":\"Que devons-nous comprendre ?\",\"details\":[\"Chaque news à venir, ou son annonce, peut influencer le marché 1-2 jours avant, le jour même et le lendemain.\",\"Ici, les analystes se positionnent uniquement selon les prévisions de la news !\",\"Mais si les prévisions se vérifient, c'est un autre sujet\"]}]"
+ },
+ {
+  "id": "cmsioiwyp000f9o8o5dte1bu6",
+  "type": "objectif",
+  "fr": "QUELLE HEURE AVONS-NOUS ?"
+ },
+ {
+  "id": "cmsioj777000g9o8o9opazfxd",
+  "type": "regles",
+  "fr": "[{\"title\":\"À quoi faut-il faire attention concernant l'heure ?\",\"details\":[\"Où sommes-nous ? Le matin ou l'après-midi ?\",\"Ouverture du marché ?\"]},{\"title\":\"Que devons-nous comprendre ?\",\"details\":[\"L'heure nous indique quel filtrage de volume nous devons appliquer et si des annonces sont à venir\",\"News, chiffres économiques, décisions de taux\"]}]"
+ },
+ {
+  "id": "cmsiokime000h9o8op0tjcjkx",
+  "type": "objectif",
+  "fr": "DÉBUT DU TRADING"
+ },
+ {
+  "id": "cmsiokrwh000i9o8olqcm2d76",
+  "type": "regles",
+  "fr": "[{\"title\":\"Start\",\"details\":[\"La stratégie correspond à 80-100%, démarrer le trading\"]},{\"title\":\"Que devons-nous comprendre ?\",\"details\":[\"Le feu vert ne vaut que pour la stratégie que tu as choisie, et pour rien d'autre\"]}]"
+ },
+ {
+  "id": "cmsiolyal000j9o8ooteubhfr",
+  "type": "objectif",
+  "fr": "TRADE MANAGEMENT"
+ },
+ {
+  "id": "cmsiom0ey000k9o8oly4csodw",
+  "type": "regles",
+  "fr": "[{\"title\":\"Planifier à l'avance la position ouverte\",\"details\":[\"Établir un plan optimal et sécuriser le trade pour résister à la tentation\"]},{\"title\":\"Que devons-nous comprendre ?\",\"details\":[\"Sans plan, tu ne réussiras pas sur le long terme, car tout se décide avec ton plan\"]}]"
+ },
+ {
+  "id": "cmsiomvmr000l9o8o4k33xeyp",
+  "type": "objectif",
+  "fr": "BILAN APRÈS COUP"
+ },
+ {
+  "id": "cmsiomyte000m9o8ons3jqjkq",
+  "type": "regles",
+  "fr": "[{\"title\":\"Examiner le trade après coup\",\"details\":[\"Que se passe-t-il après mon trade, l'entrée était-elle optimale ?\"]},{\"title\":\"Que devons-nous comprendre ?\",\"details\":[\"Peu importe que le trade soit gagnant ou perdant, ce bilan après coup nous permet d'apprendre davantage du marché.\"]}]"
+ },
+ {
+  "id": "cmsiontec000n9o8okxg4hff9",
+  "type": "retenir",
+  "fr": "[\"REGARDER LE PASSÉ DU MARCHÉ\",\"QU'EST-CE QUI SE PASSE AUJOURD'HUI SUR LE MARCHÉ ?\",\"DÉFINIR LA STRATÉGIE\",\"VÉRIFIER LES NEWS\",\"QUELLE HEURE AVONS-NOUS ?\",\"LES RÈGLES CORRESPONDENT À 80-100% - ENTRER\",\"TRADE MANAGEMENT\",\"BILAN APRÈS COUP\"]"
+ },
+ {
+  "id": "cmsiowey0000s9o8onje5qkwe",
+  "type": "regles",
+  "fr": "[{\"title\":\"Au début, il peut être très utile de changer régulièrement la taille du marché\\npour pouvoir mieux le lire.\\nAgrandir ou réduire l'échelle de prix ou de temps.\",\"details\":[]},{\"title\":\"Travaille ici avec le Draw Tool et un rectangle d'épaisseur de trait 4/5,\\navec une couleur qu'on n'utilise pas pour une analyse, pour mieux\\nvoir la différence.\",\"details\":[]},{\"title\":\"Bien elargir la chart sur mon ecran jusq´a la moitie pas plus car sinon je tracerai la zone plus grosse que prevue \",\"details\":[]},{\"title\":\"Voir ou sont les grosse zone de volumes ds le P-Hist & check a partir de quand le volume tombe \",\"details\":[\"S´aider avec les lignes vertes \",\"Agrandir / diminuer taille de la zone selon les zones de retournement du marche \"]},{\"title\":\"Pour la zone haute & Basse: \",\"details\":[\"Voir les zones qui etaient d´abord des resistances puis sont devenues des support que ce soit le meme jour ou plus tard \",\"Voir ou sont les zones ou le marche a vraiment change de direction → pas juste le marche qui a essaye de revenir mais n´a pas reussi (Ignorer les zone ou le marche est revenu dans la zone pendant les HHLL )\"]}]"
+ },
+ {
+  "id": "cmsiowk2f000t9o8onn0gdyhn",
+  "type": "headings",
+  "fr": "[\"Bien Tracer les zones \"]"
+ },
+ {
+  "id": "cmsipiogp001c9o8ozuv3jnak",
+  "type": "retenir",
+  "fr": "[\"Dans quelle phase de marché es-tu ? Le marché doit se trouver en dehors de la Value Area, c'est-à-dire de la zone de confort\",\"De gros clusters de volume doivent se former dans le Box Chart ! Moins il y en a sur toute la journée, mieux c'est\",\"Il ne doit pas casser le volume rejeté de plus de 1-4 ticks \",\"On peut entrer à partir de la troisième minute / jusqu'à 20 min. maximum après (tant qu'aucun nouveau cluster ne se forme)\",\"Dans les 10 dernières et 10 premières minutes de la nouvelle heure, le risque pour une entrée est très élevé. Une entrée y est à proscrire, car beaucoup d'intervenants entrent et sortent du marché à ce moment. Jusqu'à 7 min. avant et à partir de 7 min. après une nouvelle heure, une entrée avec un risque accru est possible, mais reste déconseillée\",\"Le Stop-Loss se place sous ou au-dessus de la Box la plus haute, environ 2-4 ticks, ou derrière une ligne d'analyse de volume, si elle est à proximité\",\"Sur les marchés volatils, il faut élargir le Stop-Loss \",\"Pour la prise de profit, observer les lignes d'analyse de volume, les gros clusters de volume dans le Box Chart et les gros clusters de volume des jours précédents dans le Cluster Profile, les zones du P-Hist et l'order book, pour voir si de gros acheteurs/vendeurs se placent et forment un blocage. Surveiller la ligne VWAP : comme niveau de prise de profit et ligne de résistance\",\"En principe, le risque est plus élevé quand on trade contre les grandes lignes d'analyse de volume\"]"
+ },
+ {
+  "id": "cmsipl3xy001d9o8owwf6tb9f",
+  "type": "regles",
+  "fr": "[{\"title\":\"Entry \",\"details\":[\"Rejet de cluster\",\"En dehors de la Box de 10 min. de la\\nnouvelle heure\",\"Le cluster n'a pas été cassé après le\\nrejet, 1-4 Ticks\",\"Stop-Loss au-dessus / en dessous de la Box la plus haute, 2-4\\nTicks / ou derrière une ligne d'analyse\\nde volume, si elle est à\\nproximité\",\"À partir de la troisième minute, placer\\nl'ordre Limit 1 tick sous le cluster\"]},{\"title\":\"Prise de profit toujours 1 tick avant :\",\"details\":[\" à la prochaine ligne d'analyse\\nde volume\",\"Cluster de volume dans le Box Chart\",\"Cluster de volume dans le Cluster\\nProfile\",\"Ligne VWAP \",\" Avant les gros ordres dans l'Order\\nBook\",\"Zones du P-Hist - grosses\\naccumulations de volume\"]}]"
+ },
+ {
+  "id": "cmsipnpqr001e9o8oxix7m3eh",
+  "type": "headings",
+  "fr": "[\"Entry & Exits \"]"
+ },
+ {
+  "id": "cmsiq2d42001k9o8o67144p5n",
+  "type": "regles",
+  "fr": "[{\"title\":\"Entry\",\"details\":[\"On est à l'intérieur de la\\nValue Area / zone de confort\\nde la session du jour\",\"Rejet de cluster \",\"En dehors de la Box de 10 min. de la\\nnouvelle heure\",\"Le cluster n'a pas été cassé après le\\nrejet, 1-4 Ticks\",\"Stop-Loss sous le cluster 2-5\\nTicks\",\"À partir de la troisième minute, placer\\nl'ordre Limit 1 tick au-dessus\\ndu cluster\"]},{\"title\":\"Prise de profit toujours 1 tick avant : \",\"details\":[\"À la prochaine ligne d'analyse\\nde volume\",\"Cluster de volume dans le Box Chart\",\"Cluster de volume dans le Cluster\\nProfile\",\"Ligne VWAP \",\"Avant les gros ordres dans l'Order Book\",\"Zones du P-Hist - grosses\\naccumulations de volume\"]}]"
+ },
+ {
+  "id": "cmsiq2fac001l9o8oqt2tq8tv",
+  "type": "headings",
+  "fr": "[\"Entry - Exits\"]"
+ },
+ {
+  "id": "cmsir4qm2002p9o8o01jol954",
+  "type": "regles",
+  "fr": "[{\"title\":\"Risk management \",\"details\":[\"Attendre que le marche me montre qu´il veux rebondir avec eventuellemnt le marche qui a rebondit deja qq heures plus tot \",\"Les rebond sur ancien top le faire slmt sur le haut d´une range pas avant. \",\"Souvent ancienne resistance qui devient un support \",\"Le marche rebondit souvent sur un cluster horaire \"]}]"
+ },
+ {
+  "id": "cmsir7fz8002u9o8oe60if2am",
+  "type": "regles",
+  "fr": "[{\"title\":\"D´apres mon experience, si je peux prendre un BR dans le milieu de la range c´est que: \",\"details\":[\"J´ai trace ma range trop grande → Faire attention aux high qui deviennet des  supports (Generalement des lows du jour)\",\"Cluster horaire → Faire bien attention a ca \"]}]"
+ },
+ {
+  "id": "cmsirash900349o8ofg85y17o",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Placer mes zone d´interets par rapport a la zone de volume\",\"details\":[]}]}"
+ },
+ {
+  "id": "cmsird3jj00359o8ooh9bcwws",
+  "type": "regles",
+  "fr": "{\"label\":\"Prendre slmt un trade ainsi quand: \",\"items\":[{\"title\":\"Le marche forme une range pendant >= 3 jours \",\"details\":[]},{\"title\":\"Le marche breakout la range dans le sens inverse de la tendance \",\"details\":[\"Dans ce cas la aussi on peux prendre un BR\"]}]}"
+ },
+ {
+  "id": "cmsis8f7500069i8odvacgna1",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Risk management\",\"details\":[\"Check si le marche me montre bien qu´il veux aller plus haut (Pas de Double top - bottom)\",\"Attention a la VWAP, si il la traverse meme un peu c´est signe que il veux aller sous la VA, ne pas penser qu´il veux rebondir! \",\"Ne pas rentrer trop tot \",\"Je veux qu´il fasse un pullback et qu´il rebondisse apres vers le dernier high \",\"Si le marche est deja descendu une fois puis remonte et redescend a nouveau c´est mauvais signe, SKIP! \",\"Comprendre a partir de quand le marche veux changer de direction\"]}]}"
+ },
+ {
+  "id": "cmsistycn000k9i8o3chm03nw",
+  "type": "regles",
+  "fr": "{\"label\":\"Risk management \",\"items\":[{\"title\":\"Ne pas rentrer dans un trade des qu´il lache un cluster \",\"details\":[\"En général, il montre d'abord une tendance latérale et part ensuite en Long, revient et\\nc'est alors le bon moment pour entrer\",\"Souvent quand le marche change de direction il rebondit une premier fois, puis une deuxieme et apres il remonte. \",\"Donc c´est souvent inutile de prendre 1 trade au premier rebond. \",\"Ici on va plutot attendre que le marche rebondisse au moins une fois le jour meme, puis on peux prendre un trade la deuxieme fois qu´il arrive dans la zone \"]},{\"title\":\"Tjs bien attendre que le marche arrive dans ma zone, ne pas essayer de trouver des trades avant. \",\"details\":[\"Ne pas essayer de prendre des trades avant qu´il touche ma zone, il va venir de toute facon. \",\"Ce que je veux moi c´est prendre un BR la ou il veux remonter de l´autre cote de la range pas juste un pullback\"]}]}"
+ },
+ {
+  "id": "cmsisyc05000r9i8osc1vmx7b",
+  "type": "exemples",
+  "fr": "setups"
+ },
+ {
+  "id": "cmsitl40w001c9i8o1vv4wov0",
+  "type": "regles",
+  "fr": "[{\"title\":\"Risk management \",\"details\":[\"Double bottom - top ou similaire\",\"Attendre que le marche me montre qu´il ne veux plus aller dans la trend et se retourner \",\"Confirmation qu´il veux changer de direction ds le cluster chart \",\"Remonte ds le milieu de la VA. \"]}]"
+ },
+ {
+  "id": "cmsitsnxs001j9i8ofz7r51rg",
+  "type": "exemples",
+  "fr": "setups"
+ },
+ {
+  "id": "cmsiuc7f90001n38ok5o7el6b",
+  "type": "regles",
+  "fr": "[{\"title\":\"Comment definir une range? \",\"details\":[\"Quand le marche est pendant ≥ 3 jours dans la meme zone et qu´il a forme une zone de volume valide \"]},{\"title\":\"A partir de quand prendre un trade dans le sens inverse? Short quand la tendance est en long par exemple \",\"details\":[\"A partir du 3eme jour si le marche a essaye de traverser la zone ma n´a pas reussi. \"]}]"
+ },
+ {
+  "id": "cmsiuda4g0002n38ou76ek1y1",
+  "type": "regles",
+  "fr": "[{\"title\":\"Comment definir une tendance? \",\"details\":[\"Quand le marche est pendant ≥ 3 jours dans la meme direction \",\"Souvent le plus claire c´est quand il se dirige dans une zone ou il a pas encore ete \",\"Ou si il a rebondir sur la range et alle plus haut \"]}]"
+ },
+ {
+  "id": "cmsix18wz0000418ok6xana4a",
+  "type": "retenir",
+  "fr": "[\"Marche rebondit sur haut & Bas de la range \"]"
+ },
+ {
+  "id": "cmsixkmjj0000fp8okr11o4ia",
+  "type": "retenir",
+  "fr": "[\"Le marche breakout la range et rebondit dessus \"]"
+ },
+ {
+  "id": "cmsixku2e0001fp8o3s12uww0",
+  "type": "retenir",
+  "fr": "[\"Le marche veux remonter dans le haut de la range ou inversement \"]"
+ },
+ {
+  "id": "cmsixl6s00002fp8o94pmp16t",
+  "type": "retenir",
+  "fr": "[\"Marche est hors de la range et veux remonter dedans \"]"
+ },
+ {
+  "id": "cmsiz8ax5000a9u8ozcwux85w",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Tracer les zone de volumes pour pouvoir definir les zone d´interets \",\"details\":[\"Dans la zone de volume (Dessus - Dessous)\",\"Le marche sort de la zone et vient rebondir dessus\",\"Le marche reagir sur un cluster horaire\"]}]}"
+ },
+ {
+  "id": "cmsizvc9l0005of8o9q0xpqc2",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Voir ou sont les zones de retournement du jour meme et des derniers jours. \",\"details\":[\"Apres si le marche passe un peu en desosus de la zone a un moment donne elle reste valide, des fois il passe juste au debut et fin de l´heure. \",\"Souvent il va revenir exactement rebondir le jour d´apres dans la premier zone ou il a rebondit avant de breakout donc inutile de la descendre plus bas \"]}]}"
+ },
+ {
+  "id": "cmsj02gdr000cof8o1m38vd3l",
+  "type": "retenir",
+  "fr": "[\"Placer debut de la zone au debut de le la meche environ \",\"Pas besoin d´aller jusqu´au bout de la meche generalement il est juste passe vite fait au dessus pdt debut - fin heure \",\"Si je trace la zone trop basse, je risque de rentrer trop tot \"]"
+ },
+ {
+  "id": "cmsjafgjc004r7q8o4kihp25r",
+  "type": "retenir",
+  "fr": "[\"Voir vers ou le marche veux se diriger: Vers une ancienne range? Vers haut de la range? Vers dernier high - low? \"]"
+ },
+ {
+  "id": "cmsjagi2a004s7q8oxfb8u2rh",
+  "type": "retenir",
+  "fr": "[\"Ici voir qu´est-ce qui me dit que le marche veux changer de direction? Il a touche le haut bas de la range? Il a touche une ancienne range? \"]"
+ },
+ {
+  "id": "cmsjawtxa00547q8op3lvxnxc",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Tjs attendre que le marche me montre qu´il veux aller dans l´autre sens car c´est quand meme un trade risque \",\"details\":[]},{\"title\":\"Si il descend puis remonte une fois c´est pas assez comme confirmation \",\"details\":[\"Je veux qu´il fasse un doube bottom et apres qu´il remonte et alors je peux prendre un trade \"]}]}"
+ },
+ {
+  "id": "cmsjbceya005l7q8od5blal5u",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Est-ce que le cluster chart est volatile? \",\"details\":[\"Si il y a une serie de bougie contre mon sens ou une grosse je skip \"]},{\"title\":\"Est-ce que le box chart est volatile? \",\"details\":[\"Si les box sont bcp plus grosse que normalement skip \"]}]}"
+ },
+ {
+  "id": "cmsjbhs1g005p7q8okzpzbi63",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Rouge (Volume le plus bas)\",\"details\":[\"Normalement on va essayer de parametrer le filtre pour avoir entre 1 - 3 max cluster par jour. \",\"Des fois aussi si on en a pas c´est ok. Checker 1x la semaine. \",\"Normalement il devrait y avoir le plus de rouge, puis jaune un peu et vert qd il y a vrmt bcp de volume \"]},{\"title\":\"Jaune (intermediaire) \",\"details\":[]},{\"title\":\"Vert (plus eleve)\",\"details\":[]},{\"title\":\"Normalement il devrait y avoir des cluster ainsi 1-3 par jours \",\"details\":[\"Si des jours ou il y en a pas c´est ok \",\"On check ca tjs une fois la semaine le dimanche \"]},{\"title\":\"Les cluster horaire en fin de mouvement sont plus pertinent que ceux dans le milieu de la session \",\"details\":[]}]}"
+ },
+ {
+  "id": "cmsjbhux1005q7q8o1l4cce23",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"1-3 cluster par heure \",\"details\":[\"Des fois il y a 0 cluster mais des fois aussi il y a en a 4-5 et c´est ok aussi. \",\"sauf pour closing bourse c´est ok \",\"Des foi on doit adapter une fois la semaine, le mois. Mais ds tous les cas checker toutes les semaines et adapter si besoin. \",\"tjs checker que ce soit bien dans les heures de bourse \"]}]}"
+ },
+ {
+  "id": "cmsjcd7uo006d7q8o18g23s0f",
+  "type": "retenir",
+  "fr": "[\"Quand il y un nouveau box cluster, si le marche passe dans le sens inverse de mon trade, sortir de la position. \"]"
+ },
+ {
+  "id": "cmsjclt0j006s7q8o0a3ujgi7",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Generalement je veux voir un gros delta au niveau de mon cluster, puis ca doit descendre et aller dans le sens de mon trade. \",\"details\":[]}]}"
+ },
+ {
+  "id": "cmsjd0z5e00727q8ohm7wquuf",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Cluster horaire \",\"details\":[\"Faire attention a ca meme si on est pas arrive ds le haut de la range \"]},{\"title\":\"En regle generale, skip si le marche est trop pres de Vwap / SH \",\"details\":[]},{\"title\":\"Faire attention aux lignes de volumes \",\"details\":[]}]}"
+ },
+ {
+  "id": "cmsjwjael007t7q8oj30ui368",
+  "type": "retenir",
+  "fr": "[\"la ligne de volume juste au dessus de l´entre vaut mieux skip c´est trop dangereux. \"]"
+ },
+ {
+  "id": "cmsjwmygx007x7q8oqf24nrp4",
+  "type": "regles",
+  "fr": "{\"label\":\"\",\"items\":[{\"title\":\"Si plusieurs grosse ligne de volume mettre SL tout en dessous \",\"details\":[\"Si le SL est trop gros alors mettre en dessous de la premiere \"]}]}"
+ },
+ {
+  "id": "cmsjx1jxd00035n8os0cj71aj",
+  "type": "retenir",
+  "fr": "[\"Setup -> studies -> Dom bids -> add limit\",\"Setup -> studies -> dom asks -> add limit \"]"
+ }
+]
