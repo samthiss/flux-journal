@@ -436,6 +436,11 @@ body::after {
   gap: 20px;
 }
 @media (max-width: 720px) {
+  /* Ratio, projection and the sustainable rate stack rather than squeeze. */
+  .profit-target {
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+  }
   .profit-grid {
     grid-template-columns: 1fr 1fr !important;
     gap: 14px !important;

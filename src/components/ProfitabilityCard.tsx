@@ -2,7 +2,7 @@
 
 import { accentColor, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import { CountUp } from "@/components/NeonText";
-import type { computeDashboardStats, computeSetupStats } from "@/lib/stats";
+import { payoffTargets, projectPayoff, type computeDashboardStats, type computeSetupStats } from "@/lib/stats";
 
 const pct = (n: number) => `${(n * 100).toFixed(1)} %`;
 
@@ -124,6 +124,58 @@ export default function ProfitabilityCard({
           </>
         )}
       </div>
+
+      {stats.hasTrades && payoff > 0 && (
+        <div style={{ marginTop: 22, borderTop: "1px solid oklch(0.28 0.04 250)", paddingTop: 16 }}>
+          <div style={{ ...label, marginBottom: 4 }}>Objectif</div>
+          <div style={{ fontSize: 12.5, color: "oklch(0.62 0.03 250)", marginBottom: 14 }}>
+            Ce que rapporterait un meilleur ratio, à perte moyenne inchangée. La dernière colonne est le taux de réussite
+            en dessous duquel le nouveau ratio ne rapporte plus que ce que tu gagnes aujourd&apos;hui.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {payoffTargets(payoff).map((target) => {
+              const p = projectPayoff(stats, target);
+              const factor = expectancy > 0 ? p.expectancy / expectancy : 0;
+              return (
+                <div
+                  key={target}
+                  className="profit-target"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr auto",
+                    alignItems: "baseline",
+                    gap: 14,
+                    padding: "10px 12px",
+                    borderRadius: 3,
+                    background: "oklch(0.84 0.17 196 / 0.06)",
+                    border: "1px solid oklch(0.84 0.17 196 / 0.18)",
+                  }}
+                >
+                  <div style={{ ...mono, fontSize: 15, fontWeight: 700, color: accentColor }}>RR {target.toFixed(1)}</div>
+                  <div style={{ ...mono, fontSize: 12.5, color: "oklch(0.85 0.02 250)" }}>
+                    {fmtMoney(p.expectancy)} / trade
+                    {factor > 1 && (
+                      <span style={{ color: "oklch(0.6 0.03 250)" }}> · ×{factor.toFixed(1)} ce que tu gagnes</span>
+                    )}
+                    <span style={{ color: "oklch(0.6 0.03 250)" }}> · {fmtMoney(p.expectancy * 100)} sur 100 trades</span>
+                  </div>
+                  <div style={{ ...mono, fontSize: 12, color: "oklch(0.62 0.03 250)", whiteSpace: "nowrap" }}>
+                    tenable jusqu&apos;à {pct(p.sustainableWinRate)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 12.5, color: "oklch(0.62 0.03 250)", marginTop: 12 }}>
+            Un objectif plus lointain est touché moins souvent : viser {payoffTargets(payoff)[0].toFixed(1)} te laisse
+            perdre{" "}
+            <span style={{ color: accentColor, fontWeight: 600 }}>
+              {((winRate - projectPayoff(stats, payoffTargets(payoff)[0]).sustainableWinRate) * 100).toFixed(0)} points
+            </span>{" "}
+            de réussite avant de gagner moins qu&apos;aujourd&apos;hui.
+          </div>
+        </div>
+      )}
 
       {setups.length > 1 && (
         <div style={{ marginTop: 22, borderTop: "1px solid oklch(0.28 0.04 250)", paddingTop: 16 }}>

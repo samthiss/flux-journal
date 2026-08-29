@@ -149,6 +149,38 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
 }
 
 /**
+ * What a higher reward-to-risk would be worth, at today's win rate.
+ *
+ * Being above the breakeven line only says the account grows; it says nothing
+ * about how fast. Raising the payoff is the lever that does, and this puts a
+ * number on it: keep the average loss where it is, take profit at `target`
+ * times that, and the expectancy per trade becomes `winRate * target * loss -
+ * (1 - winRate) * loss`.
+ *
+ * `sustainableWinRate` is the honest half of the answer. A further target is
+ * hit less often, so the win rate will fall — this is the rate at which the
+ * new ratio stops being an improvement, i.e. where it earns exactly what the
+ * journal earns today. Anything above it is still a gain.
+ */
+export function projectPayoff(stats: ReturnType<typeof computeDashboardStats>, target: number) {
+  const loss = Math.abs(stats.avgLoss);
+  const expectancy = stats.winRate * target * loss - (1 - stats.winRate) * loss;
+  // Solving `wr * target * loss - (1 - wr) * loss = currentExpectancy` for wr.
+  const sustainableWinRate = (stats.expectancyR + 1) / (target + 1);
+  return { target, expectancy, expectancyR: loss > 0 ? expectancy / loss : 0, sustainableWinRate };
+}
+
+/**
+ * The ratios worth aiming at next: the standard rungs above where the journal
+ * already stands. A journal already past 3 gets one rung of its own rather than
+ * an empty list.
+ */
+export function payoffTargets(payoff: number): number[] {
+  const rungs = [1.5, 2, 3].filter((r) => r > payoff + 0.05);
+  return rungs.length ? rungs : [Math.round((payoff + 1) * 2) / 2];
+}
+
+/**
  * The same profitability read, one row per setup, busiest first.
  *
  * A setup with no losing trade yet has no average loss to divide by, so its
