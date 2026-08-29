@@ -1369,13 +1369,11 @@ function FilterRow({
   label,
   values,
   selected,
-  tone,
   onToggle,
 }: {
   label: string;
   values: string[];
   selected: string[];
-  tone: { fg: string; bg: string; line: string };
   onToggle: (value: string) => void;
 }) {
   if (!values.length) return null;
@@ -1383,7 +1381,7 @@ function FilterRow({
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
       <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>{label}</span>
       {values.map((v) => (
-        <FilterChip key={v} label={v} tone={tone} on={selected.includes(v)} onClick={() => onToggle(v)} />
+        <FilterChip key={v} label={v} tone={tagTone(v)} on={selected.includes(v)} onClick={() => onToggle(v)} />
       ))}
     </div>
   );
@@ -1613,7 +1611,6 @@ function ExampleCategory({
             label="Confirmation:"
             values={available.confirmations}
             selected={confirmationFilter}
-            tone={VALID_TONE}
             onToggle={(v) => toggleIn(confirmationFilter, setConfirmationFilter, v)}
           />
           {available.hasValidity && (
@@ -1634,7 +1631,6 @@ function ExampleCategory({
             label="Invalid reason:"
             values={available.reasons}
             selected={reasonFilter}
-            tone={INVALID_TONE}
             onToggle={(v) => toggleIn(reasonFilter, setReasonFilter, v)}
           />
         </div>
@@ -1937,6 +1933,29 @@ function normalizeValidity(s: string | null): Validity {
   return s === "valid" || s === "invalid" || s === "risk" ? s : null;
 }
 
+/**
+ * A colour per tag, the same one everywhere.
+ *
+ * Twelve chips in one row all lit the same way are a wall of text; given their
+ * own hue they become recognisable at a glance, and the eye can follow one
+ * confirmation from example to example. The hue comes from the word itself, so
+ * a tag keeps its colour across cards, across filters, and across reloads
+ * without anything being stored — and two tags that collide simply share, which
+ * costs nothing.
+ */
+const TAG_HUES = [196, 165, 78, 300, 340, 250, 130, 30, 220, 55];
+
+function tagTone(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  const hue = TAG_HUES[hash % TAG_HUES.length];
+  return {
+    fg: `oklch(0.84 0.15 ${hue})`,
+    bg: `oklch(0.84 0.15 ${hue} / 0.14)`,
+    line: `oklch(0.84 0.15 ${hue} / 0.45)`,
+  };
+}
+
 const VERDICTS: [Exclude<Validity, null>, string, typeof VALID_TONE][] = [
   ["valid", "Valide", VALID_TONE],
   ["invalid", "Invalid", INVALID_TONE],
@@ -1953,6 +1972,7 @@ function ChipList({
   values,
   kind,
   tone,
+  tonePerValue,
   placeholder,
   visible,
   onChange,
@@ -1960,7 +1980,10 @@ function ChipList({
   label?: string;
   values: string[];
   kind: TagKind;
+  /** Fallback tone, used for the input and for anything not coloured per value. */
   tone: { fg: string; bg: string; line: string };
+  /** When set, every chip takes the colour of the word it carries. */
+  tonePerValue?: boolean;
   placeholder: string;
   visible: boolean;
   onChange: (next: string[]) => void;
@@ -1996,7 +2019,9 @@ function ChipList({
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
       <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>{label}</span>
-      {values.map((v, i) => (
+      {values.map((v, i) => {
+        const chipTone = tonePerValue ? tagTone(v) : tone;
+        return (
         <span
           key={i}
           style={{
@@ -2007,9 +2032,9 @@ function ChipList({
             fontSize: 10,
             padding: "3px 6px 3px 9px",
             borderRadius: 999,
-            background: tone.bg,
-            border: `1px solid ${tone.line}`,
-            color: tone.fg,
+            background: chipTone.bg,
+            border: `1px solid ${chipTone.line}`,
+            color: chipTone.fg,
           }}
         >
           {v}
@@ -2017,7 +2042,8 @@ function ChipList({
             ✕
           </span>
         </span>
-      ))}
+        );
+      })}
       {visible && (
         <span style={{ position: "relative", display: "inline-flex" }}>
           <input
@@ -2084,7 +2110,7 @@ function ChipList({
                     padding: "5px 8px",
                     borderRadius: 5,
                     cursor: "pointer",
-                    color: tone.fg,
+                    color: tonePerValue ? tagTone(v).fg : tone.fg,
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -2377,6 +2403,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             values={confirmations}
             kind="confirmation"
             tone={VALID_TONE}
+            tonePerValue
             placeholder="+ confirmation"
             visible={headerHover}
             onChange={(next) => {
@@ -2397,6 +2424,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               values={invalidReasons}
               kind="invalidReason"
               tone={validity === "risk" ? RISK_TONE : INVALID_TONE}
+              tonePerValue
               placeholder="+ raison"
               visible={headerHover}
               onChange={(next) => {
