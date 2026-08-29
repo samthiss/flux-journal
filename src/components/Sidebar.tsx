@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { accentColor, neonGlow } from "@/lib/theme";
@@ -201,6 +201,15 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
   useEffect(() => () => cancelAnchor.current?.(), []);
 
   const [sidebarWidth, setSidebarWidth] = useState(252);
+
+  // The lit rectangle behind the active entry is one element that moves, not
+  // six that switch on and off — which is what lets the highlight travel
+  // between entries instead of jumping. Its position is measured rather than
+  // computed: the entries are laid out in a column on the desktop and in a row
+  // on a phone, and a measured rectangle is right in both without knowing which.
+  const navRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef<HTMLAnchorElement>(null);
+  const [pill, setPill] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const resizingRef = useRef(false);
 
   useEffect(() => {
@@ -215,6 +224,34 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
   useEffect(() => {
     localStorage.setItem("sidebar-width", String(sidebarWidth));
   }, [sidebarWidth]);
+
+  // Moves the highlight onto an entry, in the nav's own coordinates.
+  const moveTo = (item: HTMLElement | null) => {
+    const nav = navRef.current;
+    if (!nav || !item) return setPill(null);
+    const navBox = nav.getBoundingClientRect();
+    const box = item.getBoundingClientRect();
+    setPill({
+      top: box.top - navBox.top,
+      left: box.left - navBox.left,
+      width: box.width,
+      height: box.height,
+    });
+  };
+
+  useLayoutEffect(() => {
+    const measure = () => moveTo(activeRef.current);
+    measure();
+    // The notes tree opens and closes under the Notes entry, and the window
+    // itself resizes: both move the entry the highlight is sitting on.
+    const observer = new ResizeObserver(measure);
+    if (navRef.current) observer.observe(navRef.current);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [pathname, sidebarWidth]);
 
   function startResize(e: React.MouseEvent) {
     e.preventDefault();
@@ -398,7 +435,13 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
           </div>
         </div>
 
-        <div className="sidebar-nav">
+        <div className="sidebar-nav" ref={navRef}>
+        {pill && (
+          <div
+            className="sidebar-active-pill"
+            style={{ top: pill.top, left: pill.left, width: pill.width, height: pill.height }}
+          />
+        )}
         {NAV_ITEMS.map((item, i) => {
           const active = item.match(pathname);
           const Icon = ICONS[i];
@@ -406,12 +449,20 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
             <div key={item.href}>
               <Link
                 href={item.href}
+                ref={active ? activeRef : undefined}
                 className="sidebar-nav-item"
+                // Sent on its way by the press, not by the navigation landing:
+                // waiting for the route to commit puts a visible pause between
+                // the click and the highlight. If the navigation never happens,
+                // the effect above measures the real active entry and puts it
+                // back.
+                onPointerDown={(e) => moveTo(e.currentTarget)}
                 style={{
                   cursor: "pointer",
                   fontWeight: active ? 600 : 500,
                   color: active ? "oklch(0.97 0.0068 250)" : "oklch(0.66 0.034 250)",
-                  background: active ? "oklch(0.84 0.17 196 / 0.14)" : "transparent",
+                  // The background belongs to the travelling element now.
+                  background: "transparent",
                 }}
               >
                 <Icon color={active ? accentColor : "oklch(0.55 0.034 250)"} />

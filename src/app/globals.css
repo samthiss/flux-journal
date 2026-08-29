@@ -289,6 +289,32 @@ body::after {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  position: relative;
+}
+
+/* The lit rectangle behind the active entry. It is a single element that moves
+   from one entry to the next, so the highlight travels with the navigation
+   rather than blinking out here and on over there. */
+.sidebar-active-pill {
+  position: absolute;
+  z-index: 0;
+  border-radius: 3px;
+  pointer-events: none;
+  background: oklch(0.84 0.17 196 / 0.14);
+  box-shadow: inset 2px 0 0 var(--neon), 0 0 20px -8px oklch(0.84 0.17 196 / 0.7);
+  transition: top 0.22s cubic-bezier(0.22, 1, 0.36, 1), left 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.22s cubic-bezier(0.22, 1, 0.36, 1), height 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Above the highlight, or the icon and label would sit behind it. */
+.sidebar-nav-item {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-active-pill {
+    transition: none;
+  }
 }
 .sidebar-nav-item {
   display: flex;
@@ -360,6 +386,11 @@ body::after {
     gap: 3px !important;
     padding: 6px 4px !important;
     justify-content: center !important;
+  }
+  /* On the tab bar the entries sit side by side, so the marker runs along the
+     top of the active one rather than down its left edge. */
+  .sidebar-active-pill {
+    box-shadow: inset 0 2px 0 var(--neon), 0 0 20px -8px oklch(0.84 0.17 196 / 0.7) !important;
   }
   .sidebar-nav-label {
     font-size: 9px !important;
