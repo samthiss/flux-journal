@@ -64,14 +64,6 @@ function SignOutIcon({ color }: { color: string }) {
   );
 }
 
-function SidebarToggleIcon({ color }: { color: string }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke={color} strokeWidth="1.3" />
-      <line x1="6" y1="2.5" x2="6" y2="13.5" stroke={color} strokeWidth="1.3" />
-    </svg>
-  );
-}
 
 function ChevronIcon({ color, down }: { color: string; down: boolean }) {
   return (
@@ -208,19 +200,18 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
   const cancelAnchor = useRef<(() => void) | null>(null);
   useEffect(() => () => cancelAnchor.current?.(), []);
 
-  const [sidebarHidden, setSidebarHidden] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(252);
   const resizingRef = useRef(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage on mount
-    if (localStorage.getItem("sidebar-hidden") === "1") setSidebarHidden(true);
+    // A menu that could be hidden is gone; anyone still carrying the old
+    // preference would otherwise keep it forever, in a browser that no longer
+    // has any way to undo it.
+    localStorage.removeItem("sidebar-hidden");
     const savedWidth = Number(localStorage.getItem("sidebar-width"));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage on mount
     if (savedWidth >= 200 && savedWidth <= 420) setSidebarWidth(savedWidth);
   }, []);
-  useEffect(() => {
-    localStorage.setItem("sidebar-hidden", sidebarHidden ? "1" : "0");
-  }, [sidebarHidden]);
   useEffect(() => {
     localStorage.setItem("sidebar-width", String(sidebarWidth));
   }, [sidebarWidth]);
@@ -383,15 +374,7 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
 
   return (
     <>
-      {sidebarHidden && (
-        <button className="sidebar-expand-btn" onClick={() => setSidebarHidden(false)} title="Afficher le menu" style={toggleBtnStyle}>
-          <SidebarToggleIcon color="oklch(0.72 0.034 250)" />
-        </button>
-      )}
-      <div className={sidebarHidden ? "sidebar sidebar-collapsed" : "sidebar"} style={sidebarHidden ? undefined : { width: sidebarWidth }}>
-        <button className="sidebar-hide-btn" onClick={() => setSidebarHidden(true)} title="Cacher le menu" style={{ ...toggleBtnStyle, position: "absolute", top: 14, right: 14 }}>
-          <SidebarToggleIcon color="oklch(0.72 0.034 250)" />
-        </button>
+      <div className="sidebar" style={{ width: sidebarWidth }}>
         <div
           className="sidebar-resizer"
           onMouseDown={startResize}

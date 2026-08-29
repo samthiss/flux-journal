@@ -265,15 +265,6 @@ body::after {
   flex: 1;
   overflow-y: auto;
 }
-.sidebar.sidebar-collapsed {
-  display: none;
-}
-.sidebar-expand-btn {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  z-index: 50;
-}
 .sidebar-signout-btn {
   margin-top: 12px;
 }
@@ -341,16 +332,7 @@ body::after {
     border-right: none !important;
     border-top: 1px solid oklch(0.32 0.051 250 / 0.5) !important;
   }
-  /* The bottom tab bar is always visible on mobile regardless of the
-     desktop collapse preference stored in localStorage. */
-  .sidebar.sidebar-collapsed {
-    display: flex !important;
-  }
-  .sidebar-expand-btn,
-  /* Hiding the bar would leave the phone with no navigation at all — the bar is
-     forced visible below whatever the stored preference says — and the width it
-     drags is a desktop measurement. */
-  .sidebar-hide-btn,
+  /* The width a mouse drags is a desktop measurement. */
   .sidebar-resizer {
     display: none !important;
   }
