@@ -22,6 +22,7 @@ import {
   createExample,
   updateExample,
   deleteExample,
+  duplicateExample,
   reorderExamples,
   reorderCategories,
   updateExampleImageCaption,
@@ -347,7 +348,24 @@ function PlusGripCluster({
   );
 }
 
-function MoreMenuButton({ onDelete, visible }: { onDelete: () => void; visible: boolean }) {
+function CopyIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+      <rect x="4.6" y="1.6" width="7.8" height="7.8" rx="1.6" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M9.4 12.4H3.2a1.6 1.6 0 0 1-1.6-1.6V4.6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MoreMenuButton({
+  onDuplicate,
+  onDelete,
+  visible,
+}: {
+  onDuplicate?: () => void;
+  onDelete: () => void;
+  visible: boolean;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div
@@ -379,6 +397,18 @@ function MoreMenuButton({ onDelete, visible }: { onDelete: () => void; visible: 
             minWidth: 150,
           }}
         >
+          {onDuplicate && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                onDuplicate();
+              }}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", fontSize: 13, color: "oklch(0.8 0.02 250)", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              <CopyIcon /> Dupliquer
+            </span>
+          )}
           <span
             onClick={(e) => {
               e.stopPropagation();
@@ -2321,6 +2351,10 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
           />
           <MoreMenuButton
             visible={headerHover}
+            onDuplicate={async () => {
+              await duplicateExample(example.id);
+              onChanged();
+            }}
             onDelete={async () => {
               await deleteExample(example.id);
               onChanged();

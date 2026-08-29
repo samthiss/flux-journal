@@ -299,6 +299,79 @@ export async function createExample(noteId: string, categoryId: string | null) {
   revalidatePath("/notes");
 }
 
+/**
+ * Copies an example, with its text blocks and its images, right below the
+ * original.
+ *
+ * The image rows are new but point at the same files. That is deliberate and
+ * safe: nothing on the volume is copied, and deletion already counts how many
+ * rows reference a URL before unlinking it (see src/lib/imageFiles.ts), so
+ * removing either copy leaves the other one whole.
+ *
+ * The copy is inserted directly after its original rather than appended, since
+ * a duplicate is made to be compared with what it came from.
+ */
+export async function duplicateExample(id: string) {
+  await prisma.$transaction(async (tx) => {
+    const source = await tx.noteExample.findUnique({
+      where: { id },
+      include: { images: { orderBy: { order: "asc" } }, blocks: { orderBy: { order: "asc" } } },
+    });
+    if (!source) return;
+
+    // Everything after the original steps down one place to make room.
+    await tx.noteExample.updateMany({
+      where: { noteId: source.noteId, categoryId: source.categoryId, order: { gt: source.order } },
+      data: { order: { increment: 1 } },
+    });
+
+    const copy = await tx.noteExample.create({
+      data: {
+        noteId: source.noteId,
+        categoryId: source.categoryId,
+        title: source.title ? `${source.title} (copie)` : "",
+        caption: source.caption,
+        tags: source.tags,
+        confirmations: source.confirmations,
+        validity: source.validity,
+        invalidReasons: source.invalidReasons,
+        hideText: source.hideText,
+        imagesPerRow: source.imagesPerRow,
+        order: source.order + 1,
+      },
+    });
+
+    for (const image of source.images) {
+      await tx.noteExampleImage.create({
+        data: {
+          exampleId: copy.id,
+          url: image.url,
+          caption: image.caption,
+          tradeId: image.tradeId,
+          order: image.order,
+          width: image.width,
+          height: image.height,
+        },
+      });
+    }
+
+    for (const block of source.blocks) {
+      await tx.noteBlock.create({
+        data: {
+          noteId: block.noteId,
+          categoryId: block.categoryId,
+          exampleId: copy.id,
+          type: block.type,
+          content: block.content,
+          order: block.order,
+        },
+      });
+    }
+  });
+
+  revalidatePath("/notes");
+}
+
 export async function reorderExamples(orderedIds: string[]) {
   await prisma.$transaction(orderedIds.map((id, i) => prisma.noteExample.update({ where: { id }, data: { order: i } })));
   revalidatePath("/notes");
