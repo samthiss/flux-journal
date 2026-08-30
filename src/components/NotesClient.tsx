@@ -1751,6 +1751,37 @@ function ExampleCategory({
     });
   }, [examples, filtering, confirmationFilter, validityFilter, reasonFilter, zoneFilter, typeFilter]);
 
+  // Dragging one example onto another puts it in that one's place. The order is
+  // computed over every example, not the ones on screen: a filtered view hides
+  // rows a dropped example would have to pass, so the handles are gone while a
+  // filter is on — as the arrows they replace were.
+  // The source is held in a ref, not in state: the drag events that follow can
+  // arrive before React has re-rendered, and a handler reading a stale null
+  // would drop the example on the floor. State is kept only for what is drawn.
+  const dragExampleRef = useRef<string | null>(null);
+  const [dragExampleId, setDragExampleId] = useState<string | null>(null);
+  const [dragOverExampleId, setDragOverExampleId] = useState<string | null>(null);
+
+  const dropExample = async (targetId: string) => {
+    const sourceId = dragExampleRef.current;
+    dragExampleRef.current = null;
+    setDragExampleId(null);
+    setDragOverExampleId(null);
+    if (!sourceId || sourceId === targetId) return;
+
+    const ordered = examples.map((e) => e.id).filter((id) => id !== sourceId);
+    const at = ordered.indexOf(targetId);
+    if (at < 0) return;
+    // Dropped on a row above its own place it takes that row's index; from
+    // above, it lands just after — which is where the pointer already is.
+    const from = examples.findIndex((e) => e.id === sourceId);
+    const to = examples.findIndex((e) => e.id === targetId);
+    ordered.splice(from < to ? at + 1 : at, 0, sourceId);
+
+    await reorderExamples(ordered);
+    onChanged();
+  };
+
   const clearFilter = () => {
     setConfirmationFilter([]);
     setValidityFilter(null);
@@ -1967,42 +1998,61 @@ function ExampleCategory({
             </div>
           )}
           {shown.map((ex) => {
-            // Reordering moves an example among all of them, not among the ones
-            // currently on screen, so the position comes from the full list —
-            // and the arrows are gone while a filter is on, where "up" would
-            // mean stepping over examples the filter is hiding.
-            const exIdx = examples.indexOf(ex);
+            const dragging = dragExampleId === ex.id;
             return (
-              <div key={ex.id} style={{ display: "flex", gap: 8 }}>
+              <div
+                key={ex.id}
+                // The whole row is the drop target, so an example can be aimed
+                // at anywhere along its height rather than at a handle.
+                onDragOver={(e) => {
+                  if (!dragExampleRef.current || filtering) return;
+                  e.preventDefault();
+                  if (dragOverExampleId !== ex.id) setDragOverExampleId(ex.id);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  dropExample(ex.id);
+                }}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  opacity: dragging ? 0.4 : 1,
+                  // Where it would land, drawn on the edge it would land at.
+                  borderTop:
+                    dragOverExampleId === ex.id && !dragging
+                      ? `2px solid ${accentColor}`
+                      : "2px solid transparent",
+                  paddingTop: 2,
+                }}
+              >
                 {!filtering && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: "none", paddingTop: 14 }}>
-                  <span
-                    onClick={async () => {
-                      if (exIdx === 0) return;
-                      const next = [...examples];
-                      [next[exIdx - 1], next[exIdx]] = [next[exIdx], next[exIdx - 1]];
-                      await reorderExamples(next.map((e) => e.id));
-                      onChanged();
-                    }}
-                    title="Monter"
-                    style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: exIdx === 0 ? "default" : "pointer", opacity: exIdx === 0 ? 0.25 : 1, color: "oklch(0.55 0.034 250)", transform: "rotate(-90deg)" }}
-                  >
-                    <ChevronIcon color="currentColor" down={false} />
-                  </span>
-                  <span
-                    onClick={async () => {
-                      if (exIdx === examples.length - 1) return;
-                      const next = [...examples];
-                      [next[exIdx], next[exIdx + 1]] = [next[exIdx + 1], next[exIdx]];
-                      await reorderExamples(next.map((e) => e.id));
-                      onChanged();
-                    }}
-                    title="Descendre"
-                    style={{ width: 18, height: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: exIdx === examples.length - 1 ? "default" : "pointer", opacity: exIdx === examples.length - 1 ? 0.25 : 1, color: "oklch(0.55 0.034 250)" }}
-                  >
-                    <ChevronIcon color="currentColor" down={true} />
-                  </span>
-                </div>
+                  <div style={{ display: "flex", flexDirection: "column", flex: "none", paddingTop: 14 }}>
+                    <span
+                      draggable
+                      onDragStart={(e) => {
+                        dragExampleRef.current = ex.id;
+                        setDragExampleId(ex.id);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragEnd={() => {
+                        dragExampleRef.current = null;
+                        setDragExampleId(null);
+                        setDragOverExampleId(null);
+                      }}
+                      title="Glisser pour déplacer"
+                      style={{
+                        width: 20,
+                        height: 24,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "grab",
+                        color: "oklch(0.5 0.034 250)",
+                      }}
+                    >
+                      <GripIcon />
+                    </span>
+                  </div>
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <ExampleCard
