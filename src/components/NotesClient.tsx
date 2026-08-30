@@ -1523,13 +1523,18 @@ function FilterRow({
     // same place: four ragged rows read as four controls, aligned they read as
     // one.
     <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+      {/* Loud enough to scan the column by: at the weight the hints elsewhere
+          use, these read as captions on the chips rather than as the names of
+          the rows. */}
       <span
         style={{
           fontFamily: "var(--font-jetbrains-mono), monospace",
-          fontSize: 10,
-          letterSpacing: "0.06em",
-          color: "oklch(0.5 0.03 250)",
-          width: 78,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.1em",
+          color: "oklch(0.86 0.04 250)",
+          textShadow: "0 0 10px oklch(0.84 0.17 196 / 0.25)",
+          width: 96,
           flex: "none",
           textAlign: "right",
           textTransform: "uppercase",
@@ -1537,6 +1542,14 @@ function FilterRow({
       >
         {label}
       </span>
+      <span
+        style={{
+          width: 1,
+          alignSelf: "stretch",
+          flex: "none",
+          background: "oklch(0.84 0.17 196 / 0.25)",
+        }}
+      />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minWidth: 0 }}>
         {values.map((v) => (
           <FilterChip
