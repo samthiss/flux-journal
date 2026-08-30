@@ -496,10 +496,10 @@ export async function moveCategory(categoryId: string, noteId: string) {
   revalidatePath("/notes");
 }
 
-export async function moveExample(exampleId: string, noteId: string, categoryId: string | null) {
-  const example = await prisma.noteExample.findUnique({ where: { id: exampleId } });
-  if (!example) return;
-  if (example.noteId === noteId && example.categoryId === categoryId) return;
+export async function moveExamples(exampleIds: string[], noteId: string, categoryId: string | null) {
+  const examples = await prisma.noteExample.findMany({ where: { id: { in: exampleIds } } });
+  const moving = examples.filter((e) => !(e.noteId === noteId && e.categoryId === categoryId));
+  if (!moving.length) return;
 
   const note = await prisma.note.findUnique({ where: { id: noteId } });
   if (!note) return;
@@ -512,26 +512,34 @@ export async function moveExample(exampleId: string, noteId: string, categoryId:
 
   await prisma.$transaction(async (tx) => {
     // Examples are only rendered inside an "exemples" block. A note that never
-    // had one would swallow the example silently, so it gets one here.
+    // had one would swallow them silently, so it gets one here.
     const exemplesBlock = await tx.noteBlock.findFirst({ where: { noteId, type: "exemples" } });
     if (!exemplesBlock) {
       const blockCount = await tx.noteBlock.count({ where: { noteId } });
       await tx.noteBlock.create({ data: { noteId, type: "exemples", content: null, order: blockCount } });
     }
 
-    const destinationCount = await tx.noteExample.count({ where: { noteId, categoryId } });
-    await tx.noteExample.update({ where: { id: exampleId }, data: { noteId, categoryId, order: destinationCount } });
-    // The example's own blocks travel with it; they are addressed by exampleId
-    // but still carry the noteId they were created under.
-    await tx.noteBlock.updateMany({ where: { exampleId }, data: { noteId } });
+    // They land at the end, in the order they were listed, so a group keeps its
+    // own sequence and never displaces what is already there.
+    let next = await tx.noteExample.count({ where: { noteId, categoryId } });
+    for (const example of moving) {
+      await tx.noteExample.update({ where: { id: example.id }, data: { noteId, categoryId, order: next++ } });
+      // An example's own blocks travel with it; they are addressed by exampleId
+      // but still carry the noteId they were created under.
+      await tx.noteBlock.updateMany({ where: { exampleId: example.id }, data: { noteId } });
+    }
 
-    // Close the gap left behind, so the source list keeps consecutive orders.
-    const left = await tx.noteExample.findMany({
-      where: { noteId: example.noteId, categoryId: example.categoryId },
-      orderBy: { order: "asc" },
-      select: { id: true },
-    });
-    for (const [i, e] of left.entries()) await tx.noteExample.update({ where: { id: e.id }, data: { order: i } });
+    // Close the gaps left behind, so every source list keeps consecutive
+    // orders — a group can come from more than one of them.
+    const sources = new Map(moving.map((e) => [`${e.noteId}|${e.categoryId ?? ""}`, e]));
+    for (const source of sources.values()) {
+      const left = await tx.noteExample.findMany({
+        where: { noteId: source.noteId, categoryId: source.categoryId },
+        orderBy: { order: "asc" },
+        select: { id: true },
+      });
+      for (const [i, e] of left.entries()) await tx.noteExample.update({ where: { id: e.id }, data: { order: i } });
+    }
   });
 
   revalidatePath("/notes");

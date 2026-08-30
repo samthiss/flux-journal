@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getNoteTreeWithCategories, moveExample, createCategoryNamed } from "@/lib/actions/notes";
+import { getNoteTreeWithCategories, moveExamples, createCategoryNamed } from "@/lib/actions/notes";
 import { accentColor } from "@/lib/theme";
 import { useMenuDismiss } from "@/components/useMenuDismiss";
 
@@ -40,17 +40,21 @@ const rowStyle = { fontSize: 12.5, padding: "7px 8px", borderRadius: 6, cursor: 
 // them: a flat list of every category across every note reads as noise once the
 // tree has more than a handful of nodes.
 export default function MoveExampleMenu({
-  exampleId,
+  exampleIds,
   currentNoteId,
   currentCategoryId,
   visible,
   onMoved,
+  label,
 }: {
-  exampleId: string;
+  /** One example, or the several that are ticked. */
+  exampleIds: string[];
   currentNoteId: string;
   currentCategoryId: string | null;
   visible: boolean;
   onMoved: () => void;
+  /** The button's own wording, which says how many are travelling. */
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -94,7 +98,7 @@ export default function MoveExampleMenu({
       return;
     }
     setMoving(true);
-    await moveExample(exampleId, selectedNoteId, categoryId);
+    await moveExamples(exampleIds, selectedNoteId, categoryId);
     setMoving(false);
     close();
     onMoved();
@@ -136,7 +140,7 @@ export default function MoveExampleMenu({
           whiteSpace: "nowrap",
         }}
       >
-        ⇄ déplacer
+        {label ?? "⇄ déplacer"}
       </span>
 
       {open && (

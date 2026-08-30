@@ -1758,6 +1758,17 @@ function ExampleCategory({
   // The source is held in a ref, not in state: the drag events that follow can
   // arrive before React has re-rendered, and a handler reading a stale null
   // would drop the example on the floor. State is kept only for what is drawn.
+  // Ticking several examples to move them together. Off by default: a
+  // checkbox on every card would be a permanent question about a rare job.
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelected([]);
+  };
+
   const dragExampleRef = useRef<string | null>(null);
   const [dragExampleId, setDragExampleId] = useState<string | null>(null);
   const [dragOverExampleId, setDragOverExampleId] = useState<string | null>(null);
@@ -1888,6 +1899,26 @@ function ExampleCategory({
             <ChevronIcon color="currentColor" down={true} />
           </span>
         )}
+        {examples.length > 1 && (
+          <span
+            onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+            title="Sélectionner plusieurs exemples"
+            style={{
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "2px 8px",
+              borderRadius: 999,
+              cursor: "pointer",
+              border: `1px solid ${selecting ? "oklch(0.84 0.17 196 / 0.5)" : "oklch(0.34 0.02 250)"}`,
+              background: selecting ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
+              color: selecting ? accentColor : "oklch(0.55 0.02 250)",
+              opacity: hover || selecting ? 1 : 0,
+              transition: "opacity 0.12s ease",
+            }}
+          >
+            sélection
+          </span>
+        )}
         {categoryId && noteId && (
           <MoveCategoryMenu categoryId={categoryId} currentNoteId={noteId} visible={hover} onMoved={onChanged} />
         )}
@@ -1990,6 +2021,51 @@ function ExampleCategory({
           ))}
         </div>
       )}
+      {!collapsed && selecting && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            marginLeft: "var(--note-indent)",
+            marginBottom: 12,
+            padding: "8px 12px",
+            border: "1px solid oklch(0.84 0.17 196 / 0.3)",
+            background: "oklch(0.84 0.17 196 / 0.07)",
+            clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)",
+          }}
+        >
+          <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: accentColor }}>
+            {selected.length} sélectionné{selected.length > 1 ? "s" : ""}
+          </span>
+          <span
+            onClick={() => setSelected(selected.length === shown.length ? [] : shown.map((e) => e.id))}
+            style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10.5, color: "oklch(0.7 0.03 250)", cursor: "pointer", textDecoration: "underline" }}
+          >
+            {selected.length === shown.length ? "tout désélectionner" : "tout sélectionner"}
+          </span>
+          {selected.length > 0 && noteId && (
+            <MoveExampleMenu
+              exampleIds={selected}
+              currentNoteId={noteId}
+              currentCategoryId={categoryId ?? null}
+              visible
+              label={`⇄ déplacer les ${selected.length}`}
+              onMoved={() => {
+                stopSelecting();
+                onChanged();
+              }}
+            />
+          )}
+          <span
+            onClick={stopSelecting}
+            style={{ marginLeft: "auto", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10.5, color: "oklch(0.6 0.03 250)", cursor: "pointer" }}
+          >
+            annuler
+          </span>
+        </div>
+      )}
       {!collapsed && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginLeft: "var(--note-indent)" }}>
           {shown.length === 0 && (
@@ -2025,7 +2101,27 @@ function ExampleCategory({
                   paddingTop: 2,
                 }}
               >
-                {!filtering && (
+                {selecting ? (
+                  <div style={{ display: "flex", flexDirection: "column", flex: "none", paddingTop: 15 }}>
+                    <span
+                      onClick={() => toggleSelected(ex.id)}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        color: accentColor,
+                        border: `1px solid ${selected.includes(ex.id) ? "oklch(0.84 0.17 196 / 0.6)" : "oklch(0.36 0.03 250)"}`,
+                        background: selected.includes(ex.id) ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
+                        clipPath: "polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px)",
+                      }}
+                    >
+                      {selected.includes(ex.id) && <CheckMark color={accentColor} />}
+                    </span>
+                  </div>
+                ) : !filtering ? (
                   <div style={{ display: "flex", flexDirection: "column", flex: "none", paddingTop: 14 }}>
                     <span
                       draggable
@@ -2053,7 +2149,7 @@ function ExampleCategory({
                       <GripIcon />
                     </span>
                   </div>
-                )}
+                ) : null}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <ExampleCard
                     example={ex}
@@ -2741,7 +2837,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             {imagesPerRow} img/ligne
           </span>
           <MoveExampleMenu
-            exampleId={example.id}
+            exampleIds={[example.id]}
             currentNoteId={example.noteId}
             currentCategoryId={example.categoryId}
             visible={headerHover}
