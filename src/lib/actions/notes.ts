@@ -382,9 +382,17 @@ export async function duplicateExample(id: string) {
  * list for good.
  */
 export async function deleteTagValue(
-  field: "tradeTypes" | "confirmations" | "invalidReasons",
+  field: "tradeTypes" | "confirmations" | "invalidReasons" | "zone",
   value: string
 ) {
+  // The zone is one word rather than a list of them, so forgetting it is a
+  // clear rather than a filter.
+  if (field === "zone") {
+    await prisma.noteExample.updateMany({ where: { zone: value }, data: { zone: null } });
+    revalidatePath("/notes");
+    return;
+  }
+
   const examples = await prisma.noteExample.findMany({
     where: { [field]: { contains: value } },
     select: { id: true, tradeTypes: true, confirmations: true, invalidReasons: true },
@@ -521,7 +529,7 @@ export async function updateExample(
     // null clears the choice: an example with no verdict yet.
     validity?: "valid" | "invalid" | "risk" | null;
     invalidReasons?: string[];
-    zone?: "retournement" | "stunden" | null;
+    zone?: string | null;
     tradeTypes?: string[];
   }
 ) {

@@ -99,7 +99,7 @@ type BlockRecord = { id: string; noteId: string; categoryId: string | null; exam
 // typed once, picked from a list from then on. The vocabulary is derived from
 // the examples the page was given rather than stored in a table of its own: a
 // word exists exactly as long as some example still carries it.
-type TagKind = "confirmation" | "invalidReason" | "tradeType";
+type TagKind = "confirmation" | "invalidReason" | "tradeType" | "zone";
 
 type TagVocabulary = {
   values: (kind: TagKind) => string[];
@@ -512,6 +512,7 @@ export default function NotesClient({
     confirmation: [],
     invalidReason: [],
     tradeType: [],
+    zone: [],
   });
 
   const vocabulary = useMemo<TagVocabulary>(() => {
@@ -532,6 +533,14 @@ export default function NotesClient({
         ...TRADE_TYPES,
         ...count((e) => e.tradeTypes, freshTags.tradeType).filter(
           (t) => !(TRADE_TYPES as readonly string[]).includes(t)
+        ),
+      ],
+      // The zone is a single word rather than a list, so it is wrapped in one
+      // before being counted like the rest.
+      zone: [
+        ...ZONES,
+        ...count((e) => (e.zone ? JSON.stringify([e.zone]) : null), freshTags.zone).filter(
+          (z) => !(ZONES as readonly string[]).includes(z)
         ),
       ],
     };
@@ -1655,7 +1664,7 @@ function ExampleCategory({
   const [confirmationFilter, setConfirmationFilter] = useState<string[]>([]);
   const [validityFilter, setValidityFilter] = useState<Validity>(null);
   const [reasonFilter, setReasonFilter] = useState<string[]>([]);
-  const [zoneFilter, setZoneFilter] = useState<Zone>(null);
+  const [zoneFilter, setZoneFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
   const available = useMemo(() => {
@@ -1671,7 +1680,11 @@ function ExampleCategory({
       confirmations: collect((e) => e.confirmations),
       reasons: collect((e) => e.invalidReasons),
       hasValidity: examples.some((e) => normalizeValidity(e.validity) !== null),
-      hasZone: examples.some((e) => normalizeZone(e.zone) !== null),
+      // Only the zones this category uses, the two shipped ones first.
+      zones: (() => {
+        const used = new Set(examples.map((e) => e.zone).filter((z): z is string => !!z));
+        return [...ZONES.filter((z) => used.has(z)), ...[...used].filter((z) => !(ZONES as readonly string[]).includes(z)).sort()];
+      })(),
       // Only the types this category actually uses: the five that ship with the
       // app first, in the order they are declared, then anything added since.
       types: (() => {
@@ -1700,7 +1713,7 @@ function ExampleCategory({
       return (
         confirmationFilter.every((v) => confirmations.includes(v)) &&
         (validityFilter === null || normalizeValidity(e.validity) === validityFilter) &&
-        (zoneFilter === null || normalizeZone(e.zone) === zoneFilter) &&
+        (zoneFilter === null || e.zone === zoneFilter) &&
         typeFilter.every((t) => parseArr(e.tradeTypes).includes(t)) &&
         reasonFilter.every((v) => reasons.includes(v))
       );
@@ -1722,7 +1735,7 @@ function ExampleCategory({
     available.confirmations.length > 0 ||
     available.reasons.length > 0 ||
     available.hasValidity ||
-    available.hasZone ||
+    available.zones.length > 0 ||
     available.types.length > 0;
 
   // As for the examples: the fold comes from the server so the first paint is
@@ -1881,17 +1894,12 @@ function ExampleCategory({
               selected={typeFilter}
               onToggle={(v) => toggleIn(typeFilter, setTypeFilter, v)}
             />
-            {available.hasZone && (
-              <FilterRow
-                label="Zone"
-                values={ZONES.map(([, text]) => text)}
-                selected={zoneFilter ? [ZONES.find(([key]) => key === zoneFilter)![1]] : []}
-                onToggle={(v) => {
-                  const key = ZONES.find(([, text]) => text === v)![0];
-                  setZoneFilter(zoneFilter === key ? null : key);
-                }}
-              />
-            )}
+            <FilterRow
+              label="Zone"
+              values={available.zones}
+              selected={zoneFilter ? [zoneFilter] : []}
+              onToggle={(v) => setZoneFilter(zoneFilter === v ? null : v)}
+            />
             {available.hasValidity && (
               <FilterRow
                 label="Verdict"
@@ -2235,19 +2243,10 @@ function tagTone(value: string) {
 }
 
 /**
- * The kind of zone the trade was taken on — one of a fixed pair, since it is
- * the same question asked of every example.
+ * The zones that ship with the app. The value stored is the word itself, so the
+ * list can grow the way the trade types and the confirmations do.
  */
-type Zone = "retournement" | "stunden" | null;
-
-const ZONES: [Exclude<Zone, null>, string][] = [
-  ["retournement", "Zone de retournement"],
-  ["stunden", "Stunden Cluster"],
-];
-
-function normalizeZone(s: string | null): Zone {
-  return s === "retournement" || s === "stunden" ? s : null;
-}
+const ZONES = ["Zone de retournement", "Stunden Cluster"] as const;
 
 const VERDICTS: [Exclude<Validity, null>, string, typeof VALID_TONE][] = [
   ["valid", "Valide", VALID_TONE],
@@ -2440,7 +2439,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [confirmations, setConfirmations] = useState<string[]>(() => parseArr(example.confirmations));
   const [validity, setValidity] = useState<Validity>(() => normalizeValidity(example.validity));
   const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseArr(example.invalidReasons));
-  const [zone, setZone] = useState<Zone>(() => normalizeZone(example.zone));
+  const [zone, setZone] = useState<string | null>(example.zone);
   const [tradeTypes, setTradeTypes] = useState<string[]>(() => parseArr(example.tradeTypes));
   const vocabulary = useContext(TagVocabularyContext);
   /**
@@ -2736,14 +2735,25 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
           />
           <ChipDropdown
             placeholder="Zone"
-            options={ZONES.map(([, text]) => text)}
-            selected={zone ? [ZONES.find(([key]) => key === zone)![1]] : []}
+            options={optionsFor("zone", zone ? [zone] : [])}
+            selected={zone ? [zone] : []}
             visible={headerHover}
             onToggle={(value) => {
-              const key = ZONES.find(([, text]) => text === value)![0];
-              const next = zone === key ? null : key;
+              const next = zone === value ? null : value;
               setZone(next);
               updateExample(example.id, { zone: next });
+            }}
+            onAdd={(value) => {
+              vocabulary.remember("zone", value);
+              setZone(value);
+              updateExample(example.id, { zone: value });
+            }}
+            canRemove={(value) => !(ZONES as readonly string[]).includes(value)}
+            onRemoveOption={(value) => {
+              if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+              setZone((prev) => (prev === value ? null : prev));
+              deleteTagValue("zone", value).then(onChanged);
+              return true;
             }}
           />
           <ChipDropdown

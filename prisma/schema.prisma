@@ -144,9 +144,8 @@ model NoteExample {
   // JSON array rather than a single value. Empty until any is ticked.
   tradeTypes     String?
 
-  // Which kind of zone the trade was taken on: "retournement" or "stunden".
-  // One of a fixed pair rather than free text, since it is the same question
-  // asked of every example — and null until it is answered.
+  // Which kind of zone the trade was taken on, held as the word itself so the
+  // list can be added to. Two ship with the app; null until one is chosen.
   zone           String?
 
   // Folded, for the same reason as Note.collapsed.
