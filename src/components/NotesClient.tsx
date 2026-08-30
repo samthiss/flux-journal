@@ -1764,11 +1764,22 @@ function ExampleCategory({
   const vocabulary = useContext(TagVocabularyContext);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  // What the last bulk action did. The cards it changed are often below the
+  // fold, so without a word here the click looks like it did nothing.
+  const [bulkNote, setBulkNote] = useState<string | null>(null);
+  // `label` differs from `value` for the verdict alone, which is stored as a
+  // key and read as a word.
+  const applyToSelection = (field: TagField | "validity", value: string, label = value) => {
+    const count = selected.length;
+    setBulkNote(`« ${label} » sur ${count} exemple${count > 1 ? "s" : ""}`);
+    applyTagToExamples(selected, field, value).then(onChanged);
+  };
   const toggleSelected = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const stopSelecting = () => {
     setSelecting(false);
     setSelected([]);
+    setBulkNote(null);
   };
 
   const dragExampleRef = useRef<string | null>(null);
@@ -2061,11 +2072,11 @@ function ExampleCategory({
                 selected={[]}
                 multiple
                 visible
-                onToggle={(value) => applyTagToExamples(selected, "tradeTypes", value).then(onChanged)}
+                onToggle={(value) => applyToSelection("tradeTypes", value)}
                 onAdd={(value) => {
                   vocabulary.remember("tradeType", value);
                   restoreTagValue("tradeTypes", value);
-                  applyTagToExamples(selected, "tradeTypes", value).then(onChanged);
+                  applyToSelection("tradeTypes", value);
                 }}
               />
               <ChipDropdown
@@ -2074,11 +2085,11 @@ function ExampleCategory({
                 selected={[]}
                 multiple
                 visible
-                onToggle={(value) => applyTagToExamples(selected, "confirmations", value).then(onChanged)}
+                onToggle={(value) => applyToSelection("confirmations", value)}
                 onAdd={(value) => {
                   vocabulary.remember("confirmation", value);
                   restoreTagValue("confirmations", value);
-                  applyTagToExamples(selected, "confirmations", value).then(onChanged);
+                  applyToSelection("confirmations", value);
                 }}
               />
               <ChipDropdown
@@ -2086,11 +2097,11 @@ function ExampleCategory({
                 options={vocabulary.values("zone")}
                 selected={[]}
                 visible
-                onToggle={(value) => applyTagToExamples(selected, "zone", value).then(onChanged)}
+                onToggle={(value) => applyToSelection("zone", value)}
                 onAdd={(value) => {
                   vocabulary.remember("zone", value);
                   restoreTagValue("zone", value);
-                  applyTagToExamples(selected, "zone", value).then(onChanged);
+                  applyToSelection("zone", value);
                 }}
               />
               <ChipDropdown
@@ -2100,7 +2111,7 @@ function ExampleCategory({
                 visible
                 onToggle={(text) => {
                   const key = VERDICTS.find(([, t]) => t === text)![0];
-                  applyTagToExamples(selected, "validity", key).then(onChanged);
+                  applyToSelection("validity", key, text);
                 }}
               />
             </>
@@ -2117,6 +2128,11 @@ function ExampleCategory({
                 onChanged();
               }}
             />
+          )}
+          {bulkNote && (
+            <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10.5, color: accentColor }}>
+              ✓ {bulkNote}
+            </span>
           )}
           <span
             onClick={stopSelecting}
@@ -2675,6 +2691,29 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseArr(example.invalidReasons));
   const [zone, setZone] = useState<string | null>(example.zone);
   const [tradeTypes, setTradeTypes] = useState<string[]>(() => parseArr(example.tradeTypes));
+
+  // The annotations are held here so a click paints immediately, but they are
+  // initialised once — and the server can change them behind this card's back:
+  // tagging a selection writes to every ticked example, of which this may be
+  // one. Re-synced when the row that arrives differs from the row we last read,
+  // never on a plain re-render, which would wipe a click not yet saved.
+  const annotationsKey = [
+    example.confirmations,
+    example.validity,
+    example.invalidReasons,
+    example.zone,
+    example.tradeTypes,
+  ].join("|");
+  const syncedAnnotations = useRef(annotationsKey);
+  useEffect(() => {
+    if (syncedAnnotations.current === annotationsKey) return;
+    syncedAnnotations.current = annotationsKey;
+    setConfirmations(parseArr(example.confirmations));
+    setValidity(normalizeValidity(example.validity));
+    setInvalidReasons(parseArr(example.invalidReasons));
+    setZone(example.zone);
+    setTradeTypes(parseArr(example.tradeTypes));
+  }, [annotationsKey, example]);
   const vocabulary = useContext(TagVocabularyContext);
   /**
    * What the journal knows of a vocabulary, plus anything on this card it has
