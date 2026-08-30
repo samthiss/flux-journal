@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getNoteTreeWithCategories, moveExample, createCategoryNamed } from "@/lib/actions/notes";
 import { accentColor } from "@/lib/theme";
+import { useMenuDismiss } from "@/components/useMenuDismiss";
 
 type NoteRow = { id: string; title: string; parentId: string | null; order: number };
 type TreeNode = NoteRow & { children: TreeNode[] };
@@ -58,6 +59,8 @@ export default function MoveExampleMenu({
   const [query, setQuery] = useState("");
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [creatingCategory, setCreatingCategory] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
   const [newCategoryName, setNewCategoryName] = useState("");
   const [moving, setMoving] = useState(false);
 
@@ -113,8 +116,8 @@ export default function MoveExampleMenu({
 
   return (
     <div
+      ref={wrapper}
       style={{ position: "relative", flex: "none", opacity: visible || open ? 1 : 0, transition: "opacity 0.12s ease" }}
-      onMouseLeave={() => !creatingCategory && setOpen(false)}
     >
       <span
         onClick={(e) => {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } fr
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { accentColor, neonGlow } from "@/lib/theme";
+import { useMenuDismiss } from "@/components/useMenuDismiss";
 import { getNoteTree, createNote, reorderNote, deleteNote, setNoteCollapsed } from "@/lib/actions/notes";
 import { signOut } from "@/app/login/actions";
 
@@ -84,11 +85,13 @@ function TrashIcon() {
 
 function MoreMenuButton({ onDelete, className }: { onDelete: () => void; className?: string }) {
   const [open, setOpen] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
   return (
     <div
+      ref={wrapper}
       className={className}
       style={{ position: "relative", flex: "none", opacity: open ? 1 : undefined }}
-      onMouseLeave={() => setOpen(false)}
     >
       <span
         onClick={(e) => {

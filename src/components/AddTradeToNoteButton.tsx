@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getNoteTreeWithCategories, addTradeExampleToNote, createCategoryNamed } from "@/lib/actions/notes";
 import { accentColor } from "@/lib/theme";
+import { useMenuDismiss } from "@/components/useMenuDismiss";
 
 type NoteRow = { id: string; title: string; parentId: string | null; order: number };
 type TreeNode = NoteRow & { children: TreeNode[] };
@@ -45,6 +46,8 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
 
   useEffect(() => {
     if (!open || notes.length > 0) return;
@@ -86,7 +89,7 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
   }
 
   return (
-    <div style={{ position: "relative", flexShrink: 0 }}>
+    <div ref={wrapper} style={{ position: "relative", flexShrink: 0 }}>
       <button
         onClick={() => setOpen((o) => !o)}
         style={{
@@ -110,7 +113,6 @@ export default function AddTradeToNoteButton({ tradeId }: { tradeId: string }) {
 
       {open && (
         <div
-          onMouseLeave={() => setOpen(false)}
           style={{
             position: "absolute",
             top: "110%",

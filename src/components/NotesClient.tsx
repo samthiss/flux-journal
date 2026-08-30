@@ -9,6 +9,7 @@ import { accentColor } from "@/lib/theme";
 import ImageLightbox from "@/components/ImageLightbox";
 import MoveExampleMenu from "@/components/MoveExampleMenu";
 import MoveCategoryMenu from "@/components/MoveCategoryMenu";
+import { useMenuDismiss } from "@/components/useMenuDismiss";
 import {
   renameNote,
   deleteNote,
@@ -256,8 +257,10 @@ function GripIcon() {
 
 function GripMenuButton({ onDelete, onDragStart, visible }: { onDelete: () => void; onDragStart?: (e: React.MouseEvent) => void; visible: boolean }) {
   const [open, setOpen] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
   return (
-    <div style={{ position: "relative", opacity: visible || open ? 1 : 0, transition: "opacity 0.12s ease" }} onMouseLeave={() => setOpen(false)}>
+    <div ref={wrapper} style={{ position: "relative", opacity: visible || open ? 1 : 0, transition: "opacity 0.12s ease" }}>
       <span
         onMouseDown={onDragStart}
         onClick={(e) => {
@@ -369,10 +372,12 @@ function MoreMenuButton({
   visible: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
   return (
     <div
+      ref={wrapper}
       style={{ position: "relative", flex: "none", opacity: visible || open ? 1 : 0, transition: "opacity 0.12s ease" }}
-      onMouseLeave={() => setOpen(false)}
     >
       <span
         onClick={(e) => {
@@ -1415,9 +1420,11 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
 
 function AddBlockButton({ visible, onAdd }: { visible: boolean; onAdd: (type: string) => void }) {
   const [open, setOpen] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
   const options = Object.entries(BLOCK_TYPE_LABELS).filter(([key]) => key !== "exemples");
   return (
-    <div style={{ position: "relative", flex: "none", opacity: visible || open ? 1 : 0, transition: "opacity 0.12s ease" }} onMouseLeave={() => setOpen(false)}>
+    <div ref={wrapper} style={{ position: "relative", flex: "none", opacity: visible || open ? 1 : 0, transition: "opacity 0.12s ease" }}>
       <span
         onClick={(e) => {
           e.stopPropagation();
@@ -2194,6 +2201,8 @@ function ChipDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
 
   // Nothing answered and the pointer elsewhere: the card stays clean.
   if (!selected.length && !visible) return null;
@@ -2202,7 +2211,7 @@ function ChipDropdown({
   const label = selected.length ? selected.join(" · ") : placeholder;
 
   return (
-    <div style={{ position: "relative", flex: "none" }} onMouseLeave={() => setOpen(false)}>
+    <div ref={wrapper} style={{ position: "relative", flex: "none" }}>
       <span
         onClick={() => setOpen((o) => !o)}
         style={{
@@ -2831,9 +2840,12 @@ function TradePicker({ onSelect, onClose }: { onSelect: (tradeId: string) => voi
     };
   }, [query]);
 
+  const panel = useRef<HTMLDivElement>(null);
+  useMenuDismiss(true, panel, onClose);
+
   return (
     <div
-      onMouseLeave={onClose}
+      ref={panel}
       style={{
         position: "absolute",
         bottom: "110%",

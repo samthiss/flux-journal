@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getNoteTreeWithCategories, moveCategory } from "@/lib/actions/notes";
+import { useMenuDismiss } from "@/components/useMenuDismiss";
 
 type NoteRow = { id: string; title: string; parentId: string | null; order: number };
 type TreeNode = NoteRow & { children: TreeNode[] };
@@ -54,6 +55,8 @@ export default function MoveCategoryMenu({
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [query, setQuery] = useState("");
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
 
   useEffect(() => {
     if (!open || notes.length > 0) return;
@@ -68,7 +71,7 @@ export default function MoveCategoryMenu({
   );
 
   return (
-    <div style={{ position: "relative", flex: "none", opacity: visible || open ? 1 : 0, transition: "opacity 0.12s ease" }}>
+    <div ref={wrapper} style={{ position: "relative", flex: "none", opacity: visible || open ? 1 : 0, transition: "opacity 0.12s ease" }}>
       <span
         onClick={() => setOpen((o) => !o)}
         title="Déplacer la catégorie dans une autre note"
@@ -88,7 +91,6 @@ export default function MoveCategoryMenu({
 
       {open && (
         <div
-          onMouseLeave={() => setOpen(false)}
           style={{
             position: "absolute",
             top: "130%",
