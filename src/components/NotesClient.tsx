@@ -2033,7 +2033,10 @@ function ExampleCategory({
             padding: "8px 12px",
             border: "1px solid oklch(0.84 0.17 196 / 0.3)",
             background: "oklch(0.84 0.17 196 / 0.07)",
-            clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)",
+            borderRadius: 4,
+            // No cut corners here, unlike the panels elsewhere: clip-path also
+            // clips what overflows, and the move menu opens downward out of
+            // this bar — bevelled, it was sliced off at the edge.
           }}
         >
           <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 11, color: accentColor }}>
