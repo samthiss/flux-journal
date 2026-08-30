@@ -373,32 +373,34 @@ export async function duplicateExample(id: string) {
 }
 
 /**
- * Removes a trade type from the vocabulary, by removing it from every example
- * that carries it.
+ * Removes a value from one of the example vocabularies, by removing it from
+ * every example that carries it.
  *
- * There is no table of types: the vocabulary is whatever the examples have
- * been ticked with, so forgetting a type means untickng it everywhere. That is
- * the point — a type added by mistake would otherwise sit in the list forever
- * — and it is why only the ones added by hand can be deleted: the five the app
- * ships with are in the code and would come straight back.
+ * There is no table of tags: a vocabulary is whatever the examples have been
+ * written with, so forgetting a word means erasing it everywhere. That is the
+ * point — a type or a confirmation added by mistake would otherwise sit in the
+ * list for good.
  */
-export async function deleteTradeType(value: string) {
+export async function deleteTagValue(
+  field: "tradeTypes" | "confirmations" | "invalidReasons",
+  value: string
+) {
   const examples = await prisma.noteExample.findMany({
-    where: { tradeTypes: { contains: value } },
-    select: { id: true, tradeTypes: true },
+    where: { [field]: { contains: value } },
+    select: { id: true, tradeTypes: true, confirmations: true, invalidReasons: true },
   });
 
   for (const example of examples) {
-    let types: string[];
+    let values: string[];
     try {
-      types = JSON.parse(example.tradeTypes ?? "[]");
+      values = JSON.parse(example[field] ?? "[]");
     } catch {
       continue;
     }
-    if (!Array.isArray(types) || !types.includes(value)) continue;
+    if (!Array.isArray(values) || !values.includes(value)) continue;
     await prisma.noteExample.update({
       where: { id: example.id },
-      data: { tradeTypes: JSON.stringify(types.filter((t) => t !== value)) },
+      data: { [field]: JSON.stringify(values.filter((v) => v !== value)) },
     });
   }
 

@@ -23,7 +23,7 @@ import {
   createExample,
   updateExample,
   deleteExample,
-  deleteTradeType,
+  deleteTagValue,
   duplicateExample,
   reorderExamples,
   reorderCategories,
@@ -2135,22 +2135,8 @@ function tagTone(value: string) {
 }
 
 /**
- * What the trade was. Several can be true of the same trade — a rebound inside
- * a range taken against the trend is all three at once — so these are ticked,
- * not picked, and the list is fixed: it is a vocabulary, not free text.
- */
-const TRADE_TYPES = [
-  "Rebond sur range",
-  "Trend",
-  "Range",
-  "Contre la tendance",
-  "Revient dans la VA / VWAP & Rebondit",
-] as const;
-
-/**
  * The kind of zone the trade was taken on — one of a fixed pair, since it is
- * the same question asked of every example. Their colours come from the tag
- * palette so they sit naturally among the chips beside them.
+ * the same question asked of every example.
  */
 type Zone = "retournement" | "stunden" | null;
 
@@ -2169,182 +2155,19 @@ const VERDICTS: [Exclude<Validity, null>, string, typeof VALID_TONE][] = [
   ["risk", "Risque", RISK_TONE],
 ];
 
-// The chip rows an example carries under its title: the confirmations that were
-// present, and — once it is marked invalid — the reasons why. Both lists are
-// free text the reader types themselves, so there is no preset vocabulary here.
-// The input commits on Enter and on blur, the way the tag input in
-// AddTradeToNoteButton already does.
-function ChipList({
-  label,
-  values,
-  kind,
-  tone,
-  tonePerValue,
-  placeholder,
-  visible,
-  onChange,
-}: {
-  label?: string;
-  values: string[];
-  kind: TagKind;
-  /** Fallback tone, used for the input and for anything not coloured per value. */
-  tone: { fg: string; bg: string; line: string };
-  /** When set, every chip takes the colour of the word it carries. */
-  tonePerValue?: boolean;
-  placeholder: string;
-  visible: boolean;
-  onChange: (next: string[]) => void;
-}) {
-  const [draft, setDraft] = useState("");
-  const [picking, setPicking] = useState(false);
-  const vocabulary = useContext(TagVocabularyContext);
-
-  const add = (value: string) => {
-    const v = value.trim();
-    if (!v || values.includes(v)) return;
-    vocabulary.remember(kind, v);
-    onChange([...values, v]);
-  };
-  const commit = () => {
-    add(draft);
-    setDraft("");
-  };
-
-  // What has been written elsewhere and is not already on this example. The
-  // draft narrows it as it is typed, so the input is both a filter over the
-  // known words and the way to write a new one.
-  const query = draft.trim().toLowerCase();
-  const suggestions = vocabulary
-    .values(kind)
-    .filter((v) => !values.includes(v) && v.toLowerCase().includes(query))
-    .slice(0, 8);
-
-  // Nothing written yet and the pointer is elsewhere: the row would be a lone
-  // label, so it stays out of the card until the header is hovered.
-  if (!values.length && !visible) return null;
-
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>{label}</span>
-      {values.map((v, i) => {
-        const chipTone = tonePerValue ? tagTone(v) : tone;
-        return (
-        <span
-          key={i}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 5,
-            fontFamily: "var(--font-jetbrains-mono), monospace",
-            fontSize: 10,
-            padding: "3px 6px 3px 9px",
-            borderRadius: 999,
-            background: chipTone.bg,
-            border: `1px solid ${chipTone.line}`,
-            color: chipTone.fg,
-          }}
-        >
-          {v}
-          <span onClick={() => onChange(values.filter((_, xi) => xi !== i))} style={{ cursor: "pointer", fontSize: 11, opacity: 0.7 }}>
-            ✕
-          </span>
-        </span>
-        );
-      })}
-      {visible && (
-        <span style={{ position: "relative", display: "inline-flex" }}>
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onFocus={() => setPicking(true)}
-            onBlur={() => {
-              setPicking(false);
-              commit();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commit();
-              }
-              if (e.key === "Escape") {
-                setDraft("");
-                setPicking(false);
-              }
-            }}
-            placeholder={placeholder}
-            style={{
-              width: 130,
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-              fontSize: 10,
-              padding: "3px 8px",
-              borderRadius: 999,
-              border: "1px dashed oklch(0.34 0.034 250)",
-              background: "transparent",
-              color: "oklch(0.8 0.034 250)",
-              outline: "none",
-            }}
-          />
-          {picking && suggestions.length > 0 && (
-            <div
-              style={{
-                position: "absolute",
-                top: "calc(100% + 4px)",
-                left: 0,
-                zIndex: 30,
-                minWidth: 150,
-                maxHeight: 200,
-                overflowY: "auto",
-                padding: 4,
-                borderRadius: 8,
-                border: "1px solid oklch(0.34 0.034 250)",
-                background: "oklch(0.21 0.034 250)",
-                boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
-              }}
-            >
-              {suggestions.map((v) => (
-                <div
-                  key={v}
-                  // mousedown, not click: the blur that a click fires first
-                  // would close this list before the click ever landed.
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    add(v);
-                    setDraft("");
-                  }}
-                  style={{
-                    fontFamily: "var(--font-jetbrains-mono), monospace",
-                    fontSize: 10,
-                    padding: "5px 8px",
-                    borderRadius: 5,
-                    cursor: "pointer",
-                    color: tonePerValue ? tagTone(v).fg : tone.fg,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {v}
-                </div>
-              ))}
-            </div>
-          )}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// Valide / Invalid. Clicking the side already chosen clears it, so an example
-// can go back to undecided without a third button. Once a side is picked the
-// other one is hidden unless the header is hovered: the card should read as its
-// verdict, not as a pair of buttons.
-
 /**
- * A pull-down for a fixed set of answers.
- *
- * Ten chips laid end to end — five kinds of trade, two zones, three verdicts —
- * pushed the images down and read as a form. Closed, this shows only what was
- * answered; open, it is the list of what could be. Multi-select for the kinds a
- * trade can be several of at once, single for the ones it can only be one of.
+ * What the trade was. Several can be true of the same trade — a rebound inside
+ * a range taken against the trend is all three at once — so these are ticked,
+ * not picked, and the list is fixed: it is a vocabulary, not free text.
  */
+const TRADE_TYPES = [
+  "Rebond sur range",
+  "Trend",
+  "Range",
+  "Contre la tendance",
+  "Revient dans la VA / VWAP & Rebondit",
+] as const;
+
 function ChipDropdown({
   placeholder,
   options,
@@ -2518,9 +2341,15 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [zone, setZone] = useState<Zone>(() => normalizeZone(example.zone));
   const [tradeTypes, setTradeTypes] = useState<string[]>(() => parseArr(example.tradeTypes));
   const vocabulary = useContext(TagVocabularyContext);
-  // What the journal knows, plus anything ticked here it has not seen yet.
-  const known = vocabulary.values("tradeType");
-  const typeOptions = [...known, ...tradeTypes.filter((t) => !known.includes(t))];
+  /**
+   * What the journal knows of a vocabulary, plus anything on this card it has
+   * not seen yet — a word written a second ago has not reached the page data.
+   */
+  const optionsFor = (kind: TagKind, current: string[]) => {
+    const known = vocabulary.values(kind);
+    return [...known, ...current.filter((v) => !known.includes(v))];
+  };
+  const typeOptions = optionsFor("tradeType", tradeTypes);
 
   // Starts from what the server sent, so a folded example is already folded in
   // the very first paint. The write is not awaited and nothing is revalidated:
@@ -2744,16 +2573,31 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             rather than three labelled rows: they describe the same trade, and
             the chips say what they are without a word in front of them. */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <ChipList
-            values={confirmations}
-            kind="confirmation"
-            tone={VALID_TONE}
-            tonePerValue
-            placeholder="+ confirmation"
+          <ChipDropdown
+            placeholder="Confirmation"
+            options={optionsFor("confirmation", confirmations)}
+            selected={confirmations}
+            multiple
             visible={headerHover}
-            onChange={(next) => {
+            onToggle={(value) => {
+              const next = confirmations.includes(value)
+                ? confirmations.filter((v) => v !== value)
+                : [...confirmations, value];
               setConfirmations(next);
               updateExample(example.id, { confirmations: next });
+            }}
+            onAdd={(value) => {
+              if (confirmations.includes(value)) return;
+              vocabulary.remember("confirmation", value);
+              const next = [...confirmations, value];
+              setConfirmations(next);
+              updateExample(example.id, { confirmations: next });
+            }}
+            onRemoveOption={(value) => {
+              if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+              setConfirmations((prev) => prev.filter((v) => v !== value));
+              deleteTagValue("confirmations", value).then(onChanged);
+              return true;
             }}
           />
           <ChipDropdown
@@ -2784,7 +2628,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               setTradeTypes((prev) => prev.filter((v) => v !== value));
               // Other cards carry the same type: the page has to be refetched
               // for it to leave them and the list of options too.
-              deleteTradeType(value).then(onChanged);
+              deleteTagValue("tradeTypes", value).then(onChanged);
               return true;
             }}
           />
@@ -2813,16 +2657,31 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             }}
           />
           {(validity === "invalid" || validity === "risk") && (
-            <ChipList
-              values={invalidReasons}
-              kind="invalidReason"
-              tone={validity === "risk" ? RISK_TONE : INVALID_TONE}
-              tonePerValue
-              placeholder="+ raison"
+            <ChipDropdown
+              placeholder="Raison"
+              options={optionsFor("invalidReason", invalidReasons)}
+              selected={invalidReasons}
+              multiple
               visible={headerHover}
-              onChange={(next) => {
+              onToggle={(value) => {
+                const next = invalidReasons.includes(value)
+                  ? invalidReasons.filter((v) => v !== value)
+                  : [...invalidReasons, value];
                 setInvalidReasons(next);
                 updateExample(example.id, { invalidReasons: next });
+              }}
+              onAdd={(value) => {
+                if (invalidReasons.includes(value)) return;
+                vocabulary.remember("invalidReason", value);
+                const next = [...invalidReasons, value];
+                setInvalidReasons(next);
+                updateExample(example.id, { invalidReasons: next });
+              }}
+              onRemoveOption={(value) => {
+                if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+                setInvalidReasons((prev) => prev.filter((v) => v !== value));
+                deleteTagValue("invalidReasons", value).then(onChanged);
+                return true;
               }}
             />
           )}
