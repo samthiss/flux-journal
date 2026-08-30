@@ -1507,20 +1507,47 @@ function FilterRow({
   label,
   values,
   selected,
+  toneFor,
   onToggle,
 }: {
   label: string;
   values: string[];
   selected: string[];
+  /** The verdict keeps its fixed colours; everything else takes the tag palette. */
+  toneFor?: (value: string) => { fg: string; bg: string; line: string };
   onToggle: (value: string) => void;
 }) {
   if (!values.length) return null;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>{label}</span>
-      {values.map((v) => (
-        <FilterChip key={v} label={v} tone={tagTone(v)} on={selected.includes(v)} onClick={() => onToggle(v)} />
-      ))}
+    // The label sits in a column of its own so every row's chips start at the
+    // same place: four ragged rows read as four controls, aligned they read as
+    // one.
+    <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-jetbrains-mono), monospace",
+          fontSize: 10,
+          letterSpacing: "0.06em",
+          color: "oklch(0.5 0.03 250)",
+          width: 78,
+          flex: "none",
+          textAlign: "right",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minWidth: 0 }}>
+        {values.map((v) => (
+          <FilterChip
+            key={v}
+            label={v}
+            tone={toneFor ? toneFor(v) : tagTone(v)}
+            on={selected.includes(v)}
+            onClick={() => onToggle(v)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -1540,16 +1567,24 @@ function FilterChip({
     <span
       onClick={onClick}
       style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
         fontFamily: "var(--font-jetbrains-mono), monospace",
         fontSize: 10,
-        padding: "3px 9px",
+        padding: on ? "3px 9px 3px 7px" : "3px 9px",
         borderRadius: 999,
         cursor: "pointer",
-        border: `1px solid ${on ? tone.line : "oklch(0.32 0.034 250)"}`,
+        border: `1px solid ${on ? tone.line : "oklch(0.3 0.034 250)"}`,
         background: on ? tone.bg : "transparent",
-        color: on ? tone.fg : "oklch(0.58 0.034 250)",
+        color: on ? tone.fg : "oklch(0.55 0.034 250)",
+        // A picked chip is lit as well as filled: on a row of ten, colour alone
+        // is not enough to find the two that are on.
+        boxShadow: on ? `0 0 12px -4px ${tone.fg}` : "none",
+        transition: "background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease",
       }}
     >
+      {on && <span style={{ fontSize: 9 }}>✓</span>}
       {label}
     </span>
   );
@@ -1771,53 +1806,98 @@ function ExampleCategory({
         {onAddBlock && <AddBlockButton visible={hover} onAdd={onAddBlock} />}
       </div>
       {!collapsed && filterOpen && hasAnythingToFilter && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginLeft: "var(--note-indent)", marginBottom: 14 }}>
-          <FilterRow
-            label="Confirmation:"
-            values={available.confirmations}
-            selected={confirmationFilter}
-            onToggle={(v) => toggleIn(confirmationFilter, setConfirmationFilter, v)}
-          />
-          <FilterRow
-            label="Type:"
-            values={[...available.types]}
-            selected={typeFilter}
-            onToggle={(v) => toggleIn(typeFilter, setTypeFilter, v)}
-          />
-          {available.hasZone && (
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-              <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 250)" }}>Zone:</span>
-              {ZONES.map(([key, text]) => (
-                <FilterChip
-                  key={key}
-                  label={text}
-                  tone={tagTone(text)}
-                  on={zoneFilter === key}
-                  onClick={() => setZoneFilter(zoneFilter === key ? null : key)}
-                />
-              ))}
-            </div>
-          )}
-          {available.hasValidity && (
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-              <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.034 250)" }}>Verdict:</span>
-              {VERDICTS.map(([side, text, tone]) => (
-                <FilterChip
-                  key={side}
-                  label={text}
-                  tone={tone}
-                  on={validityFilter === side}
-                  onClick={() => setValidityFilter(validityFilter === side ? null : side)}
-                />
-              ))}
-            </div>
-          )}
-          <FilterRow
-            label="Invalid reason:"
-            values={available.reasons}
-            selected={reasonFilter}
-            onToggle={(v) => toggleIn(reasonFilter, setReasonFilter, v)}
-          />
+        // A panel rather than four loose rows: the labels line up in a column
+        // of their own so the chips start at the same place, and the whole
+        // thing reads as one control instead of a pile of them.
+        <div
+          style={{
+            marginLeft: "var(--note-indent)",
+            marginBottom: 16,
+            padding: "14px 16px",
+            border: "1px solid oklch(0.84 0.17 196 / 0.2)",
+            background: "oklch(0.16 0.03 250 / 0.55)",
+            boxShadow: "inset 0 0 0 1px oklch(0.84 0.17 196 / 0.04)",
+            clipPath: "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+              gap: 12,
+              paddingBottom: 10,
+              marginBottom: 12,
+              borderBottom: "1px solid oklch(0.84 0.17 196 / 0.14)",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-jetbrains-mono), monospace",
+                fontSize: 10,
+                letterSpacing: "0.14em",
+                color: accentColor,
+              }}
+            >
+              FILTRE
+            </span>
+            <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10.5, color: "oklch(0.55 0.03 250)" }}>
+              {filtering ? (
+                <>
+                  <span style={{ color: accentColor }}>{shown.length}</span> / {examples.length} exemples ·{" "}
+                  <span onClick={clearFilter} style={{ cursor: "pointer", textDecoration: "underline" }}>
+                    tout effacer
+                  </span>
+                </>
+              ) : (
+                `${examples.length} exemples`
+              )}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <FilterRow
+              label="Confirmation"
+              values={available.confirmations}
+              selected={confirmationFilter}
+              onToggle={(v) => toggleIn(confirmationFilter, setConfirmationFilter, v)}
+            />
+            <FilterRow
+              label="Type"
+              values={[...available.types]}
+              selected={typeFilter}
+              onToggle={(v) => toggleIn(typeFilter, setTypeFilter, v)}
+            />
+            {available.hasZone && (
+              <FilterRow
+                label="Zone"
+                values={ZONES.map(([, text]) => text)}
+                selected={zoneFilter ? [ZONES.find(([key]) => key === zoneFilter)![1]] : []}
+                onToggle={(v) => {
+                  const key = ZONES.find(([, text]) => text === v)![0];
+                  setZoneFilter(zoneFilter === key ? null : key);
+                }}
+              />
+            )}
+            {available.hasValidity && (
+              <FilterRow
+                label="Verdict"
+                values={VERDICTS.map(([, text]) => text)}
+                selected={validityFilter ? [VERDICTS.find(([key]) => key === validityFilter)![1]] : []}
+                toneFor={(v) => VERDICTS.find(([, text]) => text === v)![2]}
+                onToggle={(v) => {
+                  const key = VERDICTS.find(([, text]) => text === v)![0];
+                  setValidityFilter(validityFilter === key ? null : key);
+                }}
+              />
+            )}
+            <FilterRow
+              label="Raison"
+              values={available.reasons}
+              selected={reasonFilter}
+              onToggle={(v) => toggleIn(reasonFilter, setReasonFilter, v)}
+            />
+          </div>
         </div>
       )}
       {!collapsed && blocks && blocks.length > 0 && (
