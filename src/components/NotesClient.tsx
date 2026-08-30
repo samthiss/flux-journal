@@ -35,6 +35,8 @@ import {
   setUncategorizedCollapsed,
   searchTrades,
   importTradeImages,
+  restoreTagValue,
+  type TagField,
 } from "@/lib/actions/notes";
 
 const lossColor = "oklch(0.7 0.25 18)";
@@ -106,6 +108,21 @@ type TagVocabulary = {
   // Keeps a value that was just typed in the list without waiting for the page
   // data to come back, so it can be reused on the next example straight away.
   remember: (kind: TagKind, value: string) => void;
+};
+
+/** The column each vocabulary lives in, which is how a removal is recorded. */
+const KIND_TO_FIELD: Record<TagKind, TagField> = {
+  confirmation: "confirmations",
+  invalidReason: "invalidReasons",
+  tradeType: "tradeTypes",
+  zone: "zone",
+};
+
+const FIELD_TO_KIND: Record<string, TagKind> = {
+  confirmations: "confirmation",
+  invalidReasons: "invalidReason",
+  tradeTypes: "tradeType",
+  zone: "zone",
 };
 
 const TagVocabularyContext = createContext<TagVocabulary>({ values: () => [], remember: () => {} });
@@ -465,6 +482,7 @@ export default function NotesClient({
   categories,
   examples,
   images,
+  hiddenTagOptions,
   initialCollapsedNotes,
 }: {
   notes: NoteRecord[];
@@ -472,6 +490,7 @@ export default function NotesClient({
   categories: CategoryRecord[];
   examples: ExampleRecord[];
   images: ImageRecord[];
+  hiddenTagOptions: { kind: string; value: string }[];
   initialCollapsedNotes: string[];
 }) {
   const router = useRouter();
@@ -515,6 +534,16 @@ export default function NotesClient({
     zone: [],
   });
 
+  const hidden = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const row of hiddenTagOptions) {
+      const kind = FIELD_TO_KIND[row.kind];
+      if (!kind) continue;
+      map.set(kind, (map.get(kind) ?? new Set()).add(row.value));
+    }
+    return map;
+  }, [hiddenTagOptions]);
+
   const vocabulary = useMemo<TagVocabulary>(() => {
     const count = (pick: (e: ExampleRecord) => string | null, fresh: string[]) => {
       const counts = new Map<string, number>();
@@ -545,11 +574,13 @@ export default function NotesClient({
       ],
     };
     return {
-      values: (kind) => ranked[kind],
+      // A word the reader removed is gone from every list, including the ones
+      // the app ships with — that is the whole point of remembering it.
+      values: (kind) => ranked[kind].filter((v) => !hidden.get(kind)?.has(v)),
       remember: (kind, value) =>
         setFreshTags((prev) => (prev[kind].includes(value) ? prev : { ...prev, [kind]: [...prev[kind], value] })),
     };
-  }, [examples, freshTags]);
+  }, [examples, freshTags, hidden]);
 
   return (
     <TagVocabularyContext.Provider value={vocabulary}>
@@ -2276,7 +2307,6 @@ function ChipDropdown({
   onToggle,
   onAdd,
   onRemoveOption,
-  canRemove,
 }: {
   placeholder: string;
   options: string[];
@@ -2288,8 +2318,6 @@ function ChipDropdown({
   onAdd?: (value: string) => void;
   /** Present when options can be removed from the vocabulary entirely. */
   onRemoveOption?: (value: string) => boolean;
-  /** Which of them can: a ✕ that does nothing is worse than no ✕ at all. */
-  canRemove?: (value: string) => boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -2348,7 +2376,7 @@ function ChipDropdown({
           {options.map((option) => {
             const on = selected.includes(option);
             const optionTone = tagTone(option);
-            const removable = onRemoveOption !== undefined && (!canRemove || canRemove(option));
+            const removable = onRemoveOption !== undefined;
             return (
               <div
                 key={option}
@@ -2449,6 +2477,25 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const optionsFor = (kind: TagKind, current: string[]) => {
     const known = vocabulary.values(kind);
     return [...known, ...current.filter((v) => !known.includes(v))];
+  };
+
+  /**
+   * Forgets a word: off every example that carries it, and out of the list.
+   *
+   * Both halves are needed. Erasing it from the examples alone leaves the ones
+   * the app ships with coming back from the code, and hiding it alone would
+   * leave it written on examples where it no longer appears.
+   */
+  const forget = (kind: TagKind, value: string) => {
+    if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+    deleteTagValue(KIND_TO_FIELD[kind], value).then(onChanged);
+    return true;
+  };
+
+  /** Writing a word again is how a removed one comes back. */
+  const write = (kind: TagKind, value: string) => {
+    vocabulary.remember(kind, value);
+    restoreTagValue(KIND_TO_FIELD[kind], value);
   };
   const typeOptions = optionsFor("tradeType", tradeTypes);
 
@@ -2689,15 +2736,14 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             }}
             onAdd={(value) => {
               if (confirmations.includes(value)) return;
-              vocabulary.remember("confirmation", value);
+              write("confirmation", value);
               const next = [...confirmations, value];
               setConfirmations(next);
               updateExample(example.id, { confirmations: next });
             }}
             onRemoveOption={(value) => {
-              if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+              if (!forget("confirmation", value)) return false;
               setConfirmations((prev) => prev.filter((v) => v !== value));
-              deleteTagValue("confirmations", value).then(onChanged);
               return true;
             }}
           />
@@ -2716,20 +2762,14 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             }}
             onAdd={(value) => {
               if (tradeTypes.includes(value)) return;
-              vocabulary.remember("tradeType", value);
+              write("tradeType", value);
               const next = [...tradeTypes, value];
               setTradeTypes(next);
               updateExample(example.id, { tradeTypes: next });
             }}
-            // One of the five in the code would come straight back on the next
-            // load, so it is not offered for removal.
-            canRemove={(value) => !(TRADE_TYPES as readonly string[]).includes(value)}
             onRemoveOption={(value) => {
-              if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+              if (!forget("tradeType", value)) return false;
               setTradeTypes((prev) => prev.filter((v) => v !== value));
-              // Other cards carry the same type: the page has to be refetched
-              // for it to leave them and the list of options too.
-              deleteTagValue("tradeTypes", value).then(onChanged);
               return true;
             }}
           />
@@ -2744,15 +2784,13 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               updateExample(example.id, { zone: next });
             }}
             onAdd={(value) => {
-              vocabulary.remember("zone", value);
+              write("zone", value);
               setZone(value);
               updateExample(example.id, { zone: value });
             }}
-            canRemove={(value) => !(ZONES as readonly string[]).includes(value)}
             onRemoveOption={(value) => {
-              if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+              if (!forget("zone", value)) return false;
               setZone((prev) => (prev === value ? null : prev));
-              deleteTagValue("zone", value).then(onChanged);
               return true;
             }}
           />
@@ -2784,15 +2822,14 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               }}
               onAdd={(value) => {
                 if (invalidReasons.includes(value)) return;
-                vocabulary.remember("invalidReason", value);
+                write("invalidReason", value);
                 const next = [...invalidReasons, value];
                 setInvalidReasons(next);
                 updateExample(example.id, { invalidReasons: next });
               }}
               onRemoveOption={(value) => {
-                if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+                if (!forget("invalidReason", value)) return false;
                 setInvalidReasons((prev) => prev.filter((v) => v !== value));
-                deleteTagValue("invalidReasons", value).then(onChanged);
                 return true;
               }}
             />

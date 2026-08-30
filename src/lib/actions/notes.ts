@@ -97,13 +97,14 @@ export async function getNotesPageData() {
     prisma.noteCategory.findMany({ orderBy: { order: "asc" } }),
     prisma.noteExample.findMany({ orderBy: { order: "asc" } }),
   ]);
+  const hiddenTagOptions = await prisma.hiddenTagOption.findMany();
   const images = examples.length
     ? await prisma.noteExampleImage.findMany({
         where: { exampleId: { in: examples.map((e) => e.id) } },
         orderBy: { order: "asc" },
       })
     : [];
-  return { notes, blocks, categories, examples, images };
+  return { notes, blocks, categories, examples, images, hiddenTagOptions };
 }
 
 export async function createNote(parentId: string | null) {
@@ -381,10 +382,18 @@ export async function duplicateExample(id: string) {
  * point — a type or a confirmation added by mistake would otherwise sit in the
  * list for good.
  */
-export async function deleteTagValue(
-  field: "tradeTypes" | "confirmations" | "invalidReasons" | "zone",
-  value: string
-) {
+/** The four vocabularies, as the client names them. */
+export type TagField = "tradeTypes" | "confirmations" | "invalidReasons" | "zone";
+
+export async function deleteTagValue(field: TagField, value: string) {
+  // Remembered as removed, so the ones the app ships with do not come straight
+  // back from the code on the next render.
+  await prisma.hiddenTagOption.upsert({
+    where: { kind_value: { kind: field, value } },
+    create: { kind: field, value },
+    update: {},
+  });
+
   // The zone is one word rather than a list of them, so forgetting it is a
   // clear rather than a filter.
   if (field === "zone") {
@@ -412,6 +421,17 @@ export async function deleteTagValue(
     });
   }
 
+  revalidatePath("/notes");
+}
+
+/**
+ * Puts a word back in a vocabulary.
+ *
+ * Writing a word that had been removed is how it comes back — the removal was a
+ * preference, not a ban, and nothing else would let the reader undo it.
+ */
+export async function restoreTagValue(field: TagField, value: string) {
+  await prisma.hiddenTagOption.deleteMany({ where: { kind: field, value } });
   revalidatePath("/notes");
 }
 

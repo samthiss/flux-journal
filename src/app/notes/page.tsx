@@ -14,6 +14,16 @@ export default async function NotesPage() {
     } catch {}
   }
 
-  const { notes, blocks, categories, examples, images } = await getNotesPageData();
-  return <NotesClient notes={notes} blocks={blocks} categories={categories} examples={examples} images={images} initialCollapsedNotes={initialCollapsedNotes} />;
+  const { notes, blocks, categories, examples, images, hiddenTagOptions } = await getNotesPageData();
+  return (
+    <NotesClient
+      notes={notes}
+      blocks={blocks}
+      categories={categories}
+      examples={examples}
+      images={images}
+      hiddenTagOptions={hiddenTagOptions}
+      initialCollapsedNotes={initialCollapsedNotes}
+    />
+  );
 }

@@ -162,6 +162,26 @@ model NoteExample {
   @@index([categoryId])
 }
 
+/**
+ * A vocabulary word the reader has removed.
+ *
+ * Confirmations, reasons, types and zones have no table of their own: the list
+ * offered is whatever the examples carry. That works until one of the words the
+ * app ships with is deleted — it is in the code, so erasing it from every
+ * example does not stop it coming back on the next render. This is where a
+ * removal is remembered, in the database rather than in one browser, so a word
+ * dropped on the laptop stays dropped on the phone.
+ *
+ * Writing the word again removes its row here: the list is a preference, not a
+ * blacklist.
+ */
+model HiddenTagOption {
+  kind  String
+  value String
+
+  @@id([kind, value])
+}
+
 model NoteExampleImage {
   id        String  @id @default(cuid())
   exampleId String
