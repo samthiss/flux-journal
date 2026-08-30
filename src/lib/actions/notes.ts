@@ -425,6 +425,47 @@ export async function deleteTagValue(field: TagField, value: string) {
 }
 
 /**
+ * Writes one vocabulary word onto several examples at once.
+ *
+ * The list fields gain the word if they do not already carry it — ticking a
+ * type on twenty examples must not leave it twice on the three that had it —
+ * while the zone and the verdict are single-valued and are simply set.
+ */
+export async function applyTagToExamples(
+  exampleIds: string[],
+  field: TagField | "validity",
+  value: string
+) {
+  if (!exampleIds.length) return;
+
+  if (field === "zone" || field === "validity") {
+    await prisma.noteExample.updateMany({ where: { id: { in: exampleIds } }, data: { [field]: value } });
+    revalidatePath("/notes");
+    return;
+  }
+
+  const examples = await prisma.noteExample.findMany({
+    where: { id: { in: exampleIds } },
+    select: { id: true, tradeTypes: true, confirmations: true, invalidReasons: true },
+  });
+
+  for (const example of examples) {
+    let values: string[] = [];
+    try {
+      const parsed = JSON.parse(example[field] ?? "[]");
+      if (Array.isArray(parsed)) values = parsed;
+    } catch {}
+    if (values.includes(value)) continue;
+    await prisma.noteExample.update({
+      where: { id: example.id },
+      data: { [field]: JSON.stringify([...values, value]) },
+    });
+  }
+
+  revalidatePath("/notes");
+}
+
+/**
  * Puts a word back in a vocabulary.
  *
  * Writing a word that had been removed is how it comes back — the removal was a

@@ -24,6 +24,7 @@ import {
   createExample,
   updateExample,
   deleteExample,
+  applyTagToExamples,
   deleteTagValue,
   duplicateExample,
   reorderExamples,
@@ -1760,6 +1761,7 @@ function ExampleCategory({
   // would drop the example on the floor. State is kept only for what is drawn.
   // Ticking several examples to move them together. Off by default: a
   // checkbox on every card would be a permanent question about a rare job.
+  const vocabulary = useContext(TagVocabularyContext);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const toggleSelected = (id: string) =>
@@ -2048,6 +2050,61 @@ function ExampleCategory({
           >
             {selected.length === shown.length ? "tout désélectionner" : "tout sélectionner"}
           </span>
+          {selected.length > 0 && (
+            <>
+              {/* The same vocabularies as on a card, written onto every ticked
+                  example at once — the reason to tick several in the first
+                  place is usually that they share something. */}
+              <ChipDropdown
+                placeholder="+ type"
+                options={vocabulary.values("tradeType")}
+                selected={[]}
+                multiple
+                visible
+                onToggle={(value) => applyTagToExamples(selected, "tradeTypes", value).then(onChanged)}
+                onAdd={(value) => {
+                  vocabulary.remember("tradeType", value);
+                  restoreTagValue("tradeTypes", value);
+                  applyTagToExamples(selected, "tradeTypes", value).then(onChanged);
+                }}
+              />
+              <ChipDropdown
+                placeholder="+ confirmation"
+                options={vocabulary.values("confirmation")}
+                selected={[]}
+                multiple
+                visible
+                onToggle={(value) => applyTagToExamples(selected, "confirmations", value).then(onChanged)}
+                onAdd={(value) => {
+                  vocabulary.remember("confirmation", value);
+                  restoreTagValue("confirmations", value);
+                  applyTagToExamples(selected, "confirmations", value).then(onChanged);
+                }}
+              />
+              <ChipDropdown
+                placeholder="zone"
+                options={vocabulary.values("zone")}
+                selected={[]}
+                visible
+                onToggle={(value) => applyTagToExamples(selected, "zone", value).then(onChanged)}
+                onAdd={(value) => {
+                  vocabulary.remember("zone", value);
+                  restoreTagValue("zone", value);
+                  applyTagToExamples(selected, "zone", value).then(onChanged);
+                }}
+              />
+              <ChipDropdown
+                placeholder="verdict"
+                options={VERDICTS.map(([, text]) => text)}
+                selected={[]}
+                visible
+                onToggle={(text) => {
+                  const key = VERDICTS.find(([, t]) => t === text)![0];
+                  applyTagToExamples(selected, "validity", key).then(onChanged);
+                }}
+              />
+            </>
+          )}
           {selected.length > 0 && noteId && (
             <MoveExampleMenu
               exampleIds={selected}
