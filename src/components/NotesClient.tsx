@@ -128,7 +128,7 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
 };
 
 type CategoryRecord = { id: string; noteId: string; name: string; order: number; collapsed: boolean };
-type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; validity: string | null; invalidReasons: string | null; zone: string | null; order: number; collapsed: boolean };
+type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; validity: string | null; invalidReasons: string | null; zone: string | null; tradeTypes: string | null; order: number; collapsed: boolean };
 type ImageRecord = { id: string; exampleId: string; url: string; caption: string | null; tradeId: string | null; order: number; width: number | null; height: number | null };
 type TradeSearchResult = { id: string; symbol: string; date: string; setup: string; side: string; pnl: number; imageCount: number };
 
@@ -1588,6 +1588,7 @@ function ExampleCategory({
   const [validityFilter, setValidityFilter] = useState<Validity>(null);
   const [reasonFilter, setReasonFilter] = useState<string[]>([]);
   const [zoneFilter, setZoneFilter] = useState<Zone>(null);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
   const available = useMemo(() => {
     const collect = (pick: (e: ExampleRecord) => string | null) => {
@@ -1603,11 +1604,18 @@ function ExampleCategory({
       reasons: collect((e) => e.invalidReasons),
       hasValidity: examples.some((e) => normalizeValidity(e.validity) !== null),
       hasZone: examples.some((e) => normalizeZone(e.zone) !== null),
+      // Only the types this category actually uses, in the order they are
+      // declared rather than the order they were first ticked.
+      types: TRADE_TYPES.filter((t) => examples.some((e) => parseArr(e.tradeTypes).includes(t))),
     };
   }, [examples]);
 
   const filtering =
-    confirmationFilter.length > 0 || validityFilter !== null || reasonFilter.length > 0 || zoneFilter !== null;
+    confirmationFilter.length > 0 ||
+    validityFilter !== null ||
+    reasonFilter.length > 0 ||
+    zoneFilter !== null ||
+    typeFilter.length > 0;
 
   // Every selected chip has to match, across the three rows and within each of
   // them: picking two confirmations asks for the examples that showed both, not
@@ -1621,23 +1629,29 @@ function ExampleCategory({
         confirmationFilter.every((v) => confirmations.includes(v)) &&
         (validityFilter === null || normalizeValidity(e.validity) === validityFilter) &&
         (zoneFilter === null || normalizeZone(e.zone) === zoneFilter) &&
+        typeFilter.every((t) => parseArr(e.tradeTypes).includes(t)) &&
         reasonFilter.every((v) => reasons.includes(v))
       );
     });
-  }, [examples, filtering, confirmationFilter, validityFilter, reasonFilter, zoneFilter]);
+  }, [examples, filtering, confirmationFilter, validityFilter, reasonFilter, zoneFilter, typeFilter]);
 
   const clearFilter = () => {
     setConfirmationFilter([]);
     setValidityFilter(null);
     setReasonFilter([]);
     setZoneFilter(null);
+    setTypeFilter([]);
   };
 
   const toggleIn = (list: string[], set: (next: string[]) => void, value: string) =>
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
   const hasAnythingToFilter =
-    available.confirmations.length > 0 || available.reasons.length > 0 || available.hasValidity || available.hasZone;
+    available.confirmations.length > 0 ||
+    available.reasons.length > 0 ||
+    available.hasValidity ||
+    available.hasZone ||
+    available.types.length > 0;
 
   // As for the examples: the fold comes from the server so the first paint is
   // right, and the click writes it back without revalidating.
@@ -1739,6 +1753,12 @@ function ExampleCategory({
             values={available.confirmations}
             selected={confirmationFilter}
             onToggle={(v) => toggleIn(confirmationFilter, setConfirmationFilter, v)}
+          />
+          <FilterRow
+            label="Type:"
+            values={[...available.types]}
+            selected={typeFilter}
+            onToggle={(v) => toggleIn(typeFilter, setTypeFilter, v)}
           />
           {available.hasZone && (
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
@@ -2098,6 +2118,19 @@ function tagTone(value: string) {
 }
 
 /**
+ * What the trade was. Several can be true of the same trade — a rebound inside
+ * a range taken against the trend is all three at once — so these are ticked,
+ * not picked, and the list is fixed: it is a vocabulary, not free text.
+ */
+const TRADE_TYPES = [
+  "Rebond sur range",
+  "Trend",
+  "Range",
+  "Contre la tendance",
+  "Revient dans la VA / VWAP & Rebondit",
+] as const;
+
+/**
  * The kind of zone the trade was taken on — one of a fixed pair, since it is
  * the same question asked of every example. Their colours come from the tag
  * palette so they sit naturally among the chips beside them.
@@ -2286,6 +2319,47 @@ function ChipList({
 // can go back to undecided without a third button. Once a side is picked the
 // other one is hidden unless the header is hovered: the card should read as its
 // verdict, not as a pair of buttons.
+function TradeTypeToggle({
+  values,
+  visible,
+  onChange,
+}: {
+  values: string[];
+  visible: boolean;
+  onChange: (next: string[]) => void;
+}) {
+  // Nothing ticked and the pointer elsewhere: the row would be five questions,
+  // so it waits for the header to be hovered.
+  if (!values.length && !visible) return null;
+  const shown = visible ? TRADE_TYPES : TRADE_TYPES.filter((t) => values.includes(t));
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      {shown.map((type) => {
+        const on = values.includes(type);
+        const tone = tagTone(type);
+        return (
+          <span
+            key={type}
+            onClick={() => onChange(on ? values.filter((v) => v !== type) : [...values, type])}
+            style={{
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+              fontSize: 10,
+              padding: "3px 10px",
+              borderRadius: 999,
+              cursor: "pointer",
+              border: `1px solid ${on ? tone.line : "oklch(0.34 0.02 250)"}`,
+              background: on ? tone.bg : "transparent",
+              color: on ? tone.fg : "oklch(0.55 0.02 250)",
+            }}
+          >
+            {type}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function ZoneToggle({ value, visible, onChange }: { value: Zone; visible: boolean; onChange: (next: Zone) => void }) {
   if (!value && !visible) return null;
   return (
@@ -2368,6 +2442,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [validity, setValidity] = useState<Validity>(() => normalizeValidity(example.validity));
   const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseArr(example.invalidReasons));
   const [zone, setZone] = useState<Zone>(() => normalizeZone(example.zone));
+  const [tradeTypes, setTradeTypes] = useState<string[]>(() => parseArr(example.tradeTypes));
 
   // Starts from what the server sent, so a folded example is already folded in
   // the very first paint. The write is not awaited and nothing is revalidated:
@@ -2601,6 +2676,14 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             onChange={(next) => {
               setConfirmations(next);
               updateExample(example.id, { confirmations: next });
+            }}
+          />
+          <TradeTypeToggle
+            values={tradeTypes}
+            visible={headerHover}
+            onChange={(next) => {
+              setTradeTypes(next);
+              updateExample(example.id, { tradeTypes: next });
             }}
           />
           <ZoneToggle
