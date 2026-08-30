@@ -23,6 +23,7 @@ import {
   createExample,
   updateExample,
   deleteExample,
+  deleteTradeType,
   duplicateExample,
   reorderExamples,
   reorderCategories,
@@ -97,7 +98,7 @@ type BlockRecord = { id: string; noteId: string; categoryId: string | null; exam
 // typed once, picked from a list from then on. The vocabulary is derived from
 // the examples the page was given rather than stored in a table of its own: a
 // word exists exactly as long as some example still carries it.
-type TagKind = "confirmation" | "invalidReason";
+type TagKind = "confirmation" | "invalidReason" | "tradeType";
 
 type TagVocabulary = {
   values: (kind: TagKind) => string[];
@@ -502,7 +503,11 @@ export default function NotesClient({
   // Words typed since the page was loaded. They are already stored on their own
   // example, but the `examples` prop only catches up on the next refresh, and a
   // confirmation should be reusable on the example right below immediately.
-  const [freshTags, setFreshTags] = useState<Record<TagKind, string[]>>({ confirmation: [], invalidReason: [] });
+  const [freshTags, setFreshTags] = useState<Record<TagKind, string[]>>({
+    confirmation: [],
+    invalidReason: [],
+    tradeType: [],
+  });
 
   const vocabulary = useMemo<TagVocabulary>(() => {
     const count = (pick: (e: ExampleRecord) => string | null, fresh: string[]) => {
@@ -516,6 +521,14 @@ export default function NotesClient({
     const ranked: Record<TagKind, string[]> = {
       confirmation: count((e) => e.confirmations, freshTags.confirmation),
       invalidReason: count((e) => e.invalidReasons, freshTags.invalidReason),
+      // The five that ship with the app always sit at the head of the list,
+      // whether or not any example uses them yet; anything added since follows.
+      tradeType: [
+        ...TRADE_TYPES,
+        ...count((e) => e.tradeTypes, freshTags.tradeType).filter(
+          (t) => !(TRADE_TYPES as readonly string[]).includes(t)
+        ),
+      ],
     };
     return {
       values: (kind) => ranked[kind],
@@ -1604,9 +1617,13 @@ function ExampleCategory({
       reasons: collect((e) => e.invalidReasons),
       hasValidity: examples.some((e) => normalizeValidity(e.validity) !== null),
       hasZone: examples.some((e) => normalizeZone(e.zone) !== null),
-      // Only the types this category actually uses, in the order they are
-      // declared rather than the order they were first ticked.
-      types: TRADE_TYPES.filter((t) => examples.some((e) => parseArr(e.tradeTypes).includes(t))),
+      // Only the types this category actually uses: the five that ship with the
+      // app first, in the order they are declared, then anything added since.
+      types: (() => {
+        const used = new Set(examples.flatMap((e) => parseArr(e.tradeTypes)));
+        const shipped = TRADE_TYPES.filter((t) => used.has(t));
+        return [...shipped, ...[...used].filter((t) => !(TRADE_TYPES as readonly string[]).includes(t)).sort()];
+      })(),
     };
   }, [examples]);
 
@@ -2319,107 +2336,164 @@ function ChipList({
 // can go back to undecided without a third button. Once a side is picked the
 // other one is hidden unless the header is hovered: the card should read as its
 // verdict, not as a pair of buttons.
-function TradeTypeToggle({
-  values,
+
+/**
+ * A pull-down for a fixed set of answers.
+ *
+ * Ten chips laid end to end — five kinds of trade, two zones, three verdicts —
+ * pushed the images down and read as a form. Closed, this shows only what was
+ * answered; open, it is the list of what could be. Multi-select for the kinds a
+ * trade can be several of at once, single for the ones it can only be one of.
+ */
+function ChipDropdown({
+  placeholder,
+  options,
+  selected,
+  multiple,
   visible,
-  onChange,
+  onToggle,
+  onAdd,
+  onRemoveOption,
+  canRemove,
 }: {
-  values: string[];
+  placeholder: string;
+  options: string[];
+  selected: string[];
+  multiple?: boolean;
   visible: boolean;
-  onChange: (next: string[]) => void;
+  onToggle: (value: string) => void;
+  /** Present when the vocabulary can be added to. */
+  onAdd?: (value: string) => void;
+  /** Present when options can be removed from the vocabulary entirely. */
+  onRemoveOption?: (value: string) => boolean;
+  /** Which of them can: a ✕ that does nothing is worse than no ✕ at all. */
+  canRemove?: (value: string) => boolean;
 }) {
-  // Nothing ticked and the pointer elsewhere: the row would be five questions,
-  // so it waits for the header to be hovered.
-  if (!values.length && !visible) return null;
-  const shown = visible ? TRADE_TYPES : TRADE_TYPES.filter((t) => values.includes(t));
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-      {shown.map((type) => {
-        const on = values.includes(type);
-        const tone = tagTone(type);
-        return (
-          <span
-            key={type}
-            onClick={() => onChange(on ? values.filter((v) => v !== type) : [...values, type])}
-            style={{
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-              fontSize: 10,
-              padding: "3px 10px",
-              borderRadius: 999,
-              cursor: "pointer",
-              border: `1px solid ${on ? tone.line : "oklch(0.34 0.02 250)"}`,
-              background: on ? tone.bg : "transparent",
-              color: on ? tone.fg : "oklch(0.55 0.02 250)",
-            }}
-          >
-            {type}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
 
-function ZoneToggle({ value, visible, onChange }: { value: Zone; visible: boolean; onChange: (next: Zone) => void }) {
-  if (!value && !visible) return null;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      {ZONES.map(([key, text]) => {
-        const on = value === key;
-        // Once a zone is chosen the other one steps out of the way, unless the
-        // header is hovered: the card should read as its answer, not as the
-        // question.
-        if (!on && !visible) return null;
-        const tone = tagTone(text);
-        return (
-          <span
-            key={key}
-            onClick={() => onChange(on ? null : key)}
-            style={{
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-              fontSize: 10,
-              padding: "3px 10px",
-              borderRadius: 999,
-              cursor: "pointer",
-              border: `1px solid ${on ? tone.line : "oklch(0.34 0.02 250)"}`,
-              background: on ? tone.bg : "transparent",
-              color: on ? tone.fg : "oklch(0.55 0.02 250)",
-            }}
-          >
-            {text}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
+  // Nothing answered and the pointer elsewhere: the card stays clean.
+  if (!selected.length && !visible) return null;
 
-function ValidityToggle({ value, visible, onChange }: { value: Validity; visible: boolean; onChange: (next: Validity) => void }) {
-  if (!value && !visible) return null;
+  const tone = selected.length ? tagTone(selected[0]) : null;
+  const label = selected.length ? selected.join(" · ") : placeholder;
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      {VERDICTS.map(([side, text, tone]) => {
-        const on = value === side;
-        if (!on && !visible) return null;
-        return (
-          <span
-            key={side}
-            onClick={() => onChange(on ? null : side)}
-            style={{
-              fontFamily: "var(--font-jetbrains-mono), monospace",
-              fontSize: 10,
-              padding: "3px 10px",
-              borderRadius: 999,
-              cursor: "pointer",
-              border: `1px solid ${on ? tone.line : "oklch(0.34 0.02 250)"}`,
-              background: on ? tone.bg : "transparent",
-              color: on ? tone.fg : "oklch(0.55 0.02 250)",
-            }}
-          >
-            {text}
-          </span>
-        );
-      })}
+    <div style={{ position: "relative", flex: "none" }} onMouseLeave={() => setOpen(false)}>
+      <span
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          maxWidth: 320,
+          fontFamily: "var(--font-jetbrains-mono), monospace",
+          fontSize: 10,
+          padding: "3px 9px",
+          borderRadius: 999,
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          border: `1px ${selected.length ? "solid" : "dashed"} ${tone ? tone.line : "oklch(0.34 0.02 250)"}`,
+          background: tone ? tone.bg : "transparent",
+          color: tone ? tone.fg : "oklch(0.6 0.02 250)",
+        }}
+      >
+        {label}
+        <span style={{ fontSize: 8, opacity: 0.7 }}>▾</span>
+      </span>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "130%",
+            left: 0,
+            zIndex: 40,
+            minWidth: 210,
+            maxHeight: 280,
+            overflowY: "auto",
+            padding: 4,
+            borderRadius: 8,
+            border: "1px solid oklch(0.34 0.034 250)",
+            background: "oklch(0.21 0.034 250)",
+            boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
+          }}
+        >
+          {options.map((option) => {
+            const on = selected.includes(option);
+            const optionTone = tagTone(option);
+            const removable = onRemoveOption !== undefined && (!canRemove || canRemove(option));
+            return (
+              <div
+                key={option}
+                onClick={() => {
+                  onToggle(option);
+                  if (!multiple) setOpen(false);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 8px",
+                  borderRadius: 5,
+                  cursor: "pointer",
+                  fontFamily: "var(--font-jetbrains-mono), monospace",
+                  fontSize: 10.5,
+                  color: on ? optionTone.fg : "oklch(0.72 0.02 250)",
+                  background: on ? optionTone.bg : "transparent",
+                }}
+              >
+                <span style={{ width: 10, flex: "none", color: optionTone.fg }}>{on ? "✓" : ""}</span>
+                <span style={{ flex: 1 }}>{option}</span>
+                {removable && (
+                  <span
+                    title="Retirer de la liste, sur tous les exemples"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onRemoveOption(option)) setOpen(false);
+                    }}
+                    style={{ fontSize: 11, opacity: 0.55 }}
+                  >
+                    ✕
+                  </span>
+                )}
+              </div>
+            );
+          })}
+
+          {onAdd && (
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const v = draft.trim();
+                  setDraft("");
+                  if (v) onAdd(v);
+                }
+                if (e.key === "Escape") setDraft("");
+              }}
+              placeholder="+ nouveau"
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                marginTop: 4,
+                fontFamily: "var(--font-jetbrains-mono), monospace",
+                fontSize: 10,
+                padding: "5px 8px",
+                borderRadius: 5,
+                border: "1px dashed oklch(0.34 0.02 250)",
+                background: "transparent",
+                color: "oklch(0.8 0.02 250)",
+                outline: "none",
+              }}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2443,6 +2517,10 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseArr(example.invalidReasons));
   const [zone, setZone] = useState<Zone>(() => normalizeZone(example.zone));
   const [tradeTypes, setTradeTypes] = useState<string[]>(() => parseArr(example.tradeTypes));
+  const vocabulary = useContext(TagVocabularyContext);
+  // What the journal knows, plus anything ticked here it has not seen yet.
+  const known = vocabulary.values("tradeType");
+  const typeOptions = [...known, ...tradeTypes.filter((t) => !known.includes(t))];
 
   // Starts from what the server sent, so a folded example is already folded in
   // the very first paint. The write is not awaited and nothing is revalidated:
@@ -2678,26 +2756,58 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               updateExample(example.id, { confirmations: next });
             }}
           />
-          <TradeTypeToggle
-            values={tradeTypes}
+          <ChipDropdown
+            placeholder="Type"
+            options={typeOptions}
+            selected={tradeTypes}
+            multiple
             visible={headerHover}
-            onChange={(next) => {
+            onToggle={(value) => {
+              const next = tradeTypes.includes(value)
+                ? tradeTypes.filter((v) => v !== value)
+                : [...tradeTypes, value];
               setTradeTypes(next);
               updateExample(example.id, { tradeTypes: next });
             }}
+            onAdd={(value) => {
+              if (tradeTypes.includes(value)) return;
+              vocabulary.remember("tradeType", value);
+              const next = [...tradeTypes, value];
+              setTradeTypes(next);
+              updateExample(example.id, { tradeTypes: next });
+            }}
+            // One of the five in the code would come straight back on the next
+            // load, so it is not offered for removal.
+            canRemove={(value) => !(TRADE_TYPES as readonly string[]).includes(value)}
+            onRemoveOption={(value) => {
+              if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+              setTradeTypes((prev) => prev.filter((v) => v !== value));
+              // Other cards carry the same type: the page has to be refetched
+              // for it to leave them and the list of options too.
+              deleteTradeType(value).then(onChanged);
+              return true;
+            }}
           />
-          <ZoneToggle
-            value={zone}
+          <ChipDropdown
+            placeholder="Zone"
+            options={ZONES.map(([, text]) => text)}
+            selected={zone ? [ZONES.find(([key]) => key === zone)![1]] : []}
             visible={headerHover}
-            onChange={(next) => {
+            onToggle={(value) => {
+              const key = ZONES.find(([, text]) => text === value)![0];
+              const next = zone === key ? null : key;
               setZone(next);
               updateExample(example.id, { zone: next });
             }}
           />
-          <ValidityToggle
-            value={validity}
+          <ChipDropdown
+            placeholder="Verdict"
+            options={VERDICTS.map(([, text]) => text)}
+            selected={validity ? [VERDICTS.find(([key]) => key === validity)![1]] : []}
             visible={headerHover}
-            onChange={(next) => {
+            onToggle={(value) => {
+              const key = VERDICTS.find(([, text]) => text === value)![0];
+              const next = validity === key ? null : key;
               setValidity(next);
               updateExample(example.id, { validity: next });
             }}

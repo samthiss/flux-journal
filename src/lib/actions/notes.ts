@@ -372,6 +372,39 @@ export async function duplicateExample(id: string) {
   revalidatePath("/notes");
 }
 
+/**
+ * Removes a trade type from the vocabulary, by removing it from every example
+ * that carries it.
+ *
+ * There is no table of types: the vocabulary is whatever the examples have
+ * been ticked with, so forgetting a type means untickng it everywhere. That is
+ * the point — a type added by mistake would otherwise sit in the list forever
+ * — and it is why only the ones added by hand can be deleted: the five the app
+ * ships with are in the code and would come straight back.
+ */
+export async function deleteTradeType(value: string) {
+  const examples = await prisma.noteExample.findMany({
+    where: { tradeTypes: { contains: value } },
+    select: { id: true, tradeTypes: true },
+  });
+
+  for (const example of examples) {
+    let types: string[];
+    try {
+      types = JSON.parse(example.tradeTypes ?? "[]");
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(types) || !types.includes(value)) continue;
+    await prisma.noteExample.update({
+      where: { id: example.id },
+      data: { tradeTypes: JSON.stringify(types.filter((t) => t !== value)) },
+    });
+  }
+
+  revalidatePath("/notes");
+}
+
 export async function reorderExamples(orderedIds: string[]) {
   await prisma.$transaction(orderedIds.map((id, i) => prisma.noteExample.update({ where: { id }, data: { order: i } })));
   revalidatePath("/notes");
