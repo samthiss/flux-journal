@@ -973,12 +973,85 @@ function NoteBlockContent({ block, indent = HEADER_INDENT }: { block: BlockRecor
     case "regles":
       return <ReglesBlock blockId={block.id} initialContent={block.content} indent={indent} />;
     case "retenir":
-      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✓" iconColor={accentColor} iconBg="oklch(0.84 0.17 196 / 0.14)" indent={indent} />;
+      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="check" iconColor={accentColor} indent={indent} />;
     case "invalide":
-      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="✕" iconColor={lossColor} iconBg="oklch(0.7 0.25 18 / 0.14)" indent={indent} />;
+      return <BulletListBlock blockId={block.id} initialContent={block.content} icon="cross" iconColor={lossColor} indent={indent} />;
     default:
       return null;
   }
+}
+
+
+/**
+ * The markers the note blocks are built from.
+ *
+ * Shapes rather than characters: a "✓" in a box is whatever glyph the font
+ * happens to carry, at whatever weight, and it never quite lines up. Drawn, it
+ * matches the rest of the interface — cut corners, a hairline, and the glow the
+ * page is lit by.
+ */
+function ListMarker({ tone, children }: { tone: string; children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        width: 18,
+        height: 18,
+        flex: "none",
+        marginTop: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: tone,
+        border: `1px solid ${tone.replace(")", " / 0.55)")}`,
+        background: tone.replace(")", " / 0.12)"),
+        boxShadow: `0 0 10px -3px ${tone.replace(")", " / 0.8)")}`,
+        // The bevel every panel in the app carries, at the size of a bullet.
+        clipPath: "polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px)",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function CheckMark({ color }: { color: string }) {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+      <path d="M2.2 6.4 4.7 8.9 9.8 3.4" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CrossMark({ color }: { color: string }) {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+      <path d="M3 3l6 6M9 3l-6 6" stroke={color} strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** The step number of a numbered list, as a plate rather than a bare digit. */
+function StepBadge({ n }: { n: number }) {
+  return (
+    <span
+      style={{
+        fontFamily: "var(--font-jetbrains-mono), monospace",
+        fontSize: 11,
+        fontWeight: 700,
+        flex: "none",
+        minWidth: 26,
+        padding: "3px 0",
+        textAlign: "center",
+        color: accentColor,
+        border: "1px solid oklch(0.84 0.17 196 / 0.4)",
+        background: "oklch(0.84 0.17 196 / 0.1)",
+        boxShadow: "0 0 12px -4px oklch(0.84 0.17 196 / 0.8)",
+        clipPath: "polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px)",
+      }}
+    >
+      {String(n).padStart(2, "0")}
+    </span>
+  );
 }
 
 function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
@@ -987,15 +1060,18 @@ function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, marginBottom: 32, marginLeft: indentCss(indent) }}>
       {headings.map((h, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ color: accentColor, fontSize: 13, flex: "none", letterSpacing: "-2px" }}>▚▚</span>
         <input
-          key={i}
           ref={(el) => { refs.current[i] = el; }}
           value={h}
           onChange={(e) => setHeadings((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
           onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(headings))}
           onKeyDown={(e) => handleListKeyDown(e, i, headings, (next) => { setHeadings(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
-          style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.01em", color: "oklch(0.94 0.0068 250)", background: "transparent", border: "none", outline: "none" }}
+          style={{ flex: 1, fontSize: 19, fontWeight: 700, letterSpacing: "-0.01em", color: "oklch(0.94 0.0068 250)", background: "transparent", border: "none", outline: "none" }}
         />
+        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, oklch(0.84 0.17 196 / 0.35), transparent)" }} />
+        </div>
       ))}
     </div>
   );
@@ -1004,7 +1080,35 @@ function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
 function ObjectifBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
   const [objectif, setObjectif] = useState(initialContent ?? "");
   return (
-    <div style={{ border: `1px solid ${accentColor}59`, background: "oklch(0.84 0.17 196 / 0.07)", borderRadius: 12, padding: "15px 18px", marginLeft: indentCss(indent), marginBottom: 24 }}>
+    <div style={{ position: "relative", marginLeft: indentCss(indent), marginBottom: 24 }}>
+      {/* The panel says what it is on its own edge, the way a console labels a
+          readout — one word, in the accent, where a heading would cost a line. */}
+      <span
+        style={{
+          position: "absolute",
+          top: -7,
+          left: 14,
+          zIndex: 1,
+          fontFamily: "var(--font-jetbrains-mono), monospace",
+          fontSize: 9,
+          letterSpacing: "0.14em",
+          padding: "1px 7px",
+          color: accentColor,
+          background: "oklch(0.11 0.025 255)",
+          border: "1px solid oklch(0.84 0.17 196 / 0.35)",
+        }}
+      >
+        OBJECTIF
+      </span>
+      <div
+        style={{
+          border: `1px solid oklch(0.84 0.17 196 / 0.35)`,
+          background: "oklch(0.84 0.17 196 / 0.06)",
+          boxShadow: "inset 0 0 24px -14px oklch(0.84 0.17 196 / 0.9)",
+          clipPath: "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
+          padding: "18px 18px 15px",
+        }}
+      >
       <textarea
         ref={(el) => autoGrow(el)}
         value={objectif}
@@ -1013,6 +1117,7 @@ function ObjectifBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
         rows={1}
         style={{ width: "100%", boxSizing: "border-box", fontSize: 15, lineHeight: 1.6, color: "oklch(0.92 0.034 250)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
       />
+      </div>
     </div>
   );
 }
@@ -1021,7 +1126,20 @@ function TheorieBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blo
   const [theorie, setTheorie] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12, marginBottom: 32, marginLeft: indentCss(indent) }}>
+    // A rail rather than a box: the paragraphs are the block, and a border all
+    // the way round them would make them look like something to click.
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+        marginTop: 12,
+        marginBottom: 32,
+        marginLeft: indentCss(indent),
+        paddingLeft: 16,
+        borderLeft: "1px solid oklch(0.84 0.17 196 / 0.22)",
+      }}
+    >
       {theorie.map((p, i) => (
         <div key={i} style={{ display: "flex", gap: 8 }}>
           <textarea
@@ -1044,14 +1162,12 @@ function BulletListBlock({
   initialContent,
   icon,
   iconColor,
-  iconBg,
   indent = HEADER_INDENT,
 }: {
   blockId: string;
   initialContent: string | null;
-  icon: string;
+  icon: "check" | "cross";
   iconColor: string;
-  iconBg: string;
   indent?: number;
 }) {
   const [items, setItems] = useState<string[]>(parseArr(initialContent));
@@ -1060,9 +1176,9 @@ function BulletListBlock({
     <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 12, marginBottom: 32, marginLeft: indentCss(indent) }}>
       {items.map((k, i) => (
         <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
-          <span style={{ width: 16, height: 16, flex: "none", marginTop: 2, borderRadius: 5, border: `1.5px solid ${iconColor}`, background: iconBg, color: iconColor, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {icon}
-          </span>
+          <ListMarker tone={iconColor}>
+            {icon === "check" ? <CheckMark color={iconColor} /> : <CrossMark color={iconColor} />}
+          </ListMarker>
           <textarea
             ref={(el) => { refs.current[i] = el; autoGrow(el); }}
             value={k}
@@ -1142,16 +1258,29 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
           + titre
         </span>
       )}
-      <div style={{ border: "1px solid oklch(0.26 0.034 250)", borderRadius: 12, overflow: "hidden" }}>
+      <div
+        style={{
+          border: "1px solid oklch(0.84 0.17 196 / 0.18)",
+          background: "oklch(0.16 0.03 250 / 0.5)",
+          boxShadow: "inset 0 0 0 1px oklch(0.84 0.17 196 / 0.04)",
+          clipPath: "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
+        }}
+      >
       {regles.map((r, i) => (
         <div
           key={i}
           onMouseEnter={() => setHoverIdx(i)}
           onMouseLeave={() => setHoverIdx((cur) => (cur === i ? null : cur))}
-          style={{ padding: "13px 18px", background: "oklch(0.185 0.034 250)", borderBottom: i < regles.length - 1 ? "1px solid oklch(0.22 0.034 250)" : "none" }}
+          style={{
+            padding: "13px 18px",
+            background: hoverIdx === i ? "oklch(0.84 0.17 196 / 0.05)" : "transparent",
+            boxShadow: hoverIdx === i ? "inset 2px 0 0 oklch(0.84 0.17 196 / 0.7)" : "none",
+            borderBottom: i < regles.length - 1 ? "1px solid oklch(0.84 0.17 196 / 0.12)" : "none",
+            transition: "background 0.12s ease, box-shadow 0.12s ease",
+          }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: 13 }}>
-            <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: accentColor, flex: "none", paddingTop: 3 }}>{i + 1}</span>
+            <StepBadge n={i + 1} />
             <textarea
               ref={(el) => { reglesRefs.current[i] = el; autoGrow(el); }}
               value={r.title}
@@ -1190,24 +1319,9 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
                 marginLeft: 25,
               }}
             >
-              <span
-                style={{
-                  width: 14,
-                  height: 14,
-                  flex: "none",
-                  marginTop: 3,
-                  borderRadius: 4,
-                  border: `1.5px solid ${accentColor}`,
-                  background: "oklch(0.84 0.17 196 / 0.14)",
-                  color: accentColor,
-                  fontSize: 8.5,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                ✓
-              </span>
+              <ListMarker tone={accentColor}>
+                <CheckMark color={accentColor} />
+              </ListMarker>
               <textarea
                 ref={(el) => { reglesDetailRefs.current[`${i}-${di}`] = el; autoGrow(el); }}
                 value={d}
