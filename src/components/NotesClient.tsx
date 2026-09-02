@@ -2172,9 +2172,12 @@ function ExampleCategory({
               <div
                 key={ex.id}
                 // The whole row is the drop target, so an example can be aimed
-                // at anywhere along its height rather than at a handle.
+                // at anywhere along its height rather than at a handle. It works
+                // under a filter too: dropExample reorders the full list, so
+                // landing next to a visible example means landing next to it for
+                // real, whatever the filter is hiding in between.
                 onDragOver={(e) => {
-                  if (!dragExampleRef.current || filtering) return;
+                  if (!dragExampleRef.current) return;
                   e.preventDefault();
                   if (dragOverExampleId !== ex.id) setDragOverExampleId(ex.id);
                 }}
@@ -2214,7 +2217,7 @@ function ExampleCategory({
                       {selected.includes(ex.id) && <CheckMark color={accentColor} />}
                     </span>
                   </div>
-                ) : !filtering ? (
+                ) : (
                   <div style={{ display: "flex", flexDirection: "column", flex: "none", paddingTop: 14 }}>
                     <span
                       draggable
@@ -2242,7 +2245,7 @@ function ExampleCategory({
                       <GripIcon />
                     </span>
                   </div>
-                ) : null}
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <ExampleCard
                     example={ex}
