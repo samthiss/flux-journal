@@ -326,11 +326,13 @@ function PlusGripCluster({
   onDelete,
   plusTitle,
   visible,
+  onGripPress,
 }: {
   onPlus: () => void | Promise<void>;
   onDelete?: () => void;
   plusTitle: string;
   visible: boolean;
+  onGripPress?: () => void;
 }) {
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -366,7 +368,7 @@ function PlusGripCluster({
       >
         +
       </span>
-      {onDelete && <GripMenuButton visible={visible} onDelete={onDelete} />}
+      {onDelete && <GripMenuButton visible={visible} onDelete={onDelete} onDragStart={onGripPress} />}
     </div>
   );
 }
@@ -641,6 +643,11 @@ function NoteSection({
 
   const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const draggingIdRef = useRef<string | null>(null);
+  // A category is only draggable once its own grip is pressed. Left permanently
+  // draggable, the wrapper made every title, paragraph and image inside it the
+  // start of a native drag: selecting a word carried the whole category off
+  // behind the cursor instead.
+  const [armedCategory, setArmedCategory] = useState<string | null>(null);
   const [blockHover, setBlockHover] = useState<string | null>(null);
 
   function startBlockDrag(id: string) {
@@ -806,11 +813,12 @@ function NoteSection({
                     {categories.map((cat, catIdx) => (
                       <div
                         key={cat.id}
-                        draggable
+                        draggable={armedCategory === cat.id}
                         onDragStart={(e) => {
                           e.dataTransfer.effectAllowed = "move";
                           e.dataTransfer.setData("text/plain", cat.id);
                         }}
+                        onDragEnd={() => setArmedCategory(null)}
                         onDragOver={(e) => {
                           e.preventDefault();
                           e.dataTransfer.dropEffect = "move";
@@ -853,6 +861,12 @@ function NoteSection({
                             onDeleteBlock={deleteBlock}
                             exampleBlocks={blockList}
                             categoryId={cat.id}
+                            onGripPress={() => {
+                              setArmedCategory(cat.id);
+                              // A press that opens the menu instead of dragging
+                              // gets no dragend, so the release disarms too.
+                              window.addEventListener("mouseup", () => setArmedCategory(null), { once: true });
+                            }}
                             // Passed for the move menu. The fold still keys off
                             // categoryId, which takes precedence over it.
                             noteId={note.id}
@@ -1663,6 +1677,7 @@ function ExampleCategory({
   onMoveDown,
   canMoveUp,
   canMoveDown,
+  onGripPress,
 }: {
   title: string;
   onRename?: (name: string) => void;
@@ -1682,6 +1697,8 @@ function ExampleCategory({
   onMoveDown?: () => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  /** Arms the category's own drag; without it the grip only opens the menu. */
+  onGripPress?: () => void;
 }) {
   const [name, setName] = useState(title);
   const [hover, setHover] = useState(false);
@@ -1841,7 +1858,7 @@ function ExampleCategory({
         onMouseLeave={() => setHover(false)}
         style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}
       >
-        <PlusGripCluster visible={hover} plusTitle="Ajouter un exemple" onPlus={onAddExample} onDelete={onDelete} />
+        <PlusGripCluster visible={hover} plusTitle="Ajouter un exemple" onPlus={onAddExample} onDelete={onDelete} onGripPress={onGripPress} />
         <span
           onClick={() => setCollapsedPersist((c) => !c)}
           style={{ width: 14, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
