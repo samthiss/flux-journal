@@ -218,6 +218,16 @@ function blockPreview(content: string | null): string {
 }
 
 /**
+ * Where a block's controls sit: level with the middle of the strip it folds to.
+ *
+ * The strip is 36px tall — 7px of padding above and below a 13px line — and the
+ * controls are 22px, so 7px down puts their centre on its centre. Held as one
+ * number because that is what makes the chevron stay put when it is clicked:
+ * the same offset on the block and on the strip it becomes.
+ */
+const FOLD_ROW_TOP = 7;
+
+/**
  * A block folded away: its kind, and the beginning of what it says.
  *
  * The whole strip unfolds it, not just a chevron — on a phone the chevron only
@@ -233,8 +243,13 @@ function CollapsedBlockStub({ block, indent, onExpand }: { block: BlockRecord; i
         marginLeft: indentCss(indent),
         marginBottom: 14,
         display: "flex",
-        alignItems: "baseline",
+        alignItems: "center",
         gap: 10,
+        // A fixed height, so a block whose heading is empty folds to the same
+        // strip as the rest — and the chevron, which is placed against that
+        // height, stays on its middle either way. Border-box, so this is the
+        // whole strip, padding included.
+        minHeight: 36,
         padding: "7px 12px",
         cursor: "pointer",
         border: "1px dashed oklch(0.3 0.034 250)",
@@ -945,6 +960,21 @@ function NoteSection({
     setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId, exampleId: null, type, content: created.content, order: created.order, collapsed: false }]);
   }
 
+  // A category's blocks are part of this list too, so its reordering is applied
+  // here: asking the server and refreshing left the old order on screen until
+  // the page was loaded again, because this copy never re-reads its props.
+  const reorderBlocks = useCallback((orderedIds: string[]) => {
+    setBlockList((prev) => {
+      const rank = new Map(orderedIds.map((id, i) => [id, i]));
+      const next = prev.map((b) => (rank.has(b.id) ? { ...b, order: rank.get(b.id)! } : b));
+      // Sorted the way the page renders them, so the move is visible at once.
+      next.sort((a, b) => a.order - b.order);
+      blockListRef.current = next;
+      return next;
+    });
+    reorderNoteBlocks(orderedIds);
+  }, []);
+
   // Keeps the page's copy in step with what a block has just written, so the
   // fold strip shows the heading that was typed a second ago.
   const saveBlockContent = useCallback((blockId: string, content: string | null) => {
@@ -1135,6 +1165,7 @@ function NoteSection({
                             onAddBlock={(type) => addBlock(type, cat.id)}
                             onDeleteBlock={deleteBlock}
                             onToggleBlockCollapsed={toggleBlockCollapsed}
+                            onReorderBlocks={reorderBlocks}
                             exampleBlocks={blockList}
                             categoryId={cat.id}
                             onGripPress={() => {
@@ -1852,8 +1883,7 @@ function CategoryBlock({
       <div
         style={{
           position: "absolute",
-          top: 0,
-          bottom: 0,
+          top: FOLD_ROW_TOP,
           left: indent === 0 ? -34 : "calc(var(--note-indent) - 44px)",
           zIndex: 5,
           display: "flex",
@@ -2029,6 +2059,7 @@ function ExampleCategory({
   onAddBlock,
   onDeleteBlock,
   onToggleBlockCollapsed,
+  onReorderBlocks,
   exampleBlocks,
   categoryId,
   noteId,
@@ -2050,6 +2081,7 @@ function ExampleCategory({
   onAddBlock?: (type: string) => void;
   onDeleteBlock?: (blockId: string) => void;
   onToggleBlockCollapsed?: (blockId: string) => void;
+  onReorderBlocks?: (orderedIds: string[]) => void;
   exampleBlocks?: BlockRecord[];
   categoryId?: string;
   noteId?: string;
@@ -2070,10 +2102,7 @@ function ExampleCategory({
   // worse than no grip.
   const blockDrag = useBlockDrag(
     (blocks ?? []).map((b) => b.id),
-    async (ordered) => {
-      await reorderNoteBlocks(ordered);
-      onChanged();
-    }
+    (ordered) => onReorderBlocks?.(ordered)
   );
 
   // Filtering happens here rather than on the note as a whole: a category is
@@ -3859,15 +3888,15 @@ function DraggableBlock({
     >
       {/* The controls sit in the gutter beside the block, in the order they are
           reached for: fold, then drag or delete, then send elsewhere. */}
-      {/* The controls span the block's height and centre themselves on it,
-          folded or not: pinned to the top they sat in the corner of a tall
-          panel, level with nothing in particular. */}
+      {/* Level with the middle of the strip the block folds to, whether it is
+          folded or not. Centring on the block's own height instead put the
+          chevron of a 13000px block six thousand pixels down, and moved it
+          under the hand that had just clicked it. */}
       <div
         style={{
           position: "absolute",
           left: "var(--handle-cluster-offset)",
-          top: 0,
-          bottom: 0,
+          top: FOLD_ROW_TOP,
           display: "flex",
           alignItems: "center",
         }}
