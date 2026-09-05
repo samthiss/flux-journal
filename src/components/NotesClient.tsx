@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { compressImage, MAX_SOURCE_BYTES } from "@/lib/compressImage";
 import Link from "next/link";
@@ -131,6 +131,25 @@ const FIELD_TO_KIND: Record<string, TagKind> = {
 
 const TagVocabularyContext = createContext<TagVocabulary>({ values: () => [], remember: () => {} });
 
+/**
+ * Saves a block's content, and tells the list that holds it.
+ *
+ * The page keeps its own copy of the blocks — that copy is what the fold reads
+ * to build the strip — while a block's text lives in the block component while
+ * it is being written. Writing to the database alone left the two disagreeing:
+ * a list given a title kept it, but the strip went on showing the sentence it
+ * used to show, until the page was loaded again. So every save goes through
+ * here, where the copy is updated in the same breath.
+ *
+ * The default writes without telling anyone, for a block rendered outside any
+ * list — nothing does today, and a save must not become a no-op if one ever is.
+ */
+const BlockSaveContext = createContext<(blockId: string, content: string | null) => void>(
+  (blockId, content) => {
+    updateNoteBlockContent(blockId, content);
+  }
+);
+
 // Most-used first, then alphabetical — the words that describe half the journal
 // should not sit behind the one written once, and ties should not shuffle
 // between renders.
@@ -241,6 +260,65 @@ function CollapsedBlockStub({ block, indent, onExpand }: { block: BlockRecord; i
       </span>
     </div>
   );
+}
+
+/**
+ * Reordering by hand, for a list of blocks that belongs to a category or to an
+ * example rather than to the note.
+ *
+ * The same gesture the examples are reordered with, and the same arithmetic:
+ * dropped on a row above its own place a block takes that row's index, and from
+ * above it lands just after — which is where the pointer already is. The note's
+ * own blocks keep their older drag, which follows the mouse and can also file a
+ * block into a category; here there is nowhere else to go, so a plain drop is
+ * enough.
+ */
+function useBlockDrag(ids: string[], onReordered: (ordered: string[]) => void) {
+  // The source is a ref, not state: dragover fires before a re-render, and a
+  // state read there is the value from before the drag started.
+  const source = useRef<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+
+  const handlers = (id: string) => ({
+    grip: {
+      draggable: true,
+      onDragStart: (e: React.DragEvent) => {
+        source.current = id;
+        setDragging(id);
+        e.dataTransfer.effectAllowed = "move";
+      },
+      onDragEnd: () => {
+        source.current = null;
+        setDragging(null);
+        setOver(null);
+      },
+    },
+    row: {
+      onDragOver: (e: React.DragEvent) => {
+        if (!source.current) return;
+        e.preventDefault();
+        if (over !== id) setOver(id);
+      },
+      onDrop: (e: React.DragEvent) => {
+        e.preventDefault();
+        const from = source.current;
+        source.current = null;
+        setDragging(null);
+        setOver(null);
+        if (!from || from === id) return;
+        const rest = ids.filter((x) => x !== from);
+        const at = rest.indexOf(id);
+        if (at < 0) return;
+        const fromIdx = ids.indexOf(from);
+        const toIdx = ids.indexOf(id);
+        rest.splice(fromIdx < toIdx ? at + 1 : at, 0, from);
+        onReordered(rest);
+      },
+    },
+  });
+
+  return { dragging, over, handlers };
 }
 
 /** The chevron that folds a block, shown where its other controls are. */
@@ -867,6 +945,13 @@ function NoteSection({
     setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId, exampleId: null, type, content: created.content, order: created.order, collapsed: false }]);
   }
 
+  // Keeps the page's copy in step with what a block has just written, so the
+  // fold strip shows the heading that was typed a second ago.
+  const saveBlockContent = useCallback((blockId: string, content: string | null) => {
+    setBlockList((prev) => prev.map((b) => (b.id === blockId ? { ...b, content } : b)));
+    updateNoteBlockContent(blockId, content);
+  }, []);
+
   function toggleBlockCollapsed(blockId: string) {
     setBlockList((prev) => {
       const next = prev.map((b) => (b.id === blockId ? { ...b, collapsed: !b.collapsed } : b));
@@ -887,6 +972,7 @@ function NoteSection({
   const hasExemples = blockList.some((b) => b.type === "exemples");
 
   return (
+    <BlockSaveContext.Provider value={saveBlockContent}>
     <div data-note-section={note.id} id={"note-" + note.id} style={{ paddingBottom: 48, marginBottom: 40, borderBottom: "1px solid oklch(0.22 0.034 250)" }}>
       <div style={{ maxWidth: TEXT_WIDTH }}>
         <div
@@ -1222,6 +1308,7 @@ function NoteSection({
       })()}
       </div>
     </div>
+    </BlockSaveContext.Provider>
   );
 }
 
@@ -1318,6 +1405,7 @@ function StepBadge({ n }: { n: number }) {
 }
 
 function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
+  const saveContent = useContext(BlockSaveContext);
   const [headings, setHeadings] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   return (
@@ -1329,8 +1417,8 @@ function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
           ref={(el) => { refs.current[i] = el; }}
           value={h}
           onChange={(e) => setHeadings((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
-          onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(headings))}
-          onKeyDown={(e) => handleListKeyDown(e, i, headings, (next) => { setHeadings(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
+          onBlur={() => saveContent(blockId, JSON.stringify(headings))}
+          onKeyDown={(e) => handleListKeyDown(e, i, headings, (next) => { setHeadings(next); saveContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
           style={{ flex: 1, fontSize: 19, fontWeight: 700, letterSpacing: "-0.01em", color: "oklch(0.94 0.0068 250)", background: "transparent", border: "none", outline: "none" }}
         />
         <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, oklch(0.84 0.17 196 / 0.35), transparent)" }} />
@@ -1341,6 +1429,7 @@ function HeadingsBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
 }
 
 function ObjectifBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
+  const saveContent = useContext(BlockSaveContext);
   const [objectif, setObjectif] = useState(initialContent ?? "");
   return (
     <div style={{ position: "relative", marginLeft: indentCss(indent), marginBottom: 24 }}>
@@ -1376,7 +1465,7 @@ function ObjectifBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
         ref={(el) => autoGrow(el)}
         value={objectif}
         onChange={(e) => setObjectif(e.target.value)}
-        onBlur={() => updateNoteBlockContent(blockId, objectif)}
+        onBlur={() => saveContent(blockId, objectif)}
         rows={1}
         style={{ width: "100%", boxSizing: "border-box", fontSize: 15, lineHeight: 1.6, color: "oklch(0.92 0.034 250)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
       />
@@ -1386,6 +1475,7 @@ function ObjectifBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bl
 }
 
 function TheorieBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
+  const saveContent = useContext(BlockSaveContext);
   const [theorie, setTheorie] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
   return (
@@ -1409,8 +1499,8 @@ function TheorieBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blo
             ref={(el) => { refs.current[i] = el; autoGrow(el); }}
             value={p}
             onChange={(e) => setTheorie((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
-            onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(theorie))}
-            onKeyDown={(e) => handleListKeyDown(e, i, theorie, (next) => { setTheorie(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs)}
+            onBlur={() => saveContent(blockId, JSON.stringify(theorie))}
+            onKeyDown={(e) => handleListKeyDown(e, i, theorie, (next) => { setTheorie(next); saveContent(blockId, JSON.stringify(next)); }, refs)}
             rows={1}
             style={{ flex: 1, fontSize: 15, lineHeight: 1.72, color: "oklch(0.84 0.034 250)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", fontFamily: "inherit" }}
           />
@@ -1433,6 +1523,7 @@ function BulletListBlock({
   iconColor: string;
   indent?: number;
 }) {
+  const saveContent = useContext(BlockSaveContext);
   const [items, setItems] = useState<string[]>(parseArr(initialContent));
   const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
   return (
@@ -1446,8 +1537,8 @@ function BulletListBlock({
             ref={(el) => { refs.current[i] = el; autoGrow(el); }}
             value={k}
             onChange={(e) => setItems((arr) => arr.map((x, xi) => (xi === i ? e.target.value : x)))}
-            onBlur={() => updateNoteBlockContent(blockId, JSON.stringify(items))}
-            onKeyDown={(e) => handleListKeyDown(e, i, items, (next) => { setItems(next); updateNoteBlockContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
+            onBlur={() => saveContent(blockId, JSON.stringify(items))}
+            onKeyDown={(e) => handleListKeyDown(e, i, items, (next) => { setItems(next); saveContent(blockId, JSON.stringify(next)); }, refs, { allowEnter: true })}
             rows={1}
             style={{ flex: 1, fontSize: 14.5, lineHeight: 1.5, color: "oklch(0.86 0.034 250)", background: "transparent", border: "none", outline: "none", resize: "none", overflow: "hidden", overflowWrap: "anywhere", fontFamily: "inherit" }}
           />
@@ -1458,6 +1549,7 @@ function BulletListBlock({
 }
 
 function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { blockId: string; initialContent: string | null; indent?: number }) {
+  const saveContent = useContext(BlockSaveContext);
   const parsed = useMemo(() => parseReglesBlock(initialContent), [initialContent]);
   const [label, setLabel] = useState(parsed.label);
   const [regles, setRegles] = useState<RegleItem[]>(parsed.items);
@@ -1467,7 +1559,7 @@ function ReglesBlock({ blockId, initialContent, indent = HEADER_INDENT }: { bloc
   const reglesRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const reglesDetailRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
-  const save = (items: RegleItem[], lbl: string = label) => updateNoteBlockContent(blockId, JSON.stringify({ label: lbl, items }));
+  const save = (items: RegleItem[], lbl: string = label) => saveContent(blockId, JSON.stringify({ label: lbl, items }));
   const canFloatLabelButton = indent >= 78;
 
   return (
@@ -1725,16 +1817,34 @@ function CategoryBlock({
   onToggleCollapsed,
   onMoved,
   indent,
+  drag,
 }: {
   block: BlockRecord;
   onDelete: () => void;
   onToggleCollapsed: () => void;
   onMoved: () => void;
   indent?: number;
+  /** Present when this block sits in a list that can be reordered by hand. */
+  drag?: {
+    grip: React.HTMLAttributes<HTMLElement> & { draggable: boolean };
+    row: React.HTMLAttributes<HTMLElement>;
+    dragging: boolean;
+    over: boolean;
+  };
 }) {
   const [hover, setHover] = useState(false);
   return (
-    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ position: "relative" }}>
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      {...drag?.row}
+      style={{
+        position: "relative",
+        opacity: drag?.dragging ? 0.4 : 1,
+        // Where it would land, drawn on the edge it would land at.
+        borderTop: drag?.over && !drag.dragging ? `2px solid ${accentColor}` : "2px solid transparent",
+      }}
+    >
       {/* The fold hangs on the left, as it does on a note's own blocks: it is
           reached for where the block begins, not at the far end of its width.
           An indented block has the gutter to sit in; one flush against an
@@ -1742,12 +1852,35 @@ function CategoryBlock({
       <div
         style={{
           position: "absolute",
-          top: -2,
-          left: indent === 0 ? -12 : "calc(var(--note-indent) - 22px)",
+          top: 0,
+          bottom: 0,
+          left: indent === 0 ? -34 : "calc(var(--note-indent) - 44px)",
           zIndex: 5,
+          display: "flex",
+          alignItems: "center",
         }}
       >
         <BlockFoldToggle collapsed={block.collapsed} visible={hover} onToggle={onToggleCollapsed} />
+        {drag && (
+          <span
+            {...drag.grip}
+            title="Glisser pour déplacer"
+            style={{
+              width: 20,
+              height: 22,
+              flex: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "grab",
+              color: "oklch(0.5 0.034 250)",
+              opacity: hover ? 1 : 0,
+              transition: "opacity 0.12s ease",
+            }}
+          >
+            <GripIcon />
+          </span>
+        )}
       </div>
       <div style={{ position: "absolute", top: -2, right: 0, zIndex: 5, display: "flex", alignItems: "center", gap: 2 }}>
         <MoveBlockMenu blockId={block.id} noteId={block.noteId} categoryId={block.categoryId} visible={hover} onMoved={onMoved} />
@@ -1931,6 +2064,17 @@ function ExampleCategory({
   const [name, setName] = useState(title);
   const [hover, setHover] = useState(false);
   const [collapsed, setCollapsed] = useState(initialCollapsed);
+
+  // Reordering this category's own text blocks. Only offered when there are
+  // several: a lone block has nowhere to go, and a grip that does nothing is
+  // worse than no grip.
+  const blockDrag = useBlockDrag(
+    (blocks ?? []).map((b) => b.id),
+    async (ordered) => {
+      await reorderNoteBlocks(ordered);
+      onChanged();
+    }
+  );
 
   // Filtering happens here rather than on the note as a whole: a category is
   // the pile you actually read through, and the words worth filtering by are
@@ -2281,6 +2425,11 @@ function ExampleCategory({
               onDelete={() => onDeleteBlock?.(b.id)}
               onToggleCollapsed={() => onToggleBlockCollapsed?.(b.id)}
               onMoved={onChanged}
+              drag={
+                blocks.length > 1
+                  ? { ...blockDrag.handlers(b.id), dragging: blockDrag.dragging === b.id, over: blockDrag.over === b.id }
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -3092,6 +3241,22 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
     setLocalImages(images);
   }, [imagesKey, images]);
 
+  // Reordering the card's own blocks, applied here and written behind it: the
+  // list is this component's, so there is nothing to wait for.
+  const exampleBlockDrag = useBlockDrag(
+    exampleBlocks.map((b) => b.id),
+    (ordered) => {
+      setExampleBlocks((prev) => ordered.flatMap((id) => prev.filter((b) => b.id === id)));
+      reorderNoteBlocks(ordered);
+    }
+  );
+
+  // The card's own blocks, kept in step for the same reason the note's are.
+  const saveExampleBlockContent = useCallback((blockId: string, content: string | null) => {
+    setExampleBlocks((prev) => prev.map((b) => (b.id === blockId ? { ...b, content } : b)));
+    updateNoteBlockContent(blockId, content);
+  }, []);
+
   const toggleImagesPerRow = () => {
     const next: 1 | 2 = imagesPerRow === 2 ? 1 : 2;
     setImagesPerRow(next);
@@ -3421,6 +3586,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
       {!collapsed && (
       <div style={{ borderTop: "1px solid oklch(0.24 0.034 250)" }}>
         {exampleBlocks.length > 0 && (
+          <BlockSaveContext.Provider value={saveExampleBlockContent}>
           <div style={{ display: "flex", flexDirection: "column", padding: "10px 12px 0" }}>
             {exampleBlocks.map((b) => (
               <CategoryBlock
@@ -3440,9 +3606,19 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
                   });
                 }}
                 onMoved={onChanged}
+                drag={
+                  exampleBlocks.length > 1
+                    ? {
+                        ...exampleBlockDrag.handlers(b.id),
+                        dragging: exampleBlockDrag.dragging === b.id,
+                        over: exampleBlockDrag.over === b.id,
+                      }
+                    : undefined
+                }
               />
             ))}
           </div>
+          </BlockSaveContext.Provider>
         )}
         <div
           // The drop target covers the images and the buttons under them, not
@@ -3683,7 +3859,19 @@ function DraggableBlock({
     >
       {/* The controls sit in the gutter beside the block, in the order they are
           reached for: fold, then drag or delete, then send elsewhere. */}
-      <div style={{ position: "absolute", left: "var(--handle-cluster-offset)", top: 2, display: "flex", alignItems: "center" }}>
+      {/* The controls span the block's height and centre themselves on it,
+          folded or not: pinned to the top they sat in the corner of a tall
+          panel, level with nothing in particular. */}
+      <div
+        style={{
+          position: "absolute",
+          left: "var(--handle-cluster-offset)",
+          top: 0,
+          bottom: 0,
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
         <BlockFoldToggle collapsed={block.collapsed} visible={hovered} onToggle={onToggleCollapsed} />
         <GripMenuButton visible={hovered} onDragStart={onDragStart} onDelete={onDelete} />
         {/* The "exemples" block is the frame the categories are drawn in rather
@@ -3720,7 +3908,7 @@ function MoveBlockMenu({
       currentNoteId={noteId}
       currentCategoryId={categoryId}
       visible={visible}
-      label="⇄"
+      label="⇄ déplacer"
       title="Déplacer ce bloc dans une autre section"
       onPick={(destNoteId, destCategoryId) => moveNoteBlock(blockId, destNoteId, destCategoryId)}
       onMoved={onMoved}
