@@ -27,6 +27,11 @@
      margin the gutter leaves free. On a phone there is no such margin, so they
      move back inside — the gutter is wide enough to hold them. */
   --handle-offset: -30px;
+
+  /* The whole cluster — fold, drag, move — starts a chevron's width further
+     left, so the grip keeps landing at --handle-offset, where the hand has
+     always reached for it. */
+  --handle-cluster-offset: -50px;
 }
 
 @media (max-width: 768px) {
@@ -35,6 +40,9 @@
   :root {
     --note-indent: 36px;
     --handle-offset: 0px;
+    /* No margin to hang in, so the cluster starts at the edge and the fold
+       takes the first place rather than one off screen. */
+    --handle-cluster-offset: 0px;
   }
 }
 

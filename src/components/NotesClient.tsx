@@ -153,26 +153,43 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
 /**
  * The one line a folded block shows of itself.
  *
- * Every block type stores its content differently — a string for the boxed
- * note, a JSON array of strings for the lists, an array of objects for the
- * numbered rules — so this reads whichever it finds and gives up quietly on
- * anything else. Without it a folded block would be a label and nothing else,
- * and a page of folded blocks would say nothing about what it holds.
+ * Every block type stores its content in its own shape — a bare string for the
+ * boxed note, an array of strings for the bullet lists, an array of
+ * `{title, details}` for the numbered rules, and, for the rules written since,
+ * a `{label, items}` object wrapping those. Rather than a branch per shape,
+ * this walks whatever it is handed and keeps the strings it finds under the
+ * keys those shapes use, deepest last. Anything it does not recognise yields
+ * nothing, which is how it stays quiet instead of printing raw JSON at the
+ * reader — which is exactly what a shape it did not know once did.
  */
+function collectBlockText(value: unknown, out: string[]) {
+  if (out.length >= 12) return;
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (text) out.push(text);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectBlockText(item, out);
+    return;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["label", "title", "text", "items", "details"]) {
+      if (key in record) collectBlockText(record[key], out);
+    }
+  }
+}
+
 function blockPreview(content: string | null): string {
   const raw = (content ?? "").trim();
   if (!raw) return "";
   let text = raw;
   try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      text = parsed
-        .map((item) =>
-          typeof item === "string" ? item : typeof item?.label === "string" ? item.label : ""
-        )
-        .filter(Boolean)
-        .join(" · ");
-    }
+    const parsed: unknown = JSON.parse(raw);
+    const parts: string[] = [];
+    collectBlockText(parsed, parts);
+    text = parts.join(" · ");
   } catch {
     // Not JSON: the content is the text itself.
   }
@@ -756,6 +773,12 @@ function NoteSection({
 
   const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const draggingIdRef = useRef<string | null>(null);
+  // Where a dragged block would land if it were dropped now: a category, rather
+  // than a place in the note's own run of blocks. Kept in a ref as well as in
+  // state because the mouseup handler is closed over the drag's first render.
+  const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const dropCategoryRef = useRef<string | null>(null);
+  const [dropCategoryId, setDropCategoryId] = useState<string | null>(null);
   // A category is only draggable once its own grip is pressed. Left permanently
   // draggable, the wrapper made every title, paragraph and image inside it the
   // start of a native drag: selecting a word carried the whole category off
@@ -771,6 +794,29 @@ function NoteSection({
         const dragId = draggingIdRef.current;
         if (!dragId) return;
         const list = blockListRef.current;
+
+        // Over a category, the block is being filed rather than reordered: the
+        // run of blocks must stay still, or it would shuffle under the pointer
+        // on the way there. The "exemples" block is the frame those categories
+        // are drawn in and cannot go inside one of them.
+        const dragged = list.find((b) => b.id === dragId);
+        if (dragged && dragged.type !== "exemples") {
+          let over: string | null = null;
+          for (const [categoryId, el] of Object.entries(categoryRefs.current)) {
+            if (!el) continue;
+            const r = el.getBoundingClientRect();
+            if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) {
+              over = categoryId;
+              break;
+            }
+          }
+          if (over !== dropCategoryRef.current) {
+            dropCategoryRef.current = over;
+            setDropCategoryId(over);
+          }
+          if (over) return;
+        }
+
         let closestId: string | null = null;
         let closestDist = Infinity;
         for (const b of list) {
@@ -795,9 +841,21 @@ function NoteSection({
         }
       }
       function onUp() {
+        const dragId = draggingIdRef.current;
         draggingIdRef.current = null;
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("mouseup", onUp);
+
+        const categoryId = dropCategoryRef.current;
+        dropCategoryRef.current = null;
+        setDropCategoryId(null);
+        if (dragId && categoryId) {
+          // It leaves the note's own run, so the list it was ordered in is the
+          // one left behind; the arrival is ordered by the move itself.
+          setBlockList((prev) => prev.filter((b) => b.id !== dragId));
+          moveNoteBlock(dragId, note.id, categoryId).then(onChanged);
+          return;
+        }
         reorderNoteBlocks(blockListRef.current.map((b) => b.id));
       }
       window.addEventListener("mousemove", onMove);
@@ -939,6 +997,9 @@ function NoteSection({
                     {categories.map((cat, catIdx) => (
                       <div
                         key={cat.id}
+                        ref={(el) => {
+                          categoryRefs.current[cat.id] = el;
+                        }}
                         draggable={armedCategory === cat.id}
                         onDragStart={(e) => {
                           e.dataTransfer.effectAllowed = "move";
@@ -962,7 +1023,16 @@ function NoteSection({
                           reorderCategories(current);
                           onChanged();
                         }}
-                        style={{ display: "flex", gap: 8, alignItems: "flex-start" }}
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "flex-start",
+                          // Lit while a dragged block is over it, so the drop
+                          // says where it would land before it happens.
+                          outline: dropCategoryId === cat.id ? `1px solid ${accentColor}` : "none",
+                          outlineOffset: 6,
+                          background: dropCategoryId === cat.id ? "oklch(0.84 0.17 196 / 0.07)" : "transparent",
+                        }}
                       >
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <ExampleCategory
@@ -3607,7 +3677,7 @@ function DraggableBlock({
     >
       {/* The controls sit in the gutter beside the block, in the order they are
           reached for: fold, then drag or delete, then send elsewhere. */}
-      <div style={{ position: "absolute", left: "var(--handle-offset)", top: 2, display: "flex", alignItems: "center" }}>
+      <div style={{ position: "absolute", left: "var(--handle-cluster-offset)", top: 2, display: "flex", alignItems: "center" }}>
         <BlockFoldToggle collapsed={block.collapsed} visible={hovered} onToggle={onToggleCollapsed} />
         <GripMenuButton visible={hovered} onDragStart={onDragStart} onDelete={onDelete} />
         {/* The "exemples" block is the frame the categories are drawn in rather
