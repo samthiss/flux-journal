@@ -134,7 +134,7 @@ export async function createNoteBlock(noteId: string, type: string, categoryId: 
     data: { noteId, categoryId, exampleId, type, content: BLOCK_DEFAULT_CONTENT[type] ?? null, order: count },
   });
   revalidatePath("/notes");
-  return { id: block.id, noteId: block.noteId, categoryId: block.categoryId, exampleId: block.exampleId, type: block.type, content: block.content, order: block.order };
+  return { id: block.id, noteId: block.noteId, categoryId: block.categoryId, exampleId: block.exampleId, type: block.type, content: block.content, order: block.order, collapsed: block.collapsed };
 }
 
 export async function createExemplesBlock(noteId: string) {
@@ -158,6 +158,51 @@ export async function deleteNoteBlock(blockId: string) {
   if (!block) return;
   await prisma.noteBlock.delete({ where: { id: blockId } });
   if (block.type === "exemples") await clearNoteExamples(block.noteId);
+  revalidatePath("/notes");
+}
+
+/**
+ * Folds a block to its label strip, or unfolds it.
+ *
+ * Not revalidated, like the other folds: the state is applied where it was
+ * clicked, and the write is only there so the next load opens the same way.
+ */
+export async function setNoteBlockCollapsed(blockId: string, collapsed: boolean) {
+  await prisma.noteBlock.update({ where: { id: blockId }, data: { collapsed } });
+}
+
+/**
+ * Moves one block to another note, and to a category within it.
+ *
+ * A block sits at one of three levels — the note itself, a category, or an
+ * example — and moving it always lands it at one of the first two: `categoryId`
+ * null puts it in the note's own body, above the examples. Any tie to an
+ * example is dropped, since the example it belonged to is not where it is
+ * going. It arrives last among its new neighbours, which is the only position
+ * that needs no guessing.
+ *
+ * The "exemples" block is refused: it is not a piece of writing but the frame
+ * the categories are drawn in, and a note has at most one.
+ */
+export async function moveNoteBlock(blockId: string, noteId: string, categoryId: string | null) {
+  const block = await prisma.noteBlock.findUnique({ where: { id: blockId } });
+  if (!block || block.type === "exemples") return;
+
+  const note = await prisma.note.findUnique({ where: { id: noteId } });
+  if (!note) return;
+  if (categoryId) {
+    const category = await prisma.noteCategory.findUnique({ where: { id: categoryId } });
+    if (!category || category.noteId !== noteId) return;
+  }
+
+  const siblings = await prisma.noteBlock.count({
+    where: categoryId ? { categoryId } : { noteId, categoryId: null, exampleId: null },
+  });
+  await prisma.noteBlock.update({
+    where: { id: blockId },
+    data: { noteId, categoryId, exampleId: null, order: siblings },
+  });
+
   revalidatePath("/notes");
 }
 
@@ -420,6 +465,56 @@ export async function deleteTagValue(field: TagField, value: string) {
       data: { [field]: JSON.stringify(values.filter((v) => v !== value)) },
     });
   }
+
+  revalidatePath("/notes");
+}
+
+/**
+ * Renames a vocabulary word everywhere it is written.
+ *
+ * A vocabulary has no table of its own, so a word is only ever the text on the
+ * examples that carry it — renaming is therefore a rewrite of those examples,
+ * not an update of a row. The old spelling is then recorded as removed for the
+ * same reason a deletion is: without that, the ones that ship in the code would
+ * come straight back from the list on the next render, next to their new name.
+ *
+ * The new spelling may itself have been removed at some point, so it is
+ * un-hidden; and an example already carrying both ends up with it once.
+ */
+export async function renameTagValue(field: TagField, from: string, to: string) {
+  const next = to.trim();
+  if (!next || next === from) return;
+
+  if (field === "zone") {
+    await prisma.noteExample.updateMany({ where: { zone: from }, data: { zone: next } });
+  } else {
+    const examples = await prisma.noteExample.findMany({
+      where: { [field]: { contains: from } },
+      select: { id: true, tradeTypes: true, confirmations: true, invalidReasons: true },
+    });
+    for (const example of examples) {
+      let values: string[];
+      try {
+        values = JSON.parse(example[field] ?? "[]");
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(values) || !values.includes(from)) continue;
+      // A rename onto a word the example already carries must not double it.
+      const renamed = [...new Set(values.map((v) => (v === from ? next : v)))];
+      await prisma.noteExample.update({
+        where: { id: example.id },
+        data: { [field]: JSON.stringify(renamed) },
+      });
+    }
+  }
+
+  await prisma.hiddenTagOption.upsert({
+    where: { kind_value: { kind: field, value: from } },
+    create: { kind: field, value: from },
+    update: {},
+  });
+  await prisma.hiddenTagOption.deleteMany({ where: { kind: field, value: next } });
 
   revalidatePath("/notes");
 }

@@ -7,7 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { accentColor } from "@/lib/theme";
 import ImageLightbox from "@/components/ImageLightbox";
-import MoveExampleMenu from "@/components/MoveExampleMenu";
+import MoveExampleMenu, { MoveTargetMenu } from "@/components/MoveExampleMenu";
 import MoveCategoryMenu from "@/components/MoveCategoryMenu";
 import { useMenuDismiss } from "@/components/useMenuDismiss";
 import {
@@ -37,6 +37,9 @@ import {
   searchTrades,
   importTradeImages,
   restoreTagValue,
+  renameTagValue,
+  moveNoteBlock,
+  setNoteBlockCollapsed,
   type TagField,
 } from "@/lib/actions/notes";
 
@@ -94,7 +97,7 @@ type NoteRecord = {
   uncategorizedCollapsed: boolean;
 };
 
-type BlockRecord = { id: string; noteId: string; categoryId: string | null; exampleId: string | null; type: string; content: string | null; order: number };
+type BlockRecord = { id: string; noteId: string; categoryId: string | null; exampleId: string | null; type: string; content: string | null; order: number; collapsed: boolean };
 
 // Confirmations and invalid reasons are meant to repeat: the same handful of
 // words describes example after example. So every value already written on any
@@ -146,6 +149,116 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   invalide: "Invalid",
   exemples: "Exemples",
 };
+
+/**
+ * The one line a folded block shows of itself.
+ *
+ * Every block type stores its content differently — a string for the boxed
+ * note, a JSON array of strings for the lists, an array of objects for the
+ * numbered rules — so this reads whichever it finds and gives up quietly on
+ * anything else. Without it a folded block would be a label and nothing else,
+ * and a page of folded blocks would say nothing about what it holds.
+ */
+function blockPreview(content: string | null): string {
+  const raw = (content ?? "").trim();
+  if (!raw) return "";
+  let text = raw;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      text = parsed
+        .map((item) =>
+          typeof item === "string" ? item : typeof item?.label === "string" ? item.label : ""
+        )
+        .filter(Boolean)
+        .join(" · ");
+    }
+  } catch {
+    // Not JSON: the content is the text itself.
+  }
+  text = text.replace(/\s+/g, " ").trim();
+  return text.length > 90 ? text.slice(0, 89) + "…" : text;
+}
+
+/**
+ * A block folded away: its kind, and the beginning of what it says.
+ *
+ * The whole strip unfolds it, not just a chevron — on a phone the chevron only
+ * appears on hover, which is a thing a finger cannot do.
+ */
+function CollapsedBlockStub({ block, indent, onExpand }: { block: BlockRecord; indent: number; onExpand: () => void }) {
+  const preview = blockPreview(block.content);
+  return (
+    <div
+      onClick={onExpand}
+      title="Déplier"
+      style={{
+        marginLeft: indentCss(indent),
+        marginBottom: 14,
+        display: "flex",
+        alignItems: "baseline",
+        gap: 10,
+        padding: "7px 12px",
+        cursor: "pointer",
+        border: "1px dashed oklch(0.3 0.034 250)",
+        background: "oklch(0.17 0.03 250 / 0.5)",
+        clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "var(--font-jetbrains-mono), monospace",
+          fontSize: 9,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: accentColor,
+          flex: "none",
+        }}
+      >
+        {BLOCK_TYPE_LABELS[block.type] ?? "Bloc"}
+      </span>
+      <span
+        style={{
+          fontSize: 12.5,
+          color: "oklch(0.55 0.03 250)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          minWidth: 0,
+        }}
+      >
+        {preview || "vide"}
+      </span>
+    </div>
+  );
+}
+
+/** The chevron that folds a block, shown where its other controls are. */
+function BlockFoldToggle({ collapsed, visible, onToggle }: { collapsed: boolean; visible: boolean; onToggle: () => void }) {
+  return (
+    <span
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      title={collapsed ? "Déplier le bloc" : "Replier le bloc"}
+      style={{
+        width: 20,
+        height: 22,
+        flex: "none",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "oklch(0.5 0.034 250)",
+        cursor: "pointer",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 0.12s ease",
+      }}
+    >
+      <ChevronIcon color="oklch(0.5 0.034 250)" down={!collapsed} />
+    </span>
+  );
+}
 
 type CategoryRecord = { id: string; noteId: string; name: string; order: number; collapsed: boolean };
 type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; validity: string | null; invalidReasons: string | null; zone: string | null; tradeTypes: string | null; order: number; collapsed: boolean };
@@ -695,12 +808,21 @@ function NoteSection({
   async function addBlock(type: string, categoryId: string | null = null) {
     if (type === "exemples") {
       const created = await createExemplesBlock(note.id);
-      setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId: null, exampleId: null, type: "exemples", content: null, order: prev.length }]);
+      setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId: null, exampleId: null, type: "exemples", content: null, order: prev.length, collapsed: false }]);
       onChanged();
       return;
     }
     const created = await createNoteBlock(note.id, type, categoryId);
-    setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId, exampleId: null, type, content: created.content, order: created.order }]);
+    setBlockList((prev) => [...prev, { id: created.id, noteId: note.id, categoryId, exampleId: null, type, content: created.content, order: created.order, collapsed: false }]);
+  }
+
+  function toggleBlockCollapsed(blockId: string) {
+    setBlockList((prev) => {
+      const next = prev.map((b) => (b.id === blockId ? { ...b, collapsed: !b.collapsed } : b));
+      const block = next.find((b) => b.id === blockId);
+      if (block) setNoteBlockCollapsed(blockId, block.collapsed);
+      return next;
+    });
   }
 
   async function deleteBlock(blockId: string) {
@@ -760,12 +882,14 @@ function NoteSection({
         return (
           <div key={block.id} style={{ maxWidth: TEXT_WIDTH }}>
             <DraggableBlock
-              blockKey={block.id}
+              block={block}
               setRef={(el) => { blockRefs.current[block.id] = el; }}
               hoverKey={blockHover}
               setHoverKey={setBlockHover}
               onDragStart={startBlockDrag(block.id)}
               onDelete={() => deleteBlock(block.id)}
+              onToggleCollapsed={() => toggleBlockCollapsed(block.id)}
+              onMoved={onChanged}
             >
               <NoteBlockContent block={block} />
             </DraggableBlock>
@@ -777,12 +901,14 @@ function NoteSection({
           return (
             <DraggableBlock
               key={block.id}
-              blockKey={block.id}
+              block={block}
               setRef={(el) => { blockRefs.current[block.id] = el; }}
               hoverKey={blockHover}
               setHoverKey={setBlockHover}
               onDragStart={startBlockDrag(block.id)}
               onDelete={() => deleteBlock(block.id)}
+              onToggleCollapsed={() => toggleBlockCollapsed(block.id)}
+              onMoved={onChanged}
             >
               <div>
                   <div
@@ -859,6 +985,7 @@ function NoteSection({
                             blocks={blockList.filter((b) => b.categoryId === cat.id && !b.exampleId)}
                             onAddBlock={(type) => addBlock(type, cat.id)}
                             onDeleteBlock={deleteBlock}
+                            onToggleBlockCollapsed={toggleBlockCollapsed}
                             exampleBlocks={blockList}
                             categoryId={cat.id}
                             onGripPress={() => {
@@ -1524,33 +1651,56 @@ function AddBlockButton({ visible, onAdd }: { visible: boolean; onAdd: (type: st
   );
 }
 
-function CategoryBlock({ block, onDelete, indent }: { block: BlockRecord; onDelete: () => void; indent?: number }) {
+/**
+ * A block below a category or on an example, with the controls those levels
+ * have room for: they hang at the top right rather than in the gutter, which
+ * here belongs to the category's own fold.
+ */
+function CategoryBlock({
+  block,
+  onDelete,
+  onToggleCollapsed,
+  onMoved,
+  indent,
+}: {
+  block: BlockRecord;
+  onDelete: () => void;
+  onToggleCollapsed: () => void;
+  onMoved: () => void;
+  indent?: number;
+}) {
   const [hover, setHover] = useState(false);
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ position: "relative" }}>
-      <span
-        onClick={onDelete}
-        title="Supprimer le bloc"
-        style={{
-          position: "absolute",
-          top: -2,
-          right: 0,
-          width: 22,
-          height: 22,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 13,
-          borderRadius: 6,
-          color: "oklch(0.55 0.034 250)",
-          cursor: "pointer",
-          opacity: hover ? 1 : 0,
-          transition: "opacity 0.12s ease",
-        }}
-      >
-        ✕
-      </span>
-      <NoteBlockContent block={block} indent={indent} />
+      <div style={{ position: "absolute", top: -2, right: 0, zIndex: 5, display: "flex", alignItems: "center", gap: 2 }}>
+        <BlockFoldToggle collapsed={block.collapsed} visible={hover} onToggle={onToggleCollapsed} />
+        <MoveBlockMenu blockId={block.id} noteId={block.noteId} categoryId={block.categoryId} visible={hover} onMoved={onMoved} />
+        <span
+          onClick={onDelete}
+          title="Supprimer le bloc"
+          style={{
+            width: 22,
+            height: 22,
+            flex: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            borderRadius: 6,
+            color: "oklch(0.55 0.034 250)",
+            cursor: "pointer",
+            opacity: hover ? 1 : 0,
+            transition: "opacity 0.12s ease",
+          }}
+        >
+          ✕
+        </span>
+      </div>
+      {block.collapsed ? (
+        <CollapsedBlockStub block={block} indent={indent ?? HEADER_INDENT} onExpand={onToggleCollapsed} />
+      ) : (
+        <NoteBlockContent block={block} indent={indent} />
+      )}
     </div>
   );
 }
@@ -1669,6 +1819,7 @@ function ExampleCategory({
   blocks,
   onAddBlock,
   onDeleteBlock,
+  onToggleBlockCollapsed,
   exampleBlocks,
   categoryId,
   noteId,
@@ -1689,6 +1840,7 @@ function ExampleCategory({
   blocks?: BlockRecord[];
   onAddBlock?: (type: string) => void;
   onDeleteBlock?: (blockId: string) => void;
+  onToggleBlockCollapsed?: (blockId: string) => void;
   exampleBlocks?: BlockRecord[];
   categoryId?: string;
   noteId?: string;
@@ -2047,7 +2199,13 @@ function ExampleCategory({
       {!collapsed && blocks && blocks.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", marginBottom: 8 }}>
           {blocks.map((b) => (
-            <CategoryBlock key={b.id} block={b} onDelete={() => onDeleteBlock?.(b.id)} />
+            <CategoryBlock
+              key={b.id}
+              block={b}
+              onDelete={() => onDeleteBlock?.(b.id)}
+              onToggleCollapsed={() => onToggleBlockCollapsed?.(b.id)}
+              onMoved={onChanged}
+            />
           ))}
         </div>
       )}
@@ -2549,6 +2707,7 @@ function ChipDropdown({
   onToggle,
   onAdd,
   onRemoveOption,
+  onRenameOption,
 }: {
   placeholder: string;
   options: string[];
@@ -2560,9 +2719,14 @@ function ChipDropdown({
   onAdd?: (value: string) => void;
   /** Present when options can be removed from the vocabulary entirely. */
   onRemoveOption?: (value: string) => boolean;
+  /** Present when an option can be renamed wherever it is written. */
+  onRenameOption?: (from: string, to: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  // The option being rewritten, if any, and what it is being rewritten to.
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const wrapper = useRef<HTMLDivElement>(null);
   useMenuDismiss(open, wrapper, () => setOpen(false));
 
@@ -2640,8 +2804,52 @@ function ChipDropdown({
                 }}
               >
                 <span style={{ width: 10, flex: "none", color: optionTone.fg }}>{on ? "✓" : ""}</span>
-                <span style={{ flex: 1 }}>{option}</span>
-                {removable && (
+                {renaming === option ? (
+                  <input
+                    autoFocus
+                    value={renameDraft}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onBlur={() => setRenaming(null)}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Enter") {
+                        const next = renameDraft.trim();
+                        setRenaming(null);
+                        if (next && next !== option) onRenameOption?.(option, next);
+                      }
+                      if (e.key === "Escape") setRenaming(null);
+                    }}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                      fontSize: 10.5,
+                      padding: "2px 5px",
+                      borderRadius: 4,
+                      border: `1px solid ${accentColor}`,
+                      background: "oklch(0.84 0.17 196 / 0.1)",
+                      color: "oklch(0.92 0.017 250)",
+                      outline: "none",
+                    }}
+                  />
+                ) : (
+                  <span style={{ flex: 1 }}>{option}</span>
+                )}
+                {onRenameOption && renaming !== option && (
+                  <span
+                    title="Renommer, partout où le tag est écrit"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRenameDraft(option);
+                      setRenaming(option);
+                    }}
+                    style={{ fontSize: 10, opacity: 0.55 }}
+                  >
+                    ✎
+                  </span>
+                )}
+                {removable && renaming !== option && (
                   <span
                     title="Retirer de la liste, sur tous les exemples"
                     onClick={(e) => {
@@ -2756,6 +2964,23 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
     deleteTagValue(KIND_TO_FIELD[kind], value).then(onChanged);
     return true;
   };
+
+  /**
+   * Renames a word wherever it is written.
+   *
+   * The list the card shows is rebuilt from the page data, which only catches
+   * up on the refresh; `remember` puts the new spelling in the vocabulary at
+   * once so the option does not vanish between the rename and the reload.
+   */
+  const rename = (kind: TagKind, from: string, to: string) => {
+    vocabulary.remember(kind, to);
+    renameTagValue(KIND_TO_FIELD[kind], from, to).then(onChanged);
+  };
+
+  /** The same rewrite, applied to what this card is carrying. */
+  const renameLocally = (values: string[], from: string, to: string) => [
+    ...new Set(values.map((v) => (v === from ? to : v))),
+  ];
 
   /** Writing a word again is how a removed one comes back. */
   const write = (kind: TagKind, value: string) => {
@@ -3011,6 +3236,10 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               setConfirmations((prev) => prev.filter((v) => v !== value));
               return true;
             }}
+            onRenameOption={(from, to) => {
+              rename("confirmation", from, to);
+              setConfirmations((prev) => renameLocally(prev, from, to));
+            }}
           />
           <ChipDropdown
             placeholder="Type"
@@ -3037,6 +3266,10 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               setTradeTypes((prev) => prev.filter((v) => v !== value));
               return true;
             }}
+            onRenameOption={(from, to) => {
+              rename("tradeType", from, to);
+              setTradeTypes((prev) => renameLocally(prev, from, to));
+            }}
           />
           <ChipDropdown
             placeholder="Zone"
@@ -3057,6 +3290,10 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               if (!forget("zone", value)) return false;
               setZone((prev) => (prev === value ? null : prev));
               return true;
+            }}
+            onRenameOption={(from, to) => {
+              rename("zone", from, to);
+              setZone((prev) => (prev === from ? to : prev));
             }}
           />
           <ChipDropdown
@@ -3097,6 +3334,10 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
                 setInvalidReasons((prev) => prev.filter((v) => v !== value));
                 return true;
               }}
+              onRenameOption={(from, to) => {
+                rename("invalidReason", from, to);
+                setInvalidReasons((prev) => renameLocally(prev, from, to));
+              }}
             />
           )}
         </div>
@@ -3115,6 +3356,14 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
                   await deleteNoteBlock(b.id);
                   onChanged();
                 }}
+                onToggleCollapsed={() => {
+                  setExampleBlocks((prev) => {
+                    const next = prev.map((x) => (x.id === b.id ? { ...x, collapsed: !x.collapsed } : x));
+                    setNoteBlockCollapsed(b.id, !b.collapsed);
+                    return next;
+                  });
+                }}
+                onMoved={onChanged}
               />
             ))}
           </div>
@@ -3328,34 +3577,78 @@ function ExemplesSectionTitle({ initialTitle, onRename }: { initialTitle: string
 }
 
 function DraggableBlock({
-  blockKey,
+  block,
   setRef,
   hoverKey,
   setHoverKey,
   onDragStart,
   onDelete,
+  onToggleCollapsed,
+  onMoved,
   children,
 }: {
-  blockKey: string;
+  block: BlockRecord;
   setRef: (el: HTMLDivElement | null) => void;
   hoverKey: string | null;
   setHoverKey: (fn: (k: string | null) => string | null) => void;
   onDragStart: (e: React.MouseEvent) => void;
   onDelete: () => void;
+  onToggleCollapsed: () => void;
+  onMoved: () => void;
   children: React.ReactNode;
 }) {
+  const hovered = hoverKey === block.id;
   return (
     <div
       ref={setRef}
-      onMouseEnter={() => setHoverKey(() => blockKey)}
-      onMouseLeave={() => setHoverKey((k) => (k === blockKey ? null : k))}
+      onMouseEnter={() => setHoverKey(() => block.id)}
+      onMouseLeave={() => setHoverKey((k) => (k === block.id ? null : k))}
       style={{ position: "relative" }}
     >
-      <div style={{ position: "absolute", left: "var(--handle-offset)", top: 2 }}>
-        <GripMenuButton visible={hoverKey === blockKey} onDragStart={onDragStart} onDelete={onDelete} />
+      {/* The controls sit in the gutter beside the block, in the order they are
+          reached for: fold, then drag or delete, then send elsewhere. */}
+      <div style={{ position: "absolute", left: "var(--handle-offset)", top: 2, display: "flex", alignItems: "center" }}>
+        <BlockFoldToggle collapsed={block.collapsed} visible={hovered} onToggle={onToggleCollapsed} />
+        <GripMenuButton visible={hovered} onDragStart={onDragStart} onDelete={onDelete} />
+        {/* The "exemples" block is the frame the categories are drawn in rather
+            than a piece of writing, and the move is refused for it. */}
+        {block.type !== "exemples" && (
+          <MoveBlockMenu blockId={block.id} noteId={block.noteId} categoryId={block.categoryId} visible={hovered} onMoved={onMoved} />
+        )}
       </div>
-      {children}
+      {block.collapsed ? (
+        <CollapsedBlockStub block={block} indent={HEADER_INDENT} onExpand={onToggleCollapsed} />
+      ) : (
+        children
+      )}
     </div>
+  );
+}
+
+/** The move picker as a block wears it: one glyph, in a gutter with no room. */
+function MoveBlockMenu({
+  blockId,
+  noteId,
+  categoryId,
+  visible,
+  onMoved,
+}: {
+  blockId: string;
+  noteId: string;
+  categoryId: string | null;
+  visible: boolean;
+  onMoved: () => void;
+}) {
+  return (
+    <MoveTargetMenu
+      currentNoteId={noteId}
+      currentCategoryId={categoryId}
+      visible={visible}
+      label="⇄"
+      title="Déplacer ce bloc dans une autre section"
+      onPick={(destNoteId, destCategoryId) => moveNoteBlock(blockId, destNoteId, destCategoryId)}
+      onMoved={onMoved}
+    />
   );
 }
 

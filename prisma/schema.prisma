@@ -94,6 +94,10 @@ model NoteBlock {
   type       String
   content    String?
   order      Int      @default(0)
+
+  // Folded to its label strip, for the same reason as Note.collapsed: a long
+  // section is read one part at a time.
+  collapsed  Boolean  @default(false)
   createdAt  DateTime @default(now())
 
   note     Note          @relation(fields: [noteId], references: [id], onDelete: Cascade)

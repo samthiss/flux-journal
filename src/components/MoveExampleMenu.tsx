@@ -36,25 +36,33 @@ function flattenDFS(nodes: TreeNode[], depth = 0, out: Array<{ node: TreeNode; d
 
 const rowStyle = { fontSize: 12.5, padding: "7px 8px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.017 250)" } as const;
 
-// Two steps, note then category, for the same reason AddTradeToNoteButton uses
-// them: a flat list of every category across every note reads as noise once the
-// tree has more than a handful of nodes.
-export default function MoveExampleMenu({
-  exampleIds,
+/**
+ * Picks a destination: a note, then a category inside it.
+ *
+ * Two steps, for the same reason AddTradeToNoteButton uses them: a flat list of
+ * every category across every note reads as noise once the tree has more than a
+ * handful of nodes. What is being moved is not this component's business — it
+ * hands the choice to `onPick` — so an example, a selection of them and a block
+ * all use the same picker.
+ */
+export function MoveTargetMenu({
   currentNoteId,
   currentCategoryId,
   visible,
+  onPick,
   onMoved,
   label,
+  title,
 }: {
-  /** One example, or the several that are ticked. */
-  exampleIds: string[];
   currentNoteId: string;
   currentCategoryId: string | null;
   visible: boolean;
+  /** Does the move itself, once a destination has been chosen. */
+  onPick: (noteId: string, categoryId: string | null) => Promise<void>;
   onMoved: () => void;
   /** The button's own wording, which says how many are travelling. */
   label?: string;
+  title?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -98,7 +106,7 @@ export default function MoveExampleMenu({
       return;
     }
     setMoving(true);
-    await moveExamples(exampleIds, selectedNoteId, categoryId);
+    await onPick(selectedNoteId, categoryId);
     setMoving(false);
     close();
     onMoved();
@@ -128,7 +136,7 @@ export default function MoveExampleMenu({
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        title="Déplacer cet exemple"
+        title={title ?? "Déplacer cet exemple"}
         style={{
           fontFamily: "var(--font-jetbrains-mono), monospace",
           fontSize: 10,
@@ -239,4 +247,19 @@ export default function MoveExampleMenu({
       )}
     </div>
   );
+}
+
+/** The picker, wired to move one example or the several that are ticked. */
+export default function MoveExampleMenu({
+  exampleIds,
+  ...rest
+}: {
+  exampleIds: string[];
+  currentNoteId: string;
+  currentCategoryId: string | null;
+  visible: boolean;
+  onMoved: () => void;
+  label?: string;
+}) {
+  return <MoveTargetMenu {...rest} onPick={(noteId, categoryId) => moveExamples(exampleIds, noteId, categoryId)} />;
 }
