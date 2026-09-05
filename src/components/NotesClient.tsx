@@ -223,22 +223,14 @@ function CollapsedBlockStub({ block, indent, onExpand }: { block: BlockRecord; i
         clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)",
       }}
     >
+      {/* The heading alone, in the accent. Naming the kind of block as well
+          said nothing the strip did not already show, and pushed the title the
+          reader was looking for off to the side. */}
       <span
         style={{
-          fontFamily: "var(--font-jetbrains-mono), monospace",
-          fontSize: 9,
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
+          fontSize: 13,
+          fontWeight: 600,
           color: accentColor,
-          flex: "none",
-        }}
-      >
-        {BLOCK_TYPE_LABELS[block.type] ?? "Bloc"}
-      </span>
-      <span
-        style={{
-          fontSize: 12.5,
-          color: "oklch(0.55 0.03 250)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -1743,8 +1735,21 @@ function CategoryBlock({
   const [hover, setHover] = useState(false);
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ position: "relative" }}>
-      <div style={{ position: "absolute", top: -2, right: 0, zIndex: 5, display: "flex", alignItems: "center", gap: 2 }}>
+      {/* The fold hangs on the left, as it does on a note's own blocks: it is
+          reached for where the block begins, not at the far end of its width.
+          An indented block has the gutter to sit in; one flush against an
+          example only has that card's padding. */}
+      <div
+        style={{
+          position: "absolute",
+          top: -2,
+          left: indent === 0 ? -12 : "calc(var(--note-indent) - 22px)",
+          zIndex: 5,
+        }}
+      >
         <BlockFoldToggle collapsed={block.collapsed} visible={hover} onToggle={onToggleCollapsed} />
+      </div>
+      <div style={{ position: "absolute", top: -2, right: 0, zIndex: 5, display: "flex", alignItems: "center", gap: 2 }}>
         <MoveBlockMenu blockId={block.id} noteId={block.noteId} categoryId={block.categoryId} visible={hover} onMoved={onMoved} />
         <span
           onClick={onDelete}
