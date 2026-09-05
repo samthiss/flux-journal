@@ -151,34 +151,38 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * The one line a folded block shows of itself.
+ * The one line a folded block shows of itself: the heading it was given.
  *
  * Every block type stores its content in its own shape — a bare string for the
  * boxed note, an array of strings for the bullet lists, an array of
  * `{title, details}` for the numbered rules, and, for the rules written since,
  * a `{label, items}` object wrapping those. Rather than a branch per shape,
- * this walks whatever it is handed and keeps the strings it finds under the
- * keys those shapes use, deepest last. Anything it does not recognise yields
- * nothing, which is how it stays quiet instead of printing raw JSON at the
- * reader — which is exactly what a shape it did not know once did.
+ * this walks whatever it is handed and stops at the first piece of text, under
+ * the keys those shapes name their headings with — a list titled "Risk
+ * management" folds to those two words, not to them followed by every rule it
+ * holds, which is what a folded block was for. Anything unrecognised yields
+ * nothing, which is how it stays quiet instead of printing raw JSON.
  */
-function collectBlockText(value: unknown, out: string[]) {
-  if (out.length >= 12) return;
-  if (typeof value === "string") {
-    const text = value.trim();
-    if (text) out.push(text);
-    return;
-  }
+function firstBlockText(value: unknown): string {
+  if (typeof value === "string") return value.trim();
   if (Array.isArray(value)) {
-    for (const item of value) collectBlockText(item, out);
-    return;
+    for (const item of value) {
+      const found = firstBlockText(item);
+      if (found) return found;
+    }
+    return "";
   }
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
+    // Order matters: a list's own label is its heading, and only if it has
+    // none does the first entry stand in for it.
     for (const key of ["label", "title", "text", "items", "details"]) {
-      if (key in record) collectBlockText(record[key], out);
+      if (!(key in record)) continue;
+      const found = firstBlockText(record[key]);
+      if (found) return found;
     }
   }
+  return "";
 }
 
 function blockPreview(content: string | null): string {
@@ -186,15 +190,12 @@ function blockPreview(content: string | null): string {
   if (!raw) return "";
   let text = raw;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    const parts: string[] = [];
-    collectBlockText(parsed, parts);
-    text = parts.join(" · ");
+    text = firstBlockText(JSON.parse(raw));
   } catch {
     // Not JSON: the content is the text itself.
   }
   text = text.replace(/\s+/g, " ").trim();
-  return text.length > 90 ? text.slice(0, 89) + "…" : text;
+  return text.length > 70 ? text.slice(0, 69) + "…" : text;
 }
 
 /**
@@ -244,7 +245,7 @@ function CollapsedBlockStub({ block, indent, onExpand }: { block: BlockRecord; i
           minWidth: 0,
         }}
       >
-        {preview || "vide"}
+        {preview}
       </span>
     </div>
   );
