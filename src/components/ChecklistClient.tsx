@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { accentColor, glassCard } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
-import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas } from "@/lib/actions/checklist";
+import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, deleteChecklistGroup } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
 
@@ -170,6 +170,25 @@ export default function ChecklistClient({
     });
   }
 
+  function renameGroup(group: string, name: string) {
+    if (!name.trim() || name.trim() === group) return;
+    startTransition(async () => {
+      await renameChecklistGroup(group, name);
+    });
+  }
+
+  /**
+   * Deletes a group, once. It takes its items with it, and the trade ideas
+   * written under them, so it asks first and says how much is going.
+   */
+  function removeGroup(group: string, count: number) {
+    const question = `Supprimer « ${group} » et ses ${count} ligne${count > 1 ? "s" : ""} ?`;
+    if (!window.confirm(question)) return;
+    startTransition(async () => {
+      await deleteChecklistGroup(group);
+    });
+  }
+
   function addItem(group: string) {
     const label = (newItemDrafts[group] ?? "").trim();
     if (!label) return;
@@ -246,7 +265,47 @@ export default function ChecklistClient({
 
           {groups.map((g) => (
             <div key={g.title} style={{ marginBottom: 22 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>{g.title}</div>
+              {editMode ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <input
+                    defaultValue={g.title}
+                    onBlur={(e) => renameGroup(g.title, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "oklch(0.85 0.017 250)",
+                      background: "oklch(0.2 0.034 250)",
+                      border: "1px solid oklch(0.35 0.034 250)",
+                      borderRadius: 6,
+                      padding: "5px 8px",
+                    }}
+                  />
+                  <button
+                    onClick={() => removeGroup(g.title, g.items.length)}
+                    aria-label="Supprimer le groupe"
+                    title="Supprimer ce groupe et tout ce qu'il contient"
+                    style={{
+                      flexShrink: 0,
+                      fontSize: 12,
+                      padding: "5px 10px",
+                      borderRadius: 6,
+                      border: "1px solid oklch(0.4 0.034 250)",
+                      background: "transparent",
+                      color: "oklch(0.65 0.034 250)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Supprimer le groupe
+                  </button>
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>{g.title}</div>
+              )}
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {g.items.map((item) => {
                   const options = answerOptions(item);

@@ -47,6 +47,31 @@ export async function setChecklistItemOptions(itemId: string, options: string[])
   revalidatePath("/checklist");
 }
 
+/**
+ * Renames a group, which is to say every item filed under it.
+ *
+ * A group has no row of its own — it is the word its items carry — so renaming
+ * one is a rewrite of them all, and a name already in use simply merges the two.
+ */
+export async function renameChecklistGroup(group: string, name: string) {
+  const trimmed = name.trim();
+  if (!trimmed || trimmed === group) return;
+  await prisma.checklistItem.updateMany({ where: { group }, data: { group: trimmed } });
+  revalidatePath("/checklist");
+}
+
+/**
+ * Deletes a group and everything filed under it.
+ *
+ * The trade ideas written under those items go with them, by the cascade on the
+ * relation: an idea belongs to the line it was written under, and there is
+ * nowhere to keep it once that line is gone.
+ */
+export async function deleteChecklistGroup(group: string) {
+  await prisma.checklistItem.deleteMany({ where: { group } });
+  revalidatePath("/checklist");
+}
+
 /** Whether trade ideas can be written under this item. */
 export async function setChecklistItemAllowsIdeas(itemId: string, allowsIdeas: boolean) {
   await prisma.checklistItem.update({ where: { id: itemId }, data: { allowsIdeas } });
