@@ -294,6 +294,17 @@ export default function TradeIdeas({
     }
   }
 
+  /** Sends everything picked in the form, one at a time, to the idea it is for. */
+  async function uploadPending(ideaId: string) {
+    for (const { file } of pending) {
+      try {
+        await upload(ideaId, file);
+      } catch (error) {
+        setUploadError(error instanceof Error ? error.message : "image refusée");
+      }
+    }
+  }
+
   function addPending(files: File[]) {
     const images = files.filter((f) => f.type.startsWith("image/"));
     if (!images.length) return;
@@ -350,6 +361,9 @@ export default function TradeIdeas({
 
     if (editingId) {
       await updateTradeIdea(editingId, { side, tradeTypes: types, zone, confirmations, reason, cancelIf });
+      // Charts picked while rewriting go up too. Leaving this out is what made
+      // an image added from the edit form vanish on save.
+      await uploadPending(editingId);
       setSaving(false);
       reset();
       onChanged();
@@ -368,15 +382,7 @@ export default function TradeIdeas({
       cancelIf,
       withImages: pending.length > 0,
     });
-    if (idea) {
-      for (const { file } of pending) {
-        try {
-          await upload(idea.id, file);
-        } catch (error) {
-          setUploadError(error instanceof Error ? error.message : "image refusée");
-        }
-      }
-    }
+    if (idea) await uploadPending(idea.id);
     setSaving(false);
     reset();
     onChanged();
