@@ -6,6 +6,7 @@ import { accentColor, winColor, lossColor } from "@/lib/theme";
 import { tagTone, parseTagArray } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
 import ChipDropdown from "@/components/ChipDropdown";
+import ImageLightbox from "@/components/ImageLightbox";
 import { createTradeIdea, deleteTradeIdea, removeTradeIdeaImage } from "@/lib/actions/tradeIdeas";
 
 export type TradeIdeaRecord = {
@@ -208,25 +209,11 @@ function IdeaImages({
           e.target.value = "";
         }}
       />
-      {zoomed && (
-        <div
-          onClick={() => setZoomed(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 80,
-            background: "oklch(0.08 0.02 250 / 0.92)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "zoom-out",
-            padding: 32,
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- shown at whatever size it is */}
-          <img src={zoomed} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-        </div>
-      )}
+      {/* Through the portal ImageLightbox opens, and it has to: the card is a
+          glassCard, whose backdrop-filter makes it the containing block for
+          anything fixed inside it — an overlay rendered in place would be
+          trapped in the card rather than covering the page. */}
+      <ImageLightbox url={zoomed} onClose={() => setZoomed(null)} />
     </div>
   );
 }
@@ -324,10 +311,35 @@ export default function TradeIdeas({
     setOpen(false);
   }
 
+  /** Something was said: the form is worth saving. */
+  const filled =
+    reason.trim().length > 0 ||
+    types.length > 0 ||
+    !!zone ||
+    confirmations.length > 0 ||
+    cancelIf.some((line) => line.trim()) ||
+    pending.length > 0;
+
   async function save() {
-    if (!reason.trim() || saving) return;
+    if (saving) return;
+    if (!filled) {
+      // It used to return here in silence, which read as a broken button.
+      setUploadError("Écris au moins une ligne, un tag ou une condition.");
+      return;
+    }
     setSaving(true);
-    const idea = await createTradeIdea({ itemId, market, day, side, tradeTypes: types, zone, confirmations, reason, cancelIf });
+    const idea = await createTradeIdea({
+      itemId,
+      market,
+      day,
+      side,
+      tradeTypes: types,
+      zone,
+      confirmations,
+      reason,
+      cancelIf,
+      withImages: pending.length > 0,
+    });
     if (idea) {
       for (const { file } of pending) {
         try {
@@ -402,9 +414,11 @@ export default function TradeIdeas({
                   })}
                 </div>
               )}
-              <div style={{ fontSize: 13, color: "oklch(0.85 0.017 250)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                {idea.reason}
-              </div>
+              {idea.reason.trim() && (
+                <div style={{ fontSize: 13, color: "oklch(0.85 0.017 250)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                  {idea.reason}
+                </div>
+              )}
               {parseTagArray(idea.cancelIf).length > 0 && (
                 <div style={{ marginTop: 7, paddingLeft: 2 }}>
                   <div style={{ ...mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 3 }}>
@@ -656,10 +670,10 @@ export default function TradeIdeas({
                 fontSize: 11,
                 padding: "5px 14px",
                 borderRadius: 6,
-                cursor: reason.trim() ? "pointer" : "default",
-                border: `1px solid ${reason.trim() ? accentColor : "oklch(0.34 0.034 250)"}`,
-                background: reason.trim() ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
-                color: reason.trim() ? accentColor : "oklch(0.45 0.03 250)",
+                cursor: "pointer",
+                border: `1px solid ${filled ? accentColor : "oklch(0.34 0.034 250)"}`,
+                background: filled ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
+                color: filled ? accentColor : "oklch(0.45 0.03 250)",
               }}
             >
               {saving ? "…" : "Enregistrer"}

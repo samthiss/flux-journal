@@ -28,10 +28,23 @@ export async function createTradeIdea(input: {
   confirmations: string[];
   reason: string;
   cancelIf: string[];
+  /** Charts picked in the form, uploaded once this row exists. */
+  withImages?: boolean;
 }) {
   const reason = input.reason.trim();
-  if (!reason) return null;
   const cancelIf = input.cancelIf.map((line) => line.trim()).filter(Boolean);
+
+  // An idea is worth keeping as soon as anything was said about it: a direction
+  // with two tags and what would cancel it is a plan, prose or no prose. Only a
+  // form with nothing in it at all is refused, so a stray click writes nothing.
+  const empty =
+    !reason &&
+    !input.tradeTypes.length &&
+    !input.zone?.trim() &&
+    !input.confirmations.length &&
+    !cancelIf.length &&
+    !input.withImages;
+  if (empty) return null;
 
   const idea = await prisma.tradeIdea.create({
     data: {
