@@ -758,6 +758,9 @@ export default function TradeIdeas({
             color: accentColor,
             cursor: "pointer",
             display: "inline-block",
+            // Clear of whatever is above it — an idea's card, or the form's own
+            // "Enregistrer" while one is being rewritten in place.
+            marginTop: 14,
           }}
         >
           + Ajouter une idée de trade
