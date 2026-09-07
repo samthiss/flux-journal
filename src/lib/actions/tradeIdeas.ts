@@ -27,9 +27,11 @@ export async function createTradeIdea(input: {
   zone: string | null;
   confirmations: string[];
   reason: string;
+  cancelIf: string[];
 }) {
   const reason = input.reason.trim();
   if (!reason) return null;
+  const cancelIf = input.cancelIf.map((line) => line.trim()).filter(Boolean);
 
   const idea = await prisma.tradeIdea.create({
     data: {
@@ -41,6 +43,7 @@ export async function createTradeIdea(input: {
       zone: input.zone?.trim() || null,
       confirmations: input.confirmations.length ? JSON.stringify(input.confirmations) : null,
       reason,
+      cancelIf: cancelIf.length ? JSON.stringify(cancelIf) : null,
     },
   });
   revalidatePath("/checklist");

@@ -262,6 +262,16 @@ model TradeIdea {
   reason String
 
   /**
+   * What would call it off, as a JSON array of lines.
+   *
+   * Written beside the reason and kept apart from it on purpose: the case for a
+   * trade and the conditions that cancel it are read at different moments, and
+   * the second is the one that has to be legible at a glance while the market
+   * is moving.
+   */
+  cancelIf String?
+
+  /**
    * The charts it was drawn on, as a JSON array of `{url, width, height}`.
    *
    * A column rather than a table, unlike the note examples: an idea carries a

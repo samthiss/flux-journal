@@ -16,6 +16,7 @@ export type TradeIdeaRecord = {
   zone: string | null;
   confirmations: string | null;
   reason: string;
+  cancelIf: string | null;
   images: string | null;
 };
 
@@ -78,6 +79,7 @@ function IdeaImages({
   const fileRef = useRef<HTMLInputElement>(null);
   const [zoomed, setZoomed] = useState<string | null>(null);
   const [dropping, setDropping] = useState(false);
+  const [folded, setFolded] = useState(false);
 
   return (
     <div
@@ -97,11 +99,7 @@ function IdeaImages({
         onAdd([...e.dataTransfer.files]);
       }}
       style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 6,
-        alignItems: "center",
-        marginTop: images.length ? 8 : 6,
+        marginTop: 8,
         // Lit while a file is over it, so the row says it will take the drop.
         padding: dropping ? 5 : 0,
         border: dropping ? `1px dashed ${accentColor}` : "1px solid transparent",
@@ -109,62 +107,96 @@ function IdeaImages({
         background: dropping ? "oklch(0.84 0.17 196 / 0.1)" : "transparent",
       }}
     >
-      {images.map((image) => (
-        <span key={image.url} style={{ position: "relative", display: "inline-flex" }}>
-          <Image
-            src={image.url}
-            alt=""
-            // The uploads are served by our own route, which resizes on `?w=`;
-            // the built-in optimiser cannot read them and answers 400. The
-            // stored dimensions are passed so the thumbnail keeps its ratio.
-            loader={({ src, width }) => `${src}?w=${width}`}
-            sizes="200px"
-            width={image.width ?? 0}
-            height={image.height ?? 0}
-            onClick={() => setZoomed(image.url)}
-            style={{ height: 54, width: "auto", borderRadius: 4, border: "1px solid oklch(0.34 0.034 250)", cursor: "zoom-in" }}
-          />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: images.length && !folded ? 8 : 0 }}>
+        {images.length > 0 && (
           <span
-            onClick={async () => {
-              await removeTradeIdeaImage(idea.id, image.url);
-              onChanged();
-            }}
-            title="Retirer cette image"
+            onClick={() => setFolded((f) => !f)}
+            title={folded ? "Afficher les images" : "Masquer les images"}
             style={{
-              position: "absolute",
-              top: -6,
-              right: -6,
-              width: 16,
-              height: 16,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 9,
+              ...mono,
+              fontSize: 10,
+              padding: "3px 10px",
               borderRadius: 999,
-              background: "oklch(0.2 0.03 250)",
-              border: "1px solid oklch(0.4 0.034 250)",
-              color: "oklch(0.7 0.02 250)",
+              border: "1px solid oklch(0.32 0.02 250)",
+              color: "oklch(0.6 0.02 250)",
               cursor: "pointer",
             }}
           >
-            ✕
+            {folded ? "▸" : "▾"} {images.length} image{images.length > 1 ? "s" : ""}
           </span>
+        )}
+        <span
+          onClick={() => fileRef.current?.click()}
+          style={{
+            ...mono,
+            fontSize: 10,
+            padding: "3px 10px",
+            borderRadius: 999,
+            border: "1px dashed oklch(0.32 0.02 250)",
+            color: "oklch(0.55 0.02 250)",
+            cursor: "pointer",
+          }}
+        >
+          + image
         </span>
-      ))}
-      <span
-        onClick={() => fileRef.current?.click()}
-        style={{
-          ...mono,
-          fontSize: 10,
-          padding: "3px 10px",
-          borderRadius: 999,
-          border: "1px dashed oklch(0.32 0.02 250)",
-          color: "oklch(0.55 0.02 250)",
-          cursor: "pointer",
-        }}
-      >
-        + image
-      </span>
+      </div>
+
+      {/* One per row, the full width of the card: a chart squeezed into a
+          thumbnail shows nothing, and there is nothing to compare side by side
+          here — an idea carries the setup, not a gallery. */}
+      {!folded && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {images.map((image) => (
+            <span key={image.url} style={{ position: "relative", display: "block" }}>
+              <Image
+                src={image.url}
+                alt=""
+                // The uploads are served by our own route, which resizes on
+                // `?w=`; the built-in optimiser cannot read them and answers
+                // 400. The stored dimensions are passed so the row can reserve
+                // its height before the image arrives.
+                loader={({ src, width }) => `${src}?w=${width}`}
+                sizes="(max-width: 900px) 90vw, 900px"
+                width={image.width ?? 0}
+                height={image.height ?? 0}
+                onClick={() => setZoomed(image.url)}
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  borderRadius: 4,
+                  border: "1px solid oklch(0.3 0.034 250)",
+                  cursor: "zoom-in",
+                }}
+              />
+              <span
+                onClick={async () => {
+                  await removeTradeIdeaImage(idea.id, image.url);
+                  onChanged();
+                }}
+                title="Retirer cette image"
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 6,
+                  width: 20,
+                  height: 20,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 11,
+                  borderRadius: 999,
+                  background: "oklch(0.15 0.03 250 / 0.85)",
+                  border: "1px solid oklch(0.4 0.034 250)",
+                  color: "oklch(0.8 0.02 250)",
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
       <input
         ref={fileRef}
         type="file"
@@ -229,11 +261,19 @@ export default function TradeIdeas({
   const [zone, setZone] = useState<string | null>(null);
   const [confirmations, setConfirmations] = useState<string[]>([]);
   const [reason, setReason] = useState("");
+  // One empty line to start: the box is a list, and a list with no line in it
+  // has nothing to type into.
+  const [cancelIf, setCancelIf] = useState<string[]>([""]);
   const [saving, setSaving] = useState(false);
   // Charts picked while writing, held until the idea they belong to exists.
   const [pending, setPending] = useState<{ file: File; preview: string }[]>([]);
   const [dropping, setDropping] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // The line to put the cursor on once it exists. Focusing on the next frame
+  // instead lost the first characters of a fast line to the field above: the
+  // ref callback runs as the field is created, which is before the next
+  // keystroke can be delivered.
+  const [focusCancel, setFocusCancel] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   /** A word typed a moment ago is offered too, before the list is read again. */
@@ -275,6 +315,7 @@ export default function TradeIdeas({
       return [];
     });
     setUploadError(null);
+    setCancelIf([""]);
     setSide("long");
     setTypes([]);
     setZone(null);
@@ -286,7 +327,7 @@ export default function TradeIdeas({
   async function save() {
     if (!reason.trim() || saving) return;
     setSaving(true);
-    const idea = await createTradeIdea({ itemId, market, day, side, tradeTypes: types, zone, confirmations, reason });
+    const idea = await createTradeIdea({ itemId, market, day, side, tradeTypes: types, zone, confirmations, reason, cancelIf });
     if (idea) {
       for (const { file } of pending) {
         try {
@@ -364,6 +405,19 @@ export default function TradeIdeas({
               <div style={{ fontSize: 13, color: "oklch(0.85 0.017 250)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
                 {idea.reason}
               </div>
+              {parseTagArray(idea.cancelIf).length > 0 && (
+                <div style={{ marginTop: 7, paddingLeft: 2 }}>
+                  <div style={{ ...mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 3 }}>
+                    Annuler si :
+                  </div>
+                  {parseTagArray(idea.cancelIf).map((line) => (
+                    <div key={line} style={{ display: "flex", gap: 7, fontSize: 12.5, color: "oklch(0.75 0.017 250)", lineHeight: 1.5 }}>
+                      <span style={{ color: lossColor, flex: "none" }}>—</span>
+                      <span>{line}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <IdeaImages idea={idea} onAdd={(files) => addImagesTo(idea.id, files)} onChanged={onChanged} />
             </div>
             <span
@@ -487,6 +541,65 @@ export default function TradeIdeas({
               resize: "vertical",
             }}
           />
+
+          {/* What would call the trade off, kept apart from the case for it. */}
+          <div
+            style={{
+              marginTop: 10,
+              padding: "10px 12px",
+              borderRadius: 4,
+              border: `1px solid ${lossColor.replace(")", " / 0.4)")}`,
+              background: lossColor.replace(")", " / 0.06)"),
+            }}
+          >
+            <div style={{ ...mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 8 }}>
+              Annuler mon trade si :
+            </div>
+            {cancelIf.map((line, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                <span style={{ color: lossColor, fontSize: 12, flex: "none" }}>—</span>
+                <input
+                  value={line}
+                  onChange={(e) =>
+                    setCancelIf((prev) => prev.map((l, li) => (li === i ? e.target.value : l)))
+                  }
+                  onKeyDown={(e) => {
+                    // Enter opens the next line, as a bullet list does anywhere
+                    // else; backspace on an empty one closes it again.
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      setCancelIf((prev) => [...prev.slice(0, i + 1), "", ...prev.slice(i + 1)]);
+                      setFocusCancel(i + 1);
+                    }
+                    if (e.key === "Backspace" && !line && cancelIf.length > 1) {
+                      e.preventDefault();
+                      setCancelIf((prev) => prev.filter((_, li) => li !== i));
+                      setFocusCancel(Math.max(0, i - 1));
+                    }
+                  }}
+                  ref={(el) => {
+                    if (el && focusCancel === i) {
+                      el.focus();
+                      setFocusCancel(null);
+                    }
+                  }}
+                  placeholder={i === 0 ? "le marché casse la zone" : ""}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 12.5,
+                    fontFamily: "inherit",
+                    padding: "3px 0",
+                    border: "none",
+                    borderBottom: "1px solid oklch(0.3 0.034 250)",
+                    background: "transparent",
+                    color: "oklch(0.88 0.017 250)",
+                    outline: "none",
+                  }}
+                />
+              </div>
+            ))}
+          </div>
 
           {/* Charts chosen now, uploaded once the idea they belong to exists. */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 10 }}>
