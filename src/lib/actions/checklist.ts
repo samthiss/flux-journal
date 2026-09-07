@@ -47,6 +47,12 @@ export async function setChecklistItemOptions(itemId: string, options: string[])
   revalidatePath("/checklist");
 }
 
+/** Whether trade ideas can be written under this item. */
+export async function setChecklistItemAllowsIdeas(itemId: string, allowsIdeas: boolean) {
+  await prisma.checklistItem.update({ where: { id: itemId }, data: { allowsIdeas } });
+  revalidatePath("/checklist");
+}
+
 export async function deleteChecklistItem(itemId: string) {
   await prisma.checklistItem.delete({ where: { id: itemId } });
   revalidatePath("/checklist");

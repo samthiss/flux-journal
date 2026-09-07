@@ -6,7 +6,10 @@
  * view — with nowhere to record which one it was. They become tickable answers
  * instead of a parenthesis.
  *
- * The second: the group titles carried "CP" and "RC", the chart abbreviations
+ * The second: the two strategy lines are opened to trade ideas, since deciding
+ * what to trade today is what that step of the checklist is for.
+ *
+ * The third: the group titles carried "CP" and "RC", the chart abbreviations
  * from the original German checklist. They named the tool rather than the step,
  * and meant nothing to anyone reading the list; the time window they were
  * bundled with is kept.
@@ -55,6 +58,16 @@ async function main() {
       changed++;
     }
     if (changed) console.log(`checklist-touchups: ${changed} question(s) ont maintenant des réponses.`);
+
+    // The lines a trade idea can hang under. Matched on the strategy's name,
+    // which is the same in both languages; only ever turned on, so a reader who
+    // moved ideas elsewhere is not overruled on the next deploy.
+    const strategies = await prisma.checklistItem.findMany({ where: { allowsIdeas: false } });
+    for (const item of strategies) {
+      if (!/Trend Run|Backtest Reverse/i.test(item.label)) continue;
+      await prisma.checklistItem.update({ where: { id: item.id }, data: { allowsIdeas: true } });
+      console.log(`checklist-touchups: idées de trade activées sur « ${item.label.slice(0, 40)}… »`);
+    }
 
     // "(CP, 1 mois)" keeps its window and loses the chart; "(CP, RC)" has
     // nothing left worth a parenthesis.

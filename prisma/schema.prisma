@@ -60,6 +60,14 @@ model ChecklistItem {
   label String
   order Int
 
+  // Whether trade ideas can be written under this item. True for the two
+  // strategy lines, where the reader decides what they will actually trade
+  // today; false everywhere else, where an item is a thing to do and not a
+  // decision to record.
+  allowsIdeas Boolean @default(false)
+
+  ideas TradeIdea[]
+
   // The answers this item can be given, as a JSON array of words — "Tendance"
   // and "Range" for the ones that ask what shape the market is in, "Oui" and
   // "Non" for the ones that ask a plain question. Null for an item that is only
@@ -224,4 +232,37 @@ model NoteExampleImage {
 
   @@index([exampleId])
   @@index([tradeId])
+}
+
+/**
+ * A trade the reader intends to take today, written while planning it.
+ *
+ * It hangs under the strategy line it belongs to, and it is kept per market and
+ * per day like the checklist around it — but in the database rather than in the
+ * browser, because unlike a tick it is something written, worth reading back
+ * against the trade that followed.
+ */
+model TradeIdea {
+  id     String @id @default(cuid())
+  itemId String
+  market String
+
+  /** The local day it was written for, as YYYY-MM-DD. */
+  day String
+
+  /** "long" or "short". */
+  side String
+
+  /** The same vocabulary the note examples are typed with, as a JSON array. */
+  tradeTypes String?
+
+  /** Why: the conditions that would make this trade the right one. */
+  reason String
+
+  createdAt DateTime @default(now())
+
+  item ChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([market, day])
 }

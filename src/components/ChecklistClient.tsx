@@ -3,9 +3,11 @@
 import { useEffect, useState, useTransition } from "react";
 import { accentColor, glassCard } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
-import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions } from "@/lib/actions/checklist";
+import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas } from "@/lib/actions/checklist";
+import { getTradeIdeas, getTradeTypeVocabulary } from "@/lib/actions/tradeIdeas";
+import TradeIdeas, { type TradeIdeaRecord } from "@/components/TradeIdeas";
 
-type ChecklistItem = { id: string; group: string; label: string; options?: string | null };
+type ChecklistItem = { id: string; group: string; label: string; options?: string | null; allowsIdeas?: boolean };
 
 /** The answers an item offers, if any. Stored as JSON, empty when malformed. */
 function answerOptions(item: ChecklistItem): string[] {
@@ -54,6 +56,10 @@ export default function ChecklistClient({
   const [newGroupItem, setNewGroupItem] = useState("");
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [answerMap, setAnswerMap] = useState<Record<string, string>>({});
+  const [ideas, setIdeas] = useState<TradeIdeaRecord[]>([]);
+  const [tradeTypes, setTradeTypes] = useState<string[]>([]);
+  // Bumped after a write, to read the ideas back rather than guess at them.
+  const [ideasVersion, setIdeasVersion] = useState(0);
 
   useEffect(() => {
     let saved: Record<string, boolean> = {};
@@ -75,6 +81,22 @@ export default function ChecklistClient({
     }
     setAnswerMap(answers);
   }, [market]);
+
+  // The ideas belong to a market and a day, and the market is chosen in the
+  // browser, so the server that rendered the page could not have known which
+  // ones to send.
+  useEffect(() => {
+    let alive = true;
+    getTradeIdeas(market, todayKey()).then((rows) => {
+      if (alive) setIdeas(rows);
+    });
+    getTradeTypeVocabulary().then((values) => {
+      if (alive) setTradeTypes(values);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [market, ideasVersion]);
 
   const groups = Array.from(new Set(items.map((i) => i.group))).map((group) => ({
     title: group,
@@ -337,8 +359,40 @@ export default function ChecklistClient({
                       })}
                     </div>
                   )}
+                  {!editMode && item.allowsIdeas && (
+                    <TradeIdeas
+                      itemId={item.id}
+                      market={market}
+                      day={todayKey()}
+                      ideas={ideas.filter((idea) => idea.itemId === item.id)}
+                      vocabulary={tradeTypes}
+                      onChanged={() => setIdeasVersion((v) => v + 1)}
+                    />
+                  )}
                   {editMode && (
-                    <div style={{ padding: "0 8px 10px 40px" }}>
+                    <div style={{ padding: "0 8px 10px 40px", display: "flex", gap: 8, alignItems: "center" }}>
+                      <span
+                        onClick={() =>
+                          startTransition(async () => {
+                            await setChecklistItemAllowsIdeas(item.id, !item.allowsIdeas);
+                          })
+                        }
+                        title="Permettre d'écrire des idées de trade sous cette ligne"
+                        style={{
+                          flex: "none",
+                          fontFamily: "var(--font-jetbrains-mono), monospace",
+                          fontSize: 10,
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                          border: `1px ${item.allowsIdeas ? "solid" : "dashed"} ${item.allowsIdeas ? accentColor : "oklch(0.34 0.034 250)"}`,
+                          background: item.allowsIdeas ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
+                          color: item.allowsIdeas ? accentColor : "oklch(0.55 0.03 250)",
+                        }}
+                      >
+                        idées de trade
+                      </span>
                       <input
                         defaultValue={options.join(" / ")}
                         placeholder="Réponses possibles, séparées par « / »"
@@ -347,7 +401,8 @@ export default function ChecklistClient({
                           if (e.key === "Enter") e.currentTarget.blur();
                         }}
                         style={{
-                          width: "100%",
+                          flex: 1,
+                          minWidth: 0,
                           boxSizing: "border-box",
                           fontSize: 12,
                           color: "oklch(0.8 0.017 250)",

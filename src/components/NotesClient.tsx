@@ -6,6 +6,7 @@ import { compressImage, MAX_SOURCE_BYTES } from "@/lib/compressImage";
 import Link from "next/link";
 import Image from "next/image";
 import { accentColor } from "@/lib/theme";
+import { TRADE_TYPES, tagTone } from "@/lib/tags";
 import ImageLightbox from "@/components/ImageLightbox";
 import MoveExampleMenu, { MoveTargetMenu } from "@/components/MoveExampleMenu";
 import MoveCategoryMenu from "@/components/MoveCategoryMenu";
@@ -2905,29 +2906,6 @@ function normalizeValidity(s: string | null): Validity {
 }
 
 /**
- * A colour per tag, the same one everywhere.
- *
- * Twelve chips in one row all lit the same way are a wall of text; given their
- * own hue they become recognisable at a glance, and the eye can follow one
- * confirmation from example to example. The hue comes from the word itself, so
- * a tag keeps its colour across cards, across filters, and across reloads
- * without anything being stored — and two tags that collide simply share, which
- * costs nothing.
- */
-const TAG_HUES = [196, 165, 78, 300, 340, 250, 130, 30, 220, 55];
-
-function tagTone(value: string) {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-  const hue = TAG_HUES[hash % TAG_HUES.length];
-  return {
-    fg: `oklch(0.84 0.15 ${hue})`,
-    bg: `oklch(0.84 0.15 ${hue} / 0.14)`,
-    line: `oklch(0.84 0.15 ${hue} / 0.45)`,
-  };
-}
-
-/**
  * The zones that ship with the app. The value stored is the word itself, so the
  * list can grow the way the trade types and the confirmations do.
  */
@@ -2944,14 +2922,6 @@ const VERDICTS: [Exclude<Validity, null>, string, typeof VALID_TONE][] = [
  * a range taken against the trend is all three at once — so these are ticked,
  * not picked, and the list is fixed: it is a vocabulary, not free text.
  */
-const TRADE_TYPES = [
-  "Rebond sur range",
-  "Trend",
-  "Range",
-  "Contre la tendance",
-  "Revient dans la VA / VWAP & Rebondit",
-] as const;
-
 function ChipDropdown({
   placeholder,
   options,
