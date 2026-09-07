@@ -1,16 +1,16 @@
 export const CHECKLIST_SEED = [
   {
-    group: "1) Passé du marché (CP, 1 mois)",
+    group: "1) Passé du marché (1 mois)",
     items: [
-      "Comment le marché a-t-il évolué ? (Tendance / Range) – à noter dans le Cluster Profile",
+      "Comment le marché a-t-il évolué ? – à noter dans le Cluster Profile",
       "Où se situent les grandes zones de volume dans le P-Histogramme ? – à noter dans le Cluster Profile",
       "Où se situent les zones de retournement dans la vue d'ensemble (baisse de volume dans le P-Histogramme) ? – à noter dans le Cluster Profile",
     ],
   },
   {
-    group: "2) Passé du marché (CP, 1 semaine)",
+    group: "2) Passé du marché (1 semaine)",
     items: [
-      "À quoi ressemble l'image des derniers jours ? (Tendance / Range) – à noter dans le Cluster Profile",
+      "À quoi ressemble l'image des derniers jours ? – à noter dans le Cluster Profile",
       "Cette image correspond-elle à la vue d'ensemble (1 mois / 1 an) ?",
       "Quelles grandes zones de volume restent pertinentes maintenant ? – à noter dans le Cluster Profile",
       "Marquer les clusters horaires des derniers jours – lesquels influencent l'évolution du cours ?",
@@ -18,7 +18,7 @@ export const CHECKLIST_SEED = [
     ],
   },
   {
-    group: "3) Aujourd'hui : trouver une idée de trade (CP, RC)",
+    group: "3) Aujourd'hui : trouver une idée de trade",
     items: [
       "Où est le cours actuellement ?",
       "Définir les objectifs de cours possibles – à dessiner sur le graphique",

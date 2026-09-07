@@ -32,6 +32,21 @@ export async function renameChecklistItem(itemId: string, label: string) {
   revalidatePath("/checklist");
 }
 
+/**
+ * Sets the answers an item can be given, or takes them away.
+ *
+ * An empty list means the item is only ticked off, which is the normal case;
+ * it is stored as null rather than "[]" so the two cannot drift apart.
+ */
+export async function setChecklistItemOptions(itemId: string, options: string[]) {
+  const cleaned = options.map((o) => o.trim()).filter(Boolean);
+  await prisma.checklistItem.update({
+    where: { id: itemId },
+    data: { options: cleaned.length ? JSON.stringify(cleaned) : null },
+  });
+  revalidatePath("/checklist");
+}
+
 export async function deleteChecklistItem(itemId: string) {
   await prisma.checklistItem.delete({ where: { id: itemId } });
   revalidatePath("/checklist");

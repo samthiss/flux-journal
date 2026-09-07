@@ -1,0 +1,79 @@
+/**
+ * Two touch-ups to the checklist, applied wherever it already exists.
+ *
+ * The first: three items named their own possible answers in prose — "(Tendance
+ * / Range)", and the question of whether the week's picture matches the wider
+ * view — with nowhere to record which one it was. They become tickable answers
+ * instead of a parenthesis.
+ *
+ * The second: the group titles carried "CP" and "RC", the chart abbreviations
+ * from the original German checklist. They named the tool rather than the step,
+ * and meant nothing to anyone reading the list; the time window they were
+ * bundled with is kept.
+ *
+ * A boot script rather than a data migration, because production's labels are
+ * translated by the scripts that run after `migrate deploy`: matching French
+ * there is only safe once those have run. The German wordings are matched too,
+ * in case this ever runs first.
+ *
+ * Idempotent both ways: an item that already carries answers is left alone, so
+ * a reader who removed or reworded them does not get them back on the next
+ * deploy, and a title with no abbreviation left in it is not rewritten.
+ */
+import "dotenv/config";
+import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+
+const TREND_RANGE = ["Tendance", "Range"];
+const YES_NO = ["Oui", "Non"];
+
+/** Matched on a fragment, so the rest of the sentence can be edited freely. */
+const RULES: { contains: string[]; options: string[] }[] = [
+  { contains: ["Comment le marché a-t-il évolué", "Wie hat sich der Markt entwickelt"], options: TREND_RANGE },
+  { contains: ["À quoi ressemble l'image des derniers jours", "Wie sieht das Bild der letzten Tage"], options: TREND_RANGE },
+  { contains: ["Cette image correspond-elle à la vue d'ensemble", "Entspricht dieses Bild dem Gesamtbild"], options: YES_NO },
+];
+
+async function main() {
+  const prisma = new PrismaClient({
+    adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" }),
+  });
+
+  try {
+    const items = await prisma.checklistItem.findMany({ where: { options: null } });
+    let changed = 0;
+    for (const item of items) {
+      const rule = RULES.find((r) => r.contains.some((fragment) => item.label.includes(fragment)));
+      if (!rule) continue;
+      // The answers are now chips under the line, so the label repeating them
+      // in a parenthesis says the same thing twice.
+      const label = item.label.replace(/\s*\((?:Tendance|Trend)\s*\/\s*Range\)/g, "");
+      await prisma.checklistItem.update({
+        where: { id: item.id },
+        data: { options: JSON.stringify(rule.options), label },
+      });
+      changed++;
+    }
+    if (changed) console.log(`checklist-touchups: ${changed} question(s) ont maintenant des réponses.`);
+
+    // "(CP, 1 mois)" keeps its window and loses the chart; "(CP, RC)" has
+    // nothing left worth a parenthesis.
+    const groups = [...new Set((await prisma.checklistItem.findMany({ select: { group: true } })).map((g) => g.group))];
+    for (const group of groups) {
+      const renamed = group
+        .replace(/\s*\((?:CP|RC)(?:\s*[,/]\s*(?:CP|RC))*\)/g, "")
+        .replace(/\((?:CP|RC)\s*[,/]\s*/g, "(")
+        .trim();
+      if (renamed === group || !renamed) continue;
+      await prisma.checklistItem.updateMany({ where: { group }, data: { group: renamed } });
+      console.log(`checklist-touchups: « ${group} » → « ${renamed} »`);
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+main().catch((err) => {
+  // A failed touch-up must not keep the journal from starting.
+  console.error("checklist-touchups: échec", err);
+});

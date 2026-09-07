@@ -59,6 +59,13 @@ model ChecklistItem {
   group String
   label String
   order Int
+
+  // The answers this item can be given, as a JSON array of words — "Tendance"
+  // and "Range" for the ones that ask what shape the market is in, "Oui" and
+  // "Non" for the ones that ask a plain question. Null for an item that is only
+  // ticked off, which is most of them. Which answer was picked is per-day and
+  // per-device, so it is kept beside the ticks in the browser rather than here.
+  options String?
 }
 
 model Note {
