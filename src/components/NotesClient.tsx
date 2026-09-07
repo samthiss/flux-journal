@@ -867,6 +867,14 @@ function NoteSection({
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const dropCategoryRef = useRef<string | null>(null);
   const [dropCategoryId, setDropCategoryId] = useState<string | null>(null);
+  // The category being dragged, and the one it would land on. A category is as
+  // tall as everything it holds, so the pointer spends the whole drag inside
+  // the one it started in: without a landing mark the reader cannot tell
+  // whether the drop will do anything, and without the scrolling below they
+  // cannot reach a neighbour to drop it on at all.
+  const [draggingCategory, setDraggingCategory] = useState<string | null>(null);
+  const [overCategory, setOverCategory] = useState<string | null>(null);
+  const dragPointerY = useRef(0);
   // A category is only draggable once its own grip is pressed. Left permanently
   // draggable, the wrapper made every title, paragraph and image inside it the
   // start of a native drag: selecting a word carried the whole category off
@@ -976,6 +984,47 @@ function NoteSection({
     });
     reorderNoteBlocks(orderedIds);
   }, []);
+
+  // While a category is in hand, the page follows the pointer to its edges. A
+  // drag holds the mouse, so the wheel and the scrollbar are out of reach, and
+  // the neighbour to drop on is usually a screen or two away.
+  useEffect(() => {
+    if (!draggingCategory) return;
+
+    // The page scrolls inside the shell's main column, not the window, so
+    // window.scrollBy moves nothing. Found by walking up from the category
+    // rather than by class name, so it survives the shell being rearranged.
+    const start = categoryRefs.current[draggingCategory];
+    let scroller: HTMLElement | null = start?.parentElement ?? null;
+    while (scroller) {
+      const overflow = getComputedStyle(scroller).overflowY;
+      if ((overflow === "auto" || overflow === "scroll") && scroller.scrollHeight > scroller.clientHeight) break;
+      scroller = scroller.parentElement;
+    }
+
+    const onOver = (event: DragEvent) => {
+      dragPointerY.current = event.clientY;
+    };
+    window.addEventListener("dragover", onOver);
+    const timer = window.setInterval(() => {
+      const y = dragPointerY.current;
+      if (!y) return;
+      const box = scroller ? scroller.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+      const margin = 110;
+      const up = box.top + margin - y;
+      const down = y - (box.bottom - margin);
+      // Faster the closer to the edge, which is how a reader asks for speed.
+      const step = up > 0 ? -Math.ceil(up / 4) : down > 0 ? Math.ceil(down / 4) : 0;
+      if (!step) return;
+      if (scroller) scroller.scrollBy(0, step);
+      else window.scrollBy(0, step);
+    }, 16);
+
+    return () => {
+      window.removeEventListener("dragover", onOver);
+      window.clearInterval(timer);
+    };
+  }, [draggingCategory]);
 
   // Keeps the page's copy in step with what a block has just written, so the
   // fold strip shows the heading that was typed a second ago.
@@ -1115,14 +1164,24 @@ function NoteSection({
                         onDragStart={(e) => {
                           e.dataTransfer.effectAllowed = "move";
                           e.dataTransfer.setData("text/plain", cat.id);
+                          setDraggingCategory(cat.id);
                         }}
-                        onDragEnd={() => setArmedCategory(null)}
+                        onDragEnd={() => {
+                          setArmedCategory(null);
+                          setDraggingCategory(null);
+                          setOverCategory(null);
+                        }}
                         onDragOver={(e) => {
                           e.preventDefault();
                           e.dataTransfer.dropEffect = "move";
+                          // Only a category drag marks a landing place; a block
+                          // or an example passing over says nothing here.
+                          if (draggingCategory && overCategory !== cat.id) setOverCategory(cat.id);
                         }}
                         onDrop={(e) => {
                           e.preventDefault();
+                          setDraggingCategory(null);
+                          setOverCategory(null);
                           const dragId = e.dataTransfer.getData("text/plain");
                           if (!dragId || dragId === cat.id) return;
                           const current = categories.map((c) => c.id);
@@ -1143,6 +1202,14 @@ function NoteSection({
                           outline: dropCategoryId === cat.id ? `1px solid ${accentColor}` : "none",
                           outlineOffset: 6,
                           background: dropCategoryId === cat.id ? "oklch(0.84 0.17 196 / 0.07)" : "transparent",
+                          // The same, for a category being dropped on another:
+                          // drawn on the edge it would land at, and dimmed on
+                          // the one being carried.
+                          borderTop:
+                            draggingCategory && overCategory === cat.id && draggingCategory !== cat.id
+                              ? `2px solid ${accentColor}`
+                              : "2px solid transparent",
+                          opacity: draggingCategory === cat.id ? 0.45 : 1,
                         }}
                       >
                         <div style={{ flex: 1, minWidth: 0 }}>
