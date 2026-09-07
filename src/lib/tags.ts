@@ -15,6 +15,12 @@ export const TRADE_TYPES = [
 ] as const;
 
 /**
+ * The zones that ship with the app. The value stored is the word itself, so the
+ * list can grow the way the trade types and the confirmations do.
+ */
+export const ZONES = ["Zone de retournement", "Stunden Cluster"] as const;
+
+/**
  * A colour per tag, the same one everywhere.
  *
  * Twelve chips in one row all lit the same way are a wall of text; given their

@@ -1,17 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Image from "next/image";
 import { accentColor, winColor, lossColor } from "@/lib/theme";
 import { tagTone, parseTagArray } from "@/lib/tags";
-import { createTradeIdea, deleteTradeIdea } from "@/lib/actions/tradeIdeas";
+import { compressImage } from "@/lib/compressImage";
+import ChipDropdown from "@/components/ChipDropdown";
+import { createTradeIdea, deleteTradeIdea, removeTradeIdeaImage } from "@/lib/actions/tradeIdeas";
 
 export type TradeIdeaRecord = {
   id: string;
   itemId: string;
   side: string;
   tradeTypes: string | null;
+  zone: string | null;
+  confirmations: string | null;
   reason: string;
+  images: string | null;
 };
+
+type IdeaImage = { url: string; width: number | null; height: number | null };
+
+function parseImages(raw: string | null): IdeaImage[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((i) => i && typeof i.url === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The same ceiling the note examples upload under, for the same network. */
+const MAX_IMAGE_BYTES = 900_000;
+
+export type TradeVocabularies = { tradeTypes: string[]; zones: string[]; confirmations: string[] };
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -36,25 +59,114 @@ function SideChip({ side, on, onClick }: { side: "long" | "short"; on: boolean; 
   );
 }
 
-function TypeChip({ value, on, onClick }: { value: string; on: boolean; onClick: () => void }) {
-  const tone = tagTone(value);
+/**
+ * The charts on a saved idea, and the button that adds one.
+ *
+ * Thumbnails at a fixed height rather than a grid: an idea carries a screenshot
+ * of the setup, and the card it sits on is a line of the checklist, not a page.
+ */
+function IdeaImages({
+  idea,
+  onAdd,
+  onChanged,
+}: {
+  idea: TradeIdeaRecord;
+  onAdd: (files: File[]) => void;
+  onChanged: () => void;
+}) {
+  const images = parseImages(idea.images);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [zoomed, setZoomed] = useState<string | null>(null);
+
   return (
-    <span
-      onClick={onClick}
-      style={{
-        ...mono,
-        fontSize: 10.5,
-        padding: "4px 11px",
-        borderRadius: 999,
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-        border: `1px ${on ? "solid" : "dashed"} ${on ? tone.line : "oklch(0.34 0.02 250)"}`,
-        background: on ? tone.bg : "transparent",
-        color: on ? tone.fg : "oklch(0.6 0.02 250)",
-      }}
-    >
-      {value}
-    </span>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: images.length ? 8 : 6 }}>
+      {images.map((image) => (
+        <span key={image.url} style={{ position: "relative", display: "inline-flex" }}>
+          <Image
+            src={image.url}
+            alt=""
+            // The uploads are served by our own route, which resizes on `?w=`;
+            // the built-in optimiser cannot read them and answers 400. The
+            // stored dimensions are passed so the thumbnail keeps its ratio.
+            loader={({ src, width }) => `${src}?w=${width}`}
+            sizes="200px"
+            width={image.width ?? 0}
+            height={image.height ?? 0}
+            onClick={() => setZoomed(image.url)}
+            style={{ height: 54, width: "auto", borderRadius: 4, border: "1px solid oklch(0.34 0.034 250)", cursor: "zoom-in" }}
+          />
+          <span
+            onClick={async () => {
+              await removeTradeIdeaImage(idea.id, image.url);
+              onChanged();
+            }}
+            title="Retirer cette image"
+            style={{
+              position: "absolute",
+              top: -6,
+              right: -6,
+              width: 16,
+              height: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 9,
+              borderRadius: 999,
+              background: "oklch(0.2 0.03 250)",
+              border: "1px solid oklch(0.4 0.034 250)",
+              color: "oklch(0.7 0.02 250)",
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </span>
+        </span>
+      ))}
+      <span
+        onClick={() => fileRef.current?.click()}
+        style={{
+          ...mono,
+          fontSize: 10,
+          padding: "3px 10px",
+          borderRadius: 999,
+          border: "1px dashed oklch(0.32 0.02 250)",
+          color: "oklch(0.55 0.02 250)",
+          cursor: "pointer",
+        }}
+      >
+        + image
+      </span>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          onAdd([...(e.target.files ?? [])]);
+          e.target.value = "";
+        }}
+      />
+      {zoomed && (
+        <div
+          onClick={() => setZoomed(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 80,
+            background: "oklch(0.08 0.02 250 / 0.92)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "zoom-out",
+            padding: 32,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- shown at whatever size it is */}
+          <img src={zoomed} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -79,22 +191,58 @@ export default function TradeIdeas({
   market: string;
   day: string;
   ideas: TradeIdeaRecord[];
-  vocabulary: string[];
+  vocabulary: TradeVocabularies;
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [side, setSide] = useState<"long" | "short">("long");
   const [types, setTypes] = useState<string[]>([]);
-  const [draftType, setDraftType] = useState("");
+  const [zone, setZone] = useState<string | null>(null);
+  const [confirmations, setConfirmations] = useState<string[]>([]);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  // Charts picked while writing, held until the idea they belong to exists.
+  const [pending, setPending] = useState<{ file: File; preview: string }[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const options = [...vocabulary, ...types.filter((t) => !vocabulary.includes(t))];
+  /** A word typed a moment ago is offered too, before the list is read again. */
+  const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
+
+  /**
+   * Sends one chart to an idea that already exists.
+   *
+   * Compressed first, and one at a time by the caller: this network path does
+   * not carry much more than a megabyte at once, which is what makes a request
+   * hang instead of failing (see src/lib/compressImage.ts).
+   */
+  async function upload(ideaId: string, file: File) {
+    let payload = file;
+    try {
+      payload = await compressImage(file, MAX_IMAGE_BYTES);
+    } catch {
+      // Undecodable: send it as-is and let the size check on the server speak.
+    }
+    const fd = new FormData();
+    fd.append("ideaId", ideaId);
+    fd.append("image", payload);
+    const res = await fetch("/api/uploads", { method: "POST", body: fd });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: null }));
+      throw new Error(error ?? "image refusée");
+    }
+  }
 
   function reset() {
+    setPending((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.preview));
+      return [];
+    });
+    setUploadError(null);
     setSide("long");
     setTypes([]);
-    setDraftType("");
+    setZone(null);
+    setConfirmations([]);
     setReason("");
     setOpen(false);
   }
@@ -102,9 +250,30 @@ export default function TradeIdeas({
   async function save() {
     if (!reason.trim() || saving) return;
     setSaving(true);
-    await createTradeIdea({ itemId, market, day, side, tradeTypes: types, reason });
+    const idea = await createTradeIdea({ itemId, market, day, side, tradeTypes: types, zone, confirmations, reason });
+    if (idea) {
+      for (const { file } of pending) {
+        try {
+          await upload(idea.id, file);
+        } catch (error) {
+          setUploadError(error instanceof Error ? error.message : "image refusée");
+        }
+      }
+    }
     setSaving(false);
     reset();
+    onChanged();
+  }
+
+  /** Adds charts to an idea already written, from its own button. */
+  async function addImagesTo(ideaId: string, files: File[]) {
+    for (const file of files.filter((f) => f.type.startsWith("image/"))) {
+      try {
+        await upload(ideaId, file);
+      } catch (error) {
+        setUploadError(error instanceof Error ? error.message : "image refusée");
+      }
+    }
     onChanged();
   }
 
@@ -141,9 +310,9 @@ export default function TradeIdeas({
               {long ? "LONG" : "SHORT"}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {parseTagArray(idea.tradeTypes).length > 0 && (
+              {[...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations)].length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
-                  {parseTagArray(idea.tradeTypes).map((t) => {
+                  {[...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations)].map((t) => {
                     const tone = tagTone(t);
                     return (
                       <span
@@ -159,6 +328,7 @@ export default function TradeIdeas({
               <div style={{ fontSize: 13, color: "oklch(0.85 0.017 250)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
                 {idea.reason}
               </div>
+              <IdeaImages idea={idea} onAdd={(files) => addImagesTo(idea.id, files)} onChanged={onChanged} />
             </div>
             <span
               onClick={async () => {
@@ -204,37 +374,39 @@ export default function TradeIdeas({
             <SideChip side="short" on={side === "short"} onClick={() => setSide("short")} />
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
-            {options.map((option) => (
-              <TypeChip
-                key={option}
-                value={option}
-                on={types.includes(option)}
-                onClick={() => setTypes((prev) => (prev.includes(option) ? prev.filter((t) => t !== option) : [...prev, option]))}
-              />
-            ))}
-            <input
-              value={draftType}
-              onChange={(e) => setDraftType(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                const value = draftType.trim();
-                setDraftType("");
-                if (value && !types.includes(value)) setTypes((prev) => [...prev, value]);
-              }}
-              placeholder="+ type"
-              style={{
-                ...mono,
-                fontSize: 10.5,
-                width: 90,
-                padding: "4px 10px",
-                borderRadius: 999,
-                border: "1px dashed oklch(0.34 0.02 250)",
-                background: "transparent",
-                color: "oklch(0.85 0.017 250)",
-                outline: "none",
-              }}
+          {/* The same dropdowns the note examples are annotated with, on the
+              same words: a type or a confirmation written here is one the
+              examples will offer next time. */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            <ChipDropdown
+              placeholder="Type"
+              options={offer(vocabulary.tradeTypes, types)}
+              selected={types}
+              multiple
+              visible
+              onToggle={(value) =>
+                setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
+              }
+              onAdd={(value) => setTypes((prev) => (prev.includes(value) ? prev : [...prev, value]))}
+            />
+            <ChipDropdown
+              placeholder="Zone"
+              options={offer(vocabulary.zones, zone ? [zone] : [])}
+              selected={zone ? [zone] : []}
+              visible
+              onToggle={(value) => setZone((prev) => (prev === value ? null : value))}
+              onAdd={(value) => setZone(value)}
+            />
+            <ChipDropdown
+              placeholder="Confirmation"
+              options={offer(vocabulary.confirmations, confirmations)}
+              selected={confirmations}
+              multiple
+              visible
+              onToggle={(value) =>
+                setConfirmations((prev) => (prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value]))
+              }
+              onAdd={(value) => setConfirmations((prev) => (prev.includes(value) ? prev : [...prev, value]))}
             />
           </div>
 
@@ -259,6 +431,54 @@ export default function TradeIdeas({
               resize: "vertical",
             }}
           />
+
+          {/* Charts chosen now, uploaded once the idea they belong to exists. */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 10 }}>
+            {pending.map((p) => (
+              <span
+                key={p.preview}
+                onClick={() => {
+                  URL.revokeObjectURL(p.preview);
+                  setPending((prev) => prev.filter((x) => x.preview !== p.preview));
+                }}
+                title="Retirer cette image"
+                style={{ position: "relative", display: "inline-flex", cursor: "pointer" }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- a blob: preview has no known dimensions */}
+                <img src={p.preview} alt="" style={{ height: 46, borderRadius: 4, border: "1px solid oklch(0.34 0.034 250)" }} />
+              </span>
+            ))}
+            <span
+              onClick={() => fileRef.current?.click()}
+              style={{
+                ...mono,
+                fontSize: 10.5,
+                padding: "4px 11px",
+                borderRadius: 999,
+                border: "1px dashed oklch(0.34 0.02 250)",
+                color: "oklch(0.6 0.02 250)",
+                cursor: "pointer",
+              }}
+            >
+              + image
+            </span>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])].filter((f) => f.type.startsWith("image/"));
+                setPending((prev) => [...prev, ...files.map((file) => ({ file, preview: URL.createObjectURL(file) }))]);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
+          {uploadError && (
+            <div style={{ ...mono, fontSize: 10.5, color: lossColor, marginTop: 8 }}>{uploadError}</div>
+          )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <span

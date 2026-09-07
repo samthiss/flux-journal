@@ -4,8 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import { accentColor, glassCard } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas } from "@/lib/actions/checklist";
-import { getTradeIdeas, getTradeTypeVocabulary } from "@/lib/actions/tradeIdeas";
-import TradeIdeas, { type TradeIdeaRecord } from "@/components/TradeIdeas";
+import { getTradeIdeas, getTradeVocabularies } from "@/lib/actions/tradeIdeas";
+import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
 
 type ChecklistItem = { id: string; group: string; label: string; options?: string | null; allowsIdeas?: boolean };
 
@@ -57,7 +57,7 @@ export default function ChecklistClient({
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [answerMap, setAnswerMap] = useState<Record<string, string>>({});
   const [ideas, setIdeas] = useState<TradeIdeaRecord[]>([]);
-  const [tradeTypes, setTradeTypes] = useState<string[]>([]);
+  const [vocabulary, setVocabulary] = useState<TradeVocabularies>({ tradeTypes: [], zones: [], confirmations: [] });
   // Bumped after a write, to read the ideas back rather than guess at them.
   const [ideasVersion, setIdeasVersion] = useState(0);
 
@@ -90,8 +90,8 @@ export default function ChecklistClient({
     getTradeIdeas(market, todayKey()).then((rows) => {
       if (alive) setIdeas(rows);
     });
-    getTradeTypeVocabulary().then((values) => {
-      if (alive) setTradeTypes(values);
+    getTradeVocabularies().then((values) => {
+      if (alive) setVocabulary(values);
     });
     return () => {
       alive = false;
@@ -365,7 +365,7 @@ export default function ChecklistClient({
                       market={market}
                       day={todayKey()}
                       ideas={ideas.filter((idea) => idea.itemId === item.id)}
-                      vocabulary={tradeTypes}
+                      vocabulary={vocabulary}
                       onChanged={() => setIdeasVersion((v) => v + 1)}
                     />
                   )}

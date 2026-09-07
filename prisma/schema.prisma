@@ -253,11 +253,22 @@ model TradeIdea {
   /** "long" or "short". */
   side String
 
-  /** The same vocabulary the note examples are typed with, as a JSON array. */
-  tradeTypes String?
+  /** The same vocabularies the note examples are typed with. */
+  tradeTypes    String?
+  zone          String?
+  confirmations String?
 
   /** Why: the conditions that would make this trade the right one. */
   reason String
+
+  /**
+   * The charts it was drawn on, as a JSON array of `{url, width, height}`.
+   *
+   * A column rather than a table, unlike the note examples: an idea carries a
+   * screenshot or two of the setup, not a gallery to be captioned, reordered
+   * and linked back to a trade.
+   */
+  images String?
 
   createdAt DateTime @default(now())
 

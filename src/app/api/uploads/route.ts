@@ -21,19 +21,34 @@ export async function POST(request: Request) {
     return Response.json({ error: "Requête illisible." }, { status: 400 });
   }
 
+  // The same route serves the note examples and the trade ideas: the file
+  // handling is identical, only the row it is recorded on differs.
   const exampleId = formData.get("exampleId");
+  const ideaId = formData.get("ideaId");
   const file = formData.get("image");
 
-  if (typeof exampleId !== "string" || !exampleId) {
-    return Response.json({ error: "exampleId manquant." }, { status: 400 });
+  const target =
+    typeof exampleId === "string" && exampleId
+      ? ({ kind: "example", id: exampleId } as const)
+      : typeof ideaId === "string" && ideaId
+        ? ({ kind: "idea", id: ideaId } as const)
+        : null;
+  if (!target) {
+    return Response.json({ error: "exampleId ou ideaId manquant." }, { status: 400 });
   }
   if (!(file instanceof File) || file.size === 0) {
     return Response.json({ error: "Aucune image reçue." }, { status: 400 });
   }
 
-  const example = await prisma.noteExample.findUnique({ where: { id: exampleId } });
-  if (!example) {
-    return Response.json({ error: "Exemple introuvable." }, { status: 404 });
+  const owner =
+    target.kind === "example"
+      ? await prisma.noteExample.findUnique({ where: { id: target.id } })
+      : await prisma.tradeIdea.findUnique({ where: { id: target.id } });
+  if (!owner) {
+    return Response.json(
+      { error: target.kind === "example" ? "Exemple introuvable." : "Idée introuvable." },
+      { status: 404 }
+    );
   }
 
   try {
@@ -56,11 +71,34 @@ export async function POST(request: Request) {
     await writeFile(path.join(UPLOAD_DIR, filename), buffer);
 
     const url = `/api/uploads/${filename}`;
-    const count = await prisma.noteExampleImage.count({ where: { exampleId } });
-    // Measured here, while the bytes are already in hand, so the tile can
-    // reserve its height the first time the page draws it. Unreadable
-    // dimensions are stored as null and cost nothing but the old behaviour.
     const size = await measureImage(buffer);
+
+    if (target.kind === "idea") {
+      // An idea's images live in a column, so the new one is appended to what
+      // is already there rather than inserted as a row of its own.
+      const idea = owner as { images: string | null };
+      let images: unknown[] = [];
+      try {
+        const parsed = JSON.parse(idea.images ?? "[]");
+        if (Array.isArray(parsed)) images = parsed;
+      } catch {
+        images = [];
+      }
+      const image = { url, width: size?.width ?? null, height: size?.height ?? null };
+      await prisma.tradeIdea.update({
+        where: { id: target.id },
+        data: { images: JSON.stringify([...images, image]) },
+      });
+      revalidatePath("/checklist");
+      return Response.json({ image });
+    }
+
+    const exampleId = target.id;
+    const count = await prisma.noteExampleImage.count({ where: { exampleId } });
+    // The size was measured above, while the bytes were already in hand, so the
+    // tile can reserve its height the first time the page draws it. Unreadable
+    // dimensions are stored as null and cost nothing but the old behaviour.
+    //
     // The caller inserts this straight into its list, so it needs the whole
     // record — the id above all, without which it could not later remove the
     // image or edit its caption.
