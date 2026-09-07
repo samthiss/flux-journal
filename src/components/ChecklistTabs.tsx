@@ -8,6 +8,7 @@ import VolumeChecklist from "@/components/VolumeChecklist";
 import ColorCode from "@/components/ColorCode";
 import ChecklistClient from "@/components/ChecklistClient";
 import EconomicCalendar from "@/components/EconomicCalendar";
+import HolidayCalendar from "@/components/HolidayCalendar";
 
 type ChecklistItem = { id: string; group: string; label: string };
 
@@ -181,6 +182,12 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
             </div>
           </div>
           <EconomicCalendar height={620} />
+          {/* Under the releases, because it answers the same question from the
+              other side: the widget says when not to trade because something is
+              coming out, this says when there is nothing to trade at all. */}
+          <div style={{ marginTop: 20 }}>
+            <HolidayCalendar />
+          </div>
         </div>
       )}
       {tab === "volume" && (
