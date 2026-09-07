@@ -30,11 +30,30 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 const TREND_RANGE = ["Tendance", "Range"];
 const YES_NO = ["Oui", "Non"];
 
-/** Matched on a fragment, so the rest of the sentence can be edited freely. */
-const RULES: { contains: string[]; options: string[] }[] = [
-  { contains: ["Comment le marché a-t-il évolué", "Wie hat sich der Markt entwickelt"], options: TREND_RANGE },
-  { contains: ["À quoi ressemble l'image des derniers jours", "Wie sieht das Bild der letzten Tage"], options: TREND_RANGE },
-  { contains: ["Cette image correspond-elle à la vue d'ensemble", "Entspricht dieses Bild dem Gesamtbild"], options: YES_NO },
+/**
+ * Matched on a pattern rather than a fragment.
+ *
+ * The wording differs between the copy this repository was written against and
+ * the one in production — "À quoi ressemble l'image des derniers jours ?" there
+ * reads "Comment le marché a-t-il évolué les derniers jours ?" — and an exact
+ * fragment matched one and missed the other, leaving that question without its
+ * answers. What the two share is the question they ask, so that is what is
+ * matched, in both languages.
+ *
+ * Narrow enough not to catch its neighbours: "Marquer les clusters horaires des
+ * derniers jours – lesquels influencent l'évolution du cours ?" says évolution
+ * but never asks how, and "Comment était mon entrée ?" asks how but not of the
+ * market.
+ */
+const RULES: { match: RegExp; options: string[] }[] = [
+  {
+    match: /comment\s+le\s+march[ée].*(?:évolu|evolu)|wie\s+hat\s+sich\s+der\s+markt.*entwickelt|à\s+quoi\s+ressemble.*image|wie\s+sieht\s+das\s+bild/i,
+    options: TREND_RANGE,
+  },
+  {
+    match: /cette\s+image\s+correspond|entspricht\s+dieses\s+bild/i,
+    options: YES_NO,
+  },
 ];
 
 async function main() {
@@ -46,7 +65,7 @@ async function main() {
     const items = await prisma.checklistItem.findMany({ where: { options: null } });
     let changed = 0;
     for (const item of items) {
-      const rule = RULES.find((r) => r.contains.some((fragment) => item.label.includes(fragment)));
+      const rule = RULES.find((r) => r.match.test(item.label));
       if (!rule) continue;
       // The answers are now chips under the line, so the label repeating them
       // in a parenthesis says the same thing twice.
