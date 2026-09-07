@@ -7,7 +7,7 @@ import { tagTone, parseTagArray } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
 import ChipDropdown from "@/components/ChipDropdown";
 import ImageLightbox from "@/components/ImageLightbox";
-import { createTradeIdea, deleteTradeIdea, removeTradeIdeaImage } from "@/lib/actions/tradeIdeas";
+import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage } from "@/lib/actions/tradeIdeas";
 
 export type TradeIdeaRecord = {
   id: string;
@@ -243,6 +243,9 @@ export default function TradeIdeas({
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // The idea the form is rewriting, if it is not writing a new one. The same
+  // form serves both: the fields are identical, and two of them would drift.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [side, setSide] = useState<"long" | "short">("long");
   const [types, setTypes] = useState<string[]>([]);
   const [zone, setZone] = useState<string | null>(null);
@@ -261,6 +264,7 @@ export default function TradeIdeas({
   // ref callback runs as the field is created, which is before the next
   // keystroke can be delivered.
   const [focusCancel, setFocusCancel] = useState<number | null>(null);
+  const [zoomed, setZoomed] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   /** A word typed a moment ago is offered too, before the list is read again. */
@@ -309,6 +313,21 @@ export default function TradeIdeas({
     setConfirmations([]);
     setReason("");
     setOpen(false);
+    setEditingId(null);
+  }
+
+  /** Opens the form on an idea already written, with what it says in it. */
+  function startEditing(idea: TradeIdeaRecord) {
+    setSide(idea.side === "short" ? "short" : "long");
+    setTypes(parseTagArray(idea.tradeTypes));
+    setZone(idea.zone);
+    setConfirmations(parseTagArray(idea.confirmations));
+    setReason(idea.reason);
+    const lines = parseTagArray(idea.cancelIf);
+    setCancelIf(lines.length ? lines : [""]);
+    setUploadError(null);
+    setEditingId(idea.id);
+    setOpen(false);
   }
 
   /** Something was said: the form is worth saving. */
@@ -328,6 +347,15 @@ export default function TradeIdeas({
       return;
     }
     setSaving(true);
+
+    if (editingId) {
+      await updateTradeIdea(editingId, { side, tradeTypes: types, zone, confirmations, reason, cancelIf });
+      setSaving(false);
+      reset();
+      onChanged();
+      return;
+    }
+
     const idea = await createTradeIdea({
       itemId,
       market,
@@ -366,10 +394,263 @@ export default function TradeIdeas({
     onChanged();
   }
 
+  // The one form, for a new idea and for rewriting one: the fields are the
+  // same, and two of them would drift apart.
+  const form = (
+        <div
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            if (!dropping) setDropping(true);
+          }}
+          onDragLeave={(e) => {
+            // Only when the pointer leaves the form itself: moving over a field
+            // inside it fires this too, and the frame would flicker.
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            setDropping(false);
+          }}
+          onDrop={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            setDropping(false);
+            addPending([...e.dataTransfer.files]);
+          }}
+          style={{
+            padding: 12,
+            border: `1px ${dropping ? "dashed" : "solid"} ${dropping ? accentColor : "oklch(0.84 0.17 196 / 0.35)"}`,
+            background: dropping ? "oklch(0.84 0.17 196 / 0.12)" : "oklch(0.84 0.17 196 / 0.05)",
+            // No cut corners here, unlike the panels elsewhere: clip-path also
+            // clips what overflows, and the tag lists open downward out of this
+            // frame — bevelled, half of each list was sliced off.
+            borderRadius: 4,
+          }}
+        >
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            <SideChip side="long" on={side === "long"} onClick={() => setSide("long")} />
+            <SideChip side="short" on={side === "short"} onClick={() => setSide("short")} />
+          </div>
+  
+          {/* The same dropdowns the note examples are annotated with, on the
+              same words: a type or a confirmation written here is one the
+              examples will offer next time. */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            <ChipDropdown
+              placeholder="Type"
+              options={offer(vocabulary.tradeTypes, types)}
+              selected={types}
+              multiple
+              visible
+              onToggle={(value) =>
+                setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
+              }
+              onAdd={(value) => setTypes((prev) => (prev.includes(value) ? prev : [...prev, value]))}
+            />
+            <ChipDropdown
+              placeholder="Zone"
+              options={offer(vocabulary.zones, zone ? [zone] : [])}
+              selected={zone ? [zone] : []}
+              visible
+              onToggle={(value) => setZone((prev) => (prev === value ? null : value))}
+              onAdd={(value) => setZone(value)}
+            />
+            <ChipDropdown
+              placeholder="Confirmation"
+              options={offer(vocabulary.confirmations, confirmations)}
+              selected={confirmations}
+              multiple
+              visible
+              onToggle={(value) =>
+                setConfirmations((prev) => (prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value]))
+              }
+              onAdd={(value) => setConfirmations((prev) => (prev.includes(value) ? prev : [...prev, value]))}
+            />
+          </div>
+  
+          <textarea
+            autoFocus
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Quand le marché arrive sur mon dernier top, j'attends la confirmation puis…"
+            rows={3}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              fontSize: 13,
+              lineHeight: 1.5,
+              fontFamily: "inherit",
+              padding: "8px 10px",
+              borderRadius: 6,
+              border: "1px solid oklch(0.32 0.034 250)",
+              background: "oklch(0.16 0.03 250)",
+              color: "oklch(0.88 0.017 250)",
+              outline: "none",
+              resize: "vertical",
+            }}
+          />
+  
+          {/* What would call the trade off, kept apart from the case for it. */}
+          <div
+            style={{
+              marginTop: 10,
+              padding: "10px 12px",
+              borderRadius: 4,
+              border: `1px solid ${lossColor.replace(")", " / 0.4)")}`,
+              background: lossColor.replace(")", " / 0.06)"),
+            }}
+          >
+            <div style={{ ...mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 8 }}>
+              Annuler mon trade si :
+            </div>
+            {cancelIf.map((line, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                <span style={{ color: lossColor, fontSize: 12, flex: "none" }}>—</span>
+                <input
+                  value={line}
+                  onChange={(e) =>
+                    setCancelIf((prev) => prev.map((l, li) => (li === i ? e.target.value : l)))
+                  }
+                  onKeyDown={(e) => {
+                    // Enter opens the next line, as a bullet list does anywhere
+                    // else; backspace on an empty one closes it again.
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      setCancelIf((prev) => [...prev.slice(0, i + 1), "", ...prev.slice(i + 1)]);
+                      setFocusCancel(i + 1);
+                    }
+                    if (e.key === "Backspace" && !line && cancelIf.length > 1) {
+                      e.preventDefault();
+                      setCancelIf((prev) => prev.filter((_, li) => li !== i));
+                      setFocusCancel(Math.max(0, i - 1));
+                    }
+                  }}
+                  ref={(el) => {
+                    if (el && focusCancel === i) {
+                      el.focus();
+                      setFocusCancel(null);
+                    }
+                  }}
+                  placeholder={i === 0 ? "le marché casse la zone" : ""}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 12.5,
+                    fontFamily: "inherit",
+                    padding: "3px 0",
+                    border: "none",
+                    borderBottom: "1px solid oklch(0.3 0.034 250)",
+                    background: "transparent",
+                    color: "oklch(0.88 0.017 250)",
+                    outline: "none",
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+  
+          {/* Charts chosen now, uploaded once the idea they belong to exists. */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 10 }}>
+            {pending.map((p) => (
+              <span key={p.preview} style={{ position: "relative", display: "inline-flex" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- a blob: preview has no known dimensions */}
+                <img
+                  src={p.preview}
+                  alt=""
+                  onClick={() => setZoomed(p.preview)}
+                  style={{ height: 46, borderRadius: 4, border: "1px solid oklch(0.34 0.034 250)", cursor: "zoom-in" }}
+                />
+                <span
+                  onClick={() => {
+                    URL.revokeObjectURL(p.preview);
+                    setPending((prev) => prev.filter((x) => x.preview !== p.preview));
+                  }}
+                  title="Retirer cette image"
+                  style={{
+                    position: "absolute",
+                    top: -6,
+                    right: -6,
+                    width: 17,
+                    height: 17,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 9,
+                    borderRadius: 999,
+                    background: "oklch(0.18 0.03 250)",
+                    border: "1px solid oklch(0.42 0.034 250)",
+                    color: "oklch(0.8 0.02 250)",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕
+                </span>
+              </span>
+            ))}
+            <span
+              onClick={() => fileRef.current?.click()}
+              style={{
+                ...mono,
+                fontSize: 10.5,
+                padding: "4px 11px",
+                borderRadius: 999,
+                border: "1px dashed oklch(0.34 0.02 250)",
+                color: "oklch(0.6 0.02 250)",
+                cursor: "pointer",
+              }}
+            >
+              + image
+            </span>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                addPending([...(e.target.files ?? [])]);
+                e.target.value = "";
+              }}
+            />
+          </div>
+  
+          {uploadError && (
+            <div style={{ ...mono, fontSize: 10.5, color: lossColor, marginTop: 8 }}>{uploadError}</div>
+          )}
+  
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <span
+              onClick={save}
+              style={{
+                ...mono,
+                fontSize: 11,
+                padding: "5px 14px",
+                borderRadius: 6,
+                cursor: "pointer",
+                border: `1px solid ${filled ? accentColor : "oklch(0.34 0.034 250)"}`,
+                background: filled ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
+                color: filled ? accentColor : "oklch(0.45 0.03 250)",
+              }}
+            >
+              {saving ? "…" : "Enregistrer"}
+            </span>
+            <span
+              onClick={reset}
+              style={{ ...mono, fontSize: 11, padding: "5px 12px", color: "oklch(0.6 0.03 250)", cursor: "pointer" }}
+            >
+              annuler
+            </span>
+          </div>
+        </div>
+  );
+
   return (
     <div style={{ padding: "0 8px 12px 40px" }}>
+      {/* A chart picked but not yet saved opens the same way a saved one does. */}
+      <ImageLightbox url={zoomed} onClose={() => setZoomed(null)} />
       {ideas.map((idea) => {
         const long = idea.side !== "short";
+        // Rewritten in place, so the reader stays where the idea is rather than
+        // following a form to the bottom of the list.
+        if (editingId === idea.id) return <div key={idea.id}>{form}</div>;
         return (
           <div
             key={idea.id}
@@ -435,6 +716,13 @@ export default function TradeIdeas({
               <IdeaImages idea={idea} onAdd={(files) => addImagesTo(idea.id, files)} onChanged={onChanged} />
             </div>
             <span
+              onClick={() => startEditing(idea)}
+              title="Modifier cette idée"
+              style={{ flex: "none", fontSize: 11, color: "oklch(0.5 0.034 250)", cursor: "pointer", marginRight: 2 }}
+            >
+              ✎
+            </span>
+            <span
               onClick={async () => {
                 await deleteTradeIdea(idea.id);
                 onChanged();
@@ -448,9 +736,13 @@ export default function TradeIdeas({
         );
       })}
 
-      {!open ? (
+      {!open || editingId ? (
         <span
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            // Starting a new one puts down whatever was being rewritten.
+            reset();
+            setOpen(true);
+          }}
           style={{
             ...mono,
             fontSize: 11,
@@ -465,227 +757,7 @@ export default function TradeIdeas({
           + Ajouter une idée de trade
         </span>
       ) : (
-        <div
-          onDragOver={(e) => {
-            if (!e.dataTransfer.types.includes("Files")) return;
-            e.preventDefault();
-            if (!dropping) setDropping(true);
-          }}
-          onDragLeave={(e) => {
-            // Only when the pointer leaves the form itself: moving over a field
-            // inside it fires this too, and the frame would flicker.
-            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-            setDropping(false);
-          }}
-          onDrop={(e) => {
-            if (!e.dataTransfer.types.includes("Files")) return;
-            e.preventDefault();
-            setDropping(false);
-            addPending([...e.dataTransfer.files]);
-          }}
-          style={{
-            padding: 12,
-            border: `1px ${dropping ? "dashed" : "solid"} ${dropping ? accentColor : "oklch(0.84 0.17 196 / 0.35)"}`,
-            background: dropping ? "oklch(0.84 0.17 196 / 0.12)" : "oklch(0.84 0.17 196 / 0.05)",
-            // No cut corners here, unlike the panels elsewhere: clip-path also
-            // clips what overflows, and the tag lists open downward out of this
-            // frame — bevelled, half of each list was sliced off.
-            borderRadius: 4,
-          }}
-        >
-          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            <SideChip side="long" on={side === "long"} onClick={() => setSide("long")} />
-            <SideChip side="short" on={side === "short"} onClick={() => setSide("short")} />
-          </div>
-
-          {/* The same dropdowns the note examples are annotated with, on the
-              same words: a type or a confirmation written here is one the
-              examples will offer next time. */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-            <ChipDropdown
-              placeholder="Type"
-              options={offer(vocabulary.tradeTypes, types)}
-              selected={types}
-              multiple
-              visible
-              onToggle={(value) =>
-                setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
-              }
-              onAdd={(value) => setTypes((prev) => (prev.includes(value) ? prev : [...prev, value]))}
-            />
-            <ChipDropdown
-              placeholder="Zone"
-              options={offer(vocabulary.zones, zone ? [zone] : [])}
-              selected={zone ? [zone] : []}
-              visible
-              onToggle={(value) => setZone((prev) => (prev === value ? null : value))}
-              onAdd={(value) => setZone(value)}
-            />
-            <ChipDropdown
-              placeholder="Confirmation"
-              options={offer(vocabulary.confirmations, confirmations)}
-              selected={confirmations}
-              multiple
-              visible
-              onToggle={(value) =>
-                setConfirmations((prev) => (prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value]))
-              }
-              onAdd={(value) => setConfirmations((prev) => (prev.includes(value) ? prev : [...prev, value]))}
-            />
-          </div>
-
-          <textarea
-            autoFocus
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Quand le marché arrive sur mon dernier top, j'attends la confirmation puis…"
-            rows={3}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              fontSize: 13,
-              lineHeight: 1.5,
-              fontFamily: "inherit",
-              padding: "8px 10px",
-              borderRadius: 6,
-              border: "1px solid oklch(0.32 0.034 250)",
-              background: "oklch(0.16 0.03 250)",
-              color: "oklch(0.88 0.017 250)",
-              outline: "none",
-              resize: "vertical",
-            }}
-          />
-
-          {/* What would call the trade off, kept apart from the case for it. */}
-          <div
-            style={{
-              marginTop: 10,
-              padding: "10px 12px",
-              borderRadius: 4,
-              border: `1px solid ${lossColor.replace(")", " / 0.4)")}`,
-              background: lossColor.replace(")", " / 0.06)"),
-            }}
-          >
-            <div style={{ ...mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 8 }}>
-              Annuler mon trade si :
-            </div>
-            {cancelIf.map((line, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                <span style={{ color: lossColor, fontSize: 12, flex: "none" }}>—</span>
-                <input
-                  value={line}
-                  onChange={(e) =>
-                    setCancelIf((prev) => prev.map((l, li) => (li === i ? e.target.value : l)))
-                  }
-                  onKeyDown={(e) => {
-                    // Enter opens the next line, as a bullet list does anywhere
-                    // else; backspace on an empty one closes it again.
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      setCancelIf((prev) => [...prev.slice(0, i + 1), "", ...prev.slice(i + 1)]);
-                      setFocusCancel(i + 1);
-                    }
-                    if (e.key === "Backspace" && !line && cancelIf.length > 1) {
-                      e.preventDefault();
-                      setCancelIf((prev) => prev.filter((_, li) => li !== i));
-                      setFocusCancel(Math.max(0, i - 1));
-                    }
-                  }}
-                  ref={(el) => {
-                    if (el && focusCancel === i) {
-                      el.focus();
-                      setFocusCancel(null);
-                    }
-                  }}
-                  placeholder={i === 0 ? "le marché casse la zone" : ""}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontSize: 12.5,
-                    fontFamily: "inherit",
-                    padding: "3px 0",
-                    border: "none",
-                    borderBottom: "1px solid oklch(0.3 0.034 250)",
-                    background: "transparent",
-                    color: "oklch(0.88 0.017 250)",
-                    outline: "none",
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Charts chosen now, uploaded once the idea they belong to exists. */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 10 }}>
-            {pending.map((p) => (
-              <span
-                key={p.preview}
-                onClick={() => {
-                  URL.revokeObjectURL(p.preview);
-                  setPending((prev) => prev.filter((x) => x.preview !== p.preview));
-                }}
-                title="Retirer cette image"
-                style={{ position: "relative", display: "inline-flex", cursor: "pointer" }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- a blob: preview has no known dimensions */}
-                <img src={p.preview} alt="" style={{ height: 46, borderRadius: 4, border: "1px solid oklch(0.34 0.034 250)" }} />
-              </span>
-            ))}
-            <span
-              onClick={() => fileRef.current?.click()}
-              style={{
-                ...mono,
-                fontSize: 10.5,
-                padding: "4px 11px",
-                borderRadius: 999,
-                border: "1px dashed oklch(0.34 0.02 250)",
-                color: "oklch(0.6 0.02 250)",
-                cursor: "pointer",
-              }}
-            >
-              + image
-            </span>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-              onChange={(e) => {
-                addPending([...(e.target.files ?? [])]);
-                e.target.value = "";
-              }}
-            />
-          </div>
-
-          {uploadError && (
-            <div style={{ ...mono, fontSize: 10.5, color: lossColor, marginTop: 8 }}>{uploadError}</div>
-          )}
-
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <span
-              onClick={save}
-              style={{
-                ...mono,
-                fontSize: 11,
-                padding: "5px 14px",
-                borderRadius: 6,
-                cursor: "pointer",
-                border: `1px solid ${filled ? accentColor : "oklch(0.34 0.034 250)"}`,
-                background: filled ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
-                color: filled ? accentColor : "oklch(0.45 0.03 250)",
-              }}
-            >
-              {saving ? "…" : "Enregistrer"}
-            </span>
-            <span
-              onClick={reset}
-              style={{ ...mono, fontSize: 11, padding: "5px 12px", color: "oklch(0.6 0.03 250)", cursor: "pointer" }}
-            >
-              annuler
-            </span>
-          </div>
-        </div>
+        form
       )}
     </div>
   );

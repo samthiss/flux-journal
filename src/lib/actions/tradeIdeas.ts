@@ -63,6 +63,39 @@ export async function createTradeIdea(input: {
   return idea;
 }
 
+/**
+ * Rewrites an idea, keeping the charts already on it.
+ *
+ * A plan changes as the morning does — the direction flips, a confirmation is
+ * dropped, a condition is added — and rewriting it should not mean deleting it
+ * and typing the rest again.
+ */
+export async function updateTradeIdea(
+  id: string,
+  input: {
+    side: string;
+    tradeTypes: string[];
+    zone: string | null;
+    confirmations: string[];
+    reason: string;
+    cancelIf: string[];
+  }
+) {
+  const cancelIf = input.cancelIf.map((line) => line.trim()).filter(Boolean);
+  await prisma.tradeIdea.update({
+    where: { id },
+    data: {
+      side: input.side === "short" ? "short" : "long",
+      tradeTypes: input.tradeTypes.length ? JSON.stringify(input.tradeTypes) : null,
+      zone: input.zone?.trim() || null,
+      confirmations: input.confirmations.length ? JSON.stringify(input.confirmations) : null,
+      reason: input.reason.trim(),
+      cancelIf: cancelIf.length ? JSON.stringify(cancelIf) : null,
+    },
+  });
+  revalidatePath("/checklist");
+}
+
 /** Takes one chart off an idea. The file itself is left where it is. */
 export async function removeTradeIdeaImage(id: string, url: string) {
   const idea = await prisma.tradeIdea.findUnique({ where: { id } });
