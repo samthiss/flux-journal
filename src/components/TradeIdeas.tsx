@@ -77,9 +77,38 @@ function IdeaImages({
   const images = parseImages(idea.images);
   const fileRef = useRef<HTMLInputElement>(null);
   const [zoomed, setZoomed] = useState<string | null>(null);
+  const [dropping, setDropping] = useState(false);
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: images.length ? 8 : 6 }}>
+    <div
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        if (!dropping) setDropping(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setDropping(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        setDropping(false);
+        onAdd([...e.dataTransfer.files]);
+      }}
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 6,
+        alignItems: "center",
+        marginTop: images.length ? 8 : 6,
+        // Lit while a file is over it, so the row says it will take the drop.
+        padding: dropping ? 5 : 0,
+        border: dropping ? `1px dashed ${accentColor}` : "1px solid transparent",
+        borderRadius: 4,
+        background: dropping ? "oklch(0.84 0.17 196 / 0.1)" : "transparent",
+      }}
+    >
       {images.map((image) => (
         <span key={image.url} style={{ position: "relative", display: "inline-flex" }}>
           <Image
@@ -203,6 +232,7 @@ export default function TradeIdeas({
   const [saving, setSaving] = useState(false);
   // Charts picked while writing, held until the idea they belong to exists.
   const [pending, setPending] = useState<{ file: File; preview: string }[]>([]);
+  const [dropping, setDropping] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -231,6 +261,12 @@ export default function TradeIdeas({
       const { error } = await res.json().catch(() => ({ error: null }));
       throw new Error(error ?? "image refusée");
     }
+  }
+
+  function addPending(files: File[]) {
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (!images.length) return;
+    setPending((prev) => [...prev, ...images.map((file) => ({ file, preview: URL.createObjectURL(file) }))]);
   }
 
   function reset() {
@@ -362,11 +398,31 @@ export default function TradeIdeas({
         </span>
       ) : (
         <div
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            if (!dropping) setDropping(true);
+          }}
+          onDragLeave={(e) => {
+            // Only when the pointer leaves the form itself: moving over a field
+            // inside it fires this too, and the frame would flicker.
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            setDropping(false);
+          }}
+          onDrop={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            setDropping(false);
+            addPending([...e.dataTransfer.files]);
+          }}
           style={{
             padding: 12,
-            border: `1px solid oklch(0.84 0.17 196 / 0.35)`,
-            background: "oklch(0.84 0.17 196 / 0.05)",
-            clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)",
+            border: `1px ${dropping ? "dashed" : "solid"} ${dropping ? accentColor : "oklch(0.84 0.17 196 / 0.35)"}`,
+            background: dropping ? "oklch(0.84 0.17 196 / 0.12)" : "oklch(0.84 0.17 196 / 0.05)",
+            // No cut corners here, unlike the panels elsewhere: clip-path also
+            // clips what overflows, and the tag lists open downward out of this
+            // frame — bevelled, half of each list was sliced off.
+            borderRadius: 4,
           }}
         >
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
@@ -469,8 +525,7 @@ export default function TradeIdeas({
               multiple
               hidden
               onChange={(e) => {
-                const files = [...(e.target.files ?? [])].filter((f) => f.type.startsWith("image/"));
-                setPending((prev) => [...prev, ...files.map((file) => ({ file, preview: URL.createObjectURL(file) }))]);
+                addPending([...(e.target.files ?? [])]);
                 e.target.value = "";
               }}
             />
