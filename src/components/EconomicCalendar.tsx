@@ -214,8 +214,13 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
     for (const event of events) {
       // A closed market is shown whatever the importance filter says: it is
       // the one row that explains a whole day of nothing.
-      const impact = rerated[`${event.currency}|${event.title}`] ?? event.impact;
-      if (event.kind !== "holiday" && !impacts.includes(impact)) continue;
+      //
+      // So is a row rated in this session, even down to a level the filter
+      // hides: one click on a three-star release rates it one star, and a row
+      // that vanishes on the click that lowered it cannot be clicked back.
+      const key = `${event.currency}|${event.title}`;
+      const impact = rerated[key] ?? event.impact;
+      if (event.kind !== "holiday" && rerated[key] === undefined && !impacts.includes(impact)) continue;
       if (!currencies.includes(event.currency)) continue;
       const day = localDay(event);
       if (day < from || day > to) continue;
@@ -357,7 +362,7 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
       ))}
 
       <div style={{ ...mono, fontSize: 9.5, color: "oklch(0.45 0.02 250)", padding: "8px 18px" }}>
-        publié · prévision / précédent · heures locales · clic sur les barres pour renoter
+        publié · prévision / précédent · heures locales · clic sur les étoiles pour renoter
       </div>
     </div>
   );
@@ -368,8 +373,12 @@ const NEXT_LEVEL: Record<Impact, Impact> = { low: "medium", medium: "high", high
 const LEVEL_NAME: Record<Impact, string> = { low: "faible", medium: "moyenne", high: "forte" };
 
 /**
- * Three bars, lit as far as the release matters — and a click away from being
+ * Three stars, lit as far as the release matters — and a click away from being
  * rated differently.
+ *
+ * Stars rather than the bars this used to draw, so a row can be held against
+ * investing.com's own column and read at a glance: two scales in the same
+ * shape compare, two shapes do not.
  *
  * The rating is the part of a calendar most often wrong: the source rates the
  * indicator, not what it does to the tape. Rather than argue with it in code
@@ -387,11 +396,10 @@ function Impact({ level, onCycle }: { level: Impact; onCycle?: () => void }) {
       title={onCycle ? `Importance ${LEVEL_NAME[level]} — cliquer pour la changer` : undefined}
       style={{
         display: "inline-flex",
-        gap: 2,
-        alignItems: "flex-end",
+        gap: 1.5,
+        alignItems: "center",
         flex: "none",
-        height: 14,
-        padding: "2px 3px 0",
+        padding: "2px 3px",
         margin: "0 -3px",
         border: "none",
         borderRadius: 3,
@@ -399,16 +407,18 @@ function Impact({ level, onCycle }: { level: Impact; onCycle?: () => void }) {
         cursor: onCycle ? "pointer" : "default",
       }}
     >
-      {[5, 8, 11].map((h, i) => (
+      {[0, 1, 2].map((i) => (
         <span
-          key={h}
+          key={i}
           style={{
-            width: 3,
-            height: h,
-            background: i < lit ? colour : "oklch(0.3 0.02 250)",
-            boxShadow: i < lit ? `0 0 6px -1px ${colour}` : "none",
+            fontSize: 9,
+            lineHeight: 1,
+            color: i < lit ? colour : "oklch(0.32 0.02 250)",
+            textShadow: i < lit ? `0 0 7px ${colour}` : "none",
           }}
-        />
+        >
+          ★
+        </span>
       ))}
     </button>
   );
