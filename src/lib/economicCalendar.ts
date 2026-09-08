@@ -59,8 +59,15 @@ const RANGE_FEED = "https://economic-calendar.tradingview.com/events";
  */
 const CURRENCIES = new Set(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "CNY"]);
 
-/** The same list as the range source names them: countries, not currencies. */
-const COUNTRIES = "US,EU,GB,JP,CH,CA,AU,NZ,CN";
+/**
+ * The same list as the range source names them: countries, not currencies.
+ *
+ * More countries than currencies, because the euro is shared: a German trade
+ * balance is filed under DE and carries EUR, so asking for EU alone drops
+ * every national release in the zone — including the German ones, which are
+ * the ones that move an index traded here.
+ */
+const COUNTRIES = "US,EU,DE,FR,IT,ES,GB,JP,CH,CA,AU,NZ,CN";
 
 /** What the card starts on: the contracts this journal actually trades. */
 export const DEFAULT_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CHF"];
