@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import type { EconomicEvent } from "@/lib/economicCalendar";
 import { setEventRating } from "@/lib/actions/eventRatings";
 import { currenciesOf, focusFor, underFocus } from "@/lib/marketFocus";
+import { useMenuDismiss } from "@/components/useMenuDismiss";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -105,6 +106,85 @@ function Chip({ on, label, title, onClick }: { on: boolean; label: ReactNode; ti
     >
       {label}
     </button>
+  );
+}
+
+/** The span of days, as a menu the card draws itself. */
+function RangePicker({ range, onPick }: { range: Range; onPick: (range: Range) => void }) {
+  const [open, setOpen] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
+
+  const current = RANGES.find((r) => r.id === range) ?? RANGES[1];
+
+  return (
+    <div ref={wrapper} style={{ position: "relative", flex: "none" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          ...mono,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: 10.5,
+          padding: "3px 9px",
+          borderRadius: 999,
+          cursor: "pointer",
+          border: `1px solid ${accentColor}`,
+          background: "oklch(0.72 0.14 195 / 0.14)",
+          color: accentColor,
+        }}
+      >
+        {current.label}
+        <span style={{ fontSize: 8, opacity: 0.7 }}>▾</span>
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "130%",
+            left: 0,
+            zIndex: 40,
+            minWidth: 160,
+            padding: 4,
+            borderRadius: 8,
+            border: "1px solid oklch(0.34 0.034 250)",
+            background: "oklch(0.21 0.034 250)",
+            boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
+          }}
+        >
+          {RANGES.map((r) => {
+            const on = r.id === range;
+            return (
+              <div
+                key={r.id}
+                onClick={() => {
+                  onPick(r.id);
+                  setOpen(false);
+                }}
+                style={{
+                  ...mono,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 8px",
+                  borderRadius: 5,
+                  cursor: "pointer",
+                  fontSize: 10.5,
+                  color: on ? accentColor : "oklch(0.72 0.02 250)",
+                  background: on ? "oklch(0.72 0.14 195 / 0.14)" : "transparent",
+                }}
+              >
+                <span style={{ width: 10, flex: "none" }}>{on ? "✓" : ""}</span>
+                {r.label}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -290,46 +370,10 @@ export default function EconomicCalendar({
       >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {/* A list rather than five chips: the span of days is one choice out
-              of five, and five chips read like five filters that might combine. */}
-          <span style={{ position: "relative", display: "inline-flex" }}>
-            <select
-              value={range}
-              onChange={(e) => setRange(e.target.value as Range)}
-              style={{
-                ...mono,
-                fontSize: 10.5,
-                padding: "3px 22px 3px 9px",
-                borderRadius: 999,
-                border: `1px solid ${accentColor}`,
-                background: "oklch(0.72 0.14 195 / 0.14)",
-                color: accentColor,
-                cursor: "pointer",
-                appearance: "none",
-                // So the browser draws its own popup dark rather than white.
-                colorScheme: "dark",
-              }}
-            >
-              {RANGES.map((r) => (
-                <option key={r.id} value={r.id} style={{ background: "oklch(0.18 0.02 250)" }}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-            <span
-              aria-hidden
-              style={{
-                position: "absolute",
-                right: 8,
-                top: "50%",
-                transform: "translateY(-50%)",
-                fontSize: 8,
-                color: accentColor,
-                pointerEvents: "none",
-              }}
-            >
-              ▼
-            </span>
-          </span>
+              of five, and five chips read like five filters that might combine.
+              Drawn here rather than left to a <select>, whose open list is the
+              operating system's and lands white and square on a dark card. */}
+          <RangePicker range={range} onPick={setRange} />
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
           {focus && (
