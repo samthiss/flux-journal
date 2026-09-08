@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { ALL_CURRENCIES, DEFAULT_CURRENCIES, type EconomicEvent } from "@/lib/economicCalendar";
 import { setEventRating } from "@/lib/actions/eventRatings";
@@ -84,11 +84,12 @@ function dayLabel(day: string) {
  * Lit when it is on, because a filter the reader cannot see the state of is
  * worse than no filter: the card would just look empty for no stated reason.
  */
-function Chip({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {
+function Chip({ on, label, title, onClick }: { on: boolean; label: ReactNode; title?: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={title}
       style={{
         ...mono,
         fontSize: 10.5,
@@ -263,10 +264,13 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
             />
           ))}
           <span style={{ width: 1, height: 14, background: "oklch(0.32 0.02 250)", margin: "0 3px" }} />
+          {/* The same three stars the rows carry, so the filter and what it
+              filters are read in one alphabet rather than two. */}
           {IMPACTS.map((i) => (
             <Chip
               key={i.id}
-              label={i.label}
+              label={<Stars level={i.id} dim={!impacts.includes(i.id)} />}
+              title={`Importance ${LEVEL_NAME[i.id]}`}
               on={impacts.includes(i.id)}
               onClick={() => setImpacts(toggle(impacts, i.id))}
             />
@@ -385,11 +389,37 @@ const LEVEL_NAME: Record<Impact, string> = { low: "faible", medium: "moyenne", h
  * every time, a click cycles this row's rating and keeps it for that release,
  * every month, in the database.
  */
-function Impact({ level, onCycle }: { level: Impact; onCycle?: () => void }) {
+function Stars({ level, dim = false }: { level: Impact; dim?: boolean }) {
   const lit = level === "high" ? 3 : level === "medium" ? 2 : 1;
   // A single star is still a lit star: leaving it the colour of an unlit one
   // made a rated row look unrated.
-  const colour = level === "high" ? lossColor : level === "medium" ? accentColor : "oklch(0.78 0.02 250)";
+  const colour = dim
+    ? "oklch(0.5 0.02 250)"
+    : level === "high"
+      ? lossColor
+      : level === "medium"
+        ? accentColor
+        : "oklch(0.78 0.02 250)";
+  return (
+    <>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          style={{
+            fontSize: 12,
+            lineHeight: 1,
+            color: i < lit ? colour : "oklch(0.32 0.02 250)",
+            textShadow: i < lit && !dim ? `0 0 7px ${colour}` : "none",
+          }}
+        >
+          ★
+        </span>
+      ))}
+    </>
+  );
+}
+
+function Impact({ level, onCycle }: { level: Impact; onCycle?: () => void }) {
   return (
     <button
       type="button"
@@ -409,19 +439,7 @@ function Impact({ level, onCycle }: { level: Impact; onCycle?: () => void }) {
         cursor: onCycle ? "pointer" : "default",
       }}
     >
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          style={{
-            fontSize: 12,
-            lineHeight: 1,
-            color: i < lit ? colour : "oklch(0.32 0.02 250)",
-            textShadow: i < lit ? `0 0 7px ${colour}` : "none",
-          }}
-        >
-          ★
-        </span>
-      ))}
+      <Stars level={level} />
     </button>
   );
 }
