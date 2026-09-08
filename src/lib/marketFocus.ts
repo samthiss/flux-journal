@@ -46,7 +46,7 @@ export type MarketFocus = {
    * Treasury auction is worth a glance, and a rule written once for currencies
    * had been hiding it everywhere.
    */
-  titleCeilings?: { pattern: RegExp; ceiling: EconomicEvent["impact"] }[];
+  titleCeilings?: { pattern: RegExp; currency?: string; ceiling: EconomicEvent["impact"] }[];
 };
 
 /**
@@ -88,6 +88,24 @@ const FX_CEILINGS: Record<string, EconomicEvent["impact"]> = {
  * all on a currency future or a barrel of oil.
  */
 const auctionCeiling = (ceiling: EconomicEvent["impact"]) => [{ pattern: /\bAuction$/, ceiling }];
+
+/**
+ * Auctions on a currency future: dark, except the American long end.
+ *
+ * A wide tail on a ten-year note moves the yield, and the yield moves the
+ * dollar inside the minute — worth knowing is under way at 19:00, never worth
+ * standing aside for, which is what two stars mean.
+ *
+ * The euro area gets no such rule, and not out of laziness: it has no single
+ * issuer. A Spanish Bono auction is not "the euro's auction" the way a Treasury
+ * sale is the world's discount rate being set, and eight of them a week would
+ * bury the two that matter. Bills stay dark everywhere — thirty a month, moving
+ * nothing. Later rules win, so the general case is written first.
+ */
+const FX_AUCTIONS: { pattern: RegExp; currency?: string; ceiling: EconomicEvent["impact"] }[] = [
+  { pattern: /\bAuction$/, ceiling: "low" },
+  { pattern: /\b(Note|Bond|TIPS) Auction$/, currency: "USD", ceiling: "medium" },
+];
 
 /** An index lives on the Fed, the American consumer and the surveys. */
 const INDEX_CEILINGS: Record<string, EconomicEvent["impact"]> = {
@@ -168,13 +186,13 @@ export const MARKET_FOCUS: Record<string, MarketFocus> = {
     currencies: ["EUR", "USD"],
     summary: "Zone euro et États-Unis — taux, prix et emploi en tête",
     ceilings: FX_CEILINGS,
-    titleCeilings: auctionCeiling("low"),
+    titleCeilings: FX_AUCTIONS,
   },
   "6B": {
     currencies: ["GBP", "USD"],
     summary: "Royaume-Uni et États-Unis — taux, prix et emploi en tête",
     ceilings: FX_CEILINGS,
-    titleCeilings: auctionCeiling("low"),
+    titleCeilings: FX_AUCTIONS,
   },
 };
 
@@ -200,6 +218,7 @@ export function underFocus(event: EconomicEvent, focus: MarketFocus): EconomicEv
   // worth two stars, so a rule that could only lower would never say so.
   let ceiling = focus.ceilings[event.category];
   for (const rule of focus.titleCeilings ?? []) {
+    if (rule.currency && rule.currency !== event.currency) continue;
     if (rule.pattern.test(event.title)) ceiling = rule.ceiling;
   }
 
