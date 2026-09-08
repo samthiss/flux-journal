@@ -110,9 +110,9 @@ function Chip({ on, label, title, onClick }: { on: boolean; label: ReactNode; ti
 
 const STORE = "flux.calendar.filters";
 
-type Filters = { range: Range; impacts: Impact[] };
+type Filters = { impacts: Impact[] };
 
-const DEFAULTS: Filters = { range: "today", impacts: ["high", "medium"] };
+const DEFAULTS: Filters = { impacts: ["high", "medium"] };
 
 /**
  * The saved filters, as an external store rather than state seeded in an effect.
@@ -161,7 +161,6 @@ function parseFilters(raw: string | null): Filters {
   try {
     const saved = JSON.parse(raw);
     return {
-      range: RANGES.some((r) => r.id === saved?.range) ? saved.range : DEFAULTS.range,
       impacts: Array.isArray(saved?.impacts) ? saved.impacts : DEFAULTS.impacts,
     };
   } catch {
@@ -204,7 +203,17 @@ export default function EconomicCalendar({
    */
   const [ignoreFocus, setIgnoreFocus] = useState(false);
   const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const { range, impacts } = useMemo(() => parseFilters(raw), [raw]);
+  const { impacts } = useMemo(() => parseFilters(raw), [raw]);
+
+  /**
+   * Which days to show. Today, every time the card is opened.
+   *
+   * Deliberately not remembered, unlike the star filter: a span of days left
+   * over from yesterday's session is the one setting that makes the calendar
+   * lie — a release is missing and nothing on screen says it is because the
+   * card is still looking at last week.
+   */
+  const [range, setRange] = useState<Range>("today");
 
   /**
    * Ratings changed since the page was drawn.
@@ -220,8 +229,7 @@ export default function EconomicCalendar({
     void setEventRating(event.currency, event.title, level);
   };
 
-  const setRange = (next: Range) => saveFilters({ range: next, impacts });
-  const setImpacts = (next: Impact[]) => saveFilters({ range, impacts: next });
+  const setImpacts = (next: Impact[]) => saveFilters({ impacts: next });
 
   const toggle = <T,>(list: T[], value: T) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
@@ -281,9 +289,47 @@ export default function EconomicCalendar({
         }}
       >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {RANGES.map((r) => (
-            <Chip key={r.id} label={r.label} on={range === r.id} onClick={() => setRange(r.id)} />
-          ))}
+          {/* A list rather than five chips: the span of days is one choice out
+              of five, and five chips read like five filters that might combine. */}
+          <span style={{ position: "relative", display: "inline-flex" }}>
+            <select
+              value={range}
+              onChange={(e) => setRange(e.target.value as Range)}
+              style={{
+                ...mono,
+                fontSize: 10.5,
+                padding: "3px 22px 3px 9px",
+                borderRadius: 999,
+                border: `1px solid ${accentColor}`,
+                background: "oklch(0.72 0.14 195 / 0.14)",
+                color: accentColor,
+                cursor: "pointer",
+                appearance: "none",
+                // So the browser draws its own popup dark rather than white.
+                colorScheme: "dark",
+              }}
+            >
+              {RANGES.map((r) => (
+                <option key={r.id} value={r.id} style={{ background: "oklch(0.18 0.02 250)" }}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <span
+              aria-hidden
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: 8,
+                color: accentColor,
+                pointerEvents: "none",
+              }}
+            >
+              ▼
+            </span>
+          </span>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
           {focus && (
