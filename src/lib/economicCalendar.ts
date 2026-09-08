@@ -36,6 +36,14 @@ export type EconomicEvent = {
   previous: string;
   /** Filled in once a release is out, which is what "hier" is read for. */
   actual: string;
+  /**
+   * A closed market is not a release.
+   *
+   * Both sources file holidays as low-importance rows, which is backwards: a
+   * session that does not open explains a dead tape better than any print, so
+   * these are kept out of the importance filter and shown first in the day.
+   */
+  kind: "release" | "holiday";
 };
 
 const FEED = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml";
@@ -110,6 +118,7 @@ export function parseCalendarFeed(xml: string): EconomicEvent[] {
       forecast: field(block, "forecast"),
       previous: field(block, "previous"),
       actual: "",
+      kind: impact === "holiday" ? "holiday" : "release",
     });
   }
 
@@ -135,6 +144,8 @@ type RangeEvent = {
   currency?: string;
   date?: string;
   importance?: number;
+  /** "Holidays" for a closed market; the indicator's name otherwise. */
+  indicator?: string;
   actual?: number | null;
   forecast?: number | null;
   previous?: number | null;
@@ -169,9 +180,13 @@ async function readRange(from: Date, to: Date): Promise<EconomicEvent[] | null> 
       if (!e.date || !e.title || !e.currency || !CURRENCIES.has(e.currency)) return [];
       const at = new Date(e.date);
       if (Number.isNaN(at.getTime())) return [];
+      // A holiday is a whole day, not an instant: it is published at midnight
+      // UTC, and turning that into a local clock would file an American
+      // holiday under the evening before for anyone west of London.
+      const holiday = e.indicator === "Holidays";
       return [
         {
-          at: at.toISOString(),
+          at: holiday ? null : at.toISOString(),
           // A UTC day, only ever used for entries with no clock — which this
           // source does not have; every event here carries an instant.
           date: localDate(at),
@@ -181,6 +196,7 @@ async function readRange(from: Date, to: Date): Promise<EconomicEvent[] | null> 
           forecast: withUnit(e.forecast, e.unit, e.scale),
           previous: withUnit(e.previous, e.unit, e.scale),
           actual: withUnit(e.actual, e.unit, e.scale),
+          kind: holiday ? ("holiday" as const) : ("release" as const),
         },
       ];
     });

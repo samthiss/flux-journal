@@ -195,7 +195,9 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
     const [from, to] = rangeBounds(range);
     const byDay = new Map<string, EconomicEvent[]>();
     for (const event of events) {
-      if (!impacts.includes(event.impact)) continue;
+      // A closed market is shown whatever the importance filter says: it is
+      // the one row that explains a whole day of nothing.
+      if (event.kind !== "holiday" && !impacts.includes(event.impact)) continue;
       if (!currencies.includes(event.currency)) continue;
       const day = localDay(event);
       if (day < from || day > to) continue;
@@ -286,8 +288,8 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
                 borderBottom: "1px solid oklch(0.26 0.03 250 / 0.35)",
               }}
             >
-              <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.72 0.02 250)", flex: "none", width: 44 }}>
-                {localTime(event) ?? "—"}
+              <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.72 0.02 250)", flex: "none", width: 56 }}>
+                {event.kind === "holiday" ? "journée" : (localTime(event) ?? "—")}
               </span>
               <span
                 style={{
@@ -302,7 +304,24 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
               >
                 {event.currency}
               </span>
-              <Impact level={event.impact} />
+              {event.kind === "holiday" ? (
+                <span
+                  style={{
+                    ...mono,
+                    fontSize: 9.5,
+                    flex: "none",
+                    padding: "1px 6px",
+                    borderRadius: 999,
+                    letterSpacing: "0.08em",
+                    border: `1px solid ${lossColor}`,
+                    color: lossColor,
+                  }}
+                >
+                  FÉRIÉ
+                </span>
+              ) : (
+                <Impact level={event.impact} />
+              )}
               <span style={{ fontSize: 12.5, color: "oklch(0.85 0.017 250)", flex: 1, minWidth: 0 }}>{event.title}</span>
               {(event.actual || event.forecast || event.previous) && (
                 <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.02 250)", flex: "none", whiteSpace: "nowrap" }}>
