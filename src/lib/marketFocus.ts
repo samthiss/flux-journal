@@ -47,6 +47,25 @@ export type MarketFocus = {
    * had been hiding it everywhere.
    */
   titleCeilings?: { pattern: RegExp; currency?: string; ceiling: EconomicEvent["impact"] }[];
+  /**
+   * The releases that move this market the instant they land.
+   *
+   * A different question from the rest of this file. The ceilings above ask
+   * what a release is about; this asks whether the price gaps on the second —
+   * and the two disagree often enough to need saying separately. Import prices
+   * and the CPI are the same subject and the same family, and only one of them
+   * makes a wick.
+   *
+   * Where a market has this list, everything outside it is held to two stars:
+   * worth knowing, never worth standing aside for. Inside it, the rating this
+   * journal already carries stands — the list grants no stars of its own, it
+   * only stops taking them away.
+   *
+   * Judgement, not measurement: rating a release by the move it actually
+   * produced would need a year of prices, which this journal does not keep. A
+   * click on the stars corrects any of it, for good.
+   */
+  shocks?: { pattern: RegExp; currency?: string }[];
 };
 
 /**
@@ -155,12 +174,43 @@ const OIL_CEILINGS: Record<string, EconomicEvent["impact"]> = {
   mrkt: "low",
 };
 
+/**
+ * The American releases that gap every dollar market: the two inflation prints
+ * the Fed watches, the employment report — three lines published in the same
+ * second — the Fed itself, and the two surveys that move an open.
+ */
+const US_SHOCKS = [
+  { pattern: /^(Core )?Inflation Rate (MoM|YoY)$/, currency: "USD" },
+  { pattern: /^(Core )?PCE Price Index (MoM|YoY)$/, currency: "USD" },
+  { pattern: /^(Non Farm Payrolls|Unemployment Rate|Average Hourly Earnings MoM)$/, currency: "USD" },
+  { pattern: /^(Fed Interest Rate Decision|Fed Press Conference|FOMC Economic Projections|FOMC Minutes)$/, currency: "USD" },
+  { pattern: /^ISM (Manufacturing|Services) PMI$/, currency: "USD" },
+  { pattern: /^Retail Sales MoM$/, currency: "USD" },
+  { pattern: /^GDP Growth Rate QoQ Adv$/, currency: "USD" },
+  { pattern: /^JOLTs Job Openings$/, currency: "USD" },
+];
+
+/** The euro's own: the Governing Council, and the flash inflation print. */
+const EUR_SHOCKS = [
+  { pattern: /^(ECB Interest Rate Decision|ECB Press Conference|Deposit Facility Rate)$/, currency: "EUR" },
+  { pattern: /^(Core )?Inflation Rate (MoM|YoY) Flash$/, currency: "EUR" },
+];
+
+/** The pound's: the MPC, the CPI, the labour market and the monthly GDP. */
+const GBP_SHOCKS = [
+  { pattern: /^(BoE Interest Rate Decision|MPC Meeting Minutes|BoE MPC Vote (Cut|Hike|Unchanged))$/, currency: "GBP" },
+  { pattern: /^(Core )?Inflation Rate (MoM|YoY)$/, currency: "GBP" },
+  { pattern: /^(Unemployment Rate|Claimant Count Change|HMRC Payrolls Change)$/, currency: "GBP" },
+  { pattern: /^GDP MoM$/, currency: "GBP" },
+];
+
 const US_INDEX: MarketFocus = {
   currencies: ["USD"],
   watching: ["EUR"],
   summary: "États-Unis — Fed, prix, emploi, ISM ; la BCE en second",
   ceilings: INDEX_CEILINGS,
   titleCeilings: auctionCeiling("medium"),
+  shocks: US_SHOCKS,
 };
 
 export const MARKET_FOCUS: Record<string, MarketFocus> = {
@@ -174,6 +224,9 @@ export const MARKET_FOCUS: Record<string, MarketFocus> = {
     summary: "États-Unis — taux réels, prix et emploi",
     ceilings: GOLD_CEILINGS,
     titleCeilings: auctionCeiling("medium"),
+    // Gold trades the dollar and the real rate. The surveys move it, but not
+    // the way a CPI print does, so they stay off this list.
+    shocks: US_SHOCKS.filter((s) => !/ISM|Retail Sales|JOLT/.test(s.pattern.source)),
   },
   CL: {
     currencies: ["USD"],
@@ -181,18 +234,27 @@ export const MARKET_FOCUS: Record<string, MarketFocus> = {
     summary: "Stocks et production d'énergie ; la Chine en second",
     ceilings: OIL_CEILINGS,
     titleCeilings: auctionCeiling("low"),
+    // The barrel gaps on the inventory number at 16:30 and on the Fed. Nothing
+    // else on the macro calendar does that to it.
+    shocks: [
+      { pattern: /^EIA Crude Oil Stocks Change$/, currency: "USD" },
+      { pattern: /^(Fed Interest Rate Decision|Fed Press Conference)$/, currency: "USD" },
+      { pattern: /^(Core )?Inflation Rate (MoM|YoY)$/, currency: "USD" },
+    ],
   },
   "6E": {
     currencies: ["EUR", "USD"],
-    summary: "Zone euro et États-Unis — taux, prix et emploi en tête",
+    summary: "Zone euro et États-Unis — les publications qui décalent le prix",
     ceilings: FX_CEILINGS,
     titleCeilings: FX_AUCTIONS,
+    shocks: [...US_SHOCKS, ...EUR_SHOCKS],
   },
   "6B": {
     currencies: ["GBP", "USD"],
-    summary: "Royaume-Uni et États-Unis — taux, prix et emploi en tête",
+    summary: "Royaume-Uni et États-Unis — les publications qui décalent le prix",
     ceilings: FX_CEILINGS,
     titleCeilings: FX_AUCTIONS,
+    shocks: [...US_SHOCKS, ...GBP_SHOCKS],
   },
 };
 
@@ -207,6 +269,12 @@ export function currenciesOf(focus: MarketFocus): string[] {
 
 const RANK: Record<EconomicEvent["impact"], number> = { low: 0, medium: 1, high: 2 };
 
+function isShock(event: EconomicEvent, shocks: NonNullable<MarketFocus["shocks"]>): boolean {
+  return shocks.some(
+    (shock) => (!shock.currency || shock.currency === event.currency) && shock.pattern.test(event.title),
+  );
+}
+
 /** A release as this market sees it: its own rating, lowered where it must be. */
 export function underFocus(event: EconomicEvent, focus: MarketFocus): EconomicEvent["impact"] {
   // A closed market is a closed market whatever is being traded.
@@ -220,6 +288,13 @@ export function underFocus(event: EconomicEvent, focus: MarketFocus): EconomicEv
   for (const rule of focus.titleCeilings ?? []) {
     if (rule.currency && rule.currency !== event.currency) continue;
     if (rule.pattern.test(event.title)) ceiling = rule.ceiling;
+  }
+
+  // Everything outside the shock list is held to two stars, so that three
+  // means one thing: the price gaps when this lands. Held to, not raised to —
+  // a Spanish Letras auction is already down at one star and must stay there.
+  if (focus.shocks && !isShock(event, focus.shocks) && (!ceiling || RANK.medium < RANK[ceiling])) {
+    ceiling = "medium";
   }
 
   // Watched at one remove, never the day's own event.
