@@ -287,3 +287,40 @@ model TradeIdea {
   @@index([itemId])
   @@index([market, day])
 }
+
+/**
+ * What a release is worth here, when the calendar's own source gets it wrong.
+ *
+ * The source rates the indicator, not the event: anything without a consensus
+ * figure — an auction, a closed market, a speech — has nothing to surprise
+ * with, so it is filed as unimportant whatever it does to the tape. These rows
+ * override that, keyed by the title as the source writes it.
+ *
+ * Per currency as well as per title, because the same release is not worth the
+ * same everywhere: an American CPI empties the book, a Swiss one does not.
+ */
+model EventRating {
+  id String @id @default(cuid())
+
+  /** The event title, exactly as the calendar source sends it. */
+  title String
+
+  /** The currency it is filed under, so "CPI" can differ by country. */
+  currency String
+
+  /** "high", "medium" or "low". */
+  impact String
+
+  /**
+   * Where the rating came from: "investing" for the ones transcribed from
+   * investing.com, "moi" for the ones set from the card.
+   *
+   * The boot script only ever rewrites its own: a rating set by hand outbids
+   * the transcription and must survive the next deploy.
+   */
+  source String @default("moi")
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([currency, title])
+}

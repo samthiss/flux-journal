@@ -268,3 +268,19 @@ export async function getEconomicEvents(): Promise<{ events: EconomicEvent[]; ok
 
   return { events: events.sort((a, b) => sortKey(a).localeCompare(sortKey(b))), ok: true, source };
 }
+
+/**
+ * The events as rated here rather than at the source.
+ *
+ * Kept beside the fetch rather than in the action file, because a "use server"
+ * module may only export async functions — and because this is what the source
+ * says filtered through what this journal thinks, which is the same kind of
+ * work as reading the feed.
+ */
+export function applyRatings(events: EconomicEvent[], ratings: Record<string, string>): EconomicEvent[] {
+  return events.map((event) => {
+    const rated = ratings[`${event.currency}|${event.title}`];
+    if (!rated || rated === event.impact) return event;
+    return { ...event, impact: rated as EconomicEvent["impact"] };
+  });
+}

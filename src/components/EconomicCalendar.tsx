@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { ALL_CURRENCIES, DEFAULT_CURRENCIES, type EconomicEvent } from "@/lib/economicCalendar";
+import { setEventRating } from "@/lib/actions/eventRatings";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -184,6 +185,22 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
   const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const { range, currencies, impacts } = useMemo(() => parseFilters(raw), [raw]);
 
+  /**
+   * Ratings changed since the page was drawn.
+   *
+   * The write goes to the database, but the page around it holds a copy of the
+   * events from the server and will not re-read them: without this the row
+   * would keep its old bars until a reload, and the click would look ignored.
+   */
+  const [rerated, setRerated] = useState<Record<string, Impact>>({});
+
+  const cycle = (event: EconomicEvent) => {
+    const key = `${event.currency}|${event.title}`;
+    const next = NEXT_LEVEL[rerated[key] ?? event.impact];
+    setRerated((cur) => ({ ...cur, [key]: next }));
+    void setEventRating(event.currency, event.title, next);
+  };
+
   const setRange = (next: Range) => saveFilters({ range: next, currencies, impacts });
   const setCurrencies = (next: string[]) => saveFilters({ range, currencies: next, impacts });
   const setImpacts = (next: Impact[]) => saveFilters({ range, currencies, impacts: next });
@@ -197,14 +214,15 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
     for (const event of events) {
       // A closed market is shown whatever the importance filter says: it is
       // the one row that explains a whole day of nothing.
-      if (event.kind !== "holiday" && !impacts.includes(event.impact)) continue;
+      const impact = rerated[`${event.currency}|${event.title}`] ?? event.impact;
+      if (event.kind !== "holiday" && !impacts.includes(impact)) continue;
       if (!currencies.includes(event.currency)) continue;
       const day = localDay(event);
       if (day < from || day > to) continue;
-      (byDay.get(day) ?? byDay.set(day, []).get(day)!).push(event);
+      (byDay.get(day) ?? byDay.set(day, []).get(day)!).push(impact === event.impact ? event : { ...event, impact });
     }
     return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [events, range, currencies, impacts]);
+  }, [events, range, currencies, impacts, rerated]);
 
   const shown = grouped.reduce((n, [, rows]) => n + rows.length, 0);
 
@@ -320,7 +338,7 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
                   FÉRIÉ
                 </span>
               ) : (
-                <Impact level={event.impact} />
+                <Impact level={event.impact} onCycle={() => cycle(event)} />
               )}
               <span style={{ fontSize: 12.5, color: "oklch(0.85 0.017 250)", flex: 1, minWidth: 0 }}>{event.title}</span>
               {(event.actual || event.forecast || event.previous) && (
@@ -339,18 +357,48 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
       ))}
 
       <div style={{ ...mono, fontSize: 9.5, color: "oklch(0.45 0.02 250)", padding: "8px 18px" }}>
-        publié · prévision / précédent · heures locales
+        publié · prévision / précédent · heures locales · clic sur les barres pour renoter
       </div>
     </div>
   );
 }
 
-/** Three bars, lit as far as the release matters. */
-function Impact({ level }: { level: EconomicEvent["impact"] }) {
+const NEXT_LEVEL: Record<Impact, Impact> = { low: "medium", medium: "high", high: "low" };
+
+const LEVEL_NAME: Record<Impact, string> = { low: "faible", medium: "moyenne", high: "forte" };
+
+/**
+ * Three bars, lit as far as the release matters — and a click away from being
+ * rated differently.
+ *
+ * The rating is the part of a calendar most often wrong: the source rates the
+ * indicator, not what it does to the tape. Rather than argue with it in code
+ * every time, a click cycles this row's rating and keeps it for that release,
+ * every month, in the database.
+ */
+function Impact({ level, onCycle }: { level: Impact; onCycle?: () => void }) {
   const lit = level === "high" ? 3 : level === "medium" ? 2 : 1;
   const colour = level === "high" ? lossColor : level === "medium" ? accentColor : "oklch(0.45 0.02 250)";
   return (
-    <span style={{ display: "inline-flex", gap: 2, alignItems: "flex-end", flex: "none", height: 12 }}>
+    <button
+      type="button"
+      onClick={onCycle}
+      disabled={!onCycle}
+      title={onCycle ? `Importance ${LEVEL_NAME[level]} — cliquer pour la changer` : undefined}
+      style={{
+        display: "inline-flex",
+        gap: 2,
+        alignItems: "flex-end",
+        flex: "none",
+        height: 14,
+        padding: "2px 3px 0",
+        margin: "0 -3px",
+        border: "none",
+        borderRadius: 3,
+        background: "transparent",
+        cursor: onCycle ? "pointer" : "default",
+      }}
+    >
       {[5, 8, 11].map((h, i) => (
         <span
           key={h}
@@ -362,6 +410,6 @@ function Impact({ level }: { level: EconomicEvent["impact"] }) {
           }}
         />
       ))}
-    </span>
+    </button>
   );
 }
