@@ -37,6 +37,16 @@ export type MarketFocus = {
    * a holiday, keeps whatever it had.
    */
   ceilings: Record<string, EconomicEvent["impact"]>;
+  /**
+   * Ceilings no family can express, matched on the title.
+   *
+   * The source files an auction under "bnd" in Washington and under "gov" in
+   * Berlin and Madrid, so the family alone lets a fifty-year BTP onto a card
+   * about EUR/USD. Only the markets that need it carry this — on an index a
+   * Treasury auction is worth a glance, and a rule written once for currencies
+   * had been hiding it everywhere.
+   */
+  titleCeilings?: { pattern: RegExp; ceiling: EconomicEvent["impact"] }[];
 };
 
 /**
@@ -69,15 +79,15 @@ const FX_CEILINGS: Record<string, EconomicEvent["impact"]> = {
 };
 
 /**
- * Ceilings that no category can express.
+ * Auctions, which no family reliably describes.
  *
- * The source files an auction under "bnd" in Washington and under "gov" in
- * Berlin and Madrid, so the family alone lets a fifty-year BTP through onto a
- * card about EUR/USD. The title is the only thing the two have in common.
+ * The source files them under three: "bnd" for a Treasury note, "gov" for a
+ * Bund or a Bono, "mrkt" for the ten-year note this journal cared about. So the
+ * ceiling has to be written on the title, once per kind of market — worth a
+ * glance on an index, where the curve sets the discount rate, and nothing at
+ * all on a currency future or a barrel of oil.
  */
-const TITLE_CEILINGS: { pattern: RegExp; ceiling: EconomicEvent["impact"] }[] = [
-  { pattern: /\bAuction$/, ceiling: "low" },
-];
+const auctionCeiling = (ceiling: EconomicEvent["impact"]) => [{ pattern: /\bAuction$/, ceiling }];
 
 /** An index lives on the Fed, the American consumer and the surveys. */
 const INDEX_CEILINGS: Record<string, EconomicEvent["impact"]> = {
@@ -132,6 +142,7 @@ const US_INDEX: MarketFocus = {
   watching: ["EUR"],
   summary: "États-Unis — Fed, prix, emploi, ISM ; la BCE en second",
   ceilings: INDEX_CEILINGS,
+  titleCeilings: auctionCeiling("medium"),
 };
 
 export const MARKET_FOCUS: Record<string, MarketFocus> = {
@@ -144,22 +155,26 @@ export const MARKET_FOCUS: Record<string, MarketFocus> = {
     watching: ["EUR"],
     summary: "États-Unis — taux réels, prix et emploi",
     ceilings: GOLD_CEILINGS,
+    titleCeilings: auctionCeiling("medium"),
   },
   CL: {
     currencies: ["USD"],
     watching: ["CNY"],
     summary: "Stocks et production d'énergie ; la Chine en second",
     ceilings: OIL_CEILINGS,
+    titleCeilings: auctionCeiling("low"),
   },
   "6E": {
     currencies: ["EUR", "USD"],
     summary: "Zone euro et États-Unis — taux, prix et emploi en tête",
     ceilings: FX_CEILINGS,
+    titleCeilings: auctionCeiling("low"),
   },
   "6B": {
     currencies: ["GBP", "USD"],
     summary: "Royaume-Uni et États-Unis — taux, prix et emploi en tête",
     ceilings: FX_CEILINGS,
+    titleCeilings: auctionCeiling("low"),
   },
 };
 
@@ -179,13 +194,18 @@ export function underFocus(event: EconomicEvent, focus: MarketFocus): EconomicEv
   // A closed market is a closed market whatever is being traded.
   if (event.kind === "holiday") return event.impact;
 
+  // The title wins over the family outright, in both directions: it is written
+  // precisely because the family is wrong about this release. An auction files
+  // as "mrkt" — a family this journal reads as noise — and on an index it is
+  // worth two stars, so a rule that could only lower would never say so.
   let ceiling = focus.ceilings[event.category];
+  for (const rule of focus.titleCeilings ?? []) {
+    if (rule.pattern.test(event.title)) ceiling = rule.ceiling;
+  }
+
+  // Watched at one remove, never the day's own event.
   if (focus.watching?.includes(event.currency) && (!ceiling || RANK.medium < RANK[ceiling])) {
     ceiling = "medium";
-  }
-  for (const rule of TITLE_CEILINGS) {
-    if (!rule.pattern.test(event.title)) continue;
-    if (!ceiling || RANK[rule.ceiling] < RANK[ceiling]) ceiling = rule.ceiling;
   }
 
   if (!ceiling || RANK[event.impact] <= RANK[ceiling]) return event.impact;
