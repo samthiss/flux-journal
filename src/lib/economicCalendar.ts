@@ -160,6 +160,22 @@ type RangeEvent = {
   scale?: string | null;
 };
 
+/**
+ * How much a release matters, with one correction of the source's own rating.
+ *
+ * Long-end auctions — Note, Bond, JGB, Bund — come through as low importance,
+ * next to a four-week bill nobody trades. They set the curve's price, and the
+ * calendar this replaced gave them two stars out of three, so they are raised
+ * to match it. Bills stay where they are: thirty of them a month, moving
+ * nothing.
+ */
+function rank(e: RangeEvent): EconomicEvent["impact"] {
+  if (e.importance === 1) return "high";
+  if (e.importance === 0) return "medium";
+  if (e.title && /\bAuction$/.test(e.title) && !/Bill|Bubill/i.test(e.title)) return "medium";
+  return "low";
+}
+
 /** "2.65" with its unit back on: "2.65%", "$1.2M", "205K". */
 function withUnit(value: number | null | undefined, unit: string | null | undefined, scale: string | null | undefined): string {
   if (value === null || value === undefined) return "";
@@ -199,7 +215,7 @@ async function readRange(from: Date, to: Date): Promise<EconomicEvent[] | null> 
           date: localDate(at),
           currency: e.currency,
           title: e.title,
-          impact: e.importance === 1 ? ("high" as const) : e.importance === 0 ? ("medium" as const) : ("low" as const),
+          impact: rank(e),
           forecast: withUnit(e.forecast, e.unit, e.scale),
           previous: withUnit(e.previous, e.unit, e.scale),
           actual: withUnit(e.actual, e.unit, e.scale),
