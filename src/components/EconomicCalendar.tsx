@@ -4,7 +4,7 @@ import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { ALL_CURRENCIES, DEFAULT_CURRENCIES, type EconomicEvent } from "@/lib/economicCalendar";
 import { setEventRating } from "@/lib/actions/eventRatings";
-import { focusFor, underFocus } from "@/lib/marketFocus";
+import { currenciesOf, focusFor, underFocus } from "@/lib/marketFocus";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -231,7 +231,7 @@ export default function EconomicCalendar({
   const following = focus !== null && !ignoreFocus;
 
   /** The market picks the currencies while it is being followed. */
-  const shownCurrencies = following ? focus.currencies : currencies;
+  const shownCurrencies = following ? currenciesOf(focus) : currencies;
 
   const grouped = useMemo(() => {
     const [from, to] = rangeBounds(range);
@@ -282,16 +282,21 @@ export default function EconomicCalendar({
           ))}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-          {/* Followed, the market owns this row: its own currencies, lit and
-              not for turning off — that is the whole point of following one. */}
-          {(following ? focus.currencies : ALL_CURRENCIES).map((c) => (
-            <Chip
-              key={c}
-              label={c}
-              on={following || currencies.includes(c)}
-              onClick={() => (following ? setIgnoreFocus(true) : setCurrencies(toggle(currencies, c)))}
-            />
-          ))}
+          {/* No currency chips while a market is followed: the contract chosen
+              above the card already says which economies it is about, and a row
+              of chips repeating it is one more thing to keep in agreement with
+              the market — the reader would have to maintain it by hand, which
+              is exactly what following a market is for. They come back the
+              moment the filter is lifted. */}
+          {!following &&
+            ALL_CURRENCIES.map((c) => (
+              <Chip
+                key={c}
+                label={c}
+                on={currencies.includes(c)}
+                onClick={() => setCurrencies(toggle(currencies, c))}
+              />
+            ))}
           {focus && (
             <Chip
               label={following ? "tout voir" : `suivre ${market}`}
@@ -304,7 +309,7 @@ export default function EconomicCalendar({
               onClick={() => setIgnoreFocus((v) => !v)}
             />
           )}
-          <span style={{ width: 1, height: 14, background: "oklch(0.32 0.02 250)", margin: "0 3px" }} />
+          {!following && <span style={{ width: 1, height: 14, background: "oklch(0.32 0.02 250)", margin: "0 3px" }} />}
           {/* The same three stars the rows carry, so the filter and what it
               filters are read in one alphabet rather than two. */}
           {IMPACTS.map((i) => (

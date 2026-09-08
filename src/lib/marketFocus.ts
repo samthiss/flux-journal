@@ -17,6 +17,14 @@ import type { EconomicEvent } from "@/lib/economicCalendar";
 export type MarketFocus = {
   /** The legs of the contract. A future on EUR/USD is made of exactly two. */
   currencies: string[];
+  /**
+   * Economies watched from the corner of the eye, capped at two stars.
+   *
+   * A surprise from the ECB moves the dollar, and the dollar moves an American
+   * index — but at one remove, so it should never look like the day's own
+   * event. China buys the soybeans and burns the oil, with the same remove.
+   */
+  watching?: string[];
   /** How the reader is told what the market is watching. */
   summary: string;
   /**
@@ -71,7 +79,78 @@ const TITLE_CEILINGS: { pattern: RegExp; ceiling: EconomicEvent["impact"] }[] = 
   { pattern: /\bAuction$/, ceiling: "low" },
 ];
 
+/** An index lives on the Fed, the American consumer and the surveys. */
+const INDEX_CEILINGS: Record<string, EconomicEvent["impact"]> = {
+  mny: "high",
+  prce: "high",
+  lbr: "high",
+  bsnss: "high",
+  cnsm: "high",
+  gdp: "medium",
+  hse: "medium",
+  trd: "medium",
+  bnd: "medium",
+  gov: "medium",
+  enrg: "low",
+  mrkt: "low",
+};
+
+/** Gold trades the dollar and the real rate; nothing else comes close. */
+const GOLD_CEILINGS: Record<string, EconomicEvent["impact"]> = {
+  mny: "high",
+  prce: "high",
+  lbr: "high",
+  bnd: "medium",
+  bsnss: "medium",
+  gdp: "medium",
+  cnsm: "medium",
+  gov: "medium",
+  enrg: "low",
+  hse: "low",
+  trd: "low",
+  mrkt: "low",
+};
+
+/** Oil trades the barrel first and the macro second. */
+const OIL_CEILINGS: Record<string, EconomicEvent["impact"]> = {
+  enrg: "high",
+  mny: "medium",
+  prce: "medium",
+  gdp: "medium",
+  lbr: "medium",
+  bsnss: "medium",
+  gov: "medium",
+  cnsm: "low",
+  hse: "low",
+  bnd: "low",
+  trd: "low",
+  mrkt: "low",
+};
+
+const US_INDEX: MarketFocus = {
+  currencies: ["USD"],
+  watching: ["EUR"],
+  summary: "États-Unis — Fed, prix, emploi, ISM ; la BCE en second",
+  ceilings: INDEX_CEILINGS,
+};
+
 export const MARKET_FOCUS: Record<string, MarketFocus> = {
+  ES: US_INDEX,
+  NQ: US_INDEX,
+  YM: US_INDEX,
+  RTY: US_INDEX,
+  GC: {
+    currencies: ["USD"],
+    watching: ["EUR"],
+    summary: "États-Unis — taux réels, prix et emploi",
+    ceilings: GOLD_CEILINGS,
+  },
+  CL: {
+    currencies: ["USD"],
+    watching: ["CNY"],
+    summary: "Stocks et production d'énergie ; la Chine en second",
+    ceilings: OIL_CEILINGS,
+  },
   "6E": {
     currencies: ["EUR", "USD"],
     summary: "Zone euro et États-Unis — taux, prix et emploi en tête",
@@ -88,6 +167,11 @@ export function focusFor(market: string): MarketFocus | null {
   return MARKET_FOCUS[market] ?? null;
 }
 
+/** Every economy a market reads, its own legs first. */
+export function currenciesOf(focus: MarketFocus): string[] {
+  return [...focus.currencies, ...(focus.watching ?? [])];
+}
+
 const RANK: Record<EconomicEvent["impact"], number> = { low: 0, medium: 1, high: 2 };
 
 /** A release as this market sees it: its own rating, lowered where it must be. */
@@ -96,6 +180,9 @@ export function underFocus(event: EconomicEvent, focus: MarketFocus): EconomicEv
   if (event.kind === "holiday") return event.impact;
 
   let ceiling = focus.ceilings[event.category];
+  if (focus.watching?.includes(event.currency) && (!ceiling || RANK.medium < RANK[ceiling])) {
+    ceiling = "medium";
+  }
   for (const rule of TITLE_CEILINGS) {
     if (!rule.pattern.test(event.title)) continue;
     if (!ceiling || RANK[rule.ceiling] < RANK[ceiling]) ceiling = rule.ceiling;
