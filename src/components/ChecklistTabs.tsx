@@ -8,7 +8,6 @@ import VolumeChecklist from "@/components/VolumeChecklist";
 import ColorCode from "@/components/ColorCode";
 import ChecklistClient from "@/components/ChecklistClient";
 import EconomicCalendar from "@/components/EconomicCalendar";
-import HolidayCalendar from "@/components/HolidayCalendar";
 import type { EconomicEvent } from "@/lib/economicCalendar";
 
 type ChecklistItem = { id: string; group: string; label: string };
@@ -55,10 +54,12 @@ export default function ChecklistTabs({
   items,
   events,
   calendarOk,
+  calendarSource,
 }: {
   items: ChecklistItem[];
   events: EconomicEvent[];
   calendarOk: boolean;
+  calendarSource: string;
 }) {
   const [tab, setTab] = useState<TabKey>("calendar");
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
@@ -187,16 +188,10 @@ export default function ChecklistTabs({
           <div style={{ marginBottom: 24, textAlign: "center" }}>
             <PageTitle>Calendrier économique</PageTitle>
             <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
-              Publications qui comptent des trois prochains jours — USD, EUR, GBP, JPY, CHF
+              Publications de la semaine — filtre les jours, les devises et l&apos;importance
             </div>
           </div>
-          <EconomicCalendar events={events} ok={calendarOk} />
-          {/* Under the releases, because it answers the same question from the
-              other side: the widget says when not to trade because something is
-              coming out, this says when there is nothing to trade at all. */}
-          <div style={{ marginTop: 20 }}>
-            <HolidayCalendar />
-          </div>
+          <EconomicCalendar events={events} ok={calendarOk} source={calendarSource} />
         </div>
       )}
       {tab === "volume" && (

@@ -9,5 +9,5 @@ export default async function ChecklistPage() {
   // its own cache means one read serves every visit for the hour.
   const [items, calendar] = await Promise.all([getChecklistItems(), getEconomicEvents()]);
 
-  return <ChecklistTabs items={items} events={calendar.events} calendarOk={calendar.ok} />;
+  return <ChecklistTabs items={items} events={calendar.events} calendarOk={calendar.ok} calendarSource={calendar.source} />;
 }

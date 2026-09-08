@@ -1,10 +1,62 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
-import type { EconomicEvent } from "@/lib/economicCalendar";
+import { ALL_CURRENCIES, DEFAULT_CURRENCIES, type EconomicEvent } from "@/lib/economicCalendar";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
+
+type Range = "yesterday" | "today" | "tomorrow" | "week" | "nextweek";
+type Impact = EconomicEvent["impact"];
+
+const RANGES: { id: Range; label: string }[] = [
+  { id: "yesterday", label: "Hier" },
+  { id: "today", label: "Aujourd'hui" },
+  { id: "tomorrow", label: "Demain" },
+  { id: "week", label: "Cette semaine" },
+  { id: "nextweek", label: "Semaine prochaine" },
+];
+
+const IMPACTS: { id: Impact; label: string }[] = [
+  { id: "high", label: "Fort" },
+  { id: "medium", label: "Moyen" },
+  { id: "low", label: "Faible" },
+];
+
+/** Local YYYY-MM-DD, which is how every day in here is named and compared. */
+const ymd = (d: Date) => d.toLocaleDateString("en-CA");
+
+function dayShifted(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return ymd(d);
+}
+
+/** Monday of the week `weeks` away, and the Sunday that closes it. */
+function weekBounds(weeks: number): [string, string] {
+  const start = new Date();
+  // getDay() calls Sunday 0; the trading week starts on Monday.
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7) + weeks * 7);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return [ymd(start), ymd(end)];
+}
+
+/** The inclusive span of days a filter covers. */
+function rangeBounds(range: Range): [string, string] {
+  switch (range) {
+    case "yesterday":
+      return [dayShifted(-1), dayShifted(-1)];
+    case "tomorrow":
+      return [dayShifted(1), dayShifted(1)];
+    case "week":
+      return weekBounds(0);
+    case "nextweek":
+      return weekBounds(1);
+    default:
+      return [dayShifted(0), dayShifted(0)];
+  }
+}
 
 /** Local YYYY-MM-DD for an instant, in the reader's own timezone. */
 function localDay(event: EconomicEvent) {
@@ -18,31 +70,101 @@ function localTime(event: EconomicEvent) {
 }
 
 function dayLabel(day: string) {
-  const today = new Date().toLocaleDateString("en-CA");
-  if (day === today) return "Aujourd'hui";
+  if (day === dayShifted(0)) return "Aujourd'hui";
+  if (day === dayShifted(-1)) return "Hier";
+  if (day === dayShifted(1)) return "Demain";
   // Midday, so a timezone shift cannot move the date across midnight.
   return new Date(`${day}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 }
 
-/** Three bars, lit as far as the release matters. */
-function Impact({ level }: { level: EconomicEvent["impact"] }) {
-  const lit = level === "high" ? 3 : level === "medium" ? 2 : 1;
-  const colour = level === "high" ? lossColor : level === "medium" ? accentColor : "oklch(0.45 0.02 250)";
+/**
+ * A filter chip.
+ *
+ * Lit when it is on, because a filter the reader cannot see the state of is
+ * worse than no filter: the card would just look empty for no stated reason.
+ */
+function Chip({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {
   return (
-    <span style={{ display: "inline-flex", gap: 2, alignItems: "flex-end", flex: "none", height: 12 }}>
-      {[5, 8, 11].map((h, i) => (
-        <span
-          key={h}
-          style={{
-            width: 3,
-            height: h,
-            background: i < lit ? colour : "oklch(0.3 0.02 250)",
-            boxShadow: i < lit ? `0 0 6px -1px ${colour}` : "none",
-          }}
-        />
-      ))}
-    </span>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...mono,
+        fontSize: 10.5,
+        padding: "3px 9px",
+        borderRadius: 999,
+        cursor: "pointer",
+        border: `1px solid ${on ? accentColor : "oklch(0.32 0.02 250)"}`,
+        background: on ? "oklch(0.72 0.14 195 / 0.14)" : "transparent",
+        color: on ? accentColor : "oklch(0.6 0.02 250)",
+        transition: "color 120ms, border-color 120ms, background 120ms",
+      }}
+    >
+      {label}
+    </button>
   );
+}
+
+const STORE = "flux.calendar.filters";
+
+type Filters = { range: Range; currencies: string[]; impacts: Impact[] };
+
+const DEFAULTS: Filters = { range: "today", currencies: DEFAULT_CURRENCIES, impacts: ["high", "medium"] };
+
+/**
+ * The saved filters, as an external store rather than state seeded in an effect.
+ *
+ * Storage is read once and cached: `useSyncExternalStore` needs the same string
+ * back every time it asks, or it re-renders forever. It also lets the server
+ * render the defaults and the browser swap in what was saved without the two
+ * disagreeing over the markup.
+ */
+const listeners = new Set<() => void>();
+let cached: string | null | undefined;
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => void listeners.delete(listener);
+}
+
+function getSnapshot(): string | null {
+  if (cached === undefined) {
+    try {
+      cached = localStorage.getItem(STORE);
+    } catch {
+      // A private window, or storage turned off: the defaults are fine.
+      cached = null;
+    }
+  }
+  return cached;
+}
+
+/** The server has nothing saved, so it draws the defaults. */
+const getServerSnapshot = (): string | null => null;
+
+function saveFilters(filters: Filters) {
+  const raw = JSON.stringify(filters);
+  cached = raw;
+  try {
+    localStorage.setItem(STORE, raw);
+  } catch {
+    // Not worth telling anyone about — the filters still work this session.
+  }
+  for (const listener of listeners) listener();
+}
+
+function parseFilters(raw: string | null): Filters {
+  if (!raw) return DEFAULTS;
+  try {
+    const saved = JSON.parse(raw);
+    return {
+      range: RANGES.some((r) => r.id === saved?.range) ? saved.range : DEFAULTS.range,
+      currencies: Array.isArray(saved?.currencies) ? saved.currencies : DEFAULTS.currencies,
+      impacts: Array.isArray(saved?.impacts) ? saved.impacts : DEFAULTS.impacts,
+    };
+  } catch {
+    return DEFAULTS;
+  }
 }
 
 /**
@@ -53,35 +175,78 @@ function Impact({ level }: { level: EconomicEvent["impact"] }) {
  * refuses to be framed. The feed behind this one is plain XML, so the rows can
  * be drawn like everything else here — and the times can be moved to the
  * reader's clock rather than left in whatever zone the widget assumed.
+ *
+ * The filters are the ones that widget had — a span of days, the currencies,
+ * how much a release matters — kept in the browser so the card opens where it
+ * was left rather than back on the defaults every morning.
  */
-export default function EconomicCalendar({
-  events,
-  ok,
-  days = 3,
-}: {
-  events: EconomicEvent[];
-  ok: boolean;
-  /** How many days forward to show, today included. */
-  days?: number;
-}) {
+export default function EconomicCalendar({ events, ok, source }: { events: EconomicEvent[]; ok: boolean; source: string }) {
+  const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const { range, currencies, impacts } = useMemo(() => parseFilters(raw), [raw]);
+
+  const setRange = (next: Range) => saveFilters({ range: next, currencies, impacts });
+  const setCurrencies = (next: string[]) => saveFilters({ range, currencies: next, impacts });
+  const setImpacts = (next: Impact[]) => saveFilters({ range, currencies, impacts: next });
+
+  const toggle = <T,>(list: T[], value: T) =>
+    list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+
   const grouped = useMemo(() => {
-    const today = new Date().toLocaleDateString("en-CA");
+    const [from, to] = rangeBounds(range);
     const byDay = new Map<string, EconomicEvent[]>();
     for (const event of events) {
-      if (event.impact === "low") continue;
+      if (!impacts.includes(event.impact)) continue;
+      if (!currencies.includes(event.currency)) continue;
       const day = localDay(event);
-      if (day < today) continue;
+      if (day < from || day > to) continue;
       (byDay.get(day) ?? byDay.set(day, []).get(day)!).push(event);
     }
-    return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(0, days);
-  }, [events, days]);
+    return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [events, range, currencies, impacts]);
+
+  const shown = grouped.reduce((n, [, rows]) => n + rows.length, 0);
 
   return (
     <div style={{ ...glassCard, padding: 0, maxWidth: 620, marginInline: "auto" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid oklch(0.3 0.034 250 / 0.6)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px 12px" }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor }} />
         <div style={{ fontSize: 13, fontWeight: 600 }}>Calendrier économique</div>
-        <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.034 250)", marginLeft: "auto" }}>forexfactory</div>
+        <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.034 250)", marginLeft: "auto" }}>{source}</div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          padding: "0 18px 14px",
+          borderBottom: "1px solid oklch(0.3 0.034 250 / 0.6)",
+        }}
+      >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {RANGES.map((r) => (
+            <Chip key={r.id} label={r.label} on={range === r.id} onClick={() => setRange(r.id)} />
+          ))}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+          {ALL_CURRENCIES.map((c) => (
+            <Chip
+              key={c}
+              label={c}
+              on={currencies.includes(c)}
+              onClick={() => setCurrencies(toggle(currencies, c))}
+            />
+          ))}
+          <span style={{ width: 1, height: 14, background: "oklch(0.32 0.02 250)", margin: "0 3px" }} />
+          {IMPACTS.map((i) => (
+            <Chip
+              key={i.id}
+              label={i.label}
+              on={impacts.includes(i.id)}
+              onClick={() => setImpacts(toggle(impacts, i.id))}
+            />
+          ))}
+        </div>
       </div>
 
       {!ok && (
@@ -89,9 +254,9 @@ export default function EconomicCalendar({
           Le flux n&apos;a pas répondu — il limite les appels rapprochés. Il sera relu dans l&apos;heure.
         </div>
       )}
-      {ok && grouped.length === 0 && (
+      {ok && shown === 0 && (
         <div style={{ padding: "16px 18px", fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
-          Aucune publication notable d&apos;ici la fin de la semaine.
+          Aucune publication ne passe ces filtres.
         </div>
       )}
 
@@ -103,7 +268,7 @@ export default function EconomicCalendar({
               fontSize: 10,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
-              color: day === new Date().toLocaleDateString("en-CA") ? accentColor : "oklch(0.5 0.03 250)",
+              color: day === dayShifted(0) ? accentColor : "oklch(0.5 0.03 250)",
               padding: "10px 18px 6px",
               borderBottom: "1px solid oklch(0.28 0.03 250 / 0.5)",
             }}
@@ -139,8 +304,13 @@ export default function EconomicCalendar({
               </span>
               <Impact level={event.impact} />
               <span style={{ fontSize: 12.5, color: "oklch(0.85 0.017 250)", flex: 1, minWidth: 0 }}>{event.title}</span>
-              {(event.forecast || event.previous) && (
+              {(event.actual || event.forecast || event.previous) && (
                 <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.02 250)", flex: "none", whiteSpace: "nowrap" }}>
+                  {/* The published figure, once it exists, is the only number
+                      on the row worth reading first — so it is the lit one. */}
+                  {event.actual && (
+                    <span style={{ color: accentColor, marginRight: 4 }}>{event.actual}</span>
+                  )}
                   {event.forecast || "—"} <span style={{ opacity: 0.5 }}>/ {event.previous || "—"}</span>
                 </span>
               )}
@@ -150,8 +320,29 @@ export default function EconomicCalendar({
       ))}
 
       <div style={{ ...mono, fontSize: 9.5, color: "oklch(0.45 0.02 250)", padding: "8px 18px" }}>
-        prévision / précédent · heures locales
+        publié · prévision / précédent · heures locales
       </div>
     </div>
+  );
+}
+
+/** Three bars, lit as far as the release matters. */
+function Impact({ level }: { level: EconomicEvent["impact"] }) {
+  const lit = level === "high" ? 3 : level === "medium" ? 2 : 1;
+  const colour = level === "high" ? lossColor : level === "medium" ? accentColor : "oklch(0.45 0.02 250)";
+  return (
+    <span style={{ display: "inline-flex", gap: 2, alignItems: "flex-end", flex: "none", height: 12 }}>
+      {[5, 8, 11].map((h, i) => (
+        <span
+          key={h}
+          style={{
+            width: 3,
+            height: h,
+            background: i < lit ? colour : "oklch(0.3 0.02 250)",
+            boxShadow: i < lit ? `0 0 6px -1px ${colour}` : "none",
+          }}
+        />
+      ))}
+    </span>
   );
 }

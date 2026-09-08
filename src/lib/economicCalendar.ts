@@ -1,14 +1,19 @@
 /**
- * The day's economic releases, in the journal's own words.
+ * The economic releases around today, in the journal's own words.
  *
  * The investing.com widget this replaced could not be shown at all: it answers
  * 403 to anything that is not a browser, and refuses to be framed by anything
- * that is — so the card held a blank white page. This reads the ForexFactory
- * weekly feed instead, which is plain XML and answers to a plain request.
+ * that is — so the card held a blank white page.
  *
- * That feed rate-limits hard, so it is fetched at most once an hour and the
- * cached copy serves everyone in between. A day's releases do not change often
- * enough for that to cost anything.
+ * What reads it now is TradingView's calendar endpoint, which takes a date
+ * range and so can answer "hier" and "la semaine prochaine" — the ForexFactory
+ * feed used before it publishes the current week and nothing else, and its
+ * neighbouring weeks are 404. ForexFactory stays as the fallback: when the
+ * range source refuses, this week still shows rather than the card going dark.
+ *
+ * Both are fetched at most once an hour and the cached copy serves everyone in
+ * between; a release does not move often enough for that to cost anything, and
+ * the ForexFactory feed rate-limits hard.
  */
 
 export type EconomicEvent = {
@@ -29,12 +34,30 @@ export type EconomicEvent = {
   impact: "high" | "medium" | "low";
   forecast: string;
   previous: string;
+  /** Filled in once a release is out, which is what "hier" is read for. */
+  actual: string;
 };
 
 const FEED = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml";
+const RANGE_FEED = "https://economic-calendar.tradingview.com/events";
 
-/** The contracts this journal trades, plus the currency they settle against. */
-const CURRENCIES = new Set(["USD", "EUR", "GBP", "JPY", "CHF"]);
+/**
+ * The currencies kept from the feed.
+ *
+ * Wider than the five this journal trades, because the country filter can only
+ * offer what was parsed: the reader picks the five by default and can widen it
+ * from the card. The rest of the feed — minor crosses with two entries a week —
+ * is dropped here rather than cluttering the filter.
+ */
+const CURRENCIES = new Set(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "CNY"]);
+
+/** The same list as the range source names them: countries, not currencies. */
+const COUNTRIES = "US,EU,GB,JP,CH,CA,AU,NZ,CN";
+
+/** What the card starts on: the contracts this journal actually trades. */
+export const DEFAULT_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CHF"];
+
+export const ALL_CURRENCIES = [...CURRENCIES];
 
 function field(block: string, tag: string): string {
   const m = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(block);
@@ -86,33 +109,123 @@ export function parseCalendarFeed(xml: string): EconomicEvent[] {
       impact: impact === "high" ? "high" : impact === "medium" ? "medium" : "low",
       forecast: field(block, "forecast"),
       previous: field(block, "previous"),
+      actual: "",
     });
   }
 
-  return events.sort((a, b) => (a.at ?? `${a.date}T00:00`).localeCompare(b.at ?? `${b.date}T00:00`));
+  return events;
+}
+
+const sortKey = (e: EconomicEvent) => e.at ?? `${e.date}T00:00`;
+
+/**
+ * A browser's headers.
+ *
+ * Neither source answers a request that looks like a script: the feed wants a
+ * user agent, and the range endpoint wants to be called from TradingView's own
+ * page. Both are public data read at a browser's pace, once an hour.
+ */
+const BROWSERISH = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+};
+
+type RangeEvent = {
+  title?: string;
+  currency?: string;
+  date?: string;
+  importance?: number;
+  actual?: number | null;
+  forecast?: number | null;
+  previous?: number | null;
+  unit?: string | null;
+  scale?: string | null;
+};
+
+/** "2.65" with its unit back on: "2.65%", "$1.2M", "205K". */
+function withUnit(value: number | null | undefined, unit: string | null | undefined, scale: string | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  const n = `${value}${scale ?? ""}`;
+  if (!unit) return n;
+  if (unit === "%") return `${n}%`;
+  // Everything else the endpoint sends as a unit is a currency symbol.
+  return `${unit}${n}`;
+}
+
+const localDate = (d: Date) => `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())}`;
+
+async function readRange(from: Date, to: Date): Promise<EconomicEvent[] | null> {
+  const url = `${RANGE_FEED}?from=${from.toISOString()}&to=${to.toISOString()}&countries=${COUNTRIES}`;
+  try {
+    const res = await fetch(url, {
+      headers: { ...BROWSERISH, Origin: "https://www.tradingview.com", Referer: "https://www.tradingview.com/", Accept: "application/json" },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { status?: string; result?: RangeEvent[] };
+    if (body.status !== "ok" || !Array.isArray(body.result)) return null;
+
+    return body.result.flatMap((e) => {
+      if (!e.date || !e.title || !e.currency || !CURRENCIES.has(e.currency)) return [];
+      const at = new Date(e.date);
+      if (Number.isNaN(at.getTime())) return [];
+      return [
+        {
+          at: at.toISOString(),
+          // A UTC day, only ever used for entries with no clock — which this
+          // source does not have; every event here carries an instant.
+          date: localDate(at),
+          currency: e.currency,
+          title: e.title,
+          impact: e.importance === 1 ? ("high" as const) : e.importance === 0 ? ("medium" as const) : ("low" as const),
+          forecast: withUnit(e.forecast, e.unit, e.scale),
+          previous: withUnit(e.previous, e.unit, e.scale),
+          actual: withUnit(e.actual, e.unit, e.scale),
+        },
+      ];
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function readFeed(): Promise<EconomicEvent[] | null> {
+  try {
+    const res = await fetch(FEED, {
+      headers: { ...BROWSERISH, Accept: "text/xml,application/xml,*/*" },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const xml = await res.text();
+    if (!xml.trimStart().startsWith("<?xml")) return null; // rate limited
+    return parseCalendarFeed(xml);
+  } catch {
+    return null;
+  }
 }
 
 /**
- * This week's releases, or an empty list when the feed cannot be reached.
+ * Last week, this week and next week's releases.
  *
  * A calendar that fails is a calendar that says nothing, not a page that fails
  * to load: the checklist around it still has to be usable.
  */
-export async function getEconomicEvents(): Promise<{ events: EconomicEvent[]; ok: boolean }> {
-  try {
-    const res = await fetch(FEED, {
-      headers: {
-        // The feed answers a plain request, but not one with no user agent.
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        Accept: "text/xml,application/xml,*/*",
-      },
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return { events: [], ok: false };
-    const xml = await res.text();
-    if (!xml.trimStart().startsWith("<?xml")) return { events: [], ok: false }; // rate limited
-    return { events: parseCalendarFeed(xml), ok: true };
-  } catch {
-    return { events: [], ok: false };
+export async function getEconomicEvents(): Promise<{ events: EconomicEvent[]; ok: boolean; source: string }> {
+  // Ten days back and sixteen forward: enough for "hier" on a Monday and for
+  // all of next week whichever day it is asked on, rounded to whole days so
+  // the hourly cache is not re-cut on every request.
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  const from = new Date(midnight.getTime() - 10 * 86400000);
+  const to = new Date(midnight.getTime() + 16 * 86400000);
+
+  let source = "tradingview";
+  let events = await readRange(from, to);
+  if (!events) {
+    source = "forexfactory";
+    events = await readFeed();
   }
+  if (!events) return { events: [], ok: false, source };
+
+  return { events: events.sort((a, b) => sortKey(a).localeCompare(sortKey(b))), ok: true, source };
 }
