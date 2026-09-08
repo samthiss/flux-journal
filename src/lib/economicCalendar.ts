@@ -44,6 +44,14 @@ export type EconomicEvent = {
    * these are kept out of the importance filter and shown first in the day.
    */
   kind: "release" | "holiday";
+  /**
+   * What the release is about, as the source files it: "mny" monetary, "lbr"
+   * employment, "prce" prices, "enrg" energy, and so on.
+   *
+   * Kept because what a figure is about decides who it is for: an oil stock
+   * draw is the week's number on CL and noise on a currency future.
+   */
+  category: string;
 };
 
 const FEED = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml";
@@ -126,6 +134,9 @@ export function parseCalendarFeed(xml: string): EconomicEvent[] {
       previous: field(block, "previous"),
       actual: "",
       kind: impact === "holiday" ? "holiday" : "release",
+      // The fallback feed carries no category; an unclassified release is left
+      // at whatever rating it has rather than guessed at.
+      category: "",
     });
   }
 
@@ -153,6 +164,7 @@ type RangeEvent = {
   importance?: number;
   /** "Holidays" for a closed market; the indicator's name otherwise. */
   indicator?: string;
+  category?: string;
   actual?: number | null;
   forecast?: number | null;
   previous?: number | null;
@@ -220,6 +232,7 @@ async function readRange(from: Date, to: Date): Promise<EconomicEvent[] | null> 
           previous: withUnit(e.previous, e.unit, e.scale),
           actual: withUnit(e.actual, e.unit, e.scale),
           kind: holiday ? ("holiday" as const) : ("release" as const),
+          category: e.category ?? "",
         },
       ];
     });

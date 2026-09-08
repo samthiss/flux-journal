@@ -4,6 +4,7 @@ import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { ALL_CURRENCIES, DEFAULT_CURRENCIES, type EconomicEvent } from "@/lib/economicCalendar";
 import { setEventRating } from "@/lib/actions/eventRatings";
+import { focusFor, underFocus } from "@/lib/marketFocus";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -182,7 +183,27 @@ function parseFilters(raw: string | null): Filters {
  * how much a release matters — kept in the browser so the card opens where it
  * was left rather than back on the defaults every morning.
  */
-export default function EconomicCalendar({ events, ok, source }: { events: EconomicEvent[]; ok: boolean; source: string }) {
+export default function EconomicCalendar({
+  events,
+  ok,
+  source,
+  market,
+}: {
+  events: EconomicEvent[];
+  ok: boolean;
+  source: string;
+  /** The contract selected above the card, which decides what is relevant. */
+  market: string;
+}) {
+  const focus = focusFor(market);
+
+  /**
+   * Set when the reader wants the whole calendar back for a moment.
+   *
+   * Not remembered: the point of the market driving the card is that opening
+   * it on 6E shows 6E's news without a thought, every time.
+   */
+  const [ignoreFocus, setIgnoreFocus] = useState(false);
   const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const { range, currencies, impacts } = useMemo(() => parseFilters(raw), [raw]);
 
@@ -207,6 +228,11 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
   const toggle = <T,>(list: T[], value: T) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
+  const following = focus !== null && !ignoreFocus;
+
+  /** The market picks the currencies while it is being followed. */
+  const shownCurrencies = following ? focus.currencies : currencies;
+
   const grouped = useMemo(() => {
     const [from, to] = rangeBounds(range);
     const byDay = new Map<string, EconomicEvent[]>();
@@ -218,15 +244,18 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
       // hides: one click on a three-star release rates it one star, and a row
       // that vanishes on the click that lowered it cannot be clicked back.
       const key = `${event.currency}|${event.title}`;
-      const impact = rerated[key] ?? event.impact;
+      const rated = rerated[key] ?? event.impact;
+      // What the market makes of it, applied last: the reader's own rating is
+      // what the market lowers, not the source's.
+      const impact = following ? underFocus({ ...event, impact: rated }, focus) : rated;
       if (event.kind !== "holiday" && rerated[key] === undefined && !impacts.includes(impact)) continue;
-      if (!currencies.includes(event.currency)) continue;
+      if (!shownCurrencies.includes(event.currency)) continue;
       const day = localDay(event);
       if (day < from || day > to) continue;
       (byDay.get(day) ?? byDay.set(day, []).get(day)!).push(impact === event.impact ? event : { ...event, impact });
     }
     return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [events, range, currencies, impacts, rerated]);
+  }, [events, range, shownCurrencies, impacts, rerated, following, focus]);
 
   const shown = grouped.reduce((n, [, rows]) => n + rows.length, 0);
 
@@ -253,14 +282,28 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
           ))}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-          {ALL_CURRENCIES.map((c) => (
+          {/* Followed, the market owns this row: its own currencies, lit and
+              not for turning off — that is the whole point of following one. */}
+          {(following ? focus.currencies : ALL_CURRENCIES).map((c) => (
             <Chip
               key={c}
               label={c}
-              on={currencies.includes(c)}
-              onClick={() => setCurrencies(toggle(currencies, c))}
+              on={following || currencies.includes(c)}
+              onClick={() => (following ? setIgnoreFocus(true) : setCurrencies(toggle(currencies, c)))}
             />
           ))}
+          {focus && (
+            <Chip
+              label={following ? "tout voir" : `suivre ${market}`}
+              title={
+                following
+                  ? "Afficher tout le calendrier, sans le filtre du marché"
+                  : `Revenir aux publications qui comptent pour ${market}`
+              }
+              on={!following}
+              onClick={() => setIgnoreFocus((v) => !v)}
+            />
+          )}
           <span style={{ width: 1, height: 14, background: "oklch(0.32 0.02 250)", margin: "0 3px" }} />
           {/* The same three stars the rows carry, so the filter and what it
               filters are read in one alphabet rather than two. */}
@@ -275,6 +318,12 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
           ))}
         </div>
       </div>
+
+      {following && (
+        <div style={{ ...mono, fontSize: 10, color: "oklch(0.55 0.03 250)", padding: "8px 18px 0" }}>
+          {market} · {focus.summary}
+        </div>
+      )}
 
       {!ok && (
         <div style={{ padding: "16px 18px", fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>

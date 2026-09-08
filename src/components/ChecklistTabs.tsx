@@ -191,7 +191,7 @@ export default function ChecklistTabs({
               Publications de la semaine — filtre les jours, les devises et l&apos;importance
             </div>
           </div>
-          <EconomicCalendar events={events} ok={calendarOk} source={calendarSource} />
+          <EconomicCalendar events={events} ok={calendarOk} source={calendarSource} market={market} />
         </div>
       )}
       {tab === "volume" && (
