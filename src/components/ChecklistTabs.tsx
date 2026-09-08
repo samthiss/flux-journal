@@ -9,6 +9,7 @@ import ColorCode from "@/components/ColorCode";
 import ChecklistClient from "@/components/ChecklistClient";
 import EconomicCalendar from "@/components/EconomicCalendar";
 import HolidayCalendar from "@/components/HolidayCalendar";
+import type { EconomicEvent } from "@/lib/economicCalendar";
 
 type ChecklistItem = { id: string; group: string; label: string };
 
@@ -50,7 +51,15 @@ const marketPillStyle = (active: boolean): CSSProperties => ({
   border: `1px solid ${active ? accentColor : "oklch(0.4 0.034 250)"}`,
 });
 
-export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
+export default function ChecklistTabs({
+  items,
+  events,
+  calendarOk,
+}: {
+  items: ChecklistItem[];
+  events: EconomicEvent[];
+  calendarOk: boolean;
+}) {
   const [tab, setTab] = useState<TabKey>("calendar");
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
   const [market, setMarket] = useState(DEFAULT_MARKETS[0]);
@@ -178,10 +187,10 @@ export default function ChecklistTabs({ items }: { items: ChecklistItem[] }) {
           <div style={{ marginBottom: 24, textAlign: "center" }}>
             <PageTitle>Calendrier économique</PageTitle>
             <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
-              Publications à fort impact du jour — US, zone euro, France, Allemagne, UK, Suisse
+              Publications qui comptent des trois prochains jours — USD, EUR, GBP, JPY, CHF
             </div>
           </div>
-          <EconomicCalendar height={620} />
+          <EconomicCalendar events={events} ok={calendarOk} />
           {/* Under the releases, because it answers the same question from the
               other side: the widget says when not to trade because something is
               coming out, this says when there is nothing to trade at all. */}
