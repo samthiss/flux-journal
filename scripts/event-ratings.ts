@@ -75,7 +75,24 @@ const FROM_INVESTING: { currency: string; title: string; impact: string }[] = [
   { currency: "USD", title: "Durable Goods Orders MoM", impact: "high" },
 ];
 
+/**
+ * The moment the ratings set by hand stopped being accidents.
+ *
+ * Two three-star rows were cycled down to one star by a click that was not
+ * meant, and a lowered row used to disappear under the cursor that lowered it,
+ * so they could not be clicked back. Everything rated by hand before this
+ * instant is that accident: it is deleted once, which drops those rows back
+ * onto the ratings below. Anything rated after it is deliberate and is left
+ * alone — so this runs harmlessly on every boot after the first.
+ */
+const ACCIDENTS_BEFORE = new Date("2026-09-08T12:47:00Z");
+
 async function main() {
+  const undone = await prisma.eventRating.deleteMany({
+    where: { source: "moi", updatedAt: { lt: ACCIDENTS_BEFORE } },
+  });
+  if (undone.count) console.log(`Notes posées par erreur, annulées : ${undone.count}.`);
+
   for (const rating of FROM_INVESTING) {
     const existing = await prisma.eventRating.findUnique({
       where: { currency_title: { currency: rating.currency, title: rating.title } },

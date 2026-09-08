@@ -387,7 +387,9 @@ const LEVEL_NAME: Record<Impact, string> = { low: "faible", medium: "moyenne", h
  */
 function Impact({ level, onCycle }: { level: Impact; onCycle?: () => void }) {
   const lit = level === "high" ? 3 : level === "medium" ? 2 : 1;
-  const colour = level === "high" ? lossColor : level === "medium" ? accentColor : "oklch(0.45 0.02 250)";
+  // A single star is still a lit star: leaving it the colour of an unlit one
+  // made a rated row look unrated.
+  const colour = level === "high" ? lossColor : level === "medium" ? accentColor : "oklch(0.78 0.02 250)";
   return (
     <button
       type="button"
@@ -411,7 +413,7 @@ function Impact({ level, onCycle }: { level: Impact; onCycle?: () => void }) {
         <span
           key={i}
           style={{
-            fontSize: 9,
+            fontSize: 12,
             lineHeight: 1,
             color: i < lit ? colour : "oklch(0.32 0.02 250)",
             textShadow: i < lit ? `0 0 7px ${colour}` : "none",
