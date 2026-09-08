@@ -195,11 +195,9 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
    */
   const [rerated, setRerated] = useState<Record<string, Impact>>({});
 
-  const cycle = (event: EconomicEvent) => {
-    const key = `${event.currency}|${event.title}`;
-    const next = NEXT_LEVEL[rerated[key] ?? event.impact];
-    setRerated((cur) => ({ ...cur, [key]: next }));
-    void setEventRating(event.currency, event.title, next);
+  const rate = (event: EconomicEvent, level: Impact) => {
+    setRerated((cur) => ({ ...cur, [`${event.currency}|${event.title}`]: level }));
+    void setEventRating(event.currency, event.title, level);
   };
 
   const setRange = (next: Range) => saveFilters({ range: next, currencies, impacts });
@@ -347,7 +345,7 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
                   FÉRIÉ
                 </span>
               ) : (
-                <Impact level={event.impact} onCycle={() => cycle(event)} />
+                <Impact level={event.impact} onRate={(level) => rate(event, level)} />
               )}
               <span style={{ fontSize: 12.5, color: "oklch(0.85 0.017 250)", flex: 1, minWidth: 0 }}>{event.title}</span>
               {(event.actual || event.forecast || event.previous) && (
@@ -366,13 +364,11 @@ export default function EconomicCalendar({ events, ok, source }: { events: Econo
       ))}
 
       <div style={{ ...mono, fontSize: 9.5, color: "oklch(0.45 0.02 250)", padding: "8px 18px" }}>
-        publié · prévision / précédent · heures locales · clic sur les étoiles pour renoter
+        publié · prévision / précédent · heures locales · clic sur une étoile pour renoter
       </div>
     </div>
   );
 }
-
-const NEXT_LEVEL: Record<Impact, Impact> = { low: "medium", medium: "high", high: "low" };
 
 const LEVEL_NAME: Record<Impact, string> = { low: "faible", medium: "moyenne", high: "forte" };
 
@@ -389,17 +385,20 @@ const LEVEL_NAME: Record<Impact, string> = { low: "faible", medium: "moyenne", h
  * every time, a click cycles this row's rating and keeps it for that release,
  * every month, in the database.
  */
-function Stars({ level, dim = false }: { level: Impact; dim?: boolean }) {
-  const lit = level === "high" ? 3 : level === "medium" ? 2 : 1;
+const LEVELS: Impact[] = ["low", "medium", "high"];
+
+function starColour(level: Impact, dim: boolean) {
+  if (dim) return "oklch(0.5 0.02 250)";
   // A single star is still a lit star: leaving it the colour of an unlit one
   // made a rated row look unrated.
-  const colour = dim
-    ? "oklch(0.5 0.02 250)"
-    : level === "high"
-      ? lossColor
-      : level === "medium"
-        ? accentColor
-        : "oklch(0.78 0.02 250)";
+  if (level === "high") return lossColor;
+  if (level === "medium") return accentColor;
+  return "oklch(0.78 0.02 250)";
+}
+
+function Stars({ level, dim = false }: { level: Impact; dim?: boolean }) {
+  const lit = LEVELS.indexOf(level) + 1;
+  const colour = starColour(level, dim);
   return (
     <>
       {[0, 1, 2].map((i) => (
@@ -419,27 +418,41 @@ function Stars({ level, dim = false }: { level: Impact; dim?: boolean }) {
   );
 }
 
-function Impact({ level, onCycle }: { level: Impact; onCycle?: () => void }) {
+/**
+ * The row's rating, set by clicking the star you want it to have.
+ *
+ * Not a cycle: clicking anywhere on a three-star row used to add one and wrap
+ * around to one star, so lowering a rating meant clicking through the top. The
+ * second star means two stars, the way every rating anyone has ever used works.
+ */
+function Impact({ level, onRate }: { level: Impact; onRate?: (level: Impact) => void }) {
+  const lit = LEVELS.indexOf(level) + 1;
+  const colour = starColour(level, false);
+
+  if (!onRate) return <span style={{ display: "inline-flex", gap: 1.5, flex: "none" }}><Stars level={level} /></span>;
+
   return (
-    <button
-      type="button"
-      onClick={onCycle}
-      disabled={!onCycle}
-      title={onCycle ? `Importance ${LEVEL_NAME[level]} — cliquer pour la changer` : undefined}
-      style={{
-        display: "inline-flex",
-        gap: 1.5,
-        alignItems: "center",
-        flex: "none",
-        padding: "2px 3px",
-        margin: "0 -3px",
-        border: "none",
-        borderRadius: 3,
-        background: "transparent",
-        cursor: onCycle ? "pointer" : "default",
-      }}
-    >
-      <Stars level={level} />
-    </button>
+    <span style={{ display: "inline-flex", gap: 1.5, alignItems: "center", flex: "none", margin: "0 -3px" }}>
+      {LEVELS.map((target, i) => (
+        <button
+          key={target}
+          type="button"
+          onClick={() => onRate(target)}
+          title={`Mettre l'importance à ${LEVEL_NAME[target]}`}
+          style={{
+            fontSize: 12,
+            lineHeight: 1,
+            padding: "2px 1.5px",
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: i < lit ? colour : "oklch(0.32 0.02 250)",
+            textShadow: i < lit ? `0 0 7px ${colour}` : "none",
+          }}
+        >
+          ★
+        </button>
+      ))}
+    </span>
   );
 }
