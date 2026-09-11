@@ -43,16 +43,14 @@ model Trade {
   rr             Float?
 
   /**
-   * The take-profit levels the trade was planned around.
+   * How far the market went: 1, 2 or 3, or null for none of them.
    *
-   * Prices rather than amounts, and three of them, because a target is a place
-   * on the chart and a trade is scaled out of in pieces. Optional throughout:
-   * most trades carry one, some carry none, and a trade that reached none of
-   * them still has to be recordable.
+   * A level rather than three prices or three ticks. What is read afterwards is
+   * whether a setup runs — whether the second and third targets are ever paid —
+   * and the prices themselves are on the chart already. A level also cannot
+   * record the impossible: reaching TP2 without passing TP1.
    */
-  tp1            Float?
-  tp2            Float?
-  tp3            Float?
+  tpReached      Int?
 
   /**
    * The same vocabularies the note examples and the trade ideas are typed with,

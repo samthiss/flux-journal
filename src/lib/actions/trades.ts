@@ -50,17 +50,9 @@ function parseTradeForm(formData: FormData) {
   const riskInput = formData.get("risk") ? parseFloat(String(formData.get("risk"))) : null;
   const risk = riskInput && Number.isFinite(riskInput) && riskInput !== 0 ? Math.abs(riskInput) : null;
   const rr = risk ? Number((pnl / risk).toFixed(2)) : null;
-  // The take-profit levels, each optional and each read the way a price gets
-  // typed — a comma for a decimal point is a slip, not a second number.
-  const price = (name: string) => {
-    const raw = String(formData.get(name) ?? "").trim().replace(",", ".");
-    if (!raw) return null;
-    const parsed = parseFloat(raw);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-  const tp1 = price("tp1");
-  const tp2 = price("tp2");
-  const tp3 = price("tp3");
+  // How far the market went, 1 to 3, or nothing.
+  const level = parseInt(String(formData.get("tpReached") ?? ""), 10);
+  const tpReached = level >= 1 && level <= 3 ? level : null;
 
   // Kept as they are posted: a JSON array for the lists, a plain word for the
   // zone, empty meaning nothing was picked rather than an empty list.
@@ -80,7 +72,7 @@ function parseTradeForm(formData: FormData) {
 
   return {
     date, time, symbol, market, side, size, pnl, risk, rr,
-    tp1, tp2, tp3, tradeTypes, zone, confirmations,
+    tpReached, tradeTypes, zone, confirmations,
     setup, emotion, preTradeNotes, postTradeNotes,
   };
 }

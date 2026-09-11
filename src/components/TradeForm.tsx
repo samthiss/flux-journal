@@ -24,9 +24,8 @@ export type TradeFormValues = {
   size: string;
   pnl: string;
   risk: string;
-  tp1: string;
-  tp2: string;
-  tp3: string;
+  /** "1", "2", "3" or "" — how far the market went. */
+  tpReached: string;
   /** JSON arrays, as they are stored: the form parses them on the way in. */
   tradeTypes: string;
   zone: string;
@@ -214,6 +213,7 @@ export default function TradeForm({
 
   // The three vocabularies, held here and posted as JSON: a dropdown cannot be
   // a form field on its own.
+  const [tpReached, setTpReached] = useState(initial.tpReached);
   const [types, setTypes] = useState<string[]>(() => parseTagArray(initial.tradeTypes));
   const [zone, setZone] = useState<string | null>(initial.zone || null);
   const [confirmations, setConfirmations] = useState<string[]>(() => parseTagArray(initial.confirmations));
@@ -382,26 +382,21 @@ export default function TradeForm({
             </div>
 
             <div style={{ gridColumn: "span 2" }}>
-              {/* The targets the trade was planned around, as prices. Three,
-                  because a position is scaled out of in pieces, and all
-                  optional: a trade that reached none of them is still a trade. */}
-              {fieldLabel("Take profit")}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                {(["tp1", "tp2", "tp3"] as const).map((key, i) => (
-                  <input
-                    key={key}
-                    type="text"
-                    // Text rather than a number field: that one rejects the
-                    // comma a price gets typed with, emptying itself on save
-                    // without a word, and its wheel quietly edits a price when
-                    // the page is scrolled over it. The keyboard hint gives a
-                    // phone the numeric pad anyway.
-                    inputMode="decimal"
-                    name={key}
-                    defaultValue={initial[key]}
-                    placeholder={`TP${i + 1}`}
-                    style={monoInputStyle}
-                  />
+              {/* How far the market went, not where the targets were. Picking
+                  TP2 lights TP1 too, because there is no reaching the second
+                  without passing the first; picking the highest one lit again
+                  clears the answer. */}
+              {fieldLabel("Take profit atteint")}
+              <input type="hidden" name="tpReached" value={tpReached} />
+              <div style={{ display: "flex", gap: 10 }}>
+                {[1, 2, 3].map((level) => (
+                  <div
+                    key={level}
+                    onClick={() => setTpReached(String(tpReached) === String(level) ? "" : String(level))}
+                    style={toggleBtnStyle(Number(tpReached) >= level)}
+                  >
+                    TP{level}
+                  </div>
                 ))}
               </div>
             </div>

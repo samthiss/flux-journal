@@ -34,9 +34,6 @@ export default async function TradeDetail({ id }: { id: string }) {
     { label: "R : R", value: trade.rr != null ? `1 : ${trade.rr.toFixed(1)}` : "—" },
   ];
 
-  const targets = [trade.tp1, trade.tp2, trade.tp3]
-    .map((value, i) => ({ index: i + 1, value }))
-    .filter((t): t is { index: number; value: number } => t.value != null);
 
   // Type, zone and confirmation read as one row of chips: they were picked from
   // one vocabulary, and which list a word came from is not what is being read.
@@ -183,11 +180,29 @@ export default async function TradeDetail({ id }: { id: string }) {
 
             {/* Only when they were filled in: most trades carry none of this,
                 and four empty rows would push the ones that matter down. */}
-            {targets.length > 0 && (
+            {trade.tpReached != null && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, gap: 12 }}>
                 <span style={{ color: "oklch(0.6 0.034 250)" }}>Take profit</span>
-                <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontWeight: 600, textAlign: "right" }}>
-                  {targets.map((t) => `TP${t.index} ${t.value}`).join("  ·  ")}
+                <span style={{ display: "flex", gap: 5 }}>
+                  {[1, 2, 3].map((level) => {
+                    const reached = (trade.tpReached ?? 0) >= level;
+                    return (
+                      <span
+                        key={level}
+                        style={{
+                          fontFamily: "var(--font-jetbrains-mono), monospace",
+                          fontSize: 10.5,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          border: `1px solid ${reached ? accentColor : "oklch(0.32 0.02 250)"}`,
+                          background: reached ? accentSoft : "transparent",
+                          color: reached ? accentColor : "oklch(0.45 0.02 250)",
+                        }}
+                      >
+                        TP{level}
+                      </span>
+                    );
+                  })}
                 </span>
               </div>
             )}
