@@ -71,6 +71,12 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
 
   /** The most alerts an hour may show before the setting is too low. */
   const [ceiling, setCeiling] = useState(5);
+  /**
+   * The fewest before it is too high. Zero turns it off, which is the default:
+   * a quiet hour is an answer, and only a band that stays quiet over many hours
+   * is a mis-set alert.
+   */
+  const [floor, setFloor] = useState(0);
 
   useEffect(() => {
     const stored = loadMarkets();
@@ -79,7 +85,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   }, []);
 
   const mine = useMemo(() => hours.filter((h) => h.market === market), [hours, market]);
-  const stats = useMemo(() => bandStats(mine, ceiling), [mine, ceiling]);
+  const stats = useMemo(() => bandStats(mine, ceiling, floor), [mine, ceiling, floor]);
   const days = useMemo(() => byDay(mine), [mine]);
 
   const values = parseValues(raw);
@@ -202,6 +208,16 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             style={{ ...field, width: 56, padding: "3px 7px", fontSize: 11.5 }}
           />
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>alertes par heure</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>· au moins</div>
+          <input
+            type="number"
+            value={floor}
+            onChange={(e) => setFloor(Math.max(0, Number(e.target.value)))}
+            style={{ ...field, width: 56, padding: "3px 7px", fontSize: 11.5 }}
+          />
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>
+            {floor > 0 ? "— sinon le seuil est trop haut" : "— désactivé"}
+          </div>
         </div>
 
         {stats.length === 0 && (
@@ -233,17 +249,27 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
                 ...mono,
                 fontSize: 11.5,
                 flex: "none",
-                color: band.rate > ceiling ? lossColor : "oklch(0.7 0.02 250)",
+                color: band.rate > ceiling ? lossColor : band.rate < floor ? "oklch(0.8 0.14 85)" : "oklch(0.7 0.02 250)",
               }}
             >
               {band.threshold} → {band.rate.toFixed(1)}/h
             </span>
             <span style={{ ...mono, fontSize: 11.5, flex: 1, minWidth: 200, color: accentColor }}>
-              {band.recommended === null
-                ? "aucun seuil relu ne tient ce plafond"
-                : band.recommended <= band.threshold
-                  ? `déjà sous le plafond, garde ${band.threshold}`
-                  : `passe à ${band.recommended} → ${band.recommendedRate?.toFixed(1)}/h`}
+              {band.rate < floor ? (
+                // Below the floor the page is reading past its own data, and
+                // says so: nothing under the threshold was ever written down.
+                <span style={{ color: "oklch(0.8 0.14 85)" }}>
+                  {band.lowerTo === null
+                    ? "trop peu d'alertes — descends le seuil, pas de quoi estimer de combien"
+                    : `trop peu — descends vers ${band.lowerTo} (estimé, jamais observé si bas)`}
+                </span>
+              ) : band.recommended === null ? (
+                "aucun seuil relu ne tient ce plafond"
+              ) : band.recommended <= band.threshold ? (
+                `déjà sous le plafond, garde ${band.threshold}`
+              ) : (
+                `passe à ${band.recommended} → ${band.recommendedRate?.toFixed(1)}/h`
+              )}
             </span>
             <span style={{ ...mono, fontSize: 10, color: "oklch(0.45 0.02 250)", flex: "none" }}>
               {band.curve

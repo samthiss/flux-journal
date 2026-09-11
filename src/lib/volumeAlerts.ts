@@ -48,6 +48,15 @@ export type BandStat = {
   recommended: number | null;
   /** What it would give, so a recommendation can be judged rather than obeyed. */
   recommendedRate: number | null;
+  /**
+   * Where the threshold should come down to, when the band is too quiet.
+   *
+   * An estimate, and the only one in this file: below the threshold in force
+   * nothing was ever written down, so this is the observed decay carried on
+   * past the edge of the data rather than a recount. Null when the tail is too
+   * short to carry, or when the band is not short of alerts.
+   */
+  lowerTo: number | null;
 };
 
 const STEP = 10;
@@ -68,11 +77,53 @@ function commonest(numbers: number[]): number {
 /**
  * Each hour band of the day, as the recorded hours describe it.
  *
- * `ceiling` is the most alerts an hour may show — a ceiling and not a target,
- * because a threshold pushed down until a dead session produces an alert is a
- * threshold that manufactures noise. A quiet hour is an answer.
+ * `ceiling` is the most alerts an hour may show. `floor` is the fewest before
+ * the setting is called too high — left at zero by default, because a single
+ * dead session is an answer, not a fault: a threshold pushed down until it
+ * produces an alert manufactures noise. What justifies a floor is a band that
+ * stays quiet over many hours, which is a mis-set alert rather than a market.
  */
-export function bandStats(hours: AlertHour[], ceiling: number): BandStat[] {
+/**
+ * The threshold a band would need to reach `floor` alerts an hour, guessed.
+ *
+ * The only estimate in this file, and it is one because it has to be: below
+ * the threshold in force nothing was ever written down, so no recount can
+ * reach there. It is reported apart from every other figure for that reason.
+ *
+ * What it leans on is the shape volume exceedances take — how far a box
+ * overshoots the threshold decays about exponentially, so the average overshoot
+ * is the scale of the whole tail. Four boxes at 168, 155, 262 and 173 over a
+ * threshold of 150 overshoot by 39 on average, which says the rate roughly
+ * doubles for every 27 points the threshold comes down.
+ *
+ * Fitted on the overshoots rather than on the stepped curve, which one large
+ * box flattens into a long tail of equal rates and a slope that means nothing.
+ * It refuses to reach more than a third under the threshold watched, where
+ * there is nothing left to lean on, and refuses under five boxes.
+ */
+function lowerToward(hours: AlertHour[], floor: number): number | null {
+  const watched = Math.min(...hours.map((hour) => hour.threshold));
+  const usable = hours.filter((hour) => hour.threshold === watched);
+  const values = usable.flatMap((hour) => hour.values);
+  if (values.length < 5) return null;
+
+  const rate = values.length / usable.length;
+  if (rate >= floor) return null;
+
+  const overshoot = values.reduce((sum, value) => sum + (value - watched), 0) / values.length;
+  if (overshoot <= 0) return null;
+
+  const target = watched + overshoot * Math.log(rate / floor);
+  if (target < watched * 0.66) return null;
+
+  const rounded = Math.round(target / STEP) * STEP;
+  // A miss small enough to round back onto the setting in force is not advice.
+  if (rounded >= watched) return null;
+
+  return rounded;
+}
+
+export function bandStats(hours: AlertHour[], ceiling: number, floor = 0): BandStat[] {
   const bands = new Map<number, AlertHour[]>();
   for (const hour of hours) (bands.get(hour.hour) ?? bands.set(hour.hour, []).get(hour.hour)!).push(hour);
 
@@ -80,25 +131,28 @@ export function bandStats(hours: AlertHour[], ceiling: number): BandStat[] {
     .sort((a, b) => a[0] - b[0])
     .map(([hour, recorded]) => {
       const threshold = commonest(recorded.map((h) => h.threshold));
-      const floor = Math.min(...recorded.map((h) => h.threshold));
-      const top = Math.max(floor, ...recorded.flatMap((h) => h.values));
+      // The lowest threshold ever watched here: the curve cannot start below it.
+      const lowest = Math.min(...recorded.map((h) => h.threshold));
+      const top = Math.max(lowest, ...recorded.flatMap((h) => h.values));
 
       const curve: { threshold: number; rate: number }[] = [];
-      for (let t = Math.ceil(floor / STEP) * STEP; t <= top + STEP; t += STEP) {
+      for (let t = Math.ceil(lowest / STEP) * STEP; t <= top + STEP; t += STEP) {
         const rate = rateAt(recorded, t);
         if (rate !== null) curve.push({ threshold: t, rate });
       }
 
       const held = curve.find((point) => point.rate <= ceiling) ?? null;
+      const rate = rateAt(recorded, threshold) ?? 0;
 
       return {
         hour,
         sessions: recorded.length,
         threshold,
-        rate: rateAt(recorded, threshold) ?? 0,
+        rate,
         curve,
         recommended: held?.threshold ?? null,
         recommendedRate: held?.rate ?? null,
+        lowerTo: floor > 0 && rate < floor ? lowerToward(recorded, floor) : null,
       };
     });
 }
