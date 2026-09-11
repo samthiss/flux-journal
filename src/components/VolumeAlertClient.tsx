@@ -475,9 +475,16 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
         })}
       </div>
 
+      {/* Only once it pools several days. On the first day an hour band holds a
+          single entry, so this block repeats the recorded list underneath it
+          line for line — an average over one observation is that observation. */}
+      {stats.some((band) => band.days > 1) && (
       <div style={{ ...glassCard }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Heure par heure</div>
+          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>
+            le détail sous les plages, quand une heure porte la session à elle seule
+          </div>
         </div>
 
         {stats.length === 0 && (
@@ -529,6 +536,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
 
 
       </div>
+      )}
 
       <div style={{ ...glassCard }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Heures enregistrées</div>
