@@ -145,10 +145,12 @@ const sampleOf = (stat: Stat) =>
  * Days a stretch needs before its rate is a cadence rather than a mood.
  *
  * Days and not hours: four hours can be a single morning, and a setting moved
- * on one morning chases yesterday. Four days is most of a trading week, which
- * is the unit a threshold is actually chosen over.
+ * on one morning chases yesterday. Five days is a full trading week, which is
+ * the unit a threshold is actually chosen over — and it takes in the whole
+ * spread, a dead Monday and a payrolls Friday included, rather than whichever
+ * four days happened to come first.
  */
-const ENOUGH_DAYS = 4;
+const ENOUGH_DAYS = 5;
 
 function advice(stat: Stat, ceiling: number, floor: number): { text: string; tone: string } {
   // Before this the rate is still shown — it is exact — but nothing is advised
