@@ -97,7 +97,19 @@ function saveSessions(sessions: Session[]) {
  * is only high against a ceiling. This is the one line to act on, so it names
  * the direction, the number, and what that number would have given.
  */
+/** Hours a stretch needs before its rate is a cadence rather than an anecdote. */
+const ENOUGH = 4;
+
 function advice(stat: Stat, ceiling: number, floor: number): { text: string; tone: string } {
+  // Two quiet hours are not a setting that is too high. Before this, the rate
+  // is shown — it is exact — but nothing is advised on the strength of it.
+  if (stat.sessions < ENOUGH) {
+    return {
+      tone: "oklch(0.5 0.02 250)",
+      text: `${stat.sessions} heure${stat.sessions > 1 ? "s" : ""} sur ${ENOUGH} — pas encore de quoi juger`,
+    };
+  }
+
   if (stat.rate < floor) {
     return {
       tone: "oklch(0.8 0.14 85)",
@@ -458,11 +470,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           </div>
         ))}
 
-        {stats.length > 0 && stats.some((b) => b.sessions < 4) && (
-          <div style={{ ...mono, fontSize: 10, color: "oklch(0.5 0.02 250)", marginTop: 10 }}>
-            Une tranche à moins de quatre heures enregistrées se lit comme une anecdote, pas comme une cadence.
-          </div>
-        )}
+
       </div>
 
       <div style={{ ...glassCard }}>
