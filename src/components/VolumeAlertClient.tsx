@@ -8,6 +8,7 @@ import {
   bandStats,
   byDay,
   countAt,
+  recent,
   sessionLabel,
   sessionStats,
   type AlertHour,
@@ -97,16 +98,22 @@ function saveSessions(sessions: Session[]) {
  * is only high against a ceiling. This is the one line to act on, so it names
  * the direction, the number, and what that number would have given.
  */
-/** Hours a stretch needs before its rate is a cadence rather than an anecdote. */
-const ENOUGH = 4;
+/**
+ * Days a stretch needs before its rate is a cadence rather than a mood.
+ *
+ * Days and not hours: four hours can be a single morning, and a setting moved
+ * on one morning chases yesterday. Four days is most of a trading week, which
+ * is the unit a threshold is actually chosen over.
+ */
+const ENOUGH_DAYS = 4;
 
 function advice(stat: Stat, ceiling: number, floor: number): { text: string; tone: string } {
-  // Two quiet hours are not a setting that is too high. Before this, the rate
-  // is shown — it is exact — but nothing is advised on the strength of it.
-  if (stat.sessions < ENOUGH) {
+  // Before this the rate is still shown — it is exact — but nothing is advised
+  // on the strength of it.
+  if (stat.days < ENOUGH_DAYS) {
     return {
       tone: "oklch(0.5 0.02 250)",
-      text: `${stat.sessions} heure${stat.sessions > 1 ? "s" : ""} sur ${ENOUGH} — pas encore de quoi juger`,
+      text: `${stat.days} jour${stat.days > 1 ? "s" : ""} sur ${ENOUGH_DAYS} — pas encore de quoi juger`,
     };
   }
 
@@ -171,6 +178,9 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
    * way the market list is — it is a habit, not data.
    */
   const [sessions, setSessions] = useState<Session[]>(DEFAULT_SESSIONS);
+
+  /** How far back a reading looks, in days. Null is everything recorded. */
+  const [window, setWindow] = useState<number | null>(7);
   const [editingSessions, setEditingSessions] = useState(false);
 
   useEffect(() => {
@@ -181,8 +191,9 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   }, []);
 
   const mine = useMemo(() => hours.filter((h) => h.market === market), [hours, market]);
-  const stats = useMemo(() => bandStats(mine, ceiling, floor), [mine, ceiling, floor]);
-  const bySession = useMemo(() => sessionStats(mine, sessions, ceiling, floor), [mine, sessions, ceiling, floor]);
+  const read = useMemo(() => recent(mine, window), [mine, window]);
+  const stats = useMemo(() => bandStats(read, ceiling, floor), [read, ceiling, floor]);
+  const bySession = useMemo(() => sessionStats(read, sessions, ceiling, floor), [read, sessions, ceiling, floor]);
   const days = useMemo(() => byDay(mine), [mine]);
 
   const values = parseValues(raw);
@@ -327,8 +338,28 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           >
             {editingSessions ? "terminé" : "modifier les plages"}
           </button>
-          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginLeft: "auto" }}>
-            le réglage se fait par plage, pas heure par heure
+          <div style={{ display: "flex", gap: 5, marginLeft: "auto", alignItems: "center" }}>
+            {/* A threshold is judged over a week, not over a morning: the
+                reading looks back rather than piling up every day ever kept. */}
+            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginRight: 3 }}>sur</span>
+            {([7, 14, null] as const).map((days) => (
+              <button
+                key={String(days)}
+                onClick={() => setWindow(days)}
+                style={{
+                  ...mono,
+                  fontSize: 10,
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  border: `1px solid ${window === days ? accentColor : "oklch(0.3 0.02 250)"}`,
+                  background: window === days ? "oklch(0.72 0.14 195 / 0.14)" : "transparent",
+                  color: window === days ? accentColor : "oklch(0.55 0.02 250)",
+                }}
+              >
+                {days === null ? "tout" : `${days} j`}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -406,8 +437,8 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
               <span style={{ ...mono, fontSize: 13, color: "oklch(0.88 0.02 250)", width: 76, flex: "none" }}>
                 {sessionLabel(stat.session)}
               </span>
-              <span style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.02 250)", width: 92, flex: "none" }}>
-                {stat.sessions} heure{stat.sessions > 1 ? "s" : ""}
+              <span style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.02 250)", width: 128, flex: "none" }}>
+                {stat.days} jour{stat.days > 1 ? "s" : ""} · {stat.sessions} heure{stat.sessions > 1 ? "s" : ""}
               </span>
               <span style={{ ...mono, fontSize: 12, flex: "none", color: "oklch(0.75 0.02 250)" }}>
                 {stat.threshold} → {stat.rate.toFixed(1)}/h
@@ -444,8 +475,8 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             <span style={{ ...mono, fontSize: 12, color: "oklch(0.85 0.02 250)", width: 62, flex: "none" }}>
               {bandLabel(band.hour)}
             </span>
-            <span style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.02 250)", width: 92, flex: "none" }}>
-              {band.sessions} heure{band.sessions > 1 ? "s" : ""}
+            <span style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.02 250)", width: 128, flex: "none" }}>
+              {band.days} jour{band.days > 1 ? "s" : ""} · {band.sessions} heure{band.sessions > 1 ? "s" : ""}
             </span>
             <span
               style={{

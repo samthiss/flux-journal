@@ -36,6 +36,14 @@ export const canAnswer = (hour: AlertHour, threshold: number) => threshold >= ho
 export type Stat = {
   /** Hours recorded in this band. */
   sessions: number;
+  /**
+   * Days those hours are spread over.
+   *
+   * The figure that decides whether any of this may be acted on. Four hours
+   * can be one morning, and one morning is a market having a mood — a setting
+   * is judged over a week, or it chases yesterday.
+   */
+  days: number;
   /** The threshold most of them were watched at. */
   threshold: number;
   /** Alerts per hour at that threshold. */
@@ -162,6 +170,7 @@ function statsFor(recorded: AlertHour[], ceiling: number, floor: number): Stat {
 
   return {
     sessions: recorded.length,
+    days: new Set(recorded.map((hour) => hour.day)).size,
     threshold,
     rate,
     curve,
@@ -203,6 +212,25 @@ export function sessionStats(hours: AlertHour[], sessions: Session[], ceiling: n
     if (recorded.length === 0) return [];
     return [{ session, ...statsFor(recorded, ceiling, floor) }];
   });
+}
+
+/**
+ * The hours falling in the last `days` days, or all of them.
+ *
+ * A rolling window rather than the calendar week: a week gives one Monday, and
+ * a public holiday or a payrolls Friday would set the threshold for the month.
+ * Counted back from the newest day recorded, not from today, so the reading
+ * does not empty itself over a weekend.
+ */
+export function recent(hours: AlertHour[], days: number | null): AlertHour[] {
+  if (days === null || hours.length === 0) return hours;
+
+  const newest = hours.reduce((latest, hour) => (hour.day > latest ? hour.day : latest), hours[0].day);
+  const from = new Date(`${newest}T12:00:00`);
+  from.setDate(from.getDate() - (days - 1));
+  const cutoff = from.toLocaleDateString("en-CA");
+
+  return hours.filter((hour) => hour.day >= cutoff);
 }
 
 /** The days a set of hours covers, newest first. */
