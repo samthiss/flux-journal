@@ -391,6 +391,12 @@ export default function TradeForm({
                   <input
                     key={key}
                     type="text"
+                    // Text rather than a number field: that one rejects the
+                    // comma a price gets typed with, emptying itself on save
+                    // without a word, and its wheel quietly edits a price when
+                    // the page is scrolled over it. The keyboard hint gives a
+                    // phone the numeric pad anyway.
+                    inputMode="decimal"
                     name={key}
                     defaultValue={initial[key]}
                     placeholder={`TP${i + 1}`}
