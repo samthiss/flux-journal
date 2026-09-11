@@ -172,6 +172,24 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
     .join(" ");
   const equityFillPoints = `0,145 ${equityPoints} 600,145`;
 
+  /**
+   * The same curve as data rather than as a string of coordinates.
+   *
+   * The polyline can be drawn from `equityPoints` alone, but nothing can be
+   * asked of it afterwards — which trade a bend belongs to, what the balance
+   * was at that point. Kept beside it so the chart can answer a pointer.
+   */
+  const equitySeries = hasTrades
+    ? trades.map((trade, i) => ({
+        /** Where the point sits across the chart, 0 to 1. */
+        at: i / (trades.length - 1 || 1),
+        cum: cumSeries[i],
+        pnl: trade.pnl,
+        symbol: trade.symbol,
+        date: trade.date instanceof Date ? trade.date.toISOString() : String(trade.date),
+      }))
+    : [];
+
   return {
     hasTrades,
     wins,
@@ -194,6 +212,7 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
     streakType,
     equityPoints,
     equityFillPoints,
+    equitySeries,
   };
 }
 

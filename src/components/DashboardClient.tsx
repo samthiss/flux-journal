@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import { CountUp, PageTitle } from "@/components/NeonText";
@@ -45,6 +45,28 @@ export default function DashboardClient({ trades, initialPeriod }: { trades: Tra
   }, [allTrades, period, filterSymbol, filterSetup, now]);
 
   const stats = useMemo(() => computeDashboardStats(periodTrades), [periodTrades]);
+
+  /** The point the pointer is nearest on the equity curve, by index. */
+  const [hover, setHover] = useState<number | null>(null);
+  const chartBox = useRef<HTMLDivElement>(null);
+
+  /**
+   * That point, with the height the curve reaches there.
+   *
+   * The chart is drawn 150 units tall against a viewBox that leaves 5 units of
+   * air top and bottom, so the same arithmetic as the polyline has to be
+   * repeated here to put a marker on the line rather than beside it.
+   */
+  const hovered = useMemo(() => {
+    if (hover === null) return null;
+    const point = stats.equitySeries[hover];
+    if (!point) return null;
+
+    const values = stats.equitySeries.map((p) => p.cum);
+    const min = Math.min(0, ...values);
+    const range = Math.max(...values) - min || 1;
+    return { ...point, top: 140 - ((point.cum - min) / range) * 130 - 5 };
+  }, [hover, stats.equitySeries]);
   const calendarCells = useMemo(
     () => buildMonthlyCalendar(allTrades, now.getFullYear(), now.getMonth()),
     [allTrades, now]
@@ -234,7 +256,24 @@ export default function DashboardClient({ trades, initialPeriod }: { trades: Tra
               <CountUp value={stats.totalPnl} format={fmtMoney} duration={1100} />
             </div>
           </div>
-          <svg viewBox="0 0 600 150" style={{ width: "100%", height: 150, flex: 1 }} preserveAspectRatio="none">
+          {/* The pointer is read here rather than on the svg: the chart is
+              stretched to the card's width (preserveAspectRatio="none"), so
+              anything drawn in its coordinates comes out squashed sideways —
+              a marker dot would be an ellipse. The overlay is plain HTML in
+              pixels, laid over the drawing. */}
+          <div
+            ref={chartBox}
+            style={{ position: "relative", flex: 1 }}
+            onMouseMove={(e) => {
+              const box = chartBox.current?.getBoundingClientRect();
+              if (!box || stats.equitySeries.length === 0) return;
+              const ratio = Math.min(1, Math.max(0, (e.clientX - box.left) / box.width));
+              const index = Math.round(ratio * (stats.equitySeries.length - 1));
+              setHover(index);
+            }}
+            onMouseLeave={() => setHover(null)}
+          >
+          <svg viewBox="0 0 600 150" style={{ width: "100%", height: 150, display: "block" }} preserveAspectRatio="none">
             <line x1="0" y1="75" x2="600" y2="75" stroke="oklch(0.3 0.034 250)" strokeWidth="1" strokeDasharray="4 4" />
             <polyline
               className="draw-stroke"
@@ -250,6 +289,70 @@ export default function DashboardClient({ trades, initialPeriod }: { trades: Tra
             />
             <polygon className="fade-in" key={stats.equityFillPoints} points={stats.equityFillPoints} fill={accentSoft} />
           </svg>
+
+          {hovered && (
+            <>
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${hovered.at * 100}%`,
+                  top: 0,
+                  bottom: 0,
+                  width: 1,
+                  background: "oklch(0.6 0.03 250)",
+                  pointerEvents: "none",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${hovered.at * 100}%`,
+                  top: hovered.top,
+                  width: 7,
+                  height: 7,
+                  marginLeft: -3.5,
+                  marginTop: -3.5,
+                  borderRadius: "50%",
+                  background: accentColor,
+                  boxShadow: `0 0 8px ${accentColor}`,
+                  pointerEvents: "none",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  // Flips to the other side near the right edge, where a
+                  // tooltip would otherwise hang outside the card.
+                  left: hovered.at > 0.7 ? undefined : `calc(${hovered.at * 100}% + 10px)`,
+                  right: hovered.at > 0.7 ? `calc(${(1 - hovered.at) * 100}% + 10px)` : undefined,
+                  top: 6,
+                  padding: "6px 9px",
+                  borderRadius: 6,
+                  border: "1px solid oklch(0.34 0.034 250)",
+                  background: "oklch(0.18 0.02 250)",
+                  boxShadow: "0 8px 22px -8px oklch(0 0 0 / 0.6)",
+                  fontFamily: "var(--font-jetbrains-mono), monospace",
+                  fontSize: 11,
+                  whiteSpace: "nowrap",
+                  pointerEvents: "none",
+                  zIndex: 2,
+                }}
+              >
+                <div style={{ color: "oklch(0.6 0.03 250)", fontSize: 10 }}>
+                  {new Date(hovered.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "2-digit" })}
+                  {" · "}
+                  {hovered.symbol}
+                </div>
+                <div style={{ color: hovered.cum >= 0 ? winColor : lossColor, fontSize: 13, fontWeight: 600, marginTop: 2 }}>
+                  {fmtMoney(hovered.cum)}
+                </div>
+                <div style={{ color: hovered.pnl >= 0 ? winColor : lossColor, fontSize: 10, opacity: 0.85 }}>
+                  {fmtMoney(hovered.pnl)} sur ce trade
+                </div>
+              </div>
+            </>
+          )}
+          </div>
         </div>
       </div>
 
