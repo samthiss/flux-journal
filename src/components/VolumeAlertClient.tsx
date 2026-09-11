@@ -29,10 +29,19 @@ const field = {
   colorScheme: "dark" as const,
 };
 
-/** "243 187, 156" — typed however it comes out of the chart. */
+/**
+ * "243 187, 156" — typed however it comes out of the chart.
+ *
+ * Any separator: a comma, a space, a line break. The one thing that has to be
+ * read before splitting is the chart's own thousands separator — it writes
+ * 1.036 for a box of 1036, and split naively that becomes a 1 and a 36. A dot
+ * followed by exactly three digits is therefore joined back up first, which a
+ * comma cannot be: "200,150" is far more likely to be two boxes than one.
+ */
 function parseValues(raw: string): number[] {
   return raw
-    .split(/[^\d.]+/)
+    .replace(/(\d)\.(\d{3})(?!\d)/g, "$1$2")
+    .split(/[^\d]+/)
     .map((piece) => Number(piece))
     .filter((n) => Number.isFinite(n) && n > 0);
 }
@@ -160,10 +169,25 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           </button>
         </div>
 
+        {/* What was understood, before it is written down. A mistyped separator
+            shows up here as a 1 and a 36 rather than in next week's reading. */}
         <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginTop: 8 }}>
-          {values.length
-            ? `${values.length} alerte${values.length > 1 ? "s" : ""} · ${values.join(" · ")}`
-            : "Le seuil est celui qui était réglé à ce moment-là : il dit jusqu'où cette heure peut être relue."}
+          {values.length ? (
+            <>
+              {values.length} alerte{values.length > 1 ? "s" : ""} ·{" "}
+              {values.map((value, i) => (
+                <span key={i} style={value < threshold ? { color: lossColor } : undefined}>
+                  {i > 0 && " · "}
+                  {value}
+                </span>
+              ))}
+              {values.some((v) => v < threshold) && (
+                <span style={{ color: lossColor }}> — en rouge, sous le seuil : l&apos;alerte n&apos;a pas pu les tirer</span>
+              )}
+            </>
+          ) : (
+            "Le seuil est celui qui était réglé à ce moment-là : il dit jusqu'où cette heure peut être relue."
+          )}
         </div>
       </div>
 
