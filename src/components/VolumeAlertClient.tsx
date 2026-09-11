@@ -137,6 +137,10 @@ function saveSessions(sessions: Session[]) {
  * is only high against a ceiling. This is the one line to act on, so it names
  * the direction, the number, and what that number would have given.
  */
+/** What a line was measured on, kept out of the row and left on hover. */
+const sampleOf = (stat: Stat) =>
+  `Mesuré sur ${stat.days} jour${stat.days > 1 ? "s" : ""}, ${stat.sessions} heure${stat.sessions > 1 ? "s" : ""} enregistrée${stat.sessions > 1 ? "s" : ""}`;
+
 /**
  * Days a stretch needs before its rate is a cadence rather than a mood.
  *
@@ -451,6 +455,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           return (
             <div
               key={sessionLabel(stat.session)}
+              title={sampleOf(stat)}
               style={{
                 display: "flex",
                 alignItems: "baseline",
@@ -462,9 +467,6 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             >
               <span style={{ ...mono, fontSize: 13, color: "oklch(0.88 0.02 250)", width: 76, flex: "none" }}>
                 {sessionLabel(stat.session)}
-              </span>
-              <span style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.02 250)", width: 128, flex: "none" }}>
-                {stat.days} jour{stat.days > 1 ? "s" : ""} · {stat.sessions} heure{stat.sessions > 1 ? "s" : ""}
               </span>
               <span style={{ ...mono, fontSize: 12, flex: "none", color: "oklch(0.75 0.02 250)" }}>
                 {stat.threshold} → {stat.rate.toFixed(1)}/h
@@ -507,9 +509,6 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           >
             <span style={{ ...mono, fontSize: 12, color: "oklch(0.85 0.02 250)", width: 62, flex: "none" }}>
               {bandLabel(band.hour)}
-            </span>
-            <span style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.02 250)", width: 128, flex: "none" }}>
-              {band.days} jour{band.days > 1 ? "s" : ""} · {band.sessions} heure{band.sessions > 1 ? "s" : ""}
             </span>
             <span
               style={{
