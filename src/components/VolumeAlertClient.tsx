@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { DEFAULT_MARKETS, loadMarkets } from "@/lib/markets";
-import { bandLabel, bandStats, byDay, countAt, type AlertHour } from "@/lib/volumeAlerts";
+import {
+  bandLabel,
+  bandStats,
+  byDay,
+  countAt,
+  sessionLabel,
+  sessionStats,
+  type AlertHour,
+  type Session,
+  type Stat,
+} from "@/lib/volumeAlerts";
 import { deleteAlertHour, saveAlertHour } from "@/lib/actions/volumeAlerts";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
@@ -46,7 +56,70 @@ function parseValues(raw: string): number[] {
     .filter((n) => Number.isFinite(n) && n > 0);
 }
 
+const clampHour = (raw: string) => Math.min(23, Math.max(0, Math.round(Number(raw) || 0)));
+
 const today = () => new Date().toLocaleDateString("en-CA");
+
+const DEFAULT_SESSIONS: Session[] = [
+  { start: 2, end: 7 },
+  { start: 7, end: 0 },
+];
+
+const SESSIONS_KEY = "volumeAlertSessions";
+
+function loadSessions(): Session[] {
+  try {
+    const raw = window.localStorage.getItem(SESSIONS_KEY);
+    if (!raw) return DEFAULT_SESSIONS;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_SESSIONS;
+    return parsed.filter(
+      (s): s is Session =>
+        Number.isInteger(s?.start) && Number.isInteger(s?.end) && s.start >= 0 && s.start < 24 && s.end >= 0 && s.end < 24,
+    );
+  } catch {
+    return DEFAULT_SESSIONS;
+  }
+}
+
+function saveSessions(sessions: Session[]) {
+  try {
+    window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+/**
+ * What to do about a stretch, in words.
+ *
+ * The figures above it are exact and say nothing on their own: a rate of 4.2
+ * is only high against a ceiling. This is the one line to act on, so it names
+ * the direction, the number, and what that number would have given.
+ */
+function advice(stat: Stat, ceiling: number, floor: number): { text: string; tone: string } {
+  if (stat.rate < floor) {
+    return {
+      tone: "oklch(0.8 0.14 85)",
+      text:
+        stat.lowerTo === null
+          ? `trop peu d'alertes — descends le seuil, pas de quoi estimer de combien`
+          : `trop peu d'alertes — descends vers ${stat.lowerTo} (estimé, jamais observé si bas)`,
+    };
+  }
+
+  if (stat.rate > ceiling) {
+    return {
+      tone: accentColor,
+      text:
+        stat.recommended === null
+          ? "trop d'alertes — aucun seuil relu ne tient le plafond"
+          : `trop d'alertes en moyenne — monte à ${stat.recommended}, ça donnerait ${stat.recommendedRate?.toFixed(1)}/h`,
+    };
+  }
+
+  return { tone: "oklch(0.62 0.03 250)", text: `dans la fourchette — garde ${stat.threshold}` };
+}
 
 const dayLabel = (day: string) =>
   new Date(`${day}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
@@ -78,14 +151,26 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
    */
   const [floor, setFloor] = useState(0);
 
+  /**
+   * The stretches the alert is actually set for.
+   *
+   * Before the cash open and after it are two different markets: the same
+   * threshold that sits right at 3h floods the afternoon. Kept per browser, the
+   * way the market list is — it is a habit, not data.
+   */
+  const [sessions, setSessions] = useState<Session[]>(DEFAULT_SESSIONS);
+  const [editingSessions, setEditingSessions] = useState(false);
+
   useEffect(() => {
     const stored = loadMarkets();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read after mount, as the market list lives in the browser
     setMarkets(stored);
+    setSessions(loadSessions());
   }, []);
 
   const mine = useMemo(() => hours.filter((h) => h.market === market), [hours, market]);
   const stats = useMemo(() => bandStats(mine, ceiling, floor), [mine, ceiling, floor]);
+  const bySession = useMemo(() => sessionStats(mine, sessions, ceiling, floor), [mine, sessions, ceiling, floor]);
   const days = useMemo(() => byDay(mine), [mine]);
 
   const values = parseValues(raw);
@@ -199,25 +284,131 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
 
       <div style={{ ...glassCard }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Réglage recommandé</div>
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>au plus</div>
-          <input
-            type="number"
-            value={ceiling}
-            onChange={(e) => setCeiling(Math.max(1, Number(e.target.value)))}
-            style={{ ...field, width: 56, padding: "3px 7px", fontSize: 11.5 }}
-          />
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>alertes par heure</div>
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>· au moins</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Par session</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>de</div>
           <input
             type="number"
             value={floor}
             onChange={(e) => setFloor(Math.max(0, Number(e.target.value)))}
-            style={{ ...field, width: 56, padding: "3px 7px", fontSize: 11.5 }}
+            style={{ ...field, width: 52, padding: "3px 7px", fontSize: 11.5 }}
           />
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>
-            {floor > 0 ? "— sinon le seuil est trop haut" : "— désactivé"}
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>à</div>
+          <input
+            type="number"
+            value={ceiling}
+            onChange={(e) => setCeiling(Math.max(1, Number(e.target.value)))}
+            style={{ ...field, width: 52, padding: "3px 7px", fontSize: 11.5 }}
+          />
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>alertes par heure</div>
+          <button
+            onClick={() => setEditingSessions((v) => !v)}
+            style={{
+              ...mono,
+              fontSize: 10,
+              padding: "2px 8px",
+              borderRadius: 999,
+              cursor: "pointer",
+              border: `1px solid ${editingSessions ? accentColor : "oklch(0.32 0.02 250)"}`,
+              background: "transparent",
+              color: editingSessions ? accentColor : "oklch(0.55 0.02 250)",
+            }}
+          >
+            {editingSessions ? "terminé" : "modifier les plages"}
+          </button>
+          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginLeft: "auto" }}>
+            le réglage se fait par plage, pas heure par heure
           </div>
+        </div>
+
+        {editingSessions && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            {sessions.map((session, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <input
+                  type="number"
+                  value={session.start}
+                  onChange={(e) => {
+                    const next = sessions.map((s, j) => (j === i ? { ...s, start: clampHour(e.target.value) } : s));
+                    setSessions(next);
+                    saveSessions(next);
+                  }}
+                  style={{ ...field, width: 52, padding: "3px 6px", fontSize: 11 }}
+                />
+                <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.02 250)" }}>h →</span>
+                <input
+                  type="number"
+                  value={session.end}
+                  onChange={(e) => {
+                    const next = sessions.map((s, j) => (j === i ? { ...s, end: clampHour(e.target.value) } : s));
+                    setSessions(next);
+                    saveSessions(next);
+                  }}
+                  style={{ ...field, width: 52, padding: "3px 6px", fontSize: 11 }}
+                />
+                <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.02 250)" }}>h</span>
+                <button
+                  onClick={() => {
+                    const next = sessions.filter((_, j) => j !== i);
+                    setSessions(next);
+                    saveSessions(next);
+                  }}
+                  style={{ ...mono, fontSize: 11, background: "none", border: "none", color: lossColor, cursor: "pointer" }}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+            <button
+              onClick={() => {
+                const next = [...sessions, { start: 14, end: 22 }];
+                setSessions(next);
+                saveSessions(next);
+              }}
+              style={{ ...mono, fontSize: 11, background: "none", border: "1px dashed oklch(0.34 0.02 250)", borderRadius: 4, padding: "3px 10px", color: "oklch(0.6 0.02 250)", cursor: "pointer" }}
+            >
+              + plage
+            </button>
+          </div>
+        )}
+
+        {bySession.length === 0 && (
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+            Aucune heure enregistrée ne tombe dans ces plages.
+          </div>
+        )}
+
+        {bySession.map((stat) => {
+          const said = advice(stat, ceiling, floor);
+          return (
+            <div
+              key={sessionLabel(stat.session)}
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 12,
+                padding: "10px 0",
+                borderTop: "1px solid oklch(0.28 0.03 250 / 0.5)",
+                flexWrap: "wrap",
+              }}
+            >
+              <span style={{ ...mono, fontSize: 13, color: "oklch(0.88 0.02 250)", width: 76, flex: "none" }}>
+                {sessionLabel(stat.session)}
+              </span>
+              <span style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.02 250)", width: 92, flex: "none" }}>
+                {stat.sessions} heure{stat.sessions > 1 ? "s" : ""}
+              </span>
+              <span style={{ ...mono, fontSize: 12, flex: "none", color: "oklch(0.75 0.02 250)" }}>
+                {stat.threshold} → {stat.rate.toFixed(1)}/h
+              </span>
+              <span style={{ ...mono, fontSize: 12, flex: 1, minWidth: 240, color: said.tone }}>{said.text}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ ...glassCard }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Heure par heure</div>
         </div>
 
         {stats.length === 0 && (
@@ -254,22 +445,8 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             >
               {band.threshold} → {band.rate.toFixed(1)}/h
             </span>
-            <span style={{ ...mono, fontSize: 11.5, flex: 1, minWidth: 200, color: accentColor }}>
-              {band.rate < floor ? (
-                // Below the floor the page is reading past its own data, and
-                // says so: nothing under the threshold was ever written down.
-                <span style={{ color: "oklch(0.8 0.14 85)" }}>
-                  {band.lowerTo === null
-                    ? "trop peu d'alertes — descends le seuil, pas de quoi estimer de combien"
-                    : `trop peu — descends vers ${band.lowerTo} (estimé, jamais observé si bas)`}
-                </span>
-              ) : band.recommended === null ? (
-                "aucun seuil relu ne tient ce plafond"
-              ) : band.recommended <= band.threshold ? (
-                `déjà sous le plafond, garde ${band.threshold}`
-              ) : (
-                `passe à ${band.recommended} → ${band.recommendedRate?.toFixed(1)}/h`
-              )}
+            <span style={{ ...mono, fontSize: 11.5, flex: 1, minWidth: 200, color: advice(band, ceiling, floor).tone }}>
+              {advice(band, ceiling, floor).text}
             </span>
             <span style={{ ...mono, fontSize: 10, color: "oklch(0.45 0.02 250)", flex: "none" }}>
               {band.curve

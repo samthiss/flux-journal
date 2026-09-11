@@ -33,9 +33,7 @@ export const countAt = (hour: AlertHour, threshold: number) =>
  */
 export const canAnswer = (hour: AlertHour, threshold: number) => threshold >= hour.threshold;
 
-export type BandStat = {
-  /** The hour the band opens. */
-  hour: number;
+export type Stat = {
   /** Hours recorded in this band. */
   sessions: number;
   /** The threshold most of them were watched at. */
@@ -58,6 +56,30 @@ export type BandStat = {
    */
   lowerTo: number | null;
 };
+
+export type BandStat = Stat & {
+  /** The hour the band opens. */
+  hour: number;
+};
+
+/**
+ * A stretch of the day the alert is set for as a whole.
+ *
+ * Before the cash open and after it are not the same market — the same
+ * threshold that sits right at 3h floods 15h — so a setting is chosen per
+ * session, and the hours are only the detail underneath.
+ *
+ * `end` is exclusive and may wrap past midnight: 7 to 0 is the whole afternoon
+ * and evening.
+ */
+export type Session = { start: number; end: number };
+
+export type SessionStat = Stat & { session: Session };
+
+export const inSession = (hour: number, { start, end }: Session) =>
+  end > start ? hour >= start && hour < end : hour >= start || hour < end;
+
+export const sessionLabel = ({ start, end }: Session) => `${start}h-${end}h`;
 
 const STEP = 10;
 
@@ -123,38 +145,64 @@ function lowerToward(hours: AlertHour[], floor: number): number | null {
   return rounded;
 }
 
+function statsFor(recorded: AlertHour[], ceiling: number, floor: number): Stat {
+  const threshold = commonest(recorded.map((h) => h.threshold));
+  // The lowest threshold ever watched here: the curve cannot start below it.
+  const lowest = Math.min(...recorded.map((h) => h.threshold));
+  const top = Math.max(lowest, ...recorded.flatMap((h) => h.values));
+
+  const curve: { threshold: number; rate: number }[] = [];
+  for (let t = Math.ceil(lowest / STEP) * STEP; t <= top + STEP; t += STEP) {
+    const rate = rateAt(recorded, t);
+    if (rate !== null) curve.push({ threshold: t, rate });
+  }
+
+  const held = curve.find((point) => point.rate <= ceiling) ?? null;
+  const rate = rateAt(recorded, threshold) ?? 0;
+
+  return {
+    sessions: recorded.length,
+    threshold,
+    rate,
+    curve,
+    recommended: held?.threshold ?? null,
+    recommendedRate: held?.rate ?? null,
+    lowerTo: floor > 0 && rate < floor ? lowerToward(recorded, floor) : null,
+  };
+}
+
+/**
+ * Each hour band of the day, as the recorded hours describe it.
+ *
+ * `ceiling` is the most alerts an hour may show. `floor` is the fewest before
+ * the setting is called too high — left at zero by default, because a single
+ * dead session is an answer, not a fault: a threshold pushed down until it
+ * produces an alert manufactures noise. What justifies a floor is a band that
+ * stays quiet over many hours, which is a mis-set alert rather than a market.
+ */
 export function bandStats(hours: AlertHour[], ceiling: number, floor = 0): BandStat[] {
   const bands = new Map<number, AlertHour[]>();
   for (const hour of hours) (bands.get(hour.hour) ?? bands.set(hour.hour, []).get(hour.hour)!).push(hour);
 
   return [...bands.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([hour, recorded]) => {
-      const threshold = commonest(recorded.map((h) => h.threshold));
-      // The lowest threshold ever watched here: the curve cannot start below it.
-      const lowest = Math.min(...recorded.map((h) => h.threshold));
-      const top = Math.max(lowest, ...recorded.flatMap((h) => h.values));
+    .map(([hour, recorded]) => ({ hour, ...statsFor(recorded, ceiling, floor) }));
+}
 
-      const curve: { threshold: number; rate: number }[] = [];
-      for (let t = Math.ceil(lowest / STEP) * STEP; t <= top + STEP; t += STEP) {
-        const rate = rateAt(recorded, t);
-        if (rate !== null) curve.push({ threshold: t, rate });
-      }
-
-      const held = curve.find((point) => point.rate <= ceiling) ?? null;
-      const rate = rateAt(recorded, threshold) ?? 0;
-
-      return {
-        hour,
-        sessions: recorded.length,
-        threshold,
-        rate,
-        curve,
-        recommended: held?.threshold ?? null,
-        recommendedRate: held?.rate ?? null,
-        lowerTo: floor > 0 && rate < floor ? lowerToward(recorded, floor) : null,
-      };
-    });
+/**
+ * The same reading, one stretch of the day at a time.
+ *
+ * This is the figure to act on: the alert is set once for a session, not hour
+ * by hour, and a session pools enough hours to say something after a few days
+ * where a single band is still an anecdote. The hours remain underneath, for
+ * when one of them turns out to carry the whole session.
+ */
+export function sessionStats(hours: AlertHour[], sessions: Session[], ceiling: number, floor = 0): SessionStat[] {
+  return sessions.flatMap((session) => {
+    const recorded = hours.filter((hour) => inSession(hour.hour, session));
+    if (recorded.length === 0) return [];
+    return [{ session, ...statsFor(recorded, ceiling, floor) }];
+  });
 }
 
 /** The days a set of hours covers, newest first. */
