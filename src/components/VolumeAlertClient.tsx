@@ -57,7 +57,46 @@ function parseValues(raw: string): number[] {
     .filter((n) => Number.isFinite(n) && n > 0);
 }
 
-const clampHour = (raw: string) => Math.min(23, Math.max(0, Math.round(Number(raw) || 0)));
+/**
+ * A number field that can be emptied on the way to another number.
+ *
+ * Parsing on every keystroke and writing the result straight back means an
+ * empty field reads as zero and is refilled with "0" under the cursor, so the
+ * only way to change 150 into 200 is to select it first. The text typed is
+ * held here instead, and only committed when it parses — an empty field
+ * commits nothing and keeps the last value, then tidies itself on blur.
+ */
+function NumberField({
+  value,
+  onChange,
+  min,
+  max,
+  width,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+  width: number | string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  return (
+    <input
+      type="number"
+      value={draft}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setDraft(raw);
+        if (raw === "") return;
+        const parsed = Number(raw);
+        if (Number.isFinite(parsed)) onChange(Math.min(max, Math.max(min, Math.round(parsed))));
+      }}
+      onBlur={() => setDraft(String(value))}
+      style={{ ...field, width, padding: "3px 7px", fontSize: 11.5 }}
+    />
+  );
+}
 
 const today = () => new Date().toLocaleDateString("en-CA");
 
@@ -248,12 +287,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           </div>
           <div>
             <div style={label}>Seuil</div>
-            <input
-              type="number"
-              value={threshold}
-              onChange={(e) => setThreshold(Number(e.target.value))}
-              style={field}
-            />
+            <NumberField value={threshold} onChange={setThreshold} min={1} max={99999} width="100%" />
           </div>
           <div>
             <div style={label}>Valeurs des box</div>
@@ -309,19 +343,9 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Par session</div>
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>de</div>
-          <input
-            type="number"
-            value={floor}
-            onChange={(e) => setFloor(Math.max(0, Number(e.target.value)))}
-            style={{ ...field, width: 52, padding: "3px 7px", fontSize: 11.5 }}
-          />
+          <NumberField value={floor} onChange={setFloor} min={0} max={99} width={52} />
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>à</div>
-          <input
-            type="number"
-            value={ceiling}
-            onChange={(e) => setCeiling(Math.max(1, Number(e.target.value)))}
-            style={{ ...field, width: 52, padding: "3px 7px", fontSize: 11.5 }}
-          />
+          <NumberField value={ceiling} onChange={setCeiling} min={1} max={99} width={52} />
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>alertes par heure</div>
           <button
             onClick={() => setEditingSessions((v) => !v)}
@@ -367,26 +391,28 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
             {sessions.map((session, i) => (
               <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <input
-                  type="number"
+                <NumberField
                   value={session.start}
-                  onChange={(e) => {
-                    const next = sessions.map((s, j) => (j === i ? { ...s, start: clampHour(e.target.value) } : s));
+                  onChange={(start) => {
+                    const next = sessions.map((s, j) => (j === i ? { ...s, start } : s));
                     setSessions(next);
                     saveSessions(next);
                   }}
-                  style={{ ...field, width: 52, padding: "3px 6px", fontSize: 11 }}
+                  min={0}
+                  max={23}
+                  width={52}
                 />
                 <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.02 250)" }}>h →</span>
-                <input
-                  type="number"
+                <NumberField
                   value={session.end}
-                  onChange={(e) => {
-                    const next = sessions.map((s, j) => (j === i ? { ...s, end: clampHour(e.target.value) } : s));
+                  onChange={(end) => {
+                    const next = sessions.map((s, j) => (j === i ? { ...s, end } : s));
                     setSessions(next);
                     saveSessions(next);
                   }}
-                  style={{ ...field, width: 52, padding: "3px 6px", fontSize: 11 }}
+                  min={0}
+                  max={23}
+                  width={52}
                 />
                 <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.02 250)" }}>h</span>
                 <button
