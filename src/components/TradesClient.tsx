@@ -134,43 +134,49 @@ export default function TradesClient({ trades, initialPeriod }: { trades: Trade[
           <option value="3">TP3</option>
           <option value="none">No TP</option>
         </select>
-        {/* Each of these appears only once something has been tagged with it:
-            three empty dropdowns on a journal that never used them would be
-            three filters that can only return everything. */}
-        {typeOptions.length > 0 && (
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={selectStyle}>
-            <option value="all">All types</option>
-            {typeOptions.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        )}
-        {zoneOptions.length > 0 && (
-          <select value={filterZone} onChange={(e) => setFilterZone(e.target.value)} style={selectStyle}>
-            <option value="all">All zones</option>
-            {zoneOptions.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        )}
-        {confirmationOptions.length > 0 && (
-          <select
-            value={filterConfirmation}
-            onChange={(e) => setFilterConfirmation(e.target.value)}
-            style={selectStyle}
-          >
-            <option value="all">All confirmations</option>
-            {confirmationOptions.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        )}
+        {/* Always drawn, even before anything is tagged. They were hidden
+            until a word existed, which made a filter nobody could discover:
+            a dropdown holding only "All types" at least says the question can
+            be asked, and dims itself to say not yet. */}
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          disabled={typeOptions.length === 0}
+          style={{ ...selectStyle, opacity: typeOptions.length === 0 ? 0.45 : 1 }}
+        >
+          <option value="all">All types</option>
+          {typeOptions.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filterZone}
+          onChange={(e) => setFilterZone(e.target.value)}
+          disabled={zoneOptions.length === 0}
+          style={{ ...selectStyle, opacity: zoneOptions.length === 0 ? 0.45 : 1 }}
+        >
+          <option value="all">All zones</option>
+          {zoneOptions.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filterConfirmation}
+          onChange={(e) => setFilterConfirmation(e.target.value)}
+          disabled={confirmationOptions.length === 0}
+          style={{ ...selectStyle, opacity: confirmationOptions.length === 0 ? 0.45 : 1 }}
+        >
+          <option value="all">All confirmations</option>
+          {confirmationOptions.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
         <PeriodFilter period={period} onChange={choosePeriod} />
         {/* A two-state preference reads better as a switch than as a list of
             two sentences that both start with the same word. */}
