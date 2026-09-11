@@ -6,6 +6,7 @@ import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } fro
 import { PageTitle } from "@/components/NeonText";
 import PeriodFilter from "@/components/PeriodFilter";
 import { filterByPeriod, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
+import { parseTagArray } from "@/lib/tags";
 
 const selectStyle: React.CSSProperties = {
   background: "oklch(0.18 0.034 250)",
@@ -23,6 +24,10 @@ export default function TradesClient({ trades, initialPeriod }: { trades: Trade[
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
+  const [filterTp, setFilterTp] = useState("all");
+  const [filterType, setFilterType] = useState("all");
+  const [filterZone, setFilterZone] = useState("all");
+  const [filterConfirmation, setFilterConfirmation] = useState("all");
   const [openInNewTab, setOpenInNewTab] = useState(false);
 
   // The same period as the dashboard and the report, through the same cookie:
@@ -49,14 +54,41 @@ export default function TradesClient({ trades, initialPeriod }: { trades: Trade[
 
   const symbolOptions = useMemo(() => [...new Set(trades.map((t) => t.symbol))], [trades]);
   const setupOptions = useMemo(() => [...new Set(trades.map((t) => t.setup))], [trades]);
+
+  // Only the words actually written on a trade: offering a whole vocabulary
+  // here would be offering filters that return nothing.
+  const typeOptions = useMemo(
+    () => [...new Set(trades.flatMap((t) => parseTagArray(t.tradeTypes)))].sort(),
+    [trades],
+  );
+  const zoneOptions = useMemo(
+    () => [...new Set(trades.map((t) => t.zone).filter((z): z is string => Boolean(z)))].sort(),
+    [trades],
+  );
+  const confirmationOptions = useMemo(
+    () => [...new Set(trades.flatMap((t) => parseTagArray(t.confirmations)))].sort(),
+    [trades],
+  );
   const filteredTrades = useMemo(() => {
     return filterByPeriod(withOutcome(trades), period, now)
       .filter((t) => filterSymbol === "all" || t.symbol === filterSymbol)
       .filter((t) => filterOutcome === "all" || (t.pnl > 0 ? "win" : "loss") === filterOutcome)
       .filter((t) => filterSetup === "all" || t.setup === filterSetup)
+      // "TP2" means the market went at least that far, which is the question
+      // worth asking of a setup — not how many stopped exactly there.
+      .filter((t) =>
+        filterTp === "all"
+          ? true
+          : filterTp === "none"
+            ? t.tpReached == null
+            : (t.tpReached ?? 0) >= Number(filterTp),
+      )
+      .filter((t) => filterType === "all" || parseTagArray(t.tradeTypes).includes(filterType))
+      .filter((t) => filterZone === "all" || t.zone === filterZone)
+      .filter((t) => filterConfirmation === "all" || parseTagArray(t.confirmations).includes(filterConfirmation))
       .slice()
       .reverse();
-  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup]);
+  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterTp, filterType, filterZone, filterConfirmation]);
 
   return (
     <div>
@@ -95,6 +127,50 @@ export default function TradesClient({ trades, initialPeriod }: { trades: Trade[
             </option>
           ))}
         </select>
+        <select value={filterTp} onChange={(e) => setFilterTp(e.target.value)} style={selectStyle}>
+          <option value="all">All TP</option>
+          <option value="1">TP1+</option>
+          <option value="2">TP2+</option>
+          <option value="3">TP3</option>
+          <option value="none">No TP</option>
+        </select>
+        {/* Each of these appears only once something has been tagged with it:
+            three empty dropdowns on a journal that never used them would be
+            three filters that can only return everything. */}
+        {typeOptions.length > 0 && (
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={selectStyle}>
+            <option value="all">All types</option>
+            {typeOptions.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        )}
+        {zoneOptions.length > 0 && (
+          <select value={filterZone} onChange={(e) => setFilterZone(e.target.value)} style={selectStyle}>
+            <option value="all">All zones</option>
+            {zoneOptions.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        )}
+        {confirmationOptions.length > 0 && (
+          <select
+            value={filterConfirmation}
+            onChange={(e) => setFilterConfirmation(e.target.value)}
+            style={selectStyle}
+          >
+            <option value="all">All confirmations</option>
+            {confirmationOptions.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        )}
         <PeriodFilter period={period} onChange={choosePeriod} />
         {/* A two-state preference reads better as a switch than as a list of
             two sentences that both start with the same word. */}

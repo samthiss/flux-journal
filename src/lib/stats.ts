@@ -36,6 +36,12 @@ export type TradeForStats = {
   setup: string;
   market: string | null;
   rr: number | null;
+  /** How far the market went: 1, 2, 3, or null. */
+  tpReached: number | null;
+  /** The three vocabularies, as stored — JSON arrays, and one word for a zone. */
+  tradeTypes: string | null;
+  zone: string | null;
+  confirmations: string | null;
 };
 
 /**
@@ -61,6 +67,11 @@ export const TRADE_FOR_STATS_SELECT = {
   setup: true,
   market: true,
   rr: true,
+  // What the trade reached and what it was, which the trades list filters on.
+  tpReached: true,
+  tradeTypes: true,
+  zone: true,
+  confirmations: true,
 } as const;
 
 export type TradeWithOutcome = TradeForStats & { outcome: "win" | "loss" };
