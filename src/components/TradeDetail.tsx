@@ -35,9 +35,19 @@ export default async function TradeDetail({ id }: { id: string }) {
   ];
 
 
-  // Type, zone and confirmation read as one row of chips: they were picked from
-  // one vocabulary, and which list a word came from is not what is being read.
-  const tags = [...parseTagArray(trade.tradeTypes), ...(trade.zone ? [trade.zone] : []), ...parseTagArray(trade.confirmations)];
+  /**
+   * The three vocabularies, each on its own line.
+   *
+   * They were one row of chips, which read as a bag of words: "Trend" and
+   * "Stunden Cluster" side by side say nothing about which is the setup and
+   * which is the place it was taken. Named, each answers its own question, and
+   * a missing one is visibly missing.
+   */
+  const tagRows = [
+    { label: "Type", values: parseTagArray(trade.tradeTypes) },
+    { label: "Zone", values: trade.zone ? [trade.zone] : [] },
+    { label: "Confirmation", values: parseTagArray(trade.confirmations) },
+  ].filter((row) => row.values.length > 0);
 
   const chartValues: Record<string, string | null> = {
     cluster: trade.chartCluster,
@@ -207,11 +217,14 @@ export default async function TradeDetail({ id }: { id: string }) {
               </div>
             )}
 
-            {tags.length > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, gap: 12, alignItems: "flex-start" }}>
-                <span style={{ color: "oklch(0.6 0.034 250)", flex: "none" }}>Tags</span>
+            {tagRows.map((row) => (
+              <div
+                key={row.label}
+                style={{ display: "flex", justifyContent: "space-between", fontSize: 14, gap: 12, alignItems: "flex-start" }}
+              >
+                <span style={{ color: "oklch(0.6 0.034 250)", flex: "none" }}>{row.label}</span>
                 <span style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
-                  {tags.map((tag) => {
+                  {row.values.map((tag) => {
                     const tone = tagTone(tag);
                     return (
                       <span
@@ -232,7 +245,7 @@ export default async function TradeDetail({ id }: { id: string }) {
                   })}
                 </span>
               </div>
-            )}
+            ))}
           </div>
         </div>
         <div style={glassCard}>

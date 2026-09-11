@@ -402,47 +402,63 @@ export default function TradeForm({
             </div>
 
             <div style={{ gridColumn: "span 2" }}>
-              {/* The same three dropdowns the trade ideas are written with, on
-                  the same words: what was planned this morning and what was
-                  taken this afternoon have to be describable in one vocabulary
-                  or they cannot be compared at all. */}
-              {fieldLabel("Type, zone et confirmation")}
+              {/* Three fields of the form rather than a loose row of pills
+                  under one heading: one per line, at the size of every other
+                  field, each named like Setup and Size — so a filled one reads
+                  as an answer to a question and an empty one says which
+                  question it is.
+
+                  The words are the trade ideas' own, on purpose — what was
+                  planned this morning and what was taken this afternoon have to
+                  be describable in one vocabulary or they cannot be compared. */}
               <input type="hidden" name="tradeTypes" value={JSON.stringify(types)} />
               <input type="hidden" name="zone" value={zone ?? ""} />
               <input type="hidden" name="confirmations" value={JSON.stringify(confirmations)} />
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                <ChipDropdown
-                  placeholder="Type"
-                  options={offer(vocabulary.tradeTypes, types)}
-                  selected={types}
-                  multiple
-                  visible
-                  onToggle={(value) =>
-                    setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
-                  }
-                  onAdd={(value) => setTypes((prev) => (prev.includes(value) ? prev : [...prev, value]))}
-                />
-                <ChipDropdown
-                  placeholder="Zone"
-                  options={offer(vocabulary.zones, zone ? [zone] : [])}
-                  selected={zone ? [zone] : []}
-                  visible
-                  onToggle={(value) => setZone((prev) => (prev === value ? null : value))}
-                  onAdd={(value) => setZone(value)}
-                />
-                <ChipDropdown
-                  placeholder="Confirmation"
-                  options={offer(vocabulary.confirmations, confirmations)}
-                  selected={confirmations}
-                  multiple
-                  visible
-                  onToggle={(value) =>
-                    setConfirmations((prev) =>
-                      prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value],
-                    )
-                  }
-                  onAdd={(value) => setConfirmations((prev) => (prev.includes(value) ? prev : [...prev, value]))}
-                />
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  {fieldLabel("Type")}
+                  <ChipDropdown
+                    block
+                    placeholder="Aucun"
+                    options={offer(vocabulary.tradeTypes, types)}
+                    selected={types}
+                    multiple
+                    visible
+                    onToggle={(value) =>
+                      setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
+                    }
+                    onAdd={(value) => setTypes((prev) => (prev.includes(value) ? prev : [...prev, value]))}
+                  />
+                </div>
+                <div>
+                  {fieldLabel("Zone")}
+                  <ChipDropdown
+                    block
+                    placeholder="Aucune"
+                    options={offer(vocabulary.zones, zone ? [zone] : [])}
+                    selected={zone ? [zone] : []}
+                    visible
+                    onToggle={(value) => setZone((prev) => (prev === value ? null : value))}
+                    onAdd={(value) => setZone(value)}
+                  />
+                </div>
+                <div>
+                  {fieldLabel("Confirmation")}
+                  <ChipDropdown
+                    block
+                    placeholder="Aucune"
+                    options={offer(vocabulary.confirmations, confirmations)}
+                    selected={confirmations}
+                    multiple
+                    visible
+                    onToggle={(value) =>
+                      setConfirmations((prev) =>
+                        prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value],
+                      )
+                    }
+                    onAdd={(value) => setConfirmations((prev) => (prev.includes(value) ? prev : [...prev, value]))}
+                  />
+                </div>
               </div>
             </div>
 

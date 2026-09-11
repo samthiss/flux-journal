@@ -16,6 +16,7 @@ export default function ChipDropdown({
   selected,
   multiple,
   visible,
+  block,
   onToggle,
   onAdd,
   onRemoveOption,
@@ -26,6 +27,14 @@ export default function ChipDropdown({
   selected: string[];
   multiple?: boolean;
   visible: boolean;
+  /**
+   * Drawn as a form field rather than as a chip.
+   *
+   * On a note, this sits inline among running text and a pill is the right
+   * size for it. On the trade form it is one field among Setup and Size, and a
+   * pill beside those reads as decoration rather than as something to fill in.
+   */
+  block?: boolean;
   onToggle: (value: string) => void;
   /** Present when the vocabulary can be added to. */
   onAdd?: (value: string) => void;
@@ -52,26 +61,48 @@ export default function ChipDropdown({
     <div ref={wrapper} style={{ position: "relative", flex: "none" }}>
       <span
         onClick={() => setOpen((o) => !o)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          maxWidth: 320,
-          fontFamily: "var(--font-jetbrains-mono), monospace",
-          fontSize: 10,
-          padding: "3px 9px",
-          borderRadius: 999,
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          border: `1px ${selected.length ? "solid" : "dashed"} ${tone ? tone.line : "oklch(0.34 0.02 250)"}`,
-          background: tone ? tone.bg : "transparent",
-          color: tone ? tone.fg : "oklch(0.6 0.02 250)",
-        }}
+        style={
+          block
+            ? {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                width: "100%",
+                boxSizing: "border-box",
+                fontFamily: "var(--font-space-grotesk), sans-serif",
+                fontSize: 14,
+                padding: "10px 12px",
+                borderRadius: 8,
+                cursor: "pointer",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                border: "1px solid oklch(0.32 0.051 250 / 0.6)",
+                background: "oklch(0.18 0.034 250)",
+                color: selected.length ? (tone ? tone.fg : "oklch(0.96 0.0068 250)") : "oklch(0.5 0.02 250)",
+              }
+            : {
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                maxWidth: 320,
+                fontFamily: "var(--font-jetbrains-mono), monospace",
+                fontSize: 10,
+                padding: "3px 9px",
+                borderRadius: 999,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                border: `1px ${selected.length ? "solid" : "dashed"} ${tone ? tone.line : "oklch(0.34 0.02 250)"}`,
+                background: tone ? tone.bg : "transparent",
+                color: tone ? tone.fg : "oklch(0.6 0.02 250)",
+              }
+        }
       >
         {label}
-        <span style={{ fontSize: 8, opacity: 0.7 }}>▾</span>
+        <span style={{ fontSize: block ? 10 : 8, opacity: 0.7 }}>▾</span>
       </span>
 
       {open && (
@@ -81,7 +112,7 @@ export default function ChipDropdown({
             top: "130%",
             left: 0,
             zIndex: 40,
-            minWidth: 210,
+            minWidth: block ? "100%" : 210,
             maxHeight: 280,
             overflowY: "auto",
             padding: 4,
