@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Trade" ADD COLUMN "tp1" REAL;
+ALTER TABLE "Trade" ADD COLUMN "tp2" REAL;
+ALTER TABLE "Trade" ADD COLUMN "tp3" REAL;

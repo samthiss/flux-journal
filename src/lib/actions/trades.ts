@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { parseTagArray } from "@/lib/tags";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
@@ -49,12 +50,39 @@ function parseTradeForm(formData: FormData) {
   const riskInput = formData.get("risk") ? parseFloat(String(formData.get("risk"))) : null;
   const risk = riskInput && Number.isFinite(riskInput) && riskInput !== 0 ? Math.abs(riskInput) : null;
   const rr = risk ? Number((pnl / risk).toFixed(2)) : null;
+  // The take-profit levels, each optional and each read the way a price gets
+  // typed — a comma for a decimal point is a slip, not a second number.
+  const price = (name: string) => {
+    const raw = String(formData.get(name) ?? "").trim().replace(",", ".");
+    if (!raw) return null;
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const tp1 = price("tp1");
+  const tp2 = price("tp2");
+  const tp3 = price("tp3");
+
+  // Kept as they are posted: a JSON array for the lists, a plain word for the
+  // zone, empty meaning nothing was picked rather than an empty list.
+  const tagList = (name: string) => {
+    const raw = String(formData.get(name) ?? "");
+    const values = parseTagArray(raw);
+    return values.length ? JSON.stringify(values) : null;
+  };
+  const tradeTypes = tagList("tradeTypes");
+  const zone = String(formData.get("zone") ?? "").trim() || null;
+  const confirmations = tagList("confirmations");
+
   const setup = String(formData.get("setup") ?? "");
   const emotion = String(formData.get("emotion") ?? "") || null;
   const preTradeNotes = String(formData.get("preTradeNotes") ?? "") || null;
   const postTradeNotes = String(formData.get("postTradeNotes") ?? "") || null;
 
-  return { date, time, symbol, market, side, size, pnl, risk, rr, setup, emotion, preTradeNotes, postTradeNotes };
+  return {
+    date, time, symbol, market, side, size, pnl, risk, rr,
+    tp1, tp2, tp3, tradeTypes, zone, confirmations,
+    setup, emotion, preTradeNotes, postTradeNotes,
+  };
 }
 
 export async function createTrade(formData: FormData) {

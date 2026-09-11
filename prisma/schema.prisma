@@ -41,6 +41,30 @@ model Trade {
   // a full loss is −1, a winner that made twice what it risked is 2. Still
   // nullable, for the trades taken before `risk` was recorded.
   rr             Float?
+
+  /**
+   * The take-profit levels the trade was planned around.
+   *
+   * Prices rather than amounts, and three of them, because a target is a place
+   * on the chart and a trade is scaled out of in pieces. Optional throughout:
+   * most trades carry one, some carry none, and a trade that reached none of
+   * them still has to be recordable.
+   */
+  tp1            Float?
+  tp2            Float?
+  tp3            Float?
+
+  /**
+   * The same vocabularies the note examples and the trade ideas are typed with,
+   * as JSON arrays — a zone being one word rather than a list.
+   *
+   * Shared on purpose: a confirmation written on a trade is one the examples
+   * will offer next time, so what was planned and what was taken are described
+   * in the same words and can be compared at all.
+   */
+  tradeTypes     String?
+  zone           String?
+  confirmations  String?
   setup          String
   emotion        String?
   preTradeNotes  String?

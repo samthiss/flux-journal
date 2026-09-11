@@ -5,6 +5,8 @@ import Link from "next/link";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import { removeChartSlot } from "@/lib/actions/trades";
+import ChipDropdown from "@/components/ChipDropdown";
+import { parseTagArray } from "@/lib/tags";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 
 const SYMBOL_OPTIONS = ["6E", "6B", "6J", "ZS", "ZM"] as const;
@@ -22,6 +24,13 @@ export type TradeFormValues = {
   size: string;
   pnl: string;
   risk: string;
+  tp1: string;
+  tp2: string;
+  tp3: string;
+  /** JSON arrays, as they are stored: the form parses them on the way in. */
+  tradeTypes: string;
+  zone: string;
+  confirmations: string;
   emotion: string;
   preTradeNotes: string;
   postTradeNotes: string;
@@ -186,6 +195,7 @@ export default function TradeForm({
   title,
   subtitle,
   riskPerLot,
+  vocabulary,
 }: {
   action: (formData: FormData) => void;
   deleteAction?: (formData: FormData) => void;
@@ -193,12 +203,23 @@ export default function TradeForm({
   initial: TradeFormValues;
   /** What one lot risked on the last trade that recorded it, if any. */
   riskPerLot?: number | null;
+  /** The words the examples and the trade ideas are already annotated with. */
+  vocabulary: { tradeTypes: string[]; zones: string[]; confirmations: string[] };
   existingCharts?: ExistingCharts;
   title: string;
   subtitle: string;
 }) {
   const [side, setSide] = useState(initial.side);
   const [emotion, setEmotion] = useState(initial.emotion);
+
+  // The three vocabularies, held here and posted as JSON: a dropdown cannot be
+  // a form field on its own.
+  const [types, setTypes] = useState<string[]>(() => parseTagArray(initial.tradeTypes));
+  const [zone, setZone] = useState<string | null>(initial.zone || null);
+  const [confirmations, setConfirmations] = useState<string[]>(() => parseTagArray(initial.confirmations));
+
+  /** A word typed a moment ago is offered too, before the list is read again. */
+  const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
 
   // P&L, size and risk are held here rather than left uncontrolled, because the
   // R:R is computed from them as they are typed.
@@ -358,6 +379,70 @@ export default function TradeForm({
                 placeholder="0.00"
                 style={monoInputStyle}
               />
+            </div>
+
+            <div style={{ gridColumn: "span 2" }}>
+              {/* The targets the trade was planned around, as prices. Three,
+                  because a position is scaled out of in pieces, and all
+                  optional: a trade that reached none of them is still a trade. */}
+              {fieldLabel("Take profit")}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                {(["tp1", "tp2", "tp3"] as const).map((key, i) => (
+                  <input
+                    key={key}
+                    type="text"
+                    name={key}
+                    defaultValue={initial[key]}
+                    placeholder={`TP${i + 1}`}
+                    style={monoInputStyle}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div style={{ gridColumn: "span 2" }}>
+              {/* The same three dropdowns the trade ideas are written with, on
+                  the same words: what was planned this morning and what was
+                  taken this afternoon have to be describable in one vocabulary
+                  or they cannot be compared at all. */}
+              {fieldLabel("Type, zone et confirmation")}
+              <input type="hidden" name="tradeTypes" value={JSON.stringify(types)} />
+              <input type="hidden" name="zone" value={zone ?? ""} />
+              <input type="hidden" name="confirmations" value={JSON.stringify(confirmations)} />
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <ChipDropdown
+                  placeholder="Type"
+                  options={offer(vocabulary.tradeTypes, types)}
+                  selected={types}
+                  multiple
+                  visible
+                  onToggle={(value) =>
+                    setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
+                  }
+                  onAdd={(value) => setTypes((prev) => (prev.includes(value) ? prev : [...prev, value]))}
+                />
+                <ChipDropdown
+                  placeholder="Zone"
+                  options={offer(vocabulary.zones, zone ? [zone] : [])}
+                  selected={zone ? [zone] : []}
+                  visible
+                  onToggle={(value) => setZone((prev) => (prev === value ? null : value))}
+                  onAdd={(value) => setZone(value)}
+                />
+                <ChipDropdown
+                  placeholder="Confirmation"
+                  options={offer(vocabulary.confirmations, confirmations)}
+                  selected={confirmations}
+                  multiple
+                  visible
+                  onToggle={(value) =>
+                    setConfirmations((prev) =>
+                      prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value],
+                    )
+                  }
+                  onAdd={(value) => setConfirmations((prev) => (prev.includes(value) ? prev : [...prev, value]))}
+                />
+              </div>
             </div>
 
             <div style={{ gridColumn: "span 2" }}>

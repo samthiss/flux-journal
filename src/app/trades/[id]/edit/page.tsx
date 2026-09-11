@@ -1,3 +1,4 @@
+import { getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import TradeForm, { type ExistingCharts } from "@/components/TradeForm";
@@ -27,7 +28,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
   if (!trade) notFound();
 
   const updateTradeWithId = updateTrade.bind(null, trade.id);
-  const riskPerLot = await lastRiskPerLot();
+  const [riskPerLot, vocabulary] = await Promise.all([lastRiskPerLot(), getTradeVocabularies()]);
 
   const existingCharts: ExistingCharts = {
     cluster: trade.chartCluster ?? undefined,
@@ -40,6 +41,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
     <TradeForm
       action={updateTradeWithId}
       tradeId={trade.id}
+      vocabulary={vocabulary}
       riskPerLot={riskPerLot}
       title="Edit Trade"
       subtitle="Update this journal entry"
@@ -54,6 +56,12 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         size: String(trade.size),
         pnl: String(trade.pnl),
         risk: trade.risk != null ? String(trade.risk) : "",
+        tp1: trade.tp1 != null ? String(trade.tp1) : "",
+        tp2: trade.tp2 != null ? String(trade.tp2) : "",
+        tp3: trade.tp3 != null ? String(trade.tp3) : "",
+        tradeTypes: trade.tradeTypes ?? "",
+        zone: trade.zone ?? "",
+        confirmations: trade.confirmations ?? "",
         emotion: trade.emotion ?? "Calm",
         preTradeNotes: trade.preTradeNotes ?? "",
         postTradeNotes: trade.postTradeNotes ?? "",

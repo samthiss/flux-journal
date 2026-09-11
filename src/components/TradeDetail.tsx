@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { CHART_SLOTS } from "@/lib/chartSlots";
+import { parseTagArray, tagTone } from "@/lib/tags";
 import { deleteTrade } from "@/lib/actions/trades";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import AddTradeToNoteButton from "@/components/AddTradeToNoteButton";
@@ -32,6 +33,14 @@ export default async function TradeDetail({ id }: { id: string }) {
     { label: "Size", value: trade.size },
     { label: "R : R", value: trade.rr != null ? `1 : ${trade.rr.toFixed(1)}` : "—" },
   ];
+
+  const targets = [trade.tp1, trade.tp2, trade.tp3]
+    .map((value, i) => ({ index: i + 1, value }))
+    .filter((t): t is { index: number; value: number } => t.value != null);
+
+  // Type, zone and confirmation read as one row of chips: they were picked from
+  // one vocabulary, and which list a word came from is not what is being read.
+  const tags = [...parseTagArray(trade.tradeTypes), ...(trade.zone ? [trade.zone] : []), ...parseTagArray(trade.confirmations)];
 
   const chartValues: Record<string, string | null> = {
     cluster: trade.chartCluster,
@@ -171,6 +180,44 @@ export default async function TradeDetail({ id }: { id: string }) {
               <span style={{ color: "oklch(0.6 0.034 250)" }}>Emotion</span>
               <span style={{ fontWeight: 600 }}>{trade.emotion ?? "—"}</span>
             </div>
+
+            {/* Only when they were filled in: most trades carry none of this,
+                and four empty rows would push the ones that matter down. */}
+            {targets.length > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, gap: 12 }}>
+                <span style={{ color: "oklch(0.6 0.034 250)" }}>Take profit</span>
+                <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontWeight: 600, textAlign: "right" }}>
+                  {targets.map((t) => `TP${t.index} ${t.value}`).join("  ·  ")}
+                </span>
+              </div>
+            )}
+
+            {tags.length > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, gap: 12, alignItems: "flex-start" }}>
+                <span style={{ color: "oklch(0.6 0.034 250)", flex: "none" }}>Tags</span>
+                <span style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
+                  {tags.map((tag) => {
+                    const tone = tagTone(tag);
+                    return (
+                      <span
+                        key={tag}
+                        style={{
+                          fontFamily: "var(--font-jetbrains-mono), monospace",
+                          fontSize: 10.5,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          border: `1px solid ${tone.line}`,
+                          background: tone.bg,
+                          color: tone.fg,
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    );
+                  })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div style={glassCard}>

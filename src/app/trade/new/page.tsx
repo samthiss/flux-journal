@@ -1,3 +1,4 @@
+import { getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import { prisma } from "@/lib/prisma";
 import TradeForm from "@/components/TradeForm";
 import { createTrade } from "@/lib/actions/trades";
@@ -27,13 +28,14 @@ async function lastRiskPerLot() {
 
 export default async function NewTradePage() {
   const today = new Date().toISOString().slice(0, 10);
-  const riskPerLot = await lastRiskPerLot();
+  const [riskPerLot, vocabulary] = await Promise.all([lastRiskPerLot(), getTradeVocabularies()]);
 
   return (
     <TradeForm
       action={createTrade}
       title="Add Trade"
       subtitle="Log a new entry to your journal"
+      vocabulary={vocabulary}
       riskPerLot={riskPerLot}
       initial={{
         date: today,
@@ -45,6 +47,12 @@ export default async function NewTradePage() {
         size: "",
         pnl: "",
         risk: "",
+        tp1: "",
+        tp2: "",
+        tp3: "",
+        tradeTypes: "",
+        zone: "",
+        confirmations: "",
         emotion: "Calm",
         preTradeNotes: "",
         postTradeNotes: "",
