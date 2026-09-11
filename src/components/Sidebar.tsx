@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/rapport", label: "Rapport", match: (p: string) => p.startsWith("/rapport") },
   { href: "/risque", label: "Risque", match: (p: string) => p.startsWith("/risque") },
   { href: "/checklist", label: "Checklist & News", match: (p: string) => p.startsWith("/checklist") },
+  { href: "/volume-alert", label: "Volume Alert", match: (p: string) => p.startsWith("/volume-alert") },
   { href: "/notes", label: "Notes", match: (p: string) => p.startsWith("/notes") },
 ];
 
@@ -152,7 +153,19 @@ function RiskIcon({ color }: { color: string }) {
   );
 }
 
-const ICONS = [DashboardIcon, TradesIcon, ReportIcon, RiskIcon, ChecklistIcon, NotesIcon];
+/** Three bars under a line: a box of volume tripping its threshold. */
+function VolumeAlertIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18">
+      <rect x="1" y="11" width="3.5" height="6" rx="1" fill={color} opacity="0.55" />
+      <rect x="7.25" y="7" width="3.5" height="10" rx="1" fill={color} opacity="0.55" />
+      <rect x="13.5" y="2" width="3.5" height="15" rx="1" fill={color} />
+      <rect x="1" y="4.5" width="16" height="1.2" rx="0.6" fill={color} opacity="0.8" />
+    </svg>
+  );
+}
+
+const ICONS = [DashboardIcon, TradesIcon, ReportIcon, RiskIcon, ChecklistIcon, VolumeAlertIcon, NotesIcon];
 
 type NoteRow = { id: string; title: string; parentId: string | null; order: number; collapsed: boolean };
 type TreeNode = NoteRow & { children: TreeNode[] };

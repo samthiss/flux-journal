@@ -324,3 +324,43 @@ model EventRating {
 
   @@unique([currency, title])
 }
+
+/**
+ * One traded hour, and the volume boxes that tripped the alert in it.
+ *
+ * The point of the row is tuning the alert, not recording the session: with
+ * the values kept rather than only their count, any threshold above the one in
+ * force can be recounted exactly — "at 200 this hour would have given one
+ * alert, not three" — instead of being guessed at from a curve.
+ *
+ * Which makes `threshold` the load-bearing column. A box of 243 written under
+ * a threshold of 150 also says that nothing between 150 and 243 happened, or
+ * it would be in the list too. Without it, an empty stretch cannot be told
+ * apart from a stretch that was never being watched.
+ */
+model VolumeAlertHour {
+  id String @id @default(cuid())
+
+  /** The local day of the session, as YYYY-MM-DD. */
+  day String
+
+  /** The hour the band opens, 0-23. An entry covers that hour to the next. */
+  hour Int
+
+  /** The alert setting in force, which bounds what this row can answer. */
+  threshold Int
+
+  /** The box volumes that tripped it, as a JSON array of numbers. */
+  values String
+
+  /** The contract, since the same hour is not the same market on each. */
+  market String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One row per hour of a market's day: filling the same hour twice corrects
+  // it rather than counting it twice.
+  @@unique([market, day, hour])
+  @@index([day])
+}
