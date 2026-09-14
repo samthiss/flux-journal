@@ -81,6 +81,17 @@ function NumberField({
 }) {
   const [draft, setDraft] = useState(String(value));
 
+  // The text is held here, so a value set from outside — read back from the
+  // browser on load, or dropped in by "corriger" — has to be brought in, or the
+  // field keeps showing what it was first rendered with. Adjusted during the
+  // render that brings the new value, and a draft already parsing to it is the
+  // one being typed, so it is left alone.
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    setShown(value);
+    if (Number(draft) !== value) setDraft(String(value));
+  }
+
   return (
     <input
       type="number"
@@ -307,8 +318,6 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   /** How far back a reading looks, in days. Null is everything recorded. */
   const [window, setWindow] = useState<number | null>(7);
   const [editingSessions, setEditingSessions] = useState(false);
-  /** Whether what the browser remembers has been read in yet. */
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const stored = loadMarkets();
@@ -325,15 +334,23 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
     setDay(entry.day);
     setHour(entry.hour);
     setThreshold(entry.threshold);
-    setReady(true);
   }, []);
 
-  // Written back only once the stored entry is in, or the defaults would
-  // overwrite it on the way past.
-  useEffect(() => {
-    if (!ready) return;
-    saveEntry({ market, day, hour, threshold });
-  }, [ready, market, day, hour, threshold]);
+  /**
+   * Move the form, and write where it now stands.
+   *
+   * Written here rather than from an effect watching the four fields: such an
+   * effect also fires on the way up from the defaults, so it races the read
+   * that brings the stored hour back. Every field moves through this.
+   */
+  function choose(next: Partial<Entry>) {
+    const entry: Entry = { market, day, hour, threshold, ...next };
+    setMarket(entry.market);
+    setDay(entry.day);
+    setHour(entry.hour);
+    setThreshold(entry.threshold);
+    saveEntry(entry);
+  }
 
   const mine = useMemo(() => hours.filter((h) => h.market === market), [hours, market]);
   const read = useMemo(() => recent(mine, window), [mine, window]);
@@ -360,7 +377,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           {markets.map((m) => (
             <button
               key={m}
-              onClick={() => setMarket(m)}
+              onClick={() => choose({ market: m })}
               style={{
                 ...mono,
                 fontSize: 11,
@@ -380,11 +397,11 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
         <div style={{ display: "grid", gridTemplateColumns: "140px 110px 110px 1fr auto", gap: 10, alignItems: "end" }}>
           <div>
             <div style={label}>Jour</div>
-            <input type="date" value={day} onChange={(e) => setDay(e.target.value)} style={field} />
+            <input type="date" value={day} onChange={(e) => choose({ day: e.target.value })} style={field} />
           </div>
           <div>
             <div style={label}>Heure</div>
-            <select value={hour} onChange={(e) => setHour(Number(e.target.value))} style={field}>
+            <select value={hour} onChange={(e) => choose({ hour: Number(e.target.value) })} style={field}>
               {Array.from({ length: 24 }, (_, h) => (
                 <option key={h} value={h}>
                   {bandLabel(h)}
@@ -394,7 +411,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           </div>
           <div>
             <div style={label}>Seuil</div>
-            <NumberField value={threshold} onChange={setThreshold} min={1} max={99999} width="100%" />
+            <NumberField value={threshold} onChange={(next) => choose({ threshold: next })} min={1} max={99999} width="100%" />
           </div>
           <div>
             <div style={label}>Valeurs des box</div>
@@ -742,9 +759,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
                   </span>
                   <button
                     onClick={() => {
-                      setDay(row.day);
-                      setHour(row.hour);
-                      setThreshold(row.threshold);
+                      choose({ day: row.day, hour: row.hour, threshold: row.threshold });
                       setRaw(row.values.join(" "));
                     }}
                     style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.55 0.02 250)", cursor: "pointer" }}
