@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { accentColor, glassCard, lossColor, neonGlow } from "@/lib/theme";
-import { DEFAULT_MARKETS, loadMarkets } from "@/lib/markets";
+import { DEFAULT_MARKETS, currenciesFor, loadMarkets } from "@/lib/markets";
 import {
   bandLabel,
   bandStats,
@@ -59,6 +59,40 @@ export type NewsRelease = { at: string; title: string; currency: string };
 const newsColor = "oklch(0.8 0.14 85)";
 
 const SKIP_NEWS_KEY = "volumeAlertSkipNews";
+const ZONE_KEY = "volumeAlertZone";
+
+/**
+ * The clock the recorded hours are written on.
+ *
+ * Not necessarily the reader's own: an hour is read off a chart, and a chart
+ * is set to whatever exchange or zone its owner likes. A release has to be put
+ * on that same clock or it lands in the wrong band — Chinese trade at 03:00
+ * UTC is a 5h hour in Brussels and an 11h one in Tokyo.
+ */
+const DEFAULT_ZONE = "America/Chicago";
+
+const ZONES: { id: string; label: string }[] = [
+  { id: "America/Chicago", label: "Chicago" },
+  { id: "", label: "mon heure" },
+  { id: "Europe/Brussels", label: "Bruxelles" },
+  { id: "Europe/London", label: "Londres" },
+  { id: "America/New_York", label: "New York" },
+  { id: "UTC", label: "UTC" },
+];
+
+/** An instant, as a day and an hour on one clock. */
+function dayHourIn(at: Date, zone: string): { day: string; hour: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    ...(zone ? { timeZone: zone } : {}),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return { day: `${part("year")}-${part("month")}-${part("day")}`, hour: Number(part("hour")) };
+}
 
 const label = {
   ...mono,
@@ -150,7 +184,8 @@ function NumberField({
   );
 }
 
-const today = () => new Date().toLocaleDateString("en-CA");
+/** Today, on the clock the hours are written on. */
+const today = (zone: string) => dayHourIn(new Date(), zone).day;
 
 /** The stretch a reading is made over, until one is chosen. */
 const DEFAULT_SESSION: Session = { start: 2, end: 7 };
@@ -266,8 +301,8 @@ type Entry = { market: string; day: string; hour: number; threshold: number };
 
 const DEFAULT_ENTRY: Entry = { market: "6B", day: "", hour: 7, threshold: 150 };
 
-function loadEntry(): Entry {
-  const fallback = { ...DEFAULT_ENTRY, day: today() };
+function loadEntry(zone: string): Entry {
+  const fallback = { ...DEFAULT_ENTRY, day: today(zone) };
   try {
     const raw = window.localStorage.getItem(ENTRY_KEY);
     if (!raw) return fallback;
@@ -367,7 +402,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
   const [market, setMarket] = useState(DEFAULT_ENTRY.market);
 
-  const [day, setDay] = useState(today);
+  const [day, setDay] = useState(() => today(DEFAULT_ZONE));
   const [hour, setHour] = useState(DEFAULT_ENTRY.hour);
   const [threshold, setThreshold] = useState(DEFAULT_ENTRY.threshold);
   const [raw, setRaw] = useState("");
@@ -409,6 +444,9 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
    */
   const [skipNews, setSkipNews] = useState(false);
 
+  /** The clock the recorded hours are read on. Empty is the browser's own. */
+  const [zone, setZone] = useState(DEFAULT_ZONE);
+
   /**
    * How far the stretch's setting is being moved, in steps of ten.
    *
@@ -433,11 +471,20 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
     } catch {
       // ignore storage failures
     }
+    let clock = DEFAULT_ZONE;
+    try {
+      const stored = globalThis.localStorage?.getItem(ZONE_KEY);
+      if (stored !== null && stored !== undefined && ZONES.some((z) => z.id === stored)) clock = stored;
+    } catch {
+      // ignore storage failures
+    }
+    setZone(clock);
+
     const limits = loadLimits();
     setFloor(limits.floor);
     setCeiling(limits.ceiling);
 
-    const entry = loadEntry();
+    const entry = loadEntry(clock);
     // A market dropped from the list since is not selectable any more.
     setMarket(stored.includes(entry.market) ? entry.market : stored[0]);
     setDay(entry.day);
@@ -464,20 +511,25 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
   /**
    * The releases, filed under the hour they fell in.
    *
-   * Turned into a wall clock here and not on the server, which runs in UTC:
-   * the recorded day and hour are the reader's own clock, so the release has
-   * to be read on that same clock or it lands an hour or two off.
+   * Turned into a wall clock here and not on the server, which runs in UTC,
+   * and on the clock the hours were written on rather than this machine's.
+   * Only the figures that move the contract count: Chinese trade explains
+   * nothing about sterling, and marking a 6B hour with it would throw away an
+   * hour that was perfectly ordinary.
    */
   const newsByHour = useMemo(() => {
+    const moves = new Set(currenciesFor(market));
     const index = new Map<string, NewsRelease[]>();
     for (const release of news) {
+      if (!moves.has(release.currency)) continue;
       const at = new Date(release.at);
       if (Number.isNaN(at.getTime())) continue;
-      const key = `${at.toLocaleDateString("en-CA")} ${at.getHours()}`;
+      const { day, hour } = dayHourIn(at, zone);
+      const key = `${day} ${hour}`;
       (index.get(key) ?? index.set(key, []).get(key)!).push(release);
     }
     return index;
-  }, [news]);
+  }, [news, market, zone]);
 
   const newsIn = (hour: AlertHour) => newsByHour.get(`${hour.day} ${hour.hour}`) ?? [];
 
@@ -519,11 +571,29 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
    * one's own: the hours that can answer for it, counted at it. Null when none
    * can — every hour in the stretch was watched higher than this.
    */
-  const rateOver = (session: Session, threshold: number): number | null => {
-    const usable = read.filter((hour) => inSession(hour.hour, session) && canAnswer(hour, threshold));
+  const rateAmong = (hours: AlertHour[], threshold: number): number | null => {
+    const usable = hours.filter((hour) => canAnswer(hour, threshold));
     if (usable.length === 0) return null;
     return usable.reduce((n, hour) => n + countAt(hour, threshold), 0) / usable.length;
   };
+
+  const rateOver = (session: Session, threshold: number) =>
+    rateAmong(read.filter((hour) => inSession(hour.hour, session)), threshold);
+
+  /**
+   * The threshold being tried, shared by the stretch and the hours under it.
+   *
+   * One setting is chosen for the whole stretch, so the hours have to be read
+   * at the same one: what the stepper is really asking is which band the
+   * candidate is being paid for and which one is paying.
+   */
+  /** One band of the day, recounted at the threshold being tried. */
+  const bandTried = (hour: number) => rateAmong(read.filter((row) => row.hour === hour), tried);
+
+  const advised = bySession[0]
+    ? bySession[0].recommended ?? bySession[0].lowerTo ?? bySession[0].threshold
+    : 0;
+  const tried = Math.max(10, advised + nudge * 10);
 
   const values = parseValues(raw);
 
@@ -680,6 +750,25 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
             width={52}
           />
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>alertes par heure</div>
+          <select
+            value={zone}
+            onChange={(e) => {
+              setZone(e.target.value);
+              try {
+                globalThis.localStorage?.setItem(ZONE_KEY, e.target.value);
+              } catch {
+                // ignore storage failures
+              }
+            }}
+            title="L'horloge sur laquelle tes heures sont notées : celle du graphique, pas forcément celle de l'ordinateur. Elle décide dans quelle bande tombe une publication."
+            style={{ ...field, ...mono, fontSize: 10, padding: "2px 6px", width: "auto" }}
+          >
+            {ZONES.map((z) => (
+              <option key={z.id} value={z.id}>
+                heures en {z.label}
+              </option>
+            ))}
+          </select>
           <button
             onClick={() => {
               const next = !skipNews;
@@ -744,10 +833,6 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
 
         {bySession.map((stat) => {
           const said = advice(stat, ceiling, floor);
-          // Zero sits on what is advised, and the setting in force when nothing
-          // is. Ten at a time, the step the recommendation is searched on.
-          const base = stat.recommended ?? stat.lowerTo ?? stat.threshold;
-          const tried = Math.max(10, base + nudge * 10);
           const triedRate = rateOver(stat.session, tried);
           return (
             <div
@@ -821,7 +906,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                     onClick={() => setNudge(0)}
                     style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.5 0.02 250)", cursor: "pointer" }}
                   >
-                    revenir à {base}
+                    revenir à {advised}
                   </button>
                 )}
                 {nudge === 0 && (
@@ -845,6 +930,11 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
           <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>
             le détail sous les plages, quand une heure porte la session à elle seule
           </div>
+          {tried > 0 && (
+            <div style={{ ...mono, fontSize: 10.5, color: simColor, marginLeft: "auto" }}>
+              en violet, ce que donnerait {tried}
+            </div>
+          )}
         </div>
 
         {stats.length === 0 && (
@@ -878,6 +968,20 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
             >
               {band.threshold} → {band.rate.toFixed(1)}/h
             </span>
+            {tried > 0 && (
+              <span
+                title={`Cette bande relue à ${tried}, le seuil essayé pour la plage entière.`}
+                style={{
+                  ...mono,
+                  fontSize: 11.5,
+                  flex: "none",
+                  color: bandTried(band.hour) === null ? "oklch(0.42 0.02 250)" : simColor,
+                }}
+              >
+                {tried} →{" "}
+                {bandTried(band.hour) === null ? "—" : `${bandTried(band.hour)!.toFixed(1)}/h`}
+              </span>
+            )}
             <span style={{ ...mono, fontSize: 11.5, flex: 1, minWidth: 200, color: advice(band, ceiling, floor).tone }}>
               {advice(band, ceiling, floor).text}
             </span>
@@ -997,7 +1101,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
-                      color: row.day === today() ? accentColor : "oklch(0.72 0.02 250)",
+                      color: row.day === today(zone) ? accentColor : "oklch(0.72 0.02 250)",
                       opacity: skipNews && released.length > 0 ? 0.5 : 1,
                     }}
                   >

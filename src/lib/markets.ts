@@ -39,3 +39,26 @@ export function saveMarkets(markets: string[]) {
     // ignore storage failures
   }
 }
+
+/**
+ * The currencies whose figures move a contract.
+ *
+ * A three-star print only counts where it lands: Chinese trade at 5h explains
+ * nothing about sterling, and marking a 6B hour with it throws away an hour
+ * that was perfectly ordinary. The dollar is in every list — a payrolls number
+ * moves cable as surely as it moves the index.
+ */
+const CONTRACT_CURRENCY: Record<string, string> = {
+  "6E": "EUR",
+  "6B": "GBP",
+  "6J": "JPY",
+  "6C": "CAD",
+  "6A": "AUD",
+  "6N": "NZD",
+  "6S": "CHF",
+};
+
+export function currenciesFor(market: string): string[] {
+  const own = CONTRACT_CURRENCY[market];
+  return own ? [own, "USD"] : ["USD"];
+}
