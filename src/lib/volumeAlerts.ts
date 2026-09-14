@@ -33,6 +33,32 @@ export const countAt = (hour: AlertHour, threshold: number) =>
  */
 export const canAnswer = (hour: AlertHour, threshold: number) => threshold >= hour.threshold;
 
+/**
+ * One traded day, and the hourly volumes that tripped the alert in it.
+ *
+ * The same shape as an hour, one storey up: there the values are the boxes
+ * inside an hour, here they are the hour totals inside a day. Everything the
+ * recount does — counting at a threshold, refusing to answer below the one in
+ * force — holds unchanged, because it only ever looks at the values.
+ */
+export type AlertDay = {
+  day: string;
+  threshold: number;
+  values: number[];
+  market: string;
+};
+
+/**
+ * A set of days read as a whole: the threshold they ask for, and what it gives.
+ *
+ * `rate` is clusters per day here, where the hourly reading gives alerts per
+ * hour — the ceiling is set in the same unit as the reading, and one to three a
+ * day is not one to five an hour.
+ */
+export function dayStats(days: AlertDay[], ceiling: number, floor = 0): Stat {
+  return statsFor(days.map((day) => ({ ...day, hour: 0 })), ceiling, floor);
+}
+
 export type Stat = {
   /** Hours recorded in this band. */
   sessions: number;

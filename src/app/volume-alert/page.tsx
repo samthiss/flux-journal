@@ -1,13 +1,14 @@
 import { getAlertHours } from "@/lib/actions/volumeAlerts";
+import { getAlertDays } from "@/lib/actions/volumeAlertDays";
 import { getEventRatings } from "@/lib/actions/eventRatings";
 import { applyRatings, getEventsOver } from "@/lib/economicCalendar";
-import VolumeAlertClient from "@/components/VolumeAlertClient";
+import VolumeAlertTabs from "@/components/VolumeAlertTabs";
 import { PageTitle } from "@/components/NeonText";
 
 export const dynamic = "force-dynamic";
 
 export default async function VolumeAlertPage() {
-  const hours = await getAlertHours();
+  const [hours, days] = await Promise.all([getAlertHours(), getAlertDays()]);
 
   /**
    * The releases that fell on the days the logbook covers.
@@ -34,10 +35,10 @@ export default async function VolumeAlertPage() {
       <div style={{ marginBottom: 24 }}>
         <PageTitle>Volume Alert</PageTitle>
         <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
-          Ce que l&apos;alerte a tiré, heure par heure — et le seuil que ça recommande
+          Ce que l&apos;alerte a tiré — et le seuil que ça recommande
         </div>
       </div>
-      <VolumeAlertClient hours={hours} news={news} />
+      <VolumeAlertTabs hours={hours} days={days} news={news} />
     </div>
   );
 }

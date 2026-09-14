@@ -386,3 +386,39 @@ model VolumeAlertHour {
   @@unique([market, day, hour])
   @@index([day])
 }
+
+/**
+ * One traded day, and the hourly volumes that tripped the alert in it.
+ *
+ * The same tuning as VolumeAlertHour, one storey up: there the unit is the
+ * hour and the boxes inside it, here the unit is the day and the hours inside
+ * it. What is written down is the hour totals that crossed the setting — "2000,
+ * 2100, 2400" for a Monday watched at 1900 — so any higher threshold can be
+ * recounted exactly, the way the boxes are.
+ *
+ * A separate row from VolumeAlertHour rather than an hour of -1, because the
+ * two answer different questions and are set separately: one to three clusters
+ * a day is a different ceiling from one to five alerts an hour.
+ */
+model VolumeAlertDay {
+  id String @id @default(cuid())
+
+  /** The local day, as YYYY-MM-DD, on the clock the journal is read on. */
+  day String
+
+  /** The alert setting in force, which bounds what this row can answer. */
+  threshold Int
+
+  /** The hourly volumes that tripped it, as a JSON array of numbers. */
+  values String
+
+  /** The contract, since the same day is not the same market on each. */
+  market String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One row per day of a market: filling the same day twice corrects it.
+  @@unique([market, day])
+  @@index([day])
+}
