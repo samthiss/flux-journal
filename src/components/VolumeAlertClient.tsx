@@ -541,9 +541,21 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
     [mine, skipNews, newsByHour],
   );
   const read = useMemo(() => recent(kept, window), [kept, window]);
-  const stats = useMemo(() => bandStats(read, ceiling, floor), [read, ceiling, floor]);
+
+  /**
+   * The stretch decides what is on the page, not only what is averaged.
+   *
+   * A threshold is set for the hours the alert is meant to cover, so the bands
+   * underneath and the logbook itself are cut to the same stretch: an 11h line
+   * sitting under a 7h-10h reading is a number nothing on the page is about.
+   */
+  const inRange = (hour: AlertHour) => inSession(hour.hour, session);
+  const stats = useMemo(
+    () => bandStats(read.filter((hour) => inSession(hour.hour, session)), ceiling, floor),
+    [read, session, ceiling, floor],
+  );
   const bySession = useMemo(() => sessionStats(read, [session], ceiling, floor), [read, session, ceiling, floor]);
-  const bands = useMemo(() => byHour(mine), [mine]);
+  const bands = useMemo(() => byHour(mine.filter((hour) => inSession(hour.hour, session))), [mine, session]);
 
   /**
    * The logbook as a whole, at the threshold in force and at the simulated one.
@@ -553,16 +565,18 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
    * threshold cannot answer for it, so it is left out and counted here instead.
    */
   const totals = useMemo(() => {
-    const asRecorded = kept.reduce((n, hour) => n + countAt(hour, hour.threshold), 0);
-    const readable = sim > 0 ? kept.filter((hour) => canAnswer(hour, sim)) : [];
+    const shown = kept.filter(inRange);
+    const asRecorded = shown.reduce((n, hour) => n + countAt(hour, hour.threshold), 0);
+    const readable = sim > 0 ? shown.filter((hour) => canAnswer(hour, sim)) : [];
     const simulated = readable.reduce((n, hour) => n + countAt(hour, sim), 0);
     return {
-      hours: kept.length,
-      recorded: kept.length ? asRecorded / kept.length : 0,
+      hours: shown.length,
+      recorded: shown.length ? asRecorded / shown.length : 0,
       readable: readable.length,
       simulated: readable.length ? simulated / readable.length : null,
     };
-  }, [kept, sim]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inRange is the session, which is listed
+  }, [kept, sim, session]);
 
   /**
    * What a stretch would have given at one threshold, recounted.
@@ -818,10 +832,11 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
           </div>
         </div>
 
-        {skipNews && mine.length > kept.length && (
+        {skipNews && mine.filter(inRange).length > kept.filter(inRange).length && (
           <div style={{ ...mono, fontSize: 10.5, color: newsColor, marginBottom: 10 }}>
-            {mine.length - kept.length} heure{mine.length - kept.length > 1 ? "s" : ""} de news laissée
-            {mine.length - kept.length > 1 ? "s" : ""} de côté
+            {mine.filter(inRange).length - kept.filter(inRange).length} heure
+            {mine.filter(inRange).length - kept.filter(inRange).length > 1 ? "s" : ""} de news laissée
+            {mine.filter(inRange).length - kept.filter(inRange).length > 1 ? "s" : ""} de côté
           </div>
         )}
 
@@ -939,7 +954,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
 
         {stats.length === 0 && (
           <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
-            Rien d&apos;enregistré sur {market}. Une heure suffit pour voir la courbe.
+            Rien d&apos;enregistré entre {sessionLabel(session)} sur {market}.
           </div>
         )}
 
@@ -995,6 +1010,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
       <div style={{ ...glassCard }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Heures enregistrées</div>
+          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>{sessionLabel(session)}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
             <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>simulation d&apos;alerte</span>
             <NumberField
@@ -1021,7 +1037,9 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
           </div>
         </div>
         {bands.length === 0 && (
-          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>Rien encore.</div>
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+            Rien d&apos;enregistré entre {sessionLabel(session)} sur {market}.
+          </div>
         )}
 
         {/* Named once, at the top: the columns repeat under every band. */}
