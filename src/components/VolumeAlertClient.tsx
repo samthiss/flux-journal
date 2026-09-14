@@ -9,6 +9,7 @@ import {
   byHour,
   canAnswer,
   countAt,
+  inSession,
   recent,
   sessionLabel,
   sessionStats,
@@ -19,6 +20,20 @@ import {
 import { saveAlertHour } from "@/lib/actions/volumeAlerts";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
+
+/** The two ends of the stepper that walks a stretch's threshold. */
+const stepButton = {
+  ...mono,
+  fontSize: 13,
+  lineHeight: 1,
+  width: 22,
+  height: 22,
+  borderRadius: 4,
+  cursor: "pointer",
+  border: "1px solid oklch(0.34 0.02 250)",
+  background: "transparent",
+  color: "oklch(0.7 0.02 250)",
+} as const;
 
 /**
  * The logbook's columns, so the labels sit over what they name.
@@ -394,6 +409,16 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
    */
   const [skipNews, setSkipNews] = useState(false);
 
+  /**
+   * How far the stretch's setting is being moved, in steps of ten.
+   *
+   * Zero sits on whatever is advised — the recommendation, or the setting in
+   * force when nothing is advised. A recommendation is the smallest threshold
+   * that holds the ceiling, which is a floor of sorts: the hours around it are
+   * worth seeing before one is chosen, and this walks them.
+   */
+  const [nudge, setNudge] = useState(0);
+
   /** How far back a reading looks, in days. Null is everything recorded. */
   const [window, setWindow] = useState<number | null>(7);
 
@@ -486,6 +511,19 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
       simulated: readable.length ? simulated / readable.length : null,
     };
   }, [kept, sim]);
+
+  /**
+   * What a stretch would have given at one threshold, recounted.
+   *
+   * The same reading the recommendation is made of, asked at a threshold of
+   * one's own: the hours that can answer for it, counted at it. Null when none
+   * can — every hour in the stretch was watched higher than this.
+   */
+  const rateOver = (session: Session, threshold: number): number | null => {
+    const usable = read.filter((hour) => inSession(hour.hour, session) && canAnswer(hour, threshold));
+    if (usable.length === 0) return null;
+    return usable.reduce((n, hour) => n + countAt(hour, threshold), 0) / usable.length;
+  };
 
   const values = parseValues(raw);
 
@@ -706,26 +744,92 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
 
         {bySession.map((stat) => {
           const said = advice(stat, ceiling, floor);
+          // Zero sits on what is advised, and the setting in force when nothing
+          // is. Ten at a time, the step the recommendation is searched on.
+          const base = stat.recommended ?? stat.lowerTo ?? stat.threshold;
+          const tried = Math.max(10, base + nudge * 10);
+          const triedRate = rateOver(stat.session, tried);
           return (
             <div
               key={sessionLabel(stat.session)}
-              title={sampleOf(stat)}
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: 12,
-                padding: "10px 0",
-                borderTop: "1px solid oklch(0.28 0.03 250 / 0.5)",
-                flexWrap: "wrap",
-              }}
+              style={{ padding: "10px 0", borderTop: "1px solid oklch(0.28 0.03 250 / 0.5)" }}
             >
-              <span style={{ ...mono, fontSize: 13, color: "oklch(0.88 0.02 250)", width: 76, flex: "none" }}>
-                {sessionLabel(stat.session)}
-              </span>
-              <span style={{ ...mono, fontSize: 12, flex: "none", color: "oklch(0.75 0.02 250)" }}>
-                {stat.threshold} → {stat.rate.toFixed(1)}/h
-              </span>
-              <span style={{ ...mono, fontSize: 12, flex: 1, minWidth: 240, color: said.tone }}>{said.text}</span>
+              <div
+                title={sampleOf(stat)}
+                style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}
+              >
+                <span style={{ ...mono, fontSize: 13, color: "oklch(0.88 0.02 250)", width: 76, flex: "none" }}>
+                  {sessionLabel(stat.session)}
+                </span>
+                <span style={{ ...mono, fontSize: 12, flex: "none", color: "oklch(0.75 0.02 250)" }}>
+                  {stat.threshold} → {stat.rate.toFixed(1)}/h
+                </span>
+                <span style={{ ...mono, fontSize: 12, flex: 1, minWidth: 240, color: said.tone }}>{said.text}</span>
+              </div>
+
+              {/* The advised threshold, and the hours either side of it. A
+                  recommendation is the smallest setting that holds the ceiling,
+                  so what one point up or down costs is worth seeing before it
+                  is chosen. Recounted, never estimated: a threshold no hour can
+                  answer for says nothing rather than zero. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>essayer</span>
+                <button
+                  onClick={() => setNudge((n) => n - 1)}
+                  style={stepButton}
+                >
+                  −
+                </button>
+                <span
+                  style={{
+                    ...mono,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    minWidth: 52,
+                    textAlign: "center",
+                    color: simColor,
+                    textShadow: neonGlow(simColor, 1),
+                  }}
+                >
+                  {tried}
+                </span>
+                <button
+                  onClick={() => setNudge((n) => n + 1)}
+                  style={stepButton}
+                >
+                  +
+                </button>
+                <span
+                  style={{
+                    ...mono,
+                    fontSize: 12,
+                    color:
+                      triedRate === null
+                        ? "oklch(0.45 0.02 250)"
+                        : triedRate > ceiling || triedRate < floor
+                          ? "oklch(0.8 0.14 85)"
+                          : accentColor,
+                  }}
+                >
+                  →{" "}
+                  {triedRate === null
+                    ? "jamais surveillé si bas"
+                    : `${triedRate.toFixed(1)} alerte${triedRate >= 2 ? "s" : ""} par heure`}
+                </span>
+                {nudge !== 0 && (
+                  <button
+                    onClick={() => setNudge(0)}
+                    style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.5 0.02 250)", cursor: "pointer" }}
+                  >
+                    revenir à {base}
+                  </button>
+                )}
+                {nudge === 0 && (
+                  <span style={{ ...mono, fontSize: 10, color: "oklch(0.45 0.02 250)" }}>
+                    {stat.recommended !== null ? "recommandé" : "le réglage en place"}
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}
