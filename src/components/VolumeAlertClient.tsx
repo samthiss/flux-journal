@@ -166,6 +166,46 @@ function saveLimits(limits: Limits) {
 }
 
 /**
+ * The hour being filled in: market, day, hour, threshold.
+ *
+ * Kept per browser so a refresh comes back to the same hour. Filling the
+ * logbook is done in runs — the same market, the same morning, one band after
+ * another — and a form that resets to today at 7h on 6B every time makes the
+ * second entry of a run harder than the first.
+ */
+const ENTRY_KEY = "volumeAlertEntry";
+
+type Entry = { market: string; day: string; hour: number; threshold: number };
+
+const DEFAULT_ENTRY: Entry = { market: "6B", day: "", hour: 7, threshold: 150 };
+
+function loadEntry(): Entry {
+  const fallback = { ...DEFAULT_ENTRY, day: today() };
+  try {
+    const raw = window.localStorage.getItem(ENTRY_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return {
+      market: typeof parsed?.market === "string" && parsed.market ? parsed.market : fallback.market,
+      day: /^\d{4}-\d{2}-\d{2}$/.test(parsed?.day) ? parsed.day : fallback.day,
+      hour: Number.isInteger(parsed?.hour) && parsed.hour >= 0 && parsed.hour < 24 ? parsed.hour : fallback.hour,
+      threshold:
+        Number.isInteger(parsed?.threshold) && parsed.threshold > 0 ? parsed.threshold : fallback.threshold,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveEntry(entry: Entry) {
+  try {
+    window.localStorage.setItem(ENTRY_KEY, JSON.stringify(entry));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+/**
  * What to do about a stretch, in words.
  *
  * The figures above it are exact and say nothing on their own: a rate of 4.2
@@ -238,11 +278,11 @@ const dayLabel = (day: string) => {
  */
 export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
-  const [market, setMarket] = useState("6B");
+  const [market, setMarket] = useState(DEFAULT_ENTRY.market);
 
-  const [day, setDay] = useState(today());
-  const [hour, setHour] = useState(7);
-  const [threshold, setThreshold] = useState(150);
+  const [day, setDay] = useState(today);
+  const [hour, setHour] = useState(DEFAULT_ENTRY.hour);
+  const [threshold, setThreshold] = useState(DEFAULT_ENTRY.threshold);
   const [raw, setRaw] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -267,6 +307,8 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   /** How far back a reading looks, in days. Null is everything recorded. */
   const [window, setWindow] = useState<number | null>(7);
   const [editingSessions, setEditingSessions] = useState(false);
+  /** Whether what the browser remembers has been read in yet. */
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const stored = loadMarkets();
@@ -276,7 +318,22 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
     const limits = loadLimits();
     setFloor(limits.floor);
     setCeiling(limits.ceiling);
+
+    const entry = loadEntry();
+    // A market dropped from the list since is not selectable any more.
+    setMarket(stored.includes(entry.market) ? entry.market : stored[0]);
+    setDay(entry.day);
+    setHour(entry.hour);
+    setThreshold(entry.threshold);
+    setReady(true);
   }, []);
+
+  // Written back only once the stored entry is in, or the defaults would
+  // overwrite it on the way past.
+  useEffect(() => {
+    if (!ready) return;
+    saveEntry({ market, day, hour, threshold });
+  }, [ready, market, day, hour, threshold]);
 
   const mine = useMemo(() => hours.filter((h) => h.market === market), [hours, market]);
   const read = useMemo(() => recent(mine, window), [mine, window]);
@@ -287,7 +344,8 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   const values = parseValues(raw);
 
   async function save() {
-    if (!values.length && !confirm("Aucune valeur : enregistrer cette heure comme sans alerte ?")) return;
+    // An empty hour is written down as it stands: a quiet hour is a reading,
+    // and asking about it every time turns the commonest entry into a dialog.
     setSaving(true);
     await saveAlertHour({ day, hour, threshold, values, market });
     setRaw("");
