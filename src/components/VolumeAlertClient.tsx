@@ -37,6 +37,14 @@ const col = {
 /** The simulated count, kept clearly apart from the one that was recorded. */
 const simColor = "oklch(0.78 0.16 305)";
 
+/** A release that carries a market, as the page hands it over. */
+export type NewsRelease = { at: string; title: string; currency: string };
+
+/** The colour a news hour is marked in: not an error, not a reading. */
+const newsColor = "oklch(0.8 0.14 85)";
+
+const SKIP_NEWS_KEY = "volumeAlertSkipNews";
+
 const label = {
   ...mono,
   fontSize: 10,
@@ -340,7 +348,7 @@ const dayLabel = (day: string) => {
  * same market on the same day, and a setting averaged over a session hides
  * exactly the difference worth acting on.
  */
-export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
+export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[]; news: NewsRelease[] }) {
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
   const [market, setMarket] = useState(DEFAULT_ENTRY.market);
 
@@ -376,6 +384,16 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   /** The threshold the logbook is replayed at. Zero is off. */
   const [sim, setSim] = useState(0);
 
+  /**
+   * Whether the hours a figure came out in are left out of the reading.
+   *
+   * A payrolls hour at twenty-eight alerts is not the setting being wrong, it
+   * is the market doing what it does around a release, and averaged in it
+   * pushes the threshold up for every ordinary hour of the week. Left out of
+   * the reading, kept in the logbook: the hour happened.
+   */
+  const [skipNews, setSkipNews] = useState(false);
+
   /** How far back a reading looks, in days. Null is everything recorded. */
   const [window, setWindow] = useState<number | null>(7);
 
@@ -385,6 +403,11 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
     setMarkets(stored);
     setSession(loadSession());
     setSim(loadSim());
+    try {
+      setSkipNews(globalThis.localStorage?.getItem(SKIP_NEWS_KEY) === "1");
+    } catch {
+      // ignore storage failures
+    }
     const limits = loadLimits();
     setFloor(limits.floor);
     setCeiling(limits.ceiling);
@@ -413,8 +436,34 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
     saveEntry(entry);
   }
 
+  /**
+   * The releases, filed under the hour they fell in.
+   *
+   * Turned into a wall clock here and not on the server, which runs in UTC:
+   * the recorded day and hour are the reader's own clock, so the release has
+   * to be read on that same clock or it lands an hour or two off.
+   */
+  const newsByHour = useMemo(() => {
+    const index = new Map<string, NewsRelease[]>();
+    for (const release of news) {
+      const at = new Date(release.at);
+      if (Number.isNaN(at.getTime())) continue;
+      const key = `${at.toLocaleDateString("en-CA")} ${at.getHours()}`;
+      (index.get(key) ?? index.set(key, []).get(key)!).push(release);
+    }
+    return index;
+  }, [news]);
+
+  const newsIn = (hour: AlertHour) => newsByHour.get(`${hour.day} ${hour.hour}`) ?? [];
+
   const mine = useMemo(() => hours.filter((h) => h.market === market), [hours, market]);
-  const read = useMemo(() => recent(mine, window), [mine, window]);
+
+  /** What the readings are made on: the logbook, less the news hours if asked. */
+  const kept = useMemo(
+    () => (skipNews ? mine.filter((hour) => !newsByHour.has(`${hour.day} ${hour.hour}`)) : mine),
+    [mine, skipNews, newsByHour],
+  );
+  const read = useMemo(() => recent(kept, window), [kept, window]);
   const stats = useMemo(() => bandStats(read, ceiling, floor), [read, ceiling, floor]);
   const bySession = useMemo(() => sessionStats(read, [session], ceiling, floor), [read, session, ceiling, floor]);
   const bands = useMemo(() => byHour(mine), [mine]);
@@ -427,16 +476,16 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
    * threshold cannot answer for it, so it is left out and counted here instead.
    */
   const totals = useMemo(() => {
-    const asRecorded = mine.reduce((n, hour) => n + countAt(hour, hour.threshold), 0);
-    const readable = sim > 0 ? mine.filter((hour) => canAnswer(hour, sim)) : [];
+    const asRecorded = kept.reduce((n, hour) => n + countAt(hour, hour.threshold), 0);
+    const readable = sim > 0 ? kept.filter((hour) => canAnswer(hour, sim)) : [];
     const simulated = readable.reduce((n, hour) => n + countAt(hour, sim), 0);
     return {
-      hours: mine.length,
-      recorded: mine.length ? asRecorded / mine.length : 0,
+      hours: kept.length,
+      recorded: kept.length ? asRecorded / kept.length : 0,
       readable: readable.length,
       simulated: readable.length ? simulated / readable.length : null,
     };
-  }, [mine, sim]);
+  }, [kept, sim]);
 
   const values = parseValues(raw);
 
@@ -593,6 +642,30 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             width={52}
           />
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>alertes par heure</div>
+          <button
+            onClick={() => {
+              const next = !skipNews;
+              setSkipNews(next);
+              try {
+                globalThis.localStorage?.setItem(SKIP_NEWS_KEY, next ? "1" : "0");
+              } catch {
+                // ignore storage failures
+              }
+            }}
+            title="Les heures où un chiffre à fort impact est sorti, laissées hors des moyennes et des recommandations. Elles restent dans le journal."
+            style={{
+              ...mono,
+              fontSize: 10,
+              padding: "2px 8px",
+              borderRadius: 999,
+              cursor: "pointer",
+              border: `1px solid ${skipNews ? newsColor : "oklch(0.3 0.02 250)"}`,
+              background: skipNews ? newsColor.replace(")", " / 0.14)") : "transparent",
+              color: skipNews ? newsColor : "oklch(0.55 0.02 250)",
+            }}
+          >
+            sans les news
+          </button>
           <div style={{ display: "flex", gap: 5, marginLeft: "auto", alignItems: "center" }}>
             {/* A threshold is judged over a week, not over a morning: the
                 reading looks back rather than piling up every day ever kept. */}
@@ -617,6 +690,13 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             ))}
           </div>
         </div>
+
+        {skipNews && mine.length > kept.length && (
+          <div style={{ ...mono, fontSize: 10.5, color: newsColor, marginBottom: 10 }}>
+            {mine.length - kept.length} heure{mine.length - kept.length > 1 ? "s" : ""} de news laissée
+            {mine.length - kept.length > 1 ? "s" : ""} de côté
+          </div>
+        )}
 
         {bySession.length === 0 && (
           <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
@@ -784,6 +864,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             </div>
             {rows.map((row) => {
               const count = countAt(row, row.threshold);
+              const released = newsIn(row);
               // The count carries the reading, so it carries the colour: lit
               // when the hour fired, magenta past the ceiling, unlit at zero.
               const tone =
@@ -810,11 +891,36 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
                       ...mono,
                       ...col.day,
                       fontSize: 11.5,
-                      textTransform: "capitalize",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
                       color: row.day === today() ? accentColor : "oklch(0.72 0.02 250)",
+                      opacity: skipNews && released.length > 0 ? 0.5 : 1,
                     }}
                   >
-                    {dayLabel(row.day)}
+                    <span style={{ textTransform: "capitalize" }}>{dayLabel(row.day)}</span>
+                    {/* Named rather than flagged: which figure it was decides
+                        whether the hour is worth reading at all. */}
+                    {released.length > 0 && (
+                      <span
+                        title={`${released.map((r) => `${r.currency} ${r.title}`).join(" · ")}${
+                          skipNews ? " — hors des moyennes" : ""
+                        }`}
+                        style={{
+                          ...mono,
+                          fontSize: 9,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          padding: "1px 5px",
+                          borderRadius: 3,
+                          border: `1px solid ${newsColor.replace(")", " / 0.5)")}`,
+                          color: newsColor,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        news
+                      </span>
+                    )}
                   </span>
                   <span
                     style={{

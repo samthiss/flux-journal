@@ -1,4 +1,6 @@
 import { getAlertHours } from "@/lib/actions/volumeAlerts";
+import { getEventRatings } from "@/lib/actions/eventRatings";
+import { applyRatings, getEventsOver } from "@/lib/economicCalendar";
 import VolumeAlertClient from "@/components/VolumeAlertClient";
 import { PageTitle } from "@/components/NeonText";
 
@@ -6,6 +8,26 @@ export const dynamic = "force-dynamic";
 
 export default async function VolumeAlertPage() {
   const hours = await getAlertHours();
+
+  /**
+   * The releases that fell on the days the logbook covers.
+   *
+   * Read here and turned into a wall clock in the browser: the recorded hour
+   * is the reader's own clock, and this server runs in UTC. Only the instant
+   * and the name travel — what an hour needs to know is whether a figure came
+   * out in it, and which.
+   *
+   * Rated the way the checklist rates them, so a release the reader has
+   * re-rated by hand counts as they judged it, not as the source filed it.
+   */
+  const [ratings, events] = await Promise.all([
+    getEventRatings(),
+    getEventsOver([...new Set(hours.map((hour) => hour.day))]),
+  ]);
+
+  const news = applyRatings(events, ratings)
+    .filter((event) => event.kind === "release" && event.impact === "high" && event.at)
+    .map((event) => ({ at: event.at as string, title: event.title, currency: event.currency }));
 
   return (
     <div>
@@ -15,7 +37,7 @@ export default async function VolumeAlertPage() {
           Ce que l&apos;alerte a tiré, heure par heure — et le seuil que ça recommande
         </div>
       </div>
-      <VolumeAlertClient hours={hours} />
+      <VolumeAlertClient hours={hours} news={news} />
     </div>
   );
 }

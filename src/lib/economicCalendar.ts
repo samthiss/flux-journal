@@ -283,6 +283,32 @@ export async function getEconomicEvents(): Promise<{ events: EconomicEvent[]; ok
 }
 
 /**
+ * The releases over a stretch of days already gone by.
+ *
+ * `getEconomicEvents` reads a window around today, which is what a calendar
+ * card needs. Reading a logbook needs the opposite: the days it was written
+ * on, which can be weeks back. Only the range source can answer that — the
+ * weekly feed publishes this week and 404s on its neighbours — so a failure
+ * here is no events rather than a fallback that would silently answer about
+ * the wrong week.
+ *
+ * Rounded out to whole days so the hourly cache is not re-cut per request.
+ */
+export async function getEventsOver(days: string[]): Promise<EconomicEvent[]> {
+  if (days.length === 0) return [];
+
+  const sorted = [...days].sort();
+  // A day either side: a release at 23h30 in one timezone is the next day in
+  // another, and the reader's clock is the one the logbook was written in.
+  const from = new Date(`${sorted[0]}T00:00:00Z`);
+  from.setUTCDate(from.getUTCDate() - 1);
+  const to = new Date(`${sorted[sorted.length - 1]}T00:00:00Z`);
+  to.setUTCDate(to.getUTCDate() + 2);
+
+  return (await readRange(from, to)) ?? [];
+}
+
+/**
  * The events as rated here rather than at the source.
  *
  * Kept beside the fetch rather than in the action file, because a "use server"
