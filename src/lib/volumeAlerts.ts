@@ -215,6 +215,81 @@ export function sessionStats(hours: AlertHour[], sessions: Session[], ceiling: n
 }
 
 /**
+ * One stretch of the day and the threshold it asks for.
+ *
+ * `threshold` is null when no threshold that can be recounted holds the
+ * ceiling — every box in those hours is above anything worth setting, which is
+ * an answer about the market rather than about the alert.
+ */
+export type Proposal = {
+  start: number;
+  /** Exclusive, and may wrap past midnight like a session's. */
+  end: number;
+  threshold: number | null;
+  rate: number | null;
+  days: number;
+  hours: number;
+};
+
+/**
+ * The day cut into stretches, each with the threshold it asks for.
+ *
+ * A single setting over a whole morning is a compromise between an 8h that
+ * wants 170 and a 10h that wants 260: the first floods, or the second goes
+ * quiet. What this does instead is let the hours say where they differ, and
+ * cut there.
+ *
+ * Adjacent bands are pooled while the thresholds they ask for stay within one
+ * step of each other, and the stretch then takes the highest of them — so
+ * every hour inside it holds the ceiling, rather than the average of them
+ * holding it while one hour floods. The cut is made where the ask jumps.
+ *
+ * Read from `start`, so a stretch running past midnight is cut in clock order
+ * rather than at the arbitrary seam of 0h.
+ */
+export function propose(hours: AlertHour[], session: Session, ceiling: number, floor = 0): Proposal[] {
+  const bands = bandStats(hours, ceiling, floor).filter((band) => inSession(band.hour, session));
+  if (bands.length === 0) return [];
+
+  const from = (hour: number) => (hour - session.start + 24) % 24;
+  const ordered = [...bands].sort((a, b) => from(a.hour) - from(b.hour));
+
+  const runs: BandStat[][] = [];
+  for (const band of ordered) {
+    const run = runs[runs.length - 1];
+    const last = run?.[run.length - 1];
+    const asks = run?.map((b) => b.recommended);
+    const fits =
+      last !== undefined &&
+      from(band.hour) === from(last.hour) + 1 &&
+      // A band no threshold holds cannot share a stretch: it is not asking for
+      // a higher setting, it is saying the recount does not reach.
+      (band.recommended === null) === (last.recommended === null) &&
+      (band.recommended === null ||
+        Math.max(...asks!.map((a) => a!), band.recommended) -
+          Math.min(...asks!.map((a) => a!), band.recommended) <=
+          STEP);
+
+    if (fits) run.push(band);
+    else runs.push([band]);
+  }
+
+  return runs.map((run) => {
+    const taken = run.flatMap((band) => hours.filter((hour) => hour.hour === band.hour));
+    // The highest ask in the stretch, so the loudest hour in it still holds.
+    const threshold = run[0].recommended === null ? null : Math.max(...run.map((band) => band.recommended!));
+    return {
+      start: run[0].hour,
+      end: (run[run.length - 1].hour + 1) % 24,
+      threshold,
+      rate: threshold === null ? null : rateAt(taken, threshold),
+      days: new Set(taken.map((hour) => hour.day)).size,
+      hours: taken.length,
+    };
+  });
+}
+
+/**
  * The hours falling in the last `days` days, or all of them.
  *
  * A rolling window rather than the calendar week: a week gives one Monday, and

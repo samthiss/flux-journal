@@ -10,6 +10,7 @@ import {
   canAnswer,
   countAt,
   inSession,
+  propose,
   recent,
   sessionLabel,
   sessionStats,
@@ -601,6 +602,17 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
    * at the same one: what the stepper is really asking is which band the
    * candidate is being paid for and which one is paying.
    */
+  /**
+   * The stretch cut where the hours stop asking for the same thing.
+   *
+   * One setting over a whole morning is a compromise between an 8h that wants
+   * 170 and a 10h that wants 260; this says where to cut instead.
+   */
+  const split = useMemo(
+    () => propose(read.filter((hour) => inSession(hour.hour, session)), session, ceiling, floor),
+    [read, session, ceiling, floor],
+  );
+
   /** One band of the day, recounted at the threshold being tried. */
   const bandTried = (hour: number) => rateAmong(read.filter((row) => row.hour === hour), tried);
 
@@ -934,6 +946,73 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
           );
         })}
       </div>
+
+      {/* A cut is only worth proposing where the hours differ: one stretch back
+          is the session reading over again. */}
+      {split.length > 1 && (
+        <div style={{ ...glassCard }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Découpage proposé</div>
+            <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>
+              là où les heures ne demandent pas la même chose
+            </div>
+          </div>
+
+          {split.map((part) => (
+            <div
+              key={`${part.start}-${part.end}`}
+              title={`Mesuré sur ${part.days} jour${part.days > 1 ? "s" : ""}, ${part.hours} heure${part.hours > 1 ? "s" : ""} enregistrée${part.hours > 1 ? "s" : ""}`}
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 12,
+                padding: "8px 0",
+                borderTop: "1px solid oklch(0.28 0.03 250 / 0.5)",
+                flexWrap: "wrap",
+              }}
+            >
+              <span style={{ ...mono, fontSize: 12.5, color: "oklch(0.88 0.02 250)", width: 96, flex: "none" }}>
+                {sessionLabel({ start: part.start, end: part.end })}
+              </span>
+              <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.45 0.02 250)", flex: "none" }}>→</span>
+              <span
+                style={{
+                  ...mono,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  flex: "none",
+                  color: part.threshold === null ? "oklch(0.5 0.02 250)" : accentColor,
+                  textShadow: part.threshold === null ? "none" : neonGlow(accentColor, 1),
+                }}
+              >
+                {part.threshold ?? "aucun seuil ne tient"}
+              </span>
+              {part.rate !== null && (
+                <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.6 0.02 250)", flex: 1, minWidth: 140 }}>
+                  {part.rate.toFixed(1)} alerte{part.rate >= 2 ? "s" : ""} par heure
+                </span>
+              )}
+              <span
+                style={{
+                  ...mono,
+                  fontSize: 10,
+                  marginLeft: "auto",
+                  flex: "none",
+                  color: part.days < ENOUGH_DAYS ? "oklch(0.8 0.14 85)" : "oklch(0.45 0.02 250)",
+                }}
+              >
+                {part.days} jour{part.days > 1 ? "s" : ""}
+                {part.days < ENOUGH_DAYS ? ` sur ${ENOUGH_DAYS}` : ""}
+              </span>
+            </div>
+          ))}
+
+          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginTop: 10, lineHeight: 1.5 }}>
+            Chaque tranche prend le plus haut des seuils que ses heures demandent, pour que l&apos;heure la plus
+            bruyante y tienne aussi — et non la moyenne, qui laisserait une heure inonder.
+          </div>
+        </div>
+      )}
 
       {/* Only once it pools several days. On the first day an hour band holds a
           single entry, so this block repeats the recorded list underneath it
