@@ -7,6 +7,7 @@ import {
   bandLabel,
   bandStats,
   byHour,
+  canAnswer,
   countAt,
   recent,
   sessionLabel,
@@ -142,6 +143,35 @@ function loadSession(): Session {
 function saveSession(session: Session) {
   try {
     window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+/**
+ * The threshold the logbook is replayed at, alongside the one in force.
+ *
+ * Zero is off. What it answers is the only question the recorded boxes can
+ * answer exactly: at 250, this hour would have shown two alerts instead of
+ * five. It reaches upward only — an hour watched at 200 never wrote down what
+ * happened between 150 and 200, so a simulation under 200 would be inventing
+ * the quiet, and such an hour says nothing rather than zero.
+ */
+const SIM_KEY = "volumeAlertSim";
+
+function loadSim(): number {
+  try {
+    const raw = window.localStorage.getItem(SIM_KEY);
+    const parsed = Number(raw);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveSim(sim: number) {
+  try {
+    window.localStorage.setItem(SIM_KEY, String(sim));
   } catch {
     // ignore storage failures
   }
@@ -323,6 +353,9 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
    */
   const [session, setSession] = useState<Session>(DEFAULT_SESSION);
 
+  /** The threshold the logbook is replayed at. Zero is off. */
+  const [sim, setSim] = useState(0);
+
   /** How far back a reading looks, in days. Null is everything recorded. */
   const [window, setWindow] = useState<number | null>(7);
 
@@ -331,6 +364,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read after mount, as the market list lives in the browser
     setMarkets(stored);
     setSession(loadSession());
+    setSim(loadSim());
     const limits = loadLimits();
     setFloor(limits.floor);
     setCeiling(limits.ceiling);
@@ -364,6 +398,25 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   const stats = useMemo(() => bandStats(read, ceiling, floor), [read, ceiling, floor]);
   const bySession = useMemo(() => sessionStats(read, [session], ceiling, floor), [read, session, ceiling, floor]);
   const bands = useMemo(() => byHour(mine), [mine]);
+
+  /**
+   * The logbook as a whole, at the threshold in force and at the simulated one.
+   *
+   * Averaged per hour recorded, which is the figure the ceiling is set in. The
+   * two are not always over the same hours: an hour watched above the simulated
+   * threshold cannot answer for it, so it is left out and counted here instead.
+   */
+  const totals = useMemo(() => {
+    const asRecorded = mine.reduce((n, hour) => n + countAt(hour, hour.threshold), 0);
+    const readable = sim > 0 ? mine.filter((hour) => canAnswer(hour, sim)) : [];
+    const simulated = readable.reduce((n, hour) => n + countAt(hour, sim), 0);
+    return {
+      hours: mine.length,
+      recorded: mine.length ? asRecorded / mine.length : 0,
+      readable: readable.length,
+      simulated: readable.length ? simulated / readable.length : null,
+    };
+  }, [mine, sim]);
 
   const values = parseValues(raw);
 
@@ -632,7 +685,33 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
       )}
 
       <div style={{ ...glassCard }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Heures enregistrées</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Heures enregistrées</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>simulation d&apos;alerte</span>
+            <NumberField
+              value={sim}
+              onChange={(next) => {
+                setSim(next);
+                saveSim(next);
+              }}
+              min={0}
+              max={99999}
+              width={66}
+            />
+            {sim > 0 && (
+              <button
+                onClick={() => {
+                  setSim(0);
+                  saveSim(0);
+                }}
+                style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.5 0.02 250)", cursor: "pointer" }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
         {bands.length === 0 && (
           <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>Rien encore.</div>
         )}
@@ -710,6 +789,27 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
                   >
                     {count}
                   </span>
+                  {sim > 0 && (
+                    <span
+                      title={
+                        canAnswer(row, sim)
+                          ? `À ${sim}, cette heure aurait donné ${countAt(row, sim)} alerte(s) au lieu de ${count}.`
+                          : `Cette heure était surveillée à ${row.threshold} : rien n'a été noté sous ce seuil, donc elle ne peut pas répondre pour ${sim}.`
+                      }
+                      style={{
+                        ...mono,
+                        fontSize: 12,
+                        minWidth: 34,
+                        flex: "none",
+                        textAlign: "center",
+                        padding: "2px 0",
+                        border: "1px dashed oklch(0.32 0.02 250)",
+                        color: canAnswer(row, sim) ? "oklch(0.72 0.02 250)" : "oklch(0.4 0.02 250)",
+                      }}
+                    >
+                      {canAnswer(row, sim) ? countAt(row, sim) : "—"}
+                    </span>
+                  )}
                   <span style={{ ...mono, fontSize: 10.5, flex: 1, minWidth: 0, color: "oklch(0.45 0.02 250)" }}>
                     seuil {row.threshold}
                   </span>
@@ -733,6 +833,38 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             })}
           </div>
         ))}
+
+        {/* The two readings side by side: what the alert gave, and what it
+            would have given. Per hour recorded, the figure the ceiling is in. */}
+        {totals.hours > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: 16,
+              flexWrap: "wrap",
+              paddingTop: 12,
+              borderTop: "1px solid oklch(0.84 0.17 196 / 0.18)",
+            }}
+          >
+            <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.02 250)" }}>
+              moyenne sur {totals.hours} heure{totals.hours > 1 ? "s" : ""}
+            </span>
+            <span style={{ ...mono, fontSize: 12, color: accentColor, textShadow: neonGlow(accentColor, 1) }}>
+              {totals.recorded.toFixed(1)}/h <span style={{ color: "oklch(0.5 0.02 250)", textShadow: "none" }}>tel qu&apos;encodé</span>
+            </span>
+            {sim > 0 && (
+              <span style={{ ...mono, fontSize: 12, color: totals.simulated === null ? "oklch(0.45 0.02 250)" : "oklch(0.82 0.02 250)" }}>
+                {totals.simulated === null ? "—" : `${totals.simulated.toFixed(1)}/h`}{" "}
+                <span style={{ color: "oklch(0.5 0.02 250)" }}>
+                  à {sim}
+                  {totals.readable < totals.hours &&
+                    ` · sur ${totals.readable} heure${totals.readable > 1 ? "s" : ""} lisible${totals.readable > 1 ? "s" : ""}`}
+                </span>
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
