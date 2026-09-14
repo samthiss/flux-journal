@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { accentColor, glassCard, lossColor } from "@/lib/theme";
+import { accentColor, glassCard, lossColor, neonGlow } from "@/lib/theme";
 import { DEFAULT_MARKETS, loadMarkets } from "@/lib/markets";
 import {
   bandLabel,
@@ -667,63 +667,99 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             the same hour from one day to the next, not a day's worth of hours.
             The count is the line — the boxes themselves are behind "corriger". */}
         {bands.map(([bandHour, rows]) => (
-          <div key={bandHour} style={{ marginBottom: 12 }}>
-            <div
-              style={{
-                ...mono,
-                fontSize: 10,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: "oklch(0.5 0.03 250)",
-                padding: "6px 0",
-              }}
-            >
-              {bandLabel(bandHour)}
-            </div>
-            {rows.map((row) => (
-              <div
-                key={row.day}
+          <div key={bandHour} style={{ marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0 8px" }}>
+              <span
                 style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: 12,
-                  padding: "6px 0",
-                  borderTop: "1px solid oklch(0.26 0.03 250 / 0.35)",
+                  ...mono,
+                  fontSize: 11,
+                  letterSpacing: "0.14em",
+                  color: accentColor,
+                  textShadow: neonGlow(accentColor, 1),
                 }}
               >
-                <span
+                {bandLabel(bandHour)}
+              </span>
+              <span style={{ flex: 1, height: 1, background: "oklch(0.84 0.17 196 / 0.18)" }} />
+              <span style={{ ...mono, fontSize: 10, color: "oklch(0.5 0.02 250)" }}>
+                {rows.length} {rows.length > 1 ? "jours" : "jour"}
+              </span>
+            </div>
+            {rows.map((row) => {
+              const count = countAt(row, row.threshold);
+              // The count carries the reading, so it carries the colour: lit
+              // when the hour fired, magenta past the ceiling, unlit at zero.
+              const tone =
+                count === 0
+                  ? "oklch(0.45 0.02 250)"
+                  : count > ceiling
+                    ? lossColor
+                    : count < floor
+                      ? "oklch(0.8 0.14 85)"
+                      : accentColor;
+              return (
+                <div
+                  key={row.day}
                   style={{
-                    ...mono,
-                    fontSize: 11.5,
-                    flex: 1,
-                    minWidth: 0,
-                    color: row.day === today() ? accentColor : "oklch(0.78 0.02 250)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "5px 0",
+                    borderTop: "1px solid oklch(0.26 0.03 250 / 0.35)",
                   }}
                 >
-                  {dayLabel(row.day)} — {countAt(row, row.threshold)}
-                </span>
-                <span style={{ ...mono, fontSize: 11, width: 70, flex: "none", color: "oklch(0.5 0.02 250)" }}>
-                  seuil {row.threshold}
-                </span>
-                <button
-                  onClick={() => {
-                    setDay(row.day);
-                    setHour(row.hour);
-                    setThreshold(row.threshold);
-                    setRaw(row.values.join(" "));
-                  }}
-                  style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.55 0.02 250)", cursor: "pointer" }}
-                >
-                  corriger
-                </button>
-                <button
-                  onClick={() => deleteAlertHour(row.market, row.day, row.hour)}
-                  style={{ ...mono, fontSize: 10, background: "none", border: "none", color: lossColor, cursor: "pointer", opacity: 0.75 }}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+                  <span
+                    style={{
+                      ...mono,
+                      fontSize: 11.5,
+                      minWidth: 116,
+                      flex: "none",
+                      textTransform: "capitalize",
+                      color: row.day === today() ? accentColor : "oklch(0.72 0.02 250)",
+                    }}
+                  >
+                    {dayLabel(row.day)}
+                  </span>
+                  <span
+                    style={{
+                      ...mono,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      minWidth: 34,
+                      flex: "none",
+                      textAlign: "center",
+                      padding: "2px 0",
+                      color: tone,
+                      border: `1px solid ${count === 0 ? "oklch(0.32 0.02 250)" : tone.replace(")", " / 0.5)")}`,
+                      background: count === 0 ? "none" : tone.replace(")", " / 0.1)"),
+                      textShadow: count === 0 ? "none" : neonGlow(tone, 1),
+                    }}
+                  >
+                    {count}
+                  </span>
+                  <span style={{ ...mono, fontSize: 10.5, flex: 1, minWidth: 0, color: "oklch(0.45 0.02 250)" }}>
+                    seuil {row.threshold}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setDay(row.day);
+                      setHour(row.hour);
+                      setThreshold(row.threshold);
+                      setRaw(row.values.join(" "));
+                    }}
+                    style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.55 0.02 250)", cursor: "pointer" }}
+                  >
+                    corriger
+                  </button>
+                  <button
+                    onClick={() => deleteAlertHour(row.market, row.day, row.hour)}
+                    style={{ ...mono, fontSize: 10, background: "none", border: "none", color: lossColor, cursor: "pointer", opacity: 0.6 }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
