@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { accentColor, glassCard, lossColor, neonGlow } from "@/lib/theme";
 import { DEFAULT_MARKETS, loadMarkets } from "@/lib/markets";
 import {
@@ -16,7 +16,7 @@ import {
   type Session,
   type Stat,
 } from "@/lib/volumeAlerts";
-import { deleteAlertHour, saveAlertHour } from "@/lib/actions/volumeAlerts";
+import { saveAlertHour } from "@/lib/actions/volumeAlerts";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -31,7 +31,7 @@ const col = {
   day: { minWidth: 116, flex: 1 } as const,
   count: { width: 46, flex: "none" } as const,
   threshold: { width: 52, flex: "none", textAlign: "right" } as const,
-  actions: { width: 78, flex: "none" } as const,
+  actions: { width: 62, flex: "none" } as const,
 };
 
 /** The simulated count, kept clearly apart from the one that was recorded. */
@@ -370,6 +370,9 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
    */
   const [session, setSession] = useState<Session>(DEFAULT_SESSION);
 
+  /** The form up top, so a line of the logbook can send you back to it. */
+  const form = useRef<HTMLDivElement>(null);
+
   /** The threshold the logbook is replayed at. Zero is off. */
   const [sim, setSim] = useState(0);
 
@@ -448,7 +451,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ ...glassCard }}>
+      <div ref={form} style={{ ...glassCard, scrollMarginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
           <div style={{ ...label, marginBottom: 0, marginRight: 4 }}>Marché</div>
           {markets.map((m) => (
@@ -855,21 +858,18 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
                   <span style={{ ...mono, ...col.threshold, fontSize: 11, color: "oklch(0.55 0.02 250)" }}>
                     {row.threshold}
                   </span>
-                  <span style={{ ...col.actions, display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                  <span style={{ ...col.actions, display: "flex", justifyContent: "flex-end" }}>
                     <button
                       onClick={() => {
+                        // The line goes back into the form, and the page goes
+                        // with it: an hour is corrected where it was typed.
                         choose({ day: row.day, hour: row.hour, threshold: row.threshold });
                         setRaw(row.values.join(" "));
+                        form.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
-                      style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.55 0.02 250)", cursor: "pointer", padding: 0 }}
+                      style={{ ...mono, fontSize: 10, background: "none", border: "none", color: accentColor, cursor: "pointer", padding: 0 }}
                     >
-                      corriger
-                    </button>
-                    <button
-                      onClick={() => deleteAlertHour(row.market, row.day, row.hour)}
-                      style={{ ...mono, fontSize: 10, background: "none", border: "none", color: lossColor, cursor: "pointer", opacity: 0.6, padding: 0 }}
-                    >
-                      ✕
+                      modifier
                     </button>
                   </span>
                 </div>
