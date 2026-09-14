@@ -87,7 +87,7 @@ export type SessionStat = Stat & { session: Session };
 export const inSession = (hour: number, { start, end }: Session) =>
   end > start ? hour >= start && hour < end : hour >= start || hour < end;
 
-export const sessionLabel = ({ start, end }: Session) => `${start}h-${end}h`;
+export const sessionLabel = ({ start, end }: Session) => `${pad(start)}h - ${pad(end)}h`;
 
 const STEP = 10;
 
@@ -233,13 +233,21 @@ export function recent(hours: AlertHour[], days: number | null): AlertHour[] {
   return hours.filter((hour) => hour.day >= cutoff);
 }
 
-/** The days a set of hours covers, newest first. */
-export function byDay(hours: AlertHour[]): [string, AlertHour[]][] {
-  const days = new Map<string, AlertHour[]>();
-  for (const hour of hours) (days.get(hour.day) ?? days.set(hour.day, []).get(hour.day)!).push(hour);
-  for (const [, rows] of days) rows.sort((a, b) => a.hour - b.hour);
-  return [...days.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+/**
+ * The hour bands a set of hours covers, and the days recorded under each.
+ *
+ * The band leads rather than the day: what is compared, when the logbook is
+ * read back, is the same hour across days — 5h on Monday against 5h on
+ * Tuesday. Days run oldest first underneath, the way a week is read.
+ */
+export function byHour(hours: AlertHour[]): [number, AlertHour[]][] {
+  const bands = new Map<number, AlertHour[]>();
+  for (const hour of hours) (bands.get(hour.hour) ?? bands.set(hour.hour, []).get(hour.hour)!).push(hour);
+  for (const [, rows] of bands) rows.sort((a, b) => a.day.localeCompare(b.day));
+  return [...bands.entries()].sort((a, b) => a[0] - b[0]);
 }
 
-/** "3h-4h", the way the hours are spoken about here. */
-export const bandLabel = (hour: number) => `${hour}h-${hour + 1}h`;
+const pad = (hour: number) => String(hour).padStart(2, "0");
+
+/** "05-06h", the way the hours are spoken about here. */
+export const bandLabel = (hour: number) => `${pad(hour)}-${pad((hour + 1) % 24)}h`;

@@ -6,7 +6,7 @@ import { DEFAULT_MARKETS, loadMarkets } from "@/lib/markets";
 import {
   bandLabel,
   bandStats,
-  byDay,
+  byHour,
   countAt,
   recent,
   sessionLabel,
@@ -131,6 +131,41 @@ function saveSessions(sessions: Session[]) {
 }
 
 /**
+ * The band of alerts per hour a setting is judged against.
+ *
+ * Kept per browser like the sessions: how many alerts an hour is tolerable is
+ * a habit of whoever watches them, not something the journal records.
+ */
+const LIMITS_KEY = "volumeAlertLimits";
+
+type Limits = { floor: number; ceiling: number };
+
+const DEFAULT_LIMITS: Limits = { floor: 0, ceiling: 5 };
+
+function loadLimits(): Limits {
+  try {
+    const raw = window.localStorage.getItem(LIMITS_KEY);
+    if (!raw) return DEFAULT_LIMITS;
+    const parsed = JSON.parse(raw);
+    const floor = parsed?.floor;
+    const ceiling = parsed?.ceiling;
+    if (!Number.isInteger(floor) || floor < 0 || floor > 99) return DEFAULT_LIMITS;
+    if (!Number.isInteger(ceiling) || ceiling < 1 || ceiling > 99) return DEFAULT_LIMITS;
+    return { floor, ceiling };
+  } catch {
+    return DEFAULT_LIMITS;
+  }
+}
+
+function saveLimits(limits: Limits) {
+  try {
+    window.localStorage.setItem(LIMITS_KEY, JSON.stringify(limits));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+/**
  * What to do about a stretch, in words.
  *
  * The figures above it are exact and say nothing on their own: a rate of 4.2
@@ -185,8 +220,13 @@ function advice(stat: Stat, ceiling: number, floor: number): { text: string; ton
   return { tone: "oklch(0.62 0.03 250)", text: `dans la fourchette — garde ${stat.threshold}` };
 }
 
-const dayLabel = (day: string) =>
-  new Date(`${day}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
+/** "lundi 07.09" — the weekday first, because the weekday is what is compared. */
+const dayLabel = (day: string) => {
+  const date = new Date(`${day}T12:00:00`);
+  const weekday = date.toLocaleDateString("fr-FR", { weekday: "long" });
+  const [, month, dayOfMonth] = day.split("-");
+  return `${weekday} ${dayOfMonth}.${month}`;
+};
 
 /**
  * The alert's own logbook: what it fired, hour by hour, and what it should be
@@ -207,13 +247,13 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   const [saving, setSaving] = useState(false);
 
   /** The most alerts an hour may show before the setting is too low. */
-  const [ceiling, setCeiling] = useState(5);
+  const [ceiling, setCeiling] = useState(DEFAULT_LIMITS.ceiling);
   /**
    * The fewest before it is too high. Zero turns it off, which is the default:
    * a quiet hour is an answer, and only a band that stays quiet over many hours
    * is a mis-set alert.
    */
-  const [floor, setFloor] = useState(0);
+  const [floor, setFloor] = useState(DEFAULT_LIMITS.floor);
 
   /**
    * The stretches the alert is actually set for.
@@ -233,13 +273,16 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read after mount, as the market list lives in the browser
     setMarkets(stored);
     setSessions(loadSessions());
+    const limits = loadLimits();
+    setFloor(limits.floor);
+    setCeiling(limits.ceiling);
   }, []);
 
   const mine = useMemo(() => hours.filter((h) => h.market === market), [hours, market]);
   const read = useMemo(() => recent(mine, window), [mine, window]);
   const stats = useMemo(() => bandStats(read, ceiling, floor), [read, ceiling, floor]);
   const bySession = useMemo(() => sessionStats(read, sessions, ceiling, floor), [read, sessions, ceiling, floor]);
-  const days = useMemo(() => byDay(mine), [mine]);
+  const bands = useMemo(() => byHour(mine), [mine]);
 
   const values = parseValues(raw);
 
@@ -349,9 +392,27 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Par session</div>
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>de</div>
-          <NumberField value={floor} onChange={setFloor} min={0} max={99} width={52} />
+          <NumberField
+            value={floor}
+            onChange={(next) => {
+              setFloor(next);
+              saveLimits({ floor: next, ceiling });
+            }}
+            min={0}
+            max={99}
+            width={52}
+          />
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>à</div>
-          <NumberField value={ceiling} onChange={setCeiling} min={1} max={99} width={52} />
+          <NumberField
+            value={ceiling}
+            onChange={(next) => {
+              setCeiling(next);
+              saveLimits({ floor, ceiling: next });
+            }}
+            min={1}
+            max={99}
+            width={52}
+          />
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>alertes par heure</div>
           <button
             onClick={() => setEditingSessions((v) => !v)}
@@ -541,26 +602,29 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
 
       <div style={{ ...glassCard }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Heures enregistrées</div>
-        {days.length === 0 && (
+        {bands.length === 0 && (
           <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>Rien encore.</div>
         )}
-        {days.map(([d, rows]) => (
-          <div key={d} style={{ marginBottom: 12 }}>
+        {/* The band leads and the days sit under it: what is read back here is
+            the same hour from one day to the next, not a day's worth of hours.
+            The count is the line — the boxes themselves are behind "corriger". */}
+        {bands.map(([bandHour, rows]) => (
+          <div key={bandHour} style={{ marginBottom: 12 }}>
             <div
               style={{
                 ...mono,
                 fontSize: 10,
                 letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                color: d === today() ? accentColor : "oklch(0.5 0.03 250)",
+                color: "oklch(0.5 0.03 250)",
                 padding: "6px 0",
               }}
             >
-              {dayLabel(d)}
+              {bandLabel(bandHour)}
             </div>
             {rows.map((row) => (
               <div
-                key={row.hour}
+                key={row.day}
                 style={{
                   display: "flex",
                   alignItems: "baseline",
@@ -569,17 +633,19 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
                   borderTop: "1px solid oklch(0.26 0.03 250 / 0.35)",
                 }}
               >
-                <span style={{ ...mono, fontSize: 11.5, width: 62, flex: "none", color: "oklch(0.78 0.02 250)" }}>
-                  {bandLabel(row.hour)}
+                <span
+                  style={{
+                    ...mono,
+                    fontSize: 11.5,
+                    flex: 1,
+                    minWidth: 0,
+                    color: row.day === today() ? accentColor : "oklch(0.78 0.02 250)",
+                  }}
+                >
+                  {dayLabel(row.day)} — {countAt(row, row.threshold)}
                 </span>
-                <span style={{ ...mono, fontSize: 11, width: 70, flex: "none", color: "oklch(0.55 0.02 250)" }}>
+                <span style={{ ...mono, fontSize: 11, width: 70, flex: "none", color: "oklch(0.5 0.02 250)" }}>
                   seuil {row.threshold}
-                </span>
-                <span style={{ ...mono, fontSize: 11.5, width: 40, flex: "none", color: accentColor }}>
-                  {countAt(row, row.threshold)}
-                </span>
-                <span style={{ ...mono, fontSize: 11, flex: 1, minWidth: 0, color: "oklch(0.62 0.02 250)" }}>
-                  {row.values.join(" · ") || "aucune alerte"}
                 </span>
                 <button
                   onClick={() => {
