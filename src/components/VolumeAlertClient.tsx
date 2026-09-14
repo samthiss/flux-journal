@@ -111,31 +111,37 @@ function NumberField({
 
 const today = () => new Date().toLocaleDateString("en-CA");
 
-const DEFAULT_SESSIONS: Session[] = [
-  { start: 2, end: 7 },
-  { start: 7, end: 0 },
-];
+/** The stretch a reading is made over, until one is chosen. */
+const DEFAULT_SESSION: Session = { start: 2, end: 7 };
 
+const SESSION_KEY = "volumeAlertSession";
+/** The list this replaced, read once so a stretch already set is not lost. */
 const SESSIONS_KEY = "volumeAlertSessions";
 
-function loadSessions(): Session[] {
+const isHour = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < 24;
+
+function loadSession(): Session {
   try {
-    const raw = window.localStorage.getItem(SESSIONS_KEY);
-    if (!raw) return DEFAULT_SESSIONS;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_SESSIONS;
-    return parsed.filter(
-      (s): s is Session =>
-        Number.isInteger(s?.start) && Number.isInteger(s?.end) && s.start >= 0 && s.start < 24 && s.end >= 0 && s.end < 24,
-    );
+    const raw = window.localStorage.getItem(SESSION_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (isHour(parsed?.start) && isHour(parsed?.end)) return { start: parsed.start, end: parsed.end };
+    }
+    const legacy = window.localStorage.getItem(SESSIONS_KEY);
+    if (legacy) {
+      const parsed = JSON.parse(legacy);
+      const first = Array.isArray(parsed) ? parsed[0] : null;
+      if (isHour(first?.start) && isHour(first?.end)) return { start: first.start, end: first.end };
+    }
   } catch {
-    return DEFAULT_SESSIONS;
+    // ignore storage failures
   }
+  return DEFAULT_SESSION;
 }
 
-function saveSessions(sessions: Session[]) {
+function saveSession(session: Session) {
   try {
-    window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   } catch {
     // ignore storage failures
   }
@@ -307,23 +313,24 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   const [floor, setFloor] = useState(DEFAULT_LIMITS.floor);
 
   /**
-   * The stretches the alert is actually set for.
+   * The stretch the alert is actually set for.
    *
    * Before the cash open and after it are two different markets: the same
-   * threshold that sits right at 3h floods the afternoon. Kept per browser, the
-   * way the market list is — it is a habit, not data.
+   * threshold that sits right at 3h floods the afternoon. One stretch at a
+   * time, chosen here — a reading is made about the hours the alert is meant
+   * to cover, and the rest of the day only dilutes it. Kept per browser, the
+   * way the market list is: it is a habit, not data.
    */
-  const [sessions, setSessions] = useState<Session[]>(DEFAULT_SESSIONS);
+  const [session, setSession] = useState<Session>(DEFAULT_SESSION);
 
   /** How far back a reading looks, in days. Null is everything recorded. */
   const [window, setWindow] = useState<number | null>(7);
-  const [editingSessions, setEditingSessions] = useState(false);
 
   useEffect(() => {
     const stored = loadMarkets();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read after mount, as the market list lives in the browser
     setMarkets(stored);
-    setSessions(loadSessions());
+    setSession(loadSession());
     const limits = loadLimits();
     setFloor(limits.floor);
     setCeiling(limits.ceiling);
@@ -355,7 +362,7 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
   const mine = useMemo(() => hours.filter((h) => h.market === market), [hours, market]);
   const read = useMemo(() => recent(mine, window), [mine, window]);
   const stats = useMemo(() => bandStats(read, ceiling, floor), [read, ceiling, floor]);
-  const bySession = useMemo(() => sessionStats(read, sessions, ceiling, floor), [read, sessions, ceiling, floor]);
+  const bySession = useMemo(() => sessionStats(read, [session], ceiling, floor), [read, session, ceiling, floor]);
   const bands = useMemo(() => byHour(mine), [mine]);
 
   const values = parseValues(raw);
@@ -468,6 +475,30 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           <div style={{ fontSize: 13, fontWeight: 600 }}>Par session</div>
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>de</div>
           <NumberField
+            value={session.start}
+            onChange={(start) => {
+              const next = { ...session, start };
+              setSession(next);
+              saveSession(next);
+            }}
+            min={0}
+            max={23}
+            width={52}
+          />
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>h à</div>
+          <NumberField
+            value={session.end}
+            onChange={(end) => {
+              const next = { ...session, end };
+              setSession(next);
+              saveSession(next);
+            }}
+            min={0}
+            max={23}
+            width={52}
+          />
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)", marginRight: 8 }}>h, pour</div>
+          <NumberField
             value={floor}
             onChange={(next) => {
               setFloor(next);
@@ -489,21 +520,6 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             width={52}
           />
           <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>alertes par heure</div>
-          <button
-            onClick={() => setEditingSessions((v) => !v)}
-            style={{
-              ...mono,
-              fontSize: 10,
-              padding: "2px 8px",
-              borderRadius: 999,
-              cursor: "pointer",
-              border: `1px solid ${editingSessions ? accentColor : "oklch(0.32 0.02 250)"}`,
-              background: "transparent",
-              color: editingSessions ? accentColor : "oklch(0.55 0.02 250)",
-            }}
-          >
-            {editingSessions ? "terminé" : "modifier les plages"}
-          </button>
           <div style={{ display: "flex", gap: 5, marginLeft: "auto", alignItems: "center" }}>
             {/* A threshold is judged over a week, not over a morning: the
                 reading looks back rather than piling up every day ever kept. */}
@@ -529,62 +545,9 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
           </div>
         </div>
 
-        {editingSessions && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            {sessions.map((session, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <NumberField
-                  value={session.start}
-                  onChange={(start) => {
-                    const next = sessions.map((s, j) => (j === i ? { ...s, start } : s));
-                    setSessions(next);
-                    saveSessions(next);
-                  }}
-                  min={0}
-                  max={23}
-                  width={52}
-                />
-                <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.02 250)" }}>h →</span>
-                <NumberField
-                  value={session.end}
-                  onChange={(end) => {
-                    const next = sessions.map((s, j) => (j === i ? { ...s, end } : s));
-                    setSessions(next);
-                    saveSessions(next);
-                  }}
-                  min={0}
-                  max={23}
-                  width={52}
-                />
-                <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.02 250)" }}>h</span>
-                <button
-                  onClick={() => {
-                    const next = sessions.filter((_, j) => j !== i);
-                    setSessions(next);
-                    saveSessions(next);
-                  }}
-                  style={{ ...mono, fontSize: 11, background: "none", border: "none", color: lossColor, cursor: "pointer" }}
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-            <button
-              onClick={() => {
-                const next = [...sessions, { start: 14, end: 22 }];
-                setSessions(next);
-                saveSessions(next);
-              }}
-              style={{ ...mono, fontSize: 11, background: "none", border: "1px dashed oklch(0.34 0.02 250)", borderRadius: 4, padding: "3px 10px", color: "oklch(0.6 0.02 250)", cursor: "pointer" }}
-            >
-              + plage
-            </button>
-          </div>
-        )}
-
         {bySession.length === 0 && (
           <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
-            Aucune heure enregistrée ne tombe dans ces plages.
+            Aucune heure enregistrée ne tombe dans cette plage.
           </div>
         )}
 
@@ -660,13 +623,6 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
             </span>
             <span style={{ ...mono, fontSize: 11.5, flex: 1, minWidth: 200, color: advice(band, ceiling, floor).tone }}>
               {advice(band, ceiling, floor).text}
-            </span>
-            <span style={{ ...mono, fontSize: 10, color: "oklch(0.45 0.02 250)", flex: "none" }}>
-              {band.curve
-                .filter((_, i) => i % 2 === 0)
-                .slice(0, 6)
-                .map((p) => `${p.threshold}:${p.rate.toFixed(1)}`)
-                .join("  ")}
             </span>
           </div>
         ))}
