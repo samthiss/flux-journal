@@ -20,6 +20,23 @@ import { deleteAlertHour, saveAlertHour } from "@/lib/actions/volumeAlerts";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
+/**
+ * The logbook's columns, so the labels sit over what they name.
+ *
+ * The threshold used to trail the counts as "seuil 200", which read as another
+ * figure in the row next to a simulated one. It is a column of its own now,
+ * under its own word.
+ */
+const col = {
+  day: { minWidth: 116, flex: 1 } as const,
+  count: { width: 46, flex: "none" } as const,
+  threshold: { width: 52, flex: "none", textAlign: "right" } as const,
+  actions: { width: 78, flex: "none" } as const,
+};
+
+/** The simulated count, kept clearly apart from the one that was recorded. */
+const simColor = "oklch(0.78 0.16 305)";
+
 const label = {
   ...mono,
   fontSize: 10,
@@ -715,6 +732,31 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
         {bands.length === 0 && (
           <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>Rien encore.</div>
         )}
+
+        {/* Named once, at the top: the columns repeat under every band. */}
+        {bands.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "0 0 6px",
+              ...mono,
+              fontSize: 9.5,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "oklch(0.48 0.02 250)",
+            }}
+          >
+            <span style={col.day}>jour</span>
+            <span style={{ ...col.count, textAlign: "center" }}>alertes</span>
+            {sim > 0 && (
+              <span style={{ ...col.count, textAlign: "center", color: simColor }}>à {sim}</span>
+            )}
+            <span style={col.threshold}>seuil</span>
+            <span style={col.actions} />
+          </div>
+        )}
         {/* The band leads and the days sit under it: what is read back here is
             the same hour from one day to the next, not a day's worth of hours.
             The count is the line — the boxes themselves are behind "corriger". */}
@@ -763,9 +805,8 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
                   <span
                     style={{
                       ...mono,
+                      ...col.day,
                       fontSize: 11.5,
-                      minWidth: 116,
-                      flex: "none",
                       textTransform: "capitalize",
                       color: row.day === today() ? accentColor : "oklch(0.72 0.02 250)",
                     }}
@@ -775,10 +816,9 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
                   <span
                     style={{
                       ...mono,
+                      ...col.count,
                       fontSize: 12,
                       fontWeight: 600,
-                      minWidth: 34,
-                      flex: "none",
                       textAlign: "center",
                       padding: "2px 0",
                       color: tone,
@@ -798,36 +838,40 @@ export default function VolumeAlertClient({ hours }: { hours: AlertHour[] }) {
                       }
                       style={{
                         ...mono,
+                        ...col.count,
                         fontSize: 12,
-                        minWidth: 34,
-                        flex: "none",
+                        fontWeight: 600,
                         textAlign: "center",
                         padding: "2px 0",
-                        border: "1px dashed oklch(0.32 0.02 250)",
-                        color: canAnswer(row, sim) ? "oklch(0.72 0.02 250)" : "oklch(0.4 0.02 250)",
+                        color: canAnswer(row, sim) ? simColor : "oklch(0.45 0.02 250)",
+                        border: `1px dashed ${canAnswer(row, sim) ? simColor.replace(")", " / 0.55)") : "oklch(0.32 0.02 250)"}`,
+                        background: canAnswer(row, sim) ? simColor.replace(")", " / 0.1)") : "none",
+                        textShadow: canAnswer(row, sim) ? neonGlow(simColor, 1) : "none",
                       }}
                     >
                       {canAnswer(row, sim) ? countAt(row, sim) : "—"}
                     </span>
                   )}
-                  <span style={{ ...mono, fontSize: 10.5, flex: 1, minWidth: 0, color: "oklch(0.45 0.02 250)" }}>
-                    seuil {row.threshold}
+                  <span style={{ ...mono, ...col.threshold, fontSize: 11, color: "oklch(0.55 0.02 250)" }}>
+                    {row.threshold}
                   </span>
-                  <button
-                    onClick={() => {
-                      choose({ day: row.day, hour: row.hour, threshold: row.threshold });
-                      setRaw(row.values.join(" "));
-                    }}
-                    style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.55 0.02 250)", cursor: "pointer" }}
-                  >
-                    corriger
-                  </button>
-                  <button
-                    onClick={() => deleteAlertHour(row.market, row.day, row.hour)}
-                    style={{ ...mono, fontSize: 10, background: "none", border: "none", color: lossColor, cursor: "pointer", opacity: 0.6 }}
-                  >
-                    ✕
-                  </button>
+                  <span style={{ ...col.actions, display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                    <button
+                      onClick={() => {
+                        choose({ day: row.day, hour: row.hour, threshold: row.threshold });
+                        setRaw(row.values.join(" "));
+                      }}
+                      style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.55 0.02 250)", cursor: "pointer", padding: 0 }}
+                    >
+                      corriger
+                    </button>
+                    <button
+                      onClick={() => deleteAlertHour(row.market, row.day, row.hour)}
+                      style={{ ...mono, fontSize: 10, background: "none", border: "none", color: lossColor, cursor: "pointer", opacity: 0.6, padding: 0 }}
+                    >
+                      ✕
+                    </button>
+                  </span>
                 </div>
               );
             })}
