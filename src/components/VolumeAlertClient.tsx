@@ -23,14 +23,14 @@ const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 /**
  * The logbook's columns, so the labels sit over what they name.
  *
- * The threshold used to trail the counts as "seuil 200", which read as another
- * figure in the row next to a simulated one. It is a column of its own now,
- * under its own word.
+ * The threshold is not among them. Written on the line, it read as one more
+ * count — "seuil 200" next to an alert count of 2 is two numbers in the same
+ * row meaning entirely different things. It is on the count itself, on hover,
+ * and in the form once "modifier" has filled it.
  */
 const col = {
   day: { minWidth: 116, flex: 1 } as const,
   count: { width: 46, flex: "none" } as const,
-  threshold: { width: 52, flex: "none", textAlign: "right" } as const,
   actions: { width: 62, flex: "none" } as const,
 };
 
@@ -836,7 +836,6 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
             {sim > 0 && (
               <span style={{ ...col.count, textAlign: "center", color: simColor }}>à {sim}</span>
             )}
-            <span style={col.threshold}>seuil</span>
             <span style={col.actions} />
           </div>
         )}
@@ -923,6 +922,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                     )}
                   </span>
                   <span
+                    title={`${count} alerte${count > 1 ? "s" : ""} au seuil de ${row.threshold}`}
                     style={{
                       ...mono,
                       ...col.count,
@@ -961,9 +961,6 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                       {canAnswer(row, sim) ? countAt(row, sim) : "—"}
                     </span>
                   )}
-                  <span style={{ ...mono, ...col.threshold, fontSize: 11, color: "oklch(0.55 0.02 250)" }}>
-                    {row.threshold}
-                  </span>
                   <span style={{ ...col.actions, display: "flex", justifyContent: "flex-end" }}>
                     <button
                       onClick={() => {
