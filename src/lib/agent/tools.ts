@@ -102,6 +102,23 @@ export const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "proposer_ajout",
+    description:
+      "Propose d'ajouter une ligne à une note. N'écrit rien : la personne voit un brouillon et décide elle-même. " +
+      "À utiliser quand on te demande de consigner une règle, une confirmation ou un apprentissage. " +
+      "Vérifie d'abord avec lire_note où la ligne doit aller, et reprends les mots de la personne plutôt que de les reformuler. " +
+      "Après l'avoir appelé, dis simplement que le brouillon est proposé — ne prétends jamais que c'est ajouté.",
+    input_schema: {
+      type: "object",
+      properties: {
+        note: { type: "string", description: "La note visée, ex. « Trend run »." },
+        section: { type: "string", description: "La section, ex. « Entry » ou « Confirmations »." },
+        ligne: { type: "string", description: "La ligne à ajouter, telle qu'elle sera écrite." },
+      },
+      required: ["note", "section", "ligne"],
+    },
+  },
+  {
     name: "lire_checklist",
     description: "La checklist de préparation de séance, groupe par groupe.",
     input_schema: { type: "object", properties: {} },
@@ -149,6 +166,15 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
 
     case "lire_checklist":
       return { texte: await lireChecklist() };
+
+    case "proposer_ajout":
+      // Deliberately does nothing. The draft reaches the page through the tool
+      // call itself, which is streamed, and the writing happens from a button.
+      return {
+        texte:
+          "Brouillon présenté à la personne, qui décidera elle-même. Rien n'est écrit pour l'instant : " +
+          "annonce-le comme une proposition, jamais comme un ajout effectué.",
+      };
 
     default:
       return { texte: `Outil inconnu : ${name}` };

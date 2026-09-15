@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { accentColor, glassCard, lossColor } from "@/lib/theme";
+import { accentColor, glassCard, lossColor, winColor } from "@/lib/theme";
+import { ajouterLigne } from "@/lib/agent/ecrire";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -32,13 +33,19 @@ const EN_COURS: Record<string, string> = {
   interroger_trades: "interroge les trades",
   lire_volume_alert: "lit les heures de Volume Alert",
   lire_checklist: "lit la checklist",
+  proposer_ajout: "prépare un ajout",
 };
+
+/** A line the agent suggests writing into a note, awaiting a click. */
+type Brouillon = { note: string; section: string; ligne: string; etat: "attente" | "ajouté" | string };
 
 type Message = {
   role: "moi" | "agent";
   texte: string;
   /** What the agent consulted, in order, for its own answer. */
   etapes?: string[];
+  /** What it offers to write, if anything. Nothing is written without a click. */
+  brouillons?: Brouillon[];
 };
 
 const EXEMPLES = [
@@ -102,10 +109,27 @@ export default function AgentClient() {
 
         for (const ligne of lignes) {
           if (!ligne.trim()) continue;
-          const etape = JSON.parse(ligne) as { type: string; texte?: string; nom?: string };
+          const etape = JSON.parse(ligne) as { type: string; texte?: string; nom?: string; entree?: unknown };
 
           if (etape.type === "outil") {
             setEncours(EN_COURS[etape.nom ?? ""] ?? etape.nom ?? "cherche");
+
+            // The draft travels as the tool call itself: the model asked for
+            // it, the page draws it, and nothing else carries it anywhere.
+            if (etape.nom === "proposer_ajout") {
+              const entree = (etape as { entree?: Brouillon }).entree;
+              if (entree?.ligne) {
+                setMessages((prev) => {
+                  const copie = [...prev];
+                  const dernier = copie[copie.length - 1];
+                  copie[copie.length - 1] = {
+                    ...dernier,
+                    brouillons: [...(dernier.brouillons ?? []), { ...entree, etat: "attente" }],
+                  };
+                  return copie;
+                });
+              }
+            }
             setMessages((prev) => {
               const copie = [...prev];
               const dernier = copie[copie.length - 1];
@@ -142,6 +166,31 @@ export default function AgentClient() {
     } finally {
       setEncours(null);
     }
+  }
+
+  /** Writes the line, from the button and from nowhere else. */
+  async function accepter(message: number, brouillon: number) {
+    const cible = messages[message]?.brouillons?.[brouillon];
+    if (!cible) return;
+
+    majBrouillon(message, brouillon, "enregistre…");
+    try {
+      majBrouillon(message, brouillon, await ajouterLigne(cible));
+    } catch {
+      majBrouillon(message, brouillon, "⚠ l'ajout a échoué");
+    }
+  }
+
+  function refuser(message: number, brouillon: number) {
+    majBrouillon(message, brouillon, "écarté");
+  }
+
+  function majBrouillon(message: number, brouillon: number, etat: string) {
+    setMessages((prev) =>
+      prev.map((m, i) =>
+        i === message ? { ...m, brouillons: m.brouillons?.map((b, j) => (j === brouillon ? { ...b, etat } : b)) } : m,
+      ),
+    );
   }
 
   return (
@@ -198,6 +247,63 @@ export default function AgentClient() {
           <div style={{ fontSize: 14, lineHeight: 1.65, whiteSpace: "pre-wrap", color: message.texte.startsWith("⚠") ? lossColor : undefined }}>
             {message.texte ? enRiche(message.texte) : encours ? "" : "…"}
           </div>
+
+          {message.brouillons?.map((brouillon, j) => (
+            <div
+              key={j}
+              style={{
+                marginTop: 14,
+                padding: "12px 14px",
+                borderRadius: 8,
+                border: `1px dashed ${brouillon.etat === "attente" ? accentColor : "oklch(0.34 0.02 250)"}`,
+                background: "oklch(0.16 0.02 250 / 0.6)",
+              }}
+            >
+              <div style={{ ...mono, fontSize: 10, color: "oklch(0.55 0.02 250)", marginBottom: 6 }}>
+                {brouillon.note} › {brouillon.section}
+              </div>
+              <div style={{ fontSize: 13.5, marginBottom: 10 }}>• {brouillon.ligne}</div>
+
+              {brouillon.etat === "attente" ? (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => accepter(i, j)}
+                    style={{
+                      ...mono,
+                      fontSize: 11,
+                      padding: "4px 12px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      border: `1px solid ${accentColor}`,
+                      background: "oklch(0.72 0.14 195 / 0.16)",
+                      color: accentColor,
+                    }}
+                  >
+                    Ajouter à la note
+                  </button>
+                  <button
+                    onClick={() => refuser(i, j)}
+                    style={{
+                      ...mono,
+                      fontSize: 11,
+                      padding: "4px 12px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      border: "1px solid oklch(0.32 0.02 250)",
+                      background: "transparent",
+                      color: "oklch(0.55 0.02 250)",
+                    }}
+                  >
+                    Non
+                  </button>
+                </div>
+              ) : (
+                <div style={{ ...mono, fontSize: 11, color: brouillon.etat.startsWith("Ajouté") ? winColor : "oklch(0.55 0.02 250)" }}>
+                  {brouillon.etat}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       ))}
 

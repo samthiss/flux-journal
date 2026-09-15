@@ -435,3 +435,28 @@ model VolumeAlertDay {
   @@unique([market, day])
   @@index([day])
 }
+
+/**
+ * A line the agent proposed and the reader accepted into a note.
+ *
+ * Kept apart from the note itself so the rule reads as a rule — a provenance
+ * note appended to the text would be read as part of it, and a rule is quoted
+ * back later word for word. Six months on, this is what tells a line written
+ * by hand from one that came out of a conversation.
+ */
+model AgentAddition {
+  id String @id @default(cuid())
+
+  /** The note's path, as it was shown: "Trend run". */
+  note String
+
+  /** The section it went under, e.g. "Entry" or "Confirmations". */
+  section String
+
+  /** The line itself, as accepted. */
+  ligne String
+
+  createdAt DateTime @default(now())
+
+  @@index([note])
+}

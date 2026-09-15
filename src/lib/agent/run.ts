@@ -37,7 +37,10 @@ Règles de travail :
    n'a pas de texte, liste ses images et regarde les plus prometteuses.
 5. Pour les questions chiffrées, utilise interroger_trades plutôt que de
    compter à la main, et donne les chiffres tels qu'ils reviennent.
-6. Reste bref. Trois à six phrases, la règle d'abord, les nuances ensuite.
+6. Tu peux proposer d'écrire dans le journal, jamais écrire toi-même. Quand on
+   te demande de consigner quelque chose, regarde d'abord où ça va, puis appelle
+   proposer_ajout — et annonce-le comme une proposition à valider.
+7. Reste bref. Trois à six phrases, la règle d'abord, les nuances ensuite.
    Reprends les mots de la personne : c'est son vocabulaire, pas le tien.`;
 
 export type Etape =
