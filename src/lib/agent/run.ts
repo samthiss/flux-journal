@@ -59,10 +59,27 @@ export type Etape =
 export async function demander(
   question: string,
   onEtape: (etape: Etape) => void = () => {},
+  /**
+   * What was already said, oldest first.
+   *
+   * Without it every question stands alone and "et pour 6E ?" means nothing.
+   * It is re-sent whole each time — that is how the API works — so a long
+   * conversation costs more than a short one, which is what the "vider" button
+   * is for.
+   */
+  historique: { role: "moi" | "agent"; texte: string }[] = [],
 ): Promise<{ reponse: string; outils: string[] }> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: question }];
+  const messages: Anthropic.MessageParam[] = [
+    // Only the prose of earlier turns: the tool calls that produced them are
+    // not replayed, so the model reads its own past answers as answers rather
+    // than re-deciding what it once looked up.
+    ...historique
+      .filter((tour) => tour.texte.trim() && !tour.texte.startsWith("⚠"))
+      .map((tour) => ({ role: tour.role === "moi" ? ("user" as const) : ("assistant" as const), content: tour.texte })),
+    { role: "user", content: question },
+  ];
   const outils: string[] = [];
 
   for (let tour = 0; tour < MAX_TOURS; tour++) {

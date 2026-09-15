@@ -17,7 +17,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
-  const { question } = (await request.json()) as { question?: string };
+  const { question, historique } = (await request.json()) as {
+    question?: string;
+    historique?: { role: "moi" | "agent"; texte: string }[];
+  };
   if (!question?.trim()) {
     return new Response(JSON.stringify({ erreur: "Pose une question." }), { status: 400 });
   }
@@ -36,7 +39,7 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(`${JSON.stringify(etape)}\n`));
 
       try {
-        await demander(question, envoyer);
+        await demander(question, envoyer, historique ?? []);
       } catch (erreur) {
         // Surfaced rather than swallowed: a missing credit, a rate limit and a
         // bug all end the stream, and only the message says which.

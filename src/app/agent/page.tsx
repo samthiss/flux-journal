@@ -1,4 +1,4 @@
-import AgentClient from "@/components/AgentClient";
+import AgentConversation from "@/components/agent/AgentConversation";
 import { PageTitle } from "@/components/NeonText";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export default function AgentPage() {
           Interroge ton journal — tes règles, tes chiffres, tes captures
         </div>
       </div>
-      <AgentClient />
+      <AgentConversation />
     </div>
   );
 }

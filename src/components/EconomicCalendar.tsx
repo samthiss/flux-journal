@@ -437,7 +437,10 @@ export default function EconomicCalendar({
           </div>
           {rows.map((event, i) => (
             <div
-              key={`${event.title}-${event.at ?? i}`}
+              // The index as well as the name: the same release lands twice at
+              // the same minute — a ZEW for Germany and one for the euro area —
+              // and two rows sharing a key let React drop one of them.
+              key={`${event.currency}-${event.title}-${event.at ?? ""}-${i}`}
               style={{
                 display: "flex",
                 alignItems: "baseline",
