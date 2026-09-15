@@ -36,12 +36,48 @@ Règles de travail :
 4. Une partie du savoir n'existe que sur des captures annotées. Quand une note
    n'a pas de texte, liste ses images et regarde les plus prometteuses.
 5. Pour les questions chiffrées, utilise interroger_trades plutôt que de
-   compter à la main, et donne les chiffres tels qu'ils reviennent.
+   compter à la main, et donne les chiffres tels qu'ils reviennent. La date du
+   jour t'est donnée : traduis toi-même « cette semaine », « hier » ou « en
+   août » en dates, sans les redemander.
 6. Tu peux proposer d'écrire dans le journal, jamais écrire toi-même. Quand on
    te demande de consigner quelque chose, regarde d'abord où ça va, puis appelle
    proposer_ajout — et annonce-le comme une proposition à valider.
 7. Reste bref. Trois à six phrases, la règle d'abord, les nuances ensuite.
    Reprends les mots de la personne : c'est son vocabulaire, pas le tien.`;
+
+/**
+ * Today, spelled out.
+ *
+ * Without it the agent answered "je n'ai pas accès à la date du jour" and asked
+ * for the dates of "cette semaine" — a question nobody should have to answer
+ * about their own week. Monday is given too, since that is the week a trader
+ * means, and the clock is the journal's: Paris, like every other date shown.
+ */
+function aujourdhui(): string {
+  const maintenant = new Date();
+  const jour = (offset = 0) => {
+    const date = new Date(maintenant);
+    date.setDate(date.getDate() + offset);
+    return date.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+  };
+
+  const nomDuJour = maintenant.toLocaleDateString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  // getDay() calls Sunday 0; a trading week starts on Monday.
+  const versLundi = -((maintenant.getDay() + 6) % 7);
+
+  return [
+    `Nous sommes le ${nomDuJour}, soit ${jour()}.`,
+    `La semaine en cours va du ${jour(versLundi)} au ${jour(versLundi + 6)}.`,
+    `La semaine précédente allait du ${jour(versLundi - 7)} au ${jour(versLundi - 1)}.`,
+  ].join(" ");
+}
 
 export type Etape =
   | { type: "outil"; nom: string; entree: unknown }
@@ -91,7 +127,13 @@ export async function demander(
       max_tokens: 1500,
       // Cached: the instructions and the tool definitions are identical from
       // one question to the next, and re-reading them costs a tenth.
-      system: [{ type: "text", text: CONSIGNES, cache_control: { type: "ephemeral" } }],
+      system: [
+        { type: "text", text: CONSIGNES, cache_control: { type: "ephemeral" } },
+        // After the cached block, never inside it: the cache matches on an
+        // identical prefix, and a date folded into the instructions would
+        // throw the whole thing away every midnight.
+        { type: "text", text: aujourdhui() },
+      ],
       tools: TOOLS,
       messages,
     });
