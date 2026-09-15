@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: "/checklist", label: "Checklist & News", match: (p: string) => p.startsWith("/checklist") },
   { href: "/volume-alert", label: "Volume Alert", match: (p: string) => p.startsWith("/volume-alert") },
   { href: "/notes", label: "Notes", match: (p: string) => p.startsWith("/notes") },
+  { href: "/agent", label: "Agent journal", match: (p: string) => p.startsWith("/agent") },
 ];
 
 function DashboardIcon({ color }: { color: string }) {
@@ -165,7 +166,25 @@ function VolumeAlertIcon({ color }: { color: string }) {
   );
 }
 
-const ICONS = [DashboardIcon, TradesIcon, ReportIcon, RiskIcon, ChecklistIcon, VolumeAlertIcon, NotesIcon];
+/** A speech bubble with a question in it: the journal, asked something. */
+function AgentIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18">
+      <path
+        d="M2 3.5h14v9H7.5L4 16v-3.5H2z"
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <circle cx="9" cy="8" r="1" fill={color} />
+      <circle cx="5.5" cy="8" r="1" fill={color} opacity="0.55" />
+      <circle cx="12.5" cy="8" r="1" fill={color} opacity="0.55" />
+    </svg>
+  );
+}
+
+const ICONS = [DashboardIcon, TradesIcon, ReportIcon, RiskIcon, ChecklistIcon, VolumeAlertIcon, NotesIcon, AgentIcon];
 
 type NoteRow = { id: string; title: string; parentId: string | null; order: number; collapsed: boolean };
 type TreeNode = NoteRow & { children: TreeNode[] };

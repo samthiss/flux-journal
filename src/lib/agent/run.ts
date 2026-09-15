@@ -42,6 +42,8 @@ Règles de travail :
 
 export type Etape =
   | { type: "outil"; nom: string; entree: unknown }
+  /** A fragment of the answer as the model writes it. */
+  | { type: "mot"; texte: string }
   | { type: "texte"; texte: string };
 
 /**
@@ -61,7 +63,10 @@ export async function demander(
   const outils: string[] = [];
 
   for (let tour = 0; tour < MAX_TOURS; tour++) {
-    const reponse = await client.messages.create({
+    // Streamed rather than awaited whole: a question that opens two images
+    // takes fifteen seconds, and a page showing nothing for fifteen seconds
+    // reads as a page that has crashed.
+    const flux = client.messages.stream({
       model: MODEL,
       max_tokens: 1500,
       // Cached: the instructions and the tool definitions are identical from
@@ -71,6 +76,9 @@ export async function demander(
       messages,
     });
 
+    flux.on("text", (fragment) => onEtape({ type: "mot", texte: fragment }));
+
+    const reponse = await flux.finalMessage();
     const demandes = reponse.content.filter((bloc): bloc is Anthropic.ToolUseBlock => bloc.type === "tool_use");
 
     if (demandes.length === 0) {
