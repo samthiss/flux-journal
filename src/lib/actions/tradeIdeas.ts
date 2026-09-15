@@ -130,10 +130,11 @@ export async function deleteTradeIdea(id: string) {
  * typed on an idea is there for the next example.
  */
 export async function getTradeVocabularies() {
-  const [examples, ideas, hidden] = await Promise.all([
-    prisma.noteExample.findMany({ select: { tradeTypes: true, zone: true, confirmations: true } }),
+  const [examples, ideas, hidden, trades] = await Promise.all([
+    prisma.noteExample.findMany({ select: { tradeTypes: true, zone: true, confirmations: true, invalidReasons: true } }),
     prisma.tradeIdea.findMany({ select: { tradeTypes: true, zone: true, confirmations: true } }),
     prisma.hiddenTagOption.findMany({ select: { kind: true, value: true } }),
+    prisma.trade.findMany({ select: { invalidReasons: true } }),
   ]);
 
   const removed = (kind: string) =>
@@ -161,5 +162,12 @@ export async function getTradeVocabularies() {
     zones: rank(rows.map((r) => r.zone ?? "").filter(Boolean), ZONES, removed("zone")),
     // Confirmations are the reader's own words from the start: nothing ships.
     confirmations: rank(rows.flatMap((r) => parseTagArray(r.confirmations)), [], removed("confirmations")),
+    // Written on examples and on trades alike, and hidden under the notes' own
+    // kind, so a reason dropped there stays dropped here.
+    invalidReasons: rank(
+      [...examples, ...trades].flatMap((r) => parseTagArray(r.invalidReasons)),
+      [],
+      removed("invalidReason"),
+    ),
   };
 }

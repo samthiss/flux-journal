@@ -65,6 +65,12 @@ function parseTradeForm(formData: FormData) {
   const zone = String(formData.get("zone") ?? "").trim() || null;
   const confirmations = tagList("confirmations");
 
+  // The verdict, and why — kept only where it means something: a reason on a
+  // trade that was afterwards judged valid is a leftover, not an annotation.
+  const posted = String(formData.get("validity") ?? "").trim();
+  const validity = ["valid", "invalid", "risk"].includes(posted) ? posted : null;
+  const invalidReasons = validity === "valid" || validity === null ? null : tagList("invalidReasons");
+
   const setup = String(formData.get("setup") ?? "");
   const emotion = String(formData.get("emotion") ?? "") || null;
   const preTradeNotes = String(formData.get("preTradeNotes") ?? "") || null;
@@ -72,7 +78,7 @@ function parseTradeForm(formData: FormData) {
 
   return {
     date, time, symbol, market, side, size, pnl, risk, rr,
-    tpReached, tradeTypes, zone, confirmations,
+    tpReached, tradeTypes, zone, confirmations, validity, invalidReasons,
     setup, emotion, preTradeNotes, postTradeNotes,
   };
 }

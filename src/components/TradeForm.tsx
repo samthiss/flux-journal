@@ -30,6 +30,10 @@ export type TradeFormValues = {
   tradeTypes: string;
   zone: string;
   confirmations: string;
+  /** "valid", "invalid", "risk" or "" — nothing decided. */
+  validity: string;
+  /** A JSON array, only ever written where the verdict is not "valid". */
+  invalidReasons: string;
   emotion: string;
   preTradeNotes: string;
   postTradeNotes: string;
@@ -55,6 +59,13 @@ const monoInputStyle: React.CSSProperties = { ...inputStyle, fontFamily: "var(--
 // Exactly what the serving route can hand back with a real Content-Type.
 // `image/*` would also offer SVG, which is a document that can carry script.
 const ACCEPTED_CHART_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+/** The three verdicts, worded as the notes word them. */
+const VERDICTS: [string, string][] = [
+  ["valid", "Valide"],
+  ["invalid", "Invalid"],
+  ["risk", "Risque"],
+];
 
 function fieldLabel(text: string) {
   return <div style={{ fontSize: 12, color: "oklch(0.6 0.034 250)", marginBottom: 6 }}>{text}</div>;
@@ -203,7 +214,7 @@ export default function TradeForm({
   /** What one lot risked on the last trade that recorded it, if any. */
   riskPerLot?: number | null;
   /** The words the examples and the trade ideas are already annotated with. */
-  vocabulary: { tradeTypes: string[]; zones: string[]; confirmations: string[] };
+  vocabulary: { tradeTypes: string[]; zones: string[]; confirmations: string[]; invalidReasons: string[] };
   existingCharts?: ExistingCharts;
   title: string;
   subtitle: string;
@@ -217,6 +228,17 @@ export default function TradeForm({
   const [types, setTypes] = useState<string[]>(() => parseTagArray(initial.tradeTypes));
   const [zone, setZone] = useState<string | null>(initial.zone || null);
   const [confirmations, setConfirmations] = useState<string[]>(() => parseTagArray(initial.confirmations));
+
+  /**
+   * The verdict, and why — the notes' two annotations, in the notes' words.
+   *
+   * A trade that wins on a setup that should never have been taken is the one
+   * worth finding again, and no column of figures says so. The reason only
+   * appears once the verdict asks for one: on a clean trade there is nothing
+   * to answer.
+   */
+  const [validity, setValidity] = useState<string>(initial.validity || "");
+  const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseTagArray(initial.invalidReasons));
 
   /** A word typed a moment ago is offered too, before the list is read again. */
   const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
@@ -442,6 +464,43 @@ export default function TradeForm({
                     onAdd={(value) => setZone(value)}
                   />
                 </div>
+                <div>
+                  {fieldLabel("Verdict")}
+                  <input type="hidden" name="validity" value={validity} />
+                  <div style={{ display: "flex", gap: 10 }}>
+                    {VERDICTS.map(([key, text]) => (
+                      <div
+                        key={key}
+                        onClick={() => setValidity((prev) => (prev === key ? "" : key))}
+                        style={toggleBtnStyle(validity === key)}
+                      >
+                        {text}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Only where the verdict asks for one. A reason left behind by
+                    a verdict since changed is dropped on save, not kept. */}
+                {(validity === "invalid" || validity === "risk") && (
+                  <div>
+                    {fieldLabel("Raison")}
+                    <input type="hidden" name="invalidReasons" value={JSON.stringify(invalidReasons)} />
+                    <ChipDropdown
+                      block
+                      placeholder="Aucune"
+                      options={offer(vocabulary.invalidReasons, invalidReasons)}
+                      selected={invalidReasons}
+                      multiple
+                      visible
+                      onToggle={(value) =>
+                        setInvalidReasons((prev) =>
+                          prev.includes(value) ? prev.filter((r) => r !== value) : [...prev, value],
+                        )
+                      }
+                      onAdd={(value) => setInvalidReasons((prev) => (prev.includes(value) ? prev : [...prev, value]))}
+                    />
+                  </div>
+                )}
                 <div>
                   {fieldLabel("Confirmation")}
                   <ChipDropdown

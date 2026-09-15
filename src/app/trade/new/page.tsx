@@ -51,6 +51,8 @@ export default async function NewTradePage() {
         tradeTypes: "",
         zone: "",
         confirmations: "",
+        validity: "",
+        invalidReasons: "",
         emotion: "Calm",
         preTradeNotes: "",
         postTradeNotes: "",

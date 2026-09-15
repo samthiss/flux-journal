@@ -796,6 +796,16 @@ export async function addTradeExampleToNote(tradeId: string, noteId: string, cat
       title: `${trade.symbol} · ${trade.setup}`,
       caption: `${trade.date.toISOString().slice(0, 10)} · ${trade.side} · ${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}`,
       tags: JSON.stringify(tags),
+      // What the trade was already annotated with, carried over as it stands.
+      // The example holds the same five columns under the same names, and
+      // retyping them on the way in is how the two vocabularies drift apart —
+      // the point of sharing them is that a setup can be followed from the
+      // trade that was taken to the example it became.
+      tradeTypes: trade.tradeTypes,
+      zone: trade.zone,
+      confirmations: trade.confirmations,
+      validity: trade.validity,
+      invalidReasons: trade.invalidReasons,
       order: count,
     },
   });

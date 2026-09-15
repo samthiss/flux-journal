@@ -29,6 +29,8 @@ export function isValidPeriod(period: string | undefined): period is string {
 export type TradeForStats = {
   id: string;
   date: Date;
+  /** The clock time it was taken at, "14:30", or null on the imported trades. */
+  time: string | null;
   symbol: string;
   side: string;
   size: number;
@@ -60,6 +62,7 @@ export type TradeForStats = {
 export const TRADE_FOR_STATS_SELECT = {
   id: true,
   date: true,
+  time: true,
   symbol: true,
   side: true,
   size: true,

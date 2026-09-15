@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 import { parseTagArray, tagTone } from "@/lib/tags";
+
+/** The three verdicts, worded as the notes and the form word them. */
+const VERDICTS: Record<string, string> = { valid: "Valide", invalid: "Invalid", risk: "Risque" };
 import { deleteTrade } from "@/lib/actions/trades";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import AddTradeToNoteButton from "@/components/AddTradeToNoteButton";
@@ -43,10 +46,18 @@ export default async function TradeDetail({ id }: { id: string }) {
    * which is the place it was taken. Named, each answers its own question, and
    * a missing one is visibly missing.
    */
-  const tagRows = [
+  const tagRows: { label: string; values: string[] }[] = [
     { label: "Type", values: parseTagArray(trade.tradeTypes) },
     { label: "Zone", values: trade.zone ? [trade.zone] : [] },
     { label: "Confirmation", values: parseTagArray(trade.confirmations) },
+    // The verdict and, where it asks for one, why. Read here rather than only
+    // written: a winner taken on a setup the rules forbade is the trade worth
+    // finding again, and the P&L column will never say so.
+    {
+      label: "Verdict",
+      values: VERDICTS[trade.validity ?? ""] ? [VERDICTS[trade.validity ?? ""]] : [],
+    },
+    { label: "Raison", values: parseTagArray(trade.invalidReasons) },
   ].filter((row) => row.values.length > 0);
 
   const chartValues: Record<string, string | null> = {
@@ -85,7 +96,8 @@ export default async function TradeDetail({ id }: { id: string }) {
             <span style={{ fontSize: 13, color: sideColor, fontWeight: 600 }}>{trade.side}</span>
           </div>
           <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 2 }}>
-            {trade.date.toISOString().slice(0, 10)} &middot; {trade.setup}
+            {trade.date.toISOString().slice(0, 10)}
+            {trade.time ? ` · ${trade.time}` : ""} &middot; {trade.setup}
           </div>
         </div>
         <div className="trade-detail-pnl">

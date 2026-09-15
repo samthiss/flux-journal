@@ -63,6 +63,19 @@ model Trade {
   tradeTypes     String?
   zone           String?
   confirmations  String?
+
+  /**
+   * Whether the trade was one the rules allowed, and why it was not.
+   *
+   * The same two annotations the note examples carry, in the same words: a
+   * verdict — "valid", "invalid", "risk", or null while nothing has been
+   * decided — and, when it was not clean, the reasons as a JSON array. A trade
+   * that wins on a setup that should never have been taken is the one worth
+   * finding again, and it cannot be found by its P&L.
+   */
+  validity       String?
+  invalidReasons String?
+
   setup          String
   emotion        String?
   preTradeNotes  String?

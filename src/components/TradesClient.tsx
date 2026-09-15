@@ -270,8 +270,14 @@ export default function TradesClient({ trades, initialPeriod }: { trades: Trade[
                 color: "inherit",
               }}
             >
+              {/* The hour under the day rather than beside it: a trade is
+                  looked up by its date, and the time is what tells two of the
+                  same morning apart once it is found. */}
               <div style={{ color: "oklch(0.62 0.034 250)", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12 }}>
                 {t.date.toISOString().slice(0, 10)}
+                {t.time && (
+                  <div style={{ fontSize: 11, color: "oklch(0.5 0.034 250)", marginTop: 2 }}>{t.time}</div>
+                )}
               </div>
               <div style={{ fontWeight: 600 }}>{t.symbol}</div>
               <div style={{ color: t.side === "Long" ? accentColor : "oklch(0.6 0.034 250)", fontSize: 12 }}>{t.side}</div>
