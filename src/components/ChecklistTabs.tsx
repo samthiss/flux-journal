@@ -26,14 +26,15 @@ const POSTMARKET_GROUP = "Bilan";
  * What is decided in the minute before an entry.
  *
  * "Trading Plan" — the old "4b) Quelle stratégie puis-je trader aujourd'hui et
- * où ?" — sits above the two strategies, because choosing which one applies
- * comes before ticking its conditions. It carries the trade ideas with it.
+ * où ?" — and it alone. It already holds a line per strategy, each carrying its
+ * trade ideas, so the empty "Trend run" and "Backtest reverse" sections beside
+ * it said the same thing twice.
  *
  * Kept out of the pre-market tab on purpose: that one is read once, before the
  * session, while these are read again at every entry — and a list read at the
  * moment of a decision has to hold nothing but that decision.
  */
-const PRETRADE_GROUPS = ["Trading Plan", "Trend run", "Backtest reverse"];
+const PRETRADE_GROUPS = ["Trading Plan"];
 
 // Cards stretched to whatever the window was, which on a wide screen left a
 // checklist line ending a third of the way across and a lot of empty card to

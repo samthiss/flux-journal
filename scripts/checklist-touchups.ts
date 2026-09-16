@@ -25,6 +25,10 @@
  * rest of the morning routine. Renaming the group is the move: the tab a group
  * shows in is decided by its name.
  *
+ * The fifth: the two empty "Trend run" and "Backtest reverse" sections are
+ * removed. They duplicated the two lines Trading Plan already carries, and the
+ * few words typed into them while trying the page out were tests.
+ *
  * Idempotent both ways: an item that already carries answers is left alone, so
  * a reader who removed or reworded them does not get them back on the next
  * deploy, and a title with no abbreviation left in it is not rewritten.
@@ -105,6 +109,28 @@ async function main() {
       if (renamed === group || !renamed) continue;
       await prisma.checklistItem.updateMany({ where: { group }, data: { group: renamed } });
       console.log(`checklist-touchups: « ${group} » → « ${renamed} »`);
+    }
+
+    /**
+     * The duplicate strategy sections, once.
+     *
+     * Bounded by time rather than by a flag: a cuid carries the instant it was
+     * made, so only what already existed when this was written is removed, and
+     * a section created under either name afterwards is left alone. There is no
+     * createdAt on these rows to read instead.
+     */
+    const AVANT = Date.parse("2026-09-16T15:00:00Z");
+    const doublons = await prisma.checklistItem.findMany({
+      where: { group: { in: ["Trend run", "Backtest reverse"] } },
+      select: { id: true, label: true },
+    });
+    const anciens = doublons.filter((item) => {
+      const fait = parseInt(item.id.slice(1, 9), 36);
+      return Number.isFinite(fait) && fait < AVANT;
+    });
+    if (anciens.length > 0) {
+      await prisma.checklistItem.deleteMany({ where: { id: { in: anciens.map((i) => i.id) } } });
+      console.log(`checklist-touchups: ${anciens.length} ligne(s) des sections en double retirée(s).`);
     }
 
     // Matched on its number rather than its wording, which differs between the
