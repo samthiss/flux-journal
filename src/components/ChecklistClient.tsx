@@ -5,7 +5,7 @@ import { useMenuDismiss } from "@/components/useMenuDismiss";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistCategory, deleteChecklistGroup, reorderChecklistItems } from "@/lib/actions/checklist";
-import { getTradeIdeas, getTradeVocabularies } from "@/lib/actions/tradeIdeas";
+import { getTradeIdeas, getTradeVocabularies, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
 import { parseTagArray, setupDeLigne } from "@/lib/tags";
 
@@ -936,8 +936,10 @@ export default function ChecklistClient({
                       // idea is for without anything being picked.
                       setup={setupDeLigne(item.label)}
                       // A taken trade leaves the plan: it is read on the
-                      // discipline page from then on.
-                      ideas={ideas.filter((idea) => idea.itemId === item.id && idea.status !== "position")}
+                      // discipline page from then on, and a closed one in
+                      // Post-Market Analyse. Only what is still only planned
+                      // belongs here.
+                      ideas={ideas.filter((idea) => idea.itemId === item.id && idea.status === "plan")}
                       vocabulary={vocabulary}
                       onChanged={() => setIdeasVersion((v) => v + 1)}
                     />
@@ -1296,6 +1298,32 @@ export default function ChecklistClient({
                   }}
                 >
                   <span style={{ fontSize: 13.5, flex: 1, minWidth: 0 }}>{idea.reason}</span>
+                  {/* The same list of states as on the card it came from: a
+                      position closed by mistake has to be able to go back. */}
+                  <select
+                    value="closed"
+                    onChange={(e) =>
+                      startTransition(async () => {
+                        await setTradeIdeaStatus(idea.id, e.target.value as "plan" | "position" | "closed");
+                        setIdeasVersion((v) => v + 1);
+                      })
+                    }
+                    style={{
+                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                      fontSize: 10.5,
+                      padding: "4px 6px",
+                      borderRadius: 999,
+                      cursor: "pointer",
+                      border: "1px solid oklch(0.34 0.02 250)",
+                      background: "transparent",
+                      color: "oklch(0.7 0.02 250)",
+                      outline: "none",
+                    }}
+                  >
+                    <option value="plan">Trading plan</option>
+                    <option value="position">Trading</option>
+                    <option value="closed">Position closed</option>
+                  </select>
                   {/* Straight into the trade form, carrying what the idea
                       already holds: its case becomes the pre-trade analysis and
                       its charts the trade's own. Retyping it is how a journal

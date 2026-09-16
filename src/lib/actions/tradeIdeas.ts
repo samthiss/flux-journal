@@ -265,7 +265,17 @@ export async function renommerMot(kind: string, from: string, to: string) {
 
 export async function getTradeVocabularies() {
   const [examples, ideas, hidden, ajoutes, trades] = await Promise.all([
-    prisma.noteExample.findMany({ select: { tradeTypes: true, zone: true, confirmations: true, invalidReasons: true } }),
+    prisma.noteExample.findMany({
+      select: {
+        tradeTypes: true,
+        zone: true,
+        setup: true,
+        confirmations: true,
+        confirmationsBox: true,
+        confirmationsReverse: true,
+        invalidReasons: true,
+      },
+    }),
     prisma.tradeIdea.findMany({ select: { tradeTypes: true, zone: true, confirmations: true, cancelIf: true } }),
     prisma.hiddenTagOption.findMany({ select: { kind: true, value: true } }),
     prisma.tagOption.findMany({ orderBy: { createdAt: "asc" }, select: { kind: true, value: true } }),
@@ -286,6 +296,29 @@ export async function getTradeVocabularies() {
     ajoutes
       .filter((mot) => (kind.includes("@") ? mot.kind === kind : kindDeBase(mot.kind) === kind))
       .map((mot) => mot.value);
+
+  /**
+   * The same three lists as annotated on the note examples.
+   *
+   * The two pages were deliberately unlinked once, when the checklist filled
+   * with words from elsewhere that had never been typed there. What changed is
+   * that both sides now hold the same three lists and the same setups, so a
+   * word annotated on a trend run example is a word for a trend run here —
+   * the suggestion is recognisable, which is what was wrong before.
+   */
+  const desNotes = (kind: string) => {
+    const base = kindDeBase(kind);
+    const setup = kind.includes("@") ? kind.slice(base.length + 1) : null;
+    const champ = ({
+      confirmations: (e: (typeof examples)[number]) => e.confirmations,
+      confirmationsBox: (e: (typeof examples)[number]) => e.confirmationsBox,
+      confirmationsReverse: (e: (typeof examples)[number]) => e.confirmationsReverse,
+    } as Record<string, (e: (typeof examples)[number]) => string | null>)[base];
+    if (!champ) return [];
+    return examples
+      .filter((e) => !setup || e.setup === setup)
+      .flatMap((e) => parseTagArray(champ(e)));
+  };
 
   // Most-used first, then alphabetical, so the order does not shuffle between
   // two renders; the shipped words keep the head of their list whatever the
@@ -309,18 +342,17 @@ export async function getTradeVocabularies() {
     zones: rank(rows.map((r) => r.zone ?? "").filter(Boolean), ZONES, removed("zone")),
     // Confirmations are the reader's own words from the start: nothing ships.
     /**
-     * Only the words written in the pre-trade form itself.
-     *
-     * They were gathered from the note examples and the past ideas as well —
-     * deliberately, so that a confirmation written while annotating a chart
-     * would be offered on the next trade. In practice the list filled with
-     * words from elsewhere that had never been typed here, and a suggestion
-     * nobody recognises is worse than no suggestion.
+     * The words written in the pre-trade form, and the ones annotated on the
+     * note examples: one vocabulary, read from both places it is written in.
      */
-    confirmations: rank(ecrits("confirmations"), [], removed("confirmations")),
+    confirmations: rank([...ecrits("confirmations"), ...desNotes("confirmations")], [], removed("confirmations")),
     // The two other charts, each remembering its own words the same way.
-    confirmationsBox: rank(ecrits("confirmationsBox"), [], removed("confirmationsBox")),
-    confirmationsReverse: rank(ecrits("confirmationsReverse"), [], removed("confirmationsReverse")),
+    confirmationsBox: rank([...ecrits("confirmationsBox"), ...desNotes("confirmationsBox")], [], removed("confirmationsBox")),
+    confirmationsReverse: rank(
+      [...ecrits("confirmationsReverse"), ...desNotes("confirmationsReverse")],
+      [],
+      removed("confirmationsReverse")
+    ),
     /**
      * The same three lists, setup by setup: what a trend run is confirmed by
      * is not what a reverse is confirmed by. Keyed "list@setup"; a key with
@@ -328,10 +360,16 @@ export async function getTradeVocabularies() {
      * rather than opening on an empty row that reads as a fault.
      */
     parSetup: Object.fromEntries(
-      [...new Set(ajoutes.map((mot) => mot.kind).filter((kind) => kind.includes("@")))].map((kind) => [
-        kind,
-        rank(ecrits(kind), [], removed(kind)),
-      ])
+      [
+        ...new Set([
+          ...ajoutes.map((mot) => mot.kind).filter((kind) => kind.includes("@")),
+          // Every list × every setup the examples are annotated with, so a
+          // word that only ever lived in the notes is offered here too.
+          ...examples
+            .filter((e) => e.setup)
+            .flatMap((e) => ["confirmations", "confirmationsBox", "confirmationsReverse"].map((base) => `${base}@${e.setup}`)),
+        ]),
+      ].map((kind) => [kind, rank([...ecrits(kind), ...desNotes(kind)], [], removed(kind))])
     ) as Record<string, string[]>,
     // The conditions that call a trade off, which repeat far more than they
     // vary: the same handful comes back, and re-typing them invites three

@@ -1003,52 +1003,33 @@ export default function TradeIdeas({
               clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)",
             }}
           >
-            {/* The one gesture that says the trade was actually taken: it
-                moves the card from the plan to the discipline page, which is
-                where the rules about not touching it live. */}
-            <span
-              onClick={() => {
-                const suivant = idea.status === "position" ? "plan" : "position";
-                void setTradeIdeaStatus(idea.id, suivant).then(onChanged);
-              }}
-              title={idea.status === "position" ? "Remettre au plan" : "Passer en trading"}
+            {/* Where the trade stands, picked rather than toggled. It was two
+                chips — one that flipped between plan and trading, one that
+                closed the position — and three states cannot be read off two
+                buttons: a card in Pre Trade Check showed "Clôturé" with no way
+                back. A list says what the states are and which one this is. */}
+            <select
+              value={idea.status === "closed" ? "closed" : idea.status === "position" ? "position" : "plan"}
+              onChange={(e) => void setTradeIdeaStatus(idea.id, e.target.value as "plan" | "position" | "closed").then(onChanged)}
+              title="Où en est ce trade"
               style={{
                 ...mono,
                 fontSize: 9.5,
                 flex: "none",
                 marginTop: 1,
-                padding: "2px 9px",
+                padding: "2px 6px",
                 borderRadius: 999,
                 cursor: "pointer",
-                whiteSpace: "nowrap",
-                border: `1px ${idea.status === "position" ? "solid" : "dashed"} ${idea.status === "position" ? accentColor : "oklch(0.34 0.02 250)"}`,
-                background: idea.status === "position" ? accentColor.replace(")", " / 0.14)") : "transparent",
-                color: idea.status === "position" ? accentColor : "oklch(0.6 0.02 250)",
+                border: `1px ${idea.status === "plan" ? "dashed" : "solid"} ${idea.status === "plan" ? "oklch(0.34 0.02 250)" : accentColor}`,
+                background: idea.status === "plan" ? "transparent" : accentColor.replace(")", " / 0.14)"),
+                color: idea.status === "plan" ? "oklch(0.6 0.02 250)" : accentColor,
+                outline: "none",
               }}
             >
-              {idea.status === "closed" ? "Clôturé" : idea.status === "position" ? "Trading" : "Trading plan"}
-            </span>
-
-            {idea.status === "position" && (
-              <span
-                onClick={() => void setTradeIdeaStatus(idea.id, "closed").then(onChanged)}
-                title="La position est fermée — la carte passe en Post-Market Analyse"
-                style={{
-                  ...mono,
-                  fontSize: 9.5,
-                  flex: "none",
-                  marginTop: 1,
-                  padding: "2px 9px",
-                  borderRadius: 999,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  border: "1px dashed oklch(0.4 0.034 250)",
-                  color: "oklch(0.7 0.02 250)",
-                }}
-              >
-                Position closed
-              </span>
-            )}
+              <option value="plan">Trading plan</option>
+              <option value="position">Trading</option>
+              <option value="closed">Position closed</option>
+            </select>
 
             <span
               style={{
