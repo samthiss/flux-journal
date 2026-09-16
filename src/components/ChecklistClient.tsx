@@ -540,37 +540,6 @@ export default function ChecklistClient({
         </div>
       </div>
 
-      {positions && (
-        <div style={{ ...glassCard, marginBottom: 20 }}>
-          <div
-            style={{
-              fontSize: 13,
-              color: "oklch(0.62 0.034 250)",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              marginBottom: 8,
-            }}
-          >
-            Trading
-          </div>
-          {ideas.filter((idea) => idea.status === "position").length === 0 ? (
-            <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
-              Aucun trade en cours. Une idée arrive ici quand tu la passes en « Trading » dans Pre Trade Check.
-            </div>
-          ) : (
-            <TradeIdeas
-              itemId=""
-              market={market}
-              day={new Date().toLocaleDateString("en-CA")}
-              ideas={ideas.filter((idea) => idea.status === "position")}
-              vocabulary={vocabulary}
-              onChanged={() => setIdeasVersion((v) => v + 1)}
-              lectureSeule
-            />
-          )}
-        </div>
-      )}
-
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={glassCard}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
@@ -1140,6 +1109,37 @@ export default function ChecklistClient({
         </div>
 
       </div>
+      {positions && (
+        <div style={{ ...glassCard, marginTop: 20 }}>
+          <div
+            style={{
+              fontSize: 13,
+              color: "oklch(0.62 0.034 250)",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 8,
+            }}
+          >
+            Trading
+          </div>
+          {ideas.filter((idea) => idea.status === "position").length === 0 ? (
+            <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+              Aucun trade en cours. Une idée arrive ici quand tu la passes en « Trading » dans Pre Trade Check.
+            </div>
+          ) : (
+            <TradeIdeas
+              itemId=""
+              market={market}
+              day={new Date().toLocaleDateString("en-CA")}
+              ideas={ideas.filter((idea) => idea.status === "position")}
+              vocabulary={vocabulary}
+              onChanged={() => setIdeasVersion((v) => v + 1)}
+              lectureSeule
+            />
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
