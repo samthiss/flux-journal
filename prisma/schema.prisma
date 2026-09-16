@@ -318,12 +318,12 @@ model TradeIdea {
 
   /**
    * Where the idea stands: "plan" while it is only written, "position" once it
-   * has been taken.
+   * has been moved to trading.
    *
    * It decides which page shows it. A plan belongs beside the strategies being
-   * chosen from; a position belongs with the rules about not touching it —
-   * waiting for the entry, not redrawing zones, not changing cluster settings
-   * mid-trade. The same idea, read at two moments, from two places.
+   * chosen from; a trade being worked belongs with the rules that apply before
+   * and during it — waiting for the entry, not redrawing zones, not changing
+   * cluster settings. The same idea, read at two moments, from two places.
    */
   status String @default("plan")
 

@@ -804,7 +804,7 @@ export default function TradeIdeas({
                 const suivant = idea.status === "position" ? "plan" : "position";
                 void setTradeIdeaStatus(idea.id, suivant).then(onChanged);
               }}
-              title={idea.status === "position" ? "Remettre au plan" : "Passer en position"}
+              title={idea.status === "position" ? "Remettre au plan" : "Passer en trading"}
               style={{
                 ...mono,
                 fontSize: 9.5,
@@ -819,7 +819,7 @@ export default function TradeIdeas({
                 color: idea.status === "position" ? accentColor : "oklch(0.6 0.02 250)",
               }}
             >
-              {idea.status === "position" ? "En position" : "Trading plan"}
+              {idea.status === "position" ? "En trading" : "Trading plan"}
             </span>
 
             <span
