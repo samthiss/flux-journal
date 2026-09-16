@@ -71,7 +71,7 @@ async function ideePrealable(id: string | undefined) {
   const notes = [
     idea.reason,
     ...listes.map(([titre, brut]) => (lignes(brut).length ? `${titre} : ${lignes(brut).join(", ")}` : "")),
-    conditions.length ? `Annuler si : ${conditions.join(", ")}` : "",
+    conditions.length ? `Risk management : ${conditions.join(", ")}` : "",
   ]
     .filter(Boolean)
     .join("\n\n");

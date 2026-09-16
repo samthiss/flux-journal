@@ -770,7 +770,7 @@ export default function TradeIdeas({
             }}
           >
             <div style={{ ...mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 8 }}>
-              Annuler mon trade si :
+              Risk management
             </div>
             {/* Ticked, not retyped. The same few conditions come back — the
                 zone breaks, no cluster forms — and typing them again each time
@@ -1069,7 +1069,7 @@ export default function TradeIdeas({
               {parseTagArray(idea.cancelIf).length > 0 && (
                 <div style={{ marginTop: 7, paddingLeft: 2 }}>
                   <div style={{ ...mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 3 }}>
-                    Annuler si :
+                    Risk management
                   </div>
                   {parseTagArray(idea.cancelIf).map((line) => (
                     <div key={line} style={{ display: "flex", gap: 7, fontSize: 12.5, color: "oklch(0.75 0.017 250)", lineHeight: 1.5 }}>

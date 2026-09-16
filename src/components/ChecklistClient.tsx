@@ -1049,7 +1049,7 @@ export default function ChecklistClient({
                           opacity: 0.8,
                         }}
                       >
-                        {ligne.annulation ? "annuler si" : "confirmation"}
+                        {ligne.annulation ? "risk management" : "confirmation"}
                       </span>
                     </div>
                   ))}
