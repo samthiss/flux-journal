@@ -16,10 +16,20 @@ const TABS = [
   { key: "calendar", label: "Calendrier économique" },
   { key: "volume", label: "Lignes de volumes" },
   { key: "premarket", label: "Pre-Market Analyse" },
+  { key: "pretrade", label: "Pre Trade Check" },
   { key: "postmarket", label: "Post-Market Analyse" },
 ] as const;
 
 const POSTMARKET_GROUP = "Bilan";
+
+/**
+ * The two strategies, each with its own list to tick before entering.
+ *
+ * Kept out of the pre-market tab on purpose: that one is read once, before the
+ * session, while these are read again at every entry — and a list read at the
+ * moment of a decision has to hold nothing but that decision.
+ */
+const PRETRADE_GROUPS = ["Trend run", "Backtest reverse"];
 
 // Cards stretched to whatever the window was, which on a wide screen left a
 // checklist line ending a third of the way across and a lot of empty card to
@@ -201,7 +211,19 @@ export default function ChecklistTabs({
         </div>
       )}
       {tab === "premarket" && (
-        <ChecklistClient items={items.filter((i) => i.group !== POSTMARKET_GROUP)} market={market} />
+        <ChecklistClient
+          items={items.filter((i) => i.group !== POSTMARKET_GROUP && !PRETRADE_GROUPS.includes(i.group))}
+          market={market}
+        />
+      )}
+      {tab === "pretrade" && (
+        <ChecklistClient
+          items={items.filter((i) => PRETRADE_GROUPS.includes(i.group))}
+          market={market}
+          title="Pre Trade Check"
+          subtitle="À cocher avant d'entrer, selon la stratégie"
+          sections={PRETRADE_GROUPS}
+        />
       )}
       {tab === "postmarket" && (
         <ChecklistClient

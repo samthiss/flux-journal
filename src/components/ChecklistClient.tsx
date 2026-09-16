@@ -43,11 +43,21 @@ export default function ChecklistClient({
   market,
   title = "Checklist & News",
   subtitle = "Routine avant-marché",
+  sections = [],
 }: {
   items: ChecklistItem[];
   market: string;
   title?: string;
   subtitle?: string;
+  /**
+   * Sections to draw even while they hold nothing.
+   *
+   * A group exists only through its lines — there is no group table — so a
+   * section waiting to be filled would have nowhere to be filled from. Named
+   * here, it appears with its own "add a line" box and becomes real with the
+   * first line typed into it.
+   */
+  sections?: string[];
 }) {
   const [, startTransition] = useTransition();
   const [editMode, setEditMode] = useState(false);
@@ -98,7 +108,7 @@ export default function ChecklistClient({
     };
   }, [market, ideasVersion]);
 
-  const groups = Array.from(new Set(items.map((i) => i.group))).map((group) => ({
+  const groups = Array.from(new Set([...sections, ...items.map((i) => i.group)])).map((group) => ({
     title: group,
     items: items.filter((i) => i.group === group),
   }));
