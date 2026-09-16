@@ -239,6 +239,24 @@ model NoteExample {
  * Writing the word again removes its row here: the list is a preference, not a
  * blacklist.
  */
+/**
+ * A word the reader added, kept whether or not it ended up on anything.
+ *
+ * The vocabularies were read back off the ideas that used them, so a
+ * confirmation typed and then unticked before saving vanished — and had to be
+ * typed again, differently, on the next trade. Writing it down is what makes it
+ * available next time.
+ */
+model TagOption {
+  /** "confirmations" or "cancelIf". */
+  kind  String
+  value String
+
+  createdAt DateTime @default(now())
+
+  @@id([kind, value])
+}
+
 model HiddenTagOption {
   kind  String
   value String

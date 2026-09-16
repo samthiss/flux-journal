@@ -129,16 +129,38 @@ export async function deleteTradeIdea(id: string) {
  * same rule the notes page applies, so both pages offer the same words and one
  * typed on an idea is there for the next example.
  */
+/**
+ * Remembers a word the moment it is written, not when it is saved.
+ *
+ * The vocabularies used to be read back off the ideas that carried them, so a
+ * confirmation typed and then unticked before saving was lost — and got typed
+ * again, differently, on the next trade. Two spellings of one confirmation
+ * cannot be counted together afterwards.
+ */
+export async function ajouterMot(kind: string, value: string) {
+  const mot = value.trim();
+  if (!mot) return;
+  await prisma.tagOption.upsert({
+    where: { kind_value: { kind, value: mot } },
+    create: { kind, value: mot },
+    update: {},
+  });
+}
+
 export async function getTradeVocabularies() {
-  const [examples, ideas, hidden, trades] = await Promise.all([
+  const [examples, ideas, hidden, ajoutes, trades] = await Promise.all([
     prisma.noteExample.findMany({ select: { tradeTypes: true, zone: true, confirmations: true, invalidReasons: true } }),
     prisma.tradeIdea.findMany({ select: { tradeTypes: true, zone: true, confirmations: true, cancelIf: true } }),
     prisma.hiddenTagOption.findMany({ select: { kind: true, value: true } }),
+    prisma.tagOption.findMany({ orderBy: { createdAt: "asc" }, select: { kind: true, value: true } }),
     prisma.trade.findMany({ select: { invalidReasons: true } }),
   ]);
 
   const removed = (kind: string) =>
     new Set(hidden.filter((h) => h.kind === kind).map((h) => h.value));
+
+  /** Words written down on their own, whether or not an idea kept them. */
+  const ecrits = (kind: string) => ajoutes.filter((mot) => mot.kind === kind).map((mot) => mot.value);
 
   // Most-used first, then alphabetical, so the order does not shuffle between
   // two renders; the shipped words keep the head of their list whatever the
@@ -161,11 +183,19 @@ export async function getTradeVocabularies() {
     tradeTypes: rank(rows.flatMap((r) => parseTagArray(r.tradeTypes)), TRADE_TYPES, removed("tradeTypes")),
     zones: rank(rows.map((r) => r.zone ?? "").filter(Boolean), ZONES, removed("zone")),
     // Confirmations are the reader's own words from the start: nothing ships.
-    confirmations: rank(rows.flatMap((r) => parseTagArray(r.confirmations)), [], removed("confirmations")),
+    confirmations: rank(
+      [...rows.flatMap((r) => parseTagArray(r.confirmations)), ...ecrits("confirmations")],
+      [],
+      removed("confirmations"),
+    ),
     // The conditions that call a trade off, which repeat far more than they
     // vary: the same handful comes back, and re-typing them invites three
     // wordings of one rule.
-    cancelIfs: rank(ideas.flatMap((idea) => parseTagArray(idea.cancelIf)), [], removed("cancelIf")),
+    cancelIfs: rank(
+      [...ideas.flatMap((idea) => parseTagArray(idea.cancelIf)), ...ecrits("cancelIf")],
+      [],
+      removed("cancelIf"),
+    ),
     // Written on examples and on trades alike, and hidden under the notes' own
     // kind, so a reason dropped there stays dropped here.
     invalidReasons: rank(

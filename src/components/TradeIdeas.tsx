@@ -6,7 +6,7 @@ import { accentColor, winColor, lossColor } from "@/lib/theme";
 import { tagTone, parseTagArray } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
 import ImageLightbox from "@/components/ImageLightbox";
-import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage } from "@/lib/actions/tradeIdeas";
+import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot } from "@/lib/actions/tradeIdeas";
 
 export type TradeIdeaRecord = {
   id: string;
@@ -239,33 +239,52 @@ function MotsLibres({
   titre,
   valeurs,
   connus,
+  kind,
   onChange,
 }: {
   titre: string;
   valeurs: string[];
   connus: string[];
+  /** Where a newly written word is kept, so it outlives this form. */
+  kind?: string;
   onChange: (valeurs: string[]) => void;
 }) {
   const [brouillon, setBrouillon] = useState("");
-  const tous = [...new Set([...valeurs, ...connus])];
+  const [ecrits, setEcrits] = useState<string[]>([]);
+  const tous = [...new Set([...valeurs, ...ecrits, ...connus])];
 
   const ajouter = () => {
     const mot = brouillon.trim();
     setBrouillon("");
     if (!mot || valeurs.includes(mot)) return;
+    // Written down at once, and shown here even if it is unticked again: a word
+    // that only survived by being saved on an idea had to be retyped — and
+    // retyped is respelt, which no count can put back together.
+    setEcrits((prev) => (prev.includes(mot) ? prev : [...prev, mot]));
+    if (kind) void ajouterMot(kind, mot);
     onChange([...valeurs, mot]);
   };
 
   return (
-    <div style={{ marginTop: 10 }}>
+    // Framed like the cancel conditions: three lists of the same nature, and
+    // two of them drawn as bare rows read as leftovers beside the third.
+    <div
+      style={{
+        marginTop: 10,
+        padding: "10px 12px",
+        borderRadius: 4,
+        border: `1px solid ${accentColor.replace(")", " / 0.35)")}`,
+        background: accentColor.replace(")", " / 0.05)"),
+      }}
+    >
       <div
         style={{
           ...mono,
-          fontSize: 10,
-          letterSpacing: "0.08em",
+          fontSize: 9.5,
+          letterSpacing: "0.12em",
           textTransform: "uppercase",
-          color: "oklch(0.55 0.03 250)",
-          marginBottom: 6,
+          color: accentColor,
+          marginBottom: 8,
         }}
       >
         {titre}
@@ -349,6 +368,8 @@ export default function TradeIdeas({
   // has nothing to type into.
   const [cancelIf, setCancelIf] = useState<string[]>([]);
   const [nouvelleCondition, setNouvelleCondition] = useState("");
+  /** Conditions written in this form, kept on screen even once unticked. */
+  const [conditionsEcrites, setConditionsEcrites] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   // Charts picked while writing, held until the idea they belong to exists.
   const [pending, setPending] = useState<{ file: File; preview: string }[]>([]);
@@ -560,10 +581,13 @@ export default function TradeIdeas({
             connus={vocabulary.tradeTypes}
             onChange={setTypes}
           />
-          {/* Nothing suggested here, on purpose: a confirmation is written for
-              the trade in front of you, and a list of past ones invites picking
-              the nearest rather than saying what was actually seen. */}
-          <MotsLibres titre="Confirmations" valeurs={confirmations} connus={[]} onChange={setConfirmations} />
+          <MotsLibres
+            titre="Confirmations"
+            valeurs={confirmations}
+            connus={vocabulary.confirmations}
+            kind="confirmations"
+            onChange={setConfirmations}
+          />
 
           {/* What would call the trade off, kept apart from the case for it. */}
           <div
@@ -583,31 +607,35 @@ export default function TradeIdeas({
                 produced three wordings of one rule, which no filter can gather
                 back together. */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-              {cancelIf.filter(Boolean).map((condition) => (
-                <span
-                  key={condition}
-                  style={{
-                    ...mono,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 10,
-                    padding: "3px 9px",
-                    borderRadius: 999,
-                    border: `1px solid ${lossColor}`,
-                    background: lossColor.replace(")", " / 0.14)"),
-                    color: lossColor,
-                  }}
-                >
-                  {condition}
+              {/* Everything written before, ticked or not: a condition that
+                  only lived on the idea that used it had to be retyped for the
+                  next trade, and retyped is respelt. */}
+              {[...new Set([...cancelIf.filter(Boolean), ...conditionsEcrites, ...vocabulary.cancelIfs])].map((condition) => {
+                const coche = cancelIf.includes(condition);
+                return (
                   <span
-                    onClick={() => setCancelIf((prev) => prev.filter((c) => c !== condition))}
-                    style={{ cursor: "pointer", opacity: 0.7 }}
+                    key={condition}
+                    onClick={() =>
+                      setCancelIf((prev) =>
+                        prev.includes(condition) ? prev.filter((c) => c !== condition) : [...prev.filter(Boolean), condition],
+                      )
+                    }
+                    style={{
+                      ...mono,
+                      fontSize: 10,
+                      padding: "3px 9px",
+                      borderRadius: 999,
+                      cursor: "pointer",
+                      border: `1px ${coche ? "solid" : "dashed"} ${coche ? lossColor : "oklch(0.34 0.02 250)"}`,
+                      background: coche ? lossColor.replace(")", " / 0.14)") : "transparent",
+                      color: coche ? lossColor : "oklch(0.6 0.02 250)",
+                    }}
                   >
-                    ✕
+                    {coche ? "✓ " : ""}
+                    {condition}
                   </span>
-                </span>
-              ))}
+                );
+              })}
               <input
                 value={nouvelleCondition}
                 onChange={(e) => setNouvelleCondition(e.target.value)}
@@ -616,7 +644,10 @@ export default function TradeIdeas({
                   e.preventDefault();
                   const mot = nouvelleCondition.trim();
                   setNouvelleCondition("");
-                  if (mot && !cancelIf.includes(mot)) setCancelIf((prev) => [...prev.filter(Boolean), mot]);
+                  if (!mot) return;
+                  setConditionsEcrites((prev) => (prev.includes(mot) ? prev : [...prev, mot]));
+                  void ajouterMot("cancelIf", mot);
+                  if (!cancelIf.includes(mot)) setCancelIf((prev) => [...prev.filter(Boolean), mot]);
                 }}
                 // Not an example condition: beside the real ones, a greyed
                 // "le marché casse la zone" read as a fourth chip nobody had
