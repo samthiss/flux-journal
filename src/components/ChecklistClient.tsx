@@ -326,13 +326,16 @@ export default function ChecklistClient({
   /** Writes the block being composed, whatever kind it is. */
   async function poserBloc() {
     if (!bloc) return;
-    const label = blocLabel.trim();
+    // A choice list is named once: its title is what is read above the
+    // answers, so asking for a heading and a label was asking twice for the
+    // same words.
+    const label = (bloc.type === "choix" ? blocTitre : blocLabel).trim();
     if (!label) return;
 
     const [group, categorie] = bloc.cle.split("::");
     const reponses = blocReponses.split(/[\n/]/).map((r) => r.trim()).filter(Boolean);
     // A heading typed with the block, or the one it was added under.
-    const titre = categorie || blocTitre.trim();
+    const titre = bloc.type === "choix" ? categorie : categorie || blocTitre.trim();
 
     setBloc(null);
     setBlocLabel("");
@@ -407,14 +410,15 @@ export default function ChecklistClient({
         {/* Only when the block is not already under one: a heading is written
             with the block it introduces, rather than created on its own and
             then filled. */}
-        {!cle.includes("::") && (
+        {(bloc.type === "choix" || !cle.includes("::")) && (
           <input
+            autoFocus={bloc.type === "choix"}
             value={blocTitre}
             onChange={(e) => setBlocTitre(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") setBloc(null);
             }}
-            placeholder="Titre (facultatif)"
+            placeholder={bloc.type === "choix" ? "Titre de la liste…" : "Titre (facultatif)"}
             // Suggests the headings already in this section, so a second line
             // joins the first one's title instead of being typed again — and
             // spelt differently, which would split the heading in two.
@@ -429,6 +433,7 @@ export default function ChecklistClient({
             ))}
           </datalist>
         )}
+        {bloc.type !== "choix" && (
         <input
           autoFocus
           value={blocLabel}
@@ -440,6 +445,7 @@ export default function ChecklistClient({
           placeholder="Intitulé de la ligne…"
           style={champ}
         />
+        )}
         {bloc.type === "choix" && (
           // A line each, not slashes: the answers are written as they will be
           // read, and Enter goes to the next one rather than ending the block.
@@ -664,7 +670,7 @@ export default function ChecklistClient({
                           onClick={() => {
                             setBloc({ cle: `modifier::${item.id}`, type: options.length > 0 ? "choix" : "case", item });
                             setBlocLabel(item.label);
-                            setBlocTitre(item.category ?? "");
+                            setBlocTitre(options.length > 0 ? item.label : (item.category ?? ""));
                             setBlocReponses(options.join("\n"));
                           }}
                           style={{
