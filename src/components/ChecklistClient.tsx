@@ -700,7 +700,12 @@ export default function ChecklistClient({
                       onChanged={() => setIdeasVersion((v) => v + 1)}
                     />
                   )}
-                  {editMode && (
+                  {/* Not while building with blocks: a line there is written
+                      as what it is — a tick box or a choice — so its answers
+                      are already set, and a pre-trade list is ticked in the
+                      seconds before an entry, which is not when a trade idea
+                      gets written. Both stay on the tabs that use them. */}
+                  {editMode && !builder && (
                     <div style={{ padding: "0 8px 10px 40px", display: "flex", gap: 8, alignItems: "center" }}>
                       <span
                         onClick={() =>
