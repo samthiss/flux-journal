@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useMenuDismiss } from "@/components/useMenuDismiss";
-import { accentColor, glassCard } from "@/lib/theme";
+import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistCategory, deleteChecklistGroup, reorderChecklistItems } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
+import { parseTagArray } from "@/lib/tags";
 
 type ChecklistItem = {
   id: string;
@@ -107,6 +108,9 @@ function answerOptions(item: ChecklistItem): string[] {
 function todayKey() {
   return new Date().toLocaleDateString("en-CA");
 }
+
+/** Compared without accents or case, so "Setups" and "setup" are the same. */
+const fold = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 function marketStorageKey(market: string) {
   return `checklistChecked:${market}:${todayKey()}`;
@@ -420,6 +424,30 @@ export default function ChecklistClient({
       );
     });
   }
+
+  /**
+   * The lines that come from the trade itself rather than from the list.
+   *
+   * What was written as the confirmations to wait for, and the conditions that
+   * call the trade off, is exactly what has to be watched while it is on — so
+   * it is shown here as ticks rather than being re-read on another page. They
+   * are not rows in the database: they belong to the idea, and they disappear
+   * with it.
+   */
+  const dynamiques = ideas
+    .filter((idea) => idea.status === "position")
+    .flatMap((idea) => [
+      ...parseTagArray(idea.confirmations).map((texte, i) => ({
+        id: `idee-${idea.id}-c${i}`,
+        texte,
+        annulation: false,
+      })),
+      ...parseTagArray(idea.cancelIf).map((texte, i) => ({
+        id: `idee-${idea.id}-a${i}`,
+        texte,
+        annulation: true,
+      })),
+    ]);
 
   /** Drops a heading, asking first: it takes its lines with it, as a group does. */
   function removeCategorie(group: string, categorie: string, combien: number) {
@@ -951,6 +979,61 @@ export default function ChecklistClient({
                   </div>
                   );
                 })}
+                {/* Only under the section meant for them, so the rest of the
+                    list stays what was written once and for all. Nothing breaks
+                    if that section is renamed: the lines stop showing, and the
+                    trade still carries them. */}
+                {positions &&
+                  fold(g.title).includes("setup") &&
+                  dynamiques.map((ligne) => (
+                    <div
+                      key={ligne.id}
+                      onClick={() => toggle({ id: ligne.id, group: g.title, label: ligne.texte })}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      <div
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 6,
+                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: `1.5px solid ${checkedMap[ligne.id] ? (ligne.annulation ? lossColor : accentColor) : "oklch(0.42 0.034 250)"}`,
+                          background: checkedMap[ligne.id] ? (ligne.annulation ? lossColor : accentColor) : "transparent",
+                        }}
+                      >
+                        {checkedMap[ligne.id] && (
+                          <svg width="12" height="12" viewBox="0 0 12 12">
+                            <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.017 250)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          color: checkedMap[ligne.id] ? "oklch(0.5 0.0255 250)" : "oklch(0.88 0.017 250)",
+                          textDecoration: checkedMap[ligne.id] ? "line-through" : "none",
+                        }}
+                      >
+                        {ligne.texte}
+                      </div>
+                      <span
+                        style={{
+                          fontFamily: "var(--font-jetbrains-mono), monospace",
+                          fontSize: 9,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: ligne.annulation ? lossColor : accentColor,
+                          opacity: 0.8,
+                        }}
+                      >
+                        {ligne.annulation ? "annuler si" : "confirmation"}
+                      </span>
+                    </div>
+                  ))}
+
                 {/* One button for the section, not one per heading: a block
                     carries its own title now, so a second button that only
                     pre-filled it was the same gesture twice. */}
