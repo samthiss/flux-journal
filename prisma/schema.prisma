@@ -211,7 +211,13 @@ model NoteExample {
   // did not — why. `confirmations` and `invalidReasons` are JSON arrays of free
   // text, written by the same chip inputs that already store `tags`; `validity`
   // is "valid", "invalid", or null while nothing has been decided.
-  confirmations  String?
+  // `confirmations` is the CC list; the box cluster and the reverse chart each
+  // have their own. Three lists rather than one because they answer different
+  // questions — what the cluster said, what the box said, what the reverse
+  // chart said — and a single pile mixes the three into noise.
+  confirmations         String?
+  confirmationsBox      String?
+  confirmationsReverse  String?
   validity       String?
   invalidReasons String?
 

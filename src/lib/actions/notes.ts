@@ -428,7 +428,14 @@ export async function duplicateExample(id: string) {
  * list for good.
  */
 /** The four vocabularies, as the client names them. */
-export type TagField = "tradeTypes" | "confirmations" | "invalidReasons" | "zone" | "setup";
+export type TagField =
+  | "tradeTypes"
+  | "confirmations"
+  | "confirmationsBox"
+  | "confirmationsReverse"
+  | "invalidReasons"
+  | "zone"
+  | "setup";
 
 export async function deleteTagValue(field: TagField, value: string) {
   // Remembered as removed, so the ones the app ships with do not come straight
@@ -449,7 +456,7 @@ export async function deleteTagValue(field: TagField, value: string) {
 
   const examples = await prisma.noteExample.findMany({
     where: { [field]: { contains: value } },
-    select: { id: true, tradeTypes: true, confirmations: true, invalidReasons: true },
+    select: { id: true, tradeTypes: true, confirmations: true, confirmationsBox: true, confirmationsReverse: true, invalidReasons: true },
   });
 
   for (const example of examples) {
@@ -490,7 +497,7 @@ export async function renameTagValue(field: TagField, from: string, to: string) 
   } else {
     const examples = await prisma.noteExample.findMany({
       where: { [field]: { contains: from } },
-      select: { id: true, tradeTypes: true, confirmations: true, invalidReasons: true },
+      select: { id: true, tradeTypes: true, confirmations: true, confirmationsBox: true, confirmationsReverse: true, invalidReasons: true },
     });
     for (const example of examples) {
       let values: string[];
@@ -541,7 +548,7 @@ export async function applyTagToExamples(
 
   const examples = await prisma.noteExample.findMany({
     where: { id: { in: exampleIds } },
-    select: { id: true, tradeTypes: true, confirmations: true, invalidReasons: true },
+    select: { id: true, tradeTypes: true, confirmations: true, confirmationsBox: true, confirmationsReverse: true, invalidReasons: true },
   });
 
   for (const example of examples) {
@@ -690,6 +697,8 @@ export async function updateExample(
     hideText?: boolean;
     imagesPerRow?: number;
     confirmations?: string[];
+    confirmationsBox?: string[];
+    confirmationsReverse?: string[];
     // null clears the choice: an example with no verdict yet.
     validity?: "valid" | "invalid" | "risk" | null;
     invalidReasons?: string[];
@@ -705,6 +714,8 @@ export async function updateExample(
   if (data.hideText !== undefined) payload.hideText = data.hideText;
   if (data.imagesPerRow !== undefined) payload.imagesPerRow = data.imagesPerRow;
   if (data.confirmations !== undefined) payload.confirmations = JSON.stringify(data.confirmations);
+  if (data.confirmationsBox !== undefined) payload.confirmationsBox = JSON.stringify(data.confirmationsBox);
+  if (data.confirmationsReverse !== undefined) payload.confirmationsReverse = JSON.stringify(data.confirmationsReverse);
   if (data.validity !== undefined) payload.validity = data.validity;
   if (data.invalidReasons !== undefined) payload.invalidReasons = JSON.stringify(data.invalidReasons);
   if (data.zone !== undefined) payload.zone = data.zone;

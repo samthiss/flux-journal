@@ -108,7 +108,24 @@ type BlockRecord = { id: string; noteId: string; categoryId: string | null; exam
 // typed once, picked from a list from then on. The vocabulary is derived from
 // the examples the page was given rather than stored in a table of its own: a
 // word exists exactly as long as some example still carries it.
-type TagKind = "confirmation" | "invalidReason" | "tradeType" | "zone" | "setup";
+type TagKind =
+  | "confirmation"
+  | "confirmationBox"
+  | "confirmationReverse"
+  | "invalidReason"
+  | "tradeType"
+  | "zone"
+  | "setup";
+
+/** The three confirmation lists, each scoped to the setup that is chosen. */
+const CONFIRMATION_KINDS = ["confirmation", "confirmationBox", "confirmationReverse"] as const;
+
+/** What each one is called on a card, and in the filter bar. */
+const CONFIRMATION_LABELS: Record<(typeof CONFIRMATION_KINDS)[number], string> = {
+  confirmation: "Confirmation CC",
+  confirmationBox: "Confirmation Box cluster",
+  confirmationReverse: "Confirmation Reverse chart",
+};
 
 type TagVocabulary = {
   /**
@@ -126,6 +143,8 @@ type TagVocabulary = {
 /** The column each vocabulary lives in, which is how a removal is recorded. */
 const KIND_TO_FIELD: Record<TagKind, TagField> = {
   confirmation: "confirmations",
+  confirmationBox: "confirmationsBox",
+  confirmationReverse: "confirmationsReverse",
   invalidReason: "invalidReasons",
   tradeType: "tradeTypes",
   zone: "zone",
@@ -134,6 +153,8 @@ const KIND_TO_FIELD: Record<TagKind, TagField> = {
 
 const FIELD_TO_KIND: Record<string, TagKind> = {
   confirmations: "confirmation",
+  confirmationsBox: "confirmationBox",
+  confirmationsReverse: "confirmationReverse",
   invalidReasons: "invalidReason",
   tradeTypes: "tradeType",
   zone: "zone",
@@ -375,7 +396,7 @@ function BlockFoldToggle({ collapsed, visible, onToggle }: { collapsed: boolean;
 }
 
 type CategoryRecord = { id: string; noteId: string; name: string; order: number; collapsed: boolean };
-type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; validity: string | null; invalidReasons: string | null; zone: string | null; setup: string | null; tradeTypes: string | null; order: number; collapsed: boolean };
+type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; confirmationsBox: string | null; confirmationsReverse: string | null; validity: string | null; invalidReasons: string | null; zone: string | null; setup: string | null; tradeTypes: string | null; order: number; collapsed: boolean };
 type ImageRecord = { id: string; exampleId: string; url: string; caption: string | null; tradeId: string | null; order: number; width: number | null; height: number | null };
 type TradeSearchResult = { id: string; symbol: string; date: string; setup: string; side: string; pnl: number; imageCount: number };
 
@@ -759,6 +780,8 @@ export default function NotesClient({
   // confirmation should be reusable on the example right below immediately.
   const [freshTags, setFreshTags] = useState<Record<TagKind, string[]>>({
     confirmation: [],
+    confirmationBox: [],
+    confirmationReverse: [],
     invalidReason: [],
     tradeType: [],
     zone: [],
@@ -786,6 +809,8 @@ export default function NotesClient({
     };
     const ranked: Record<TagKind, string[]> = {
       confirmation: count((e) => e.confirmations, freshTags.confirmation),
+      confirmationBox: count((e) => e.confirmationsBox, freshTags.confirmationBox),
+      confirmationReverse: count((e) => e.confirmationsReverse, freshTags.confirmationReverse),
       invalidReason: count((e) => e.invalidReasons, freshTags.invalidReason),
       // The five that ship with the app always sit at the head of the list,
       // whether or not any example uses them yet; anything added since follows.
@@ -811,18 +836,19 @@ export default function NotesClient({
         ),
       ],
     };
-    // The confirmations, kept setup by setup. A word counts for a setup once an
-    // example carrying that setup was annotated with it, which is what makes
-    // "confirmation trend run" a list of its own rather than a label.
+    // The confirmations, kept setup by setup and list by list. A word counts
+    // for a setup once an example carrying that setup was annotated with it,
+    // which is what ties a word to a setup — nothing says so separately.
+    const champ: Record<(typeof CONFIRMATION_KINDS)[number], (e: ExampleRecord) => string | null> = {
+      confirmation: (e) => e.confirmations,
+      confirmationBox: (e) => e.confirmationsBox,
+      confirmationReverse: (e) => e.confirmationsReverse,
+    };
     const parSetup = new Map<string, string[]>();
-    for (const setup of new Set(examples.map((e) => e.setup).filter((s): s is string => !!s))) {
-      parSetup.set(
-        setup,
-        count(
-          (e) => (e.setup === setup ? e.confirmations : null),
-          [],
-        )
-      );
+    for (const setup of new Set(examples.map((e) => e.setup).filter((v): v is string => !!v))) {
+      for (const kind of CONFIRMATION_KINDS) {
+        parSetup.set(`${kind}|${setup}`, count((e) => (e.setup === setup ? champ[kind](e) : null), []));
+      }
     }
 
     return {
@@ -830,11 +856,11 @@ export default function NotesClient({
       // the app ships with — that is the whole point of remembering it.
       values: (kind, setup) => {
         const all = ranked[kind].filter((v) => !hidden.get(kind)?.has(v));
-        if (kind !== "confirmation" || !setup) return all;
+        if (!setup || !(CONFIRMATION_KINDS as readonly string[]).includes(kind)) return all;
         // A setup nothing has been written under yet starts from the whole
         // list: an empty dropdown would read as a bug, and the first word
         // picked there is what begins that setup's own list.
-        const scoped = (parSetup.get(setup) ?? []).filter((v) => !hidden.get("confirmation")?.has(v));
+        const scoped = (parSetup.get(`${kind}|${setup}`) ?? []).filter((v) => !hidden.get(kind)?.has(v));
         return scoped.length ? scoped : all;
       },
       remember: (kind, value) =>
@@ -2282,7 +2308,11 @@ function ExampleCategory({
   // category are not offered — a filter that can only ever empty the list is
   // not a filter.
   const [filterOpen, setFilterOpen] = useState(false);
-  const [confirmationFilter, setConfirmationFilter] = useState<string[]>([]);
+  const [confirmationFilters, setConfirmationFilters] = useState<Record<(typeof CONFIRMATION_KINDS)[number], string[]>>({
+    confirmation: [],
+    confirmationBox: [],
+    confirmationReverse: [],
+  });
   const [validityFilter, setValidityFilter] = useState<Validity>(null);
   const [reasonFilter, setReasonFilter] = useState<string[]>([]);
   const [zoneFilter, setZoneFilter] = useState<string | null>(null);
@@ -2301,9 +2331,11 @@ function ExampleCategory({
     return {
       // Filtered by setup when one is picked: the point of the setup filter is
       // to be shown what that setup is confirmed by, not the whole vocabulary.
-      confirmations: collect((e) =>
-        setupFilter && e.setup !== setupFilter ? null : e.confirmations
-      ),
+      confirmations: {
+        confirmation: collect((e) => (setupFilter && e.setup !== setupFilter ? null : e.confirmations)),
+        confirmationBox: collect((e) => (setupFilter && e.setup !== setupFilter ? null : e.confirmationsBox)),
+        confirmationReverse: collect((e) => (setupFilter && e.setup !== setupFilter ? null : e.confirmationsReverse)),
+      },
       reasons: collect((e) => e.invalidReasons),
       hasValidity: examples.some((e) => normalizeValidity(e.validity) !== null),
       // Only the setups this category uses, the two shipped ones first.
@@ -2328,7 +2360,7 @@ function ExampleCategory({
 
   const filtering =
     setupFilter !== null ||
-    confirmationFilter.length > 0 ||
+    CONFIRMATION_KINDS.some((kind) => confirmationFilters[kind].length > 0) ||
     validityFilter !== null ||
     reasonFilter.length > 0 ||
     zoneFilter !== null ||
@@ -2340,10 +2372,16 @@ function ExampleCategory({
   const shown = useMemo(() => {
     if (!filtering) return examples;
     return examples.filter((e) => {
-      const confirmations = parseArr(e.confirmations);
+      const confirmations: Record<(typeof CONFIRMATION_KINDS)[number], string[]> = {
+        confirmation: parseArr(e.confirmations),
+        confirmationBox: parseArr(e.confirmationsBox),
+        confirmationReverse: parseArr(e.confirmationsReverse),
+      };
       const reasons = parseArr(e.invalidReasons);
       return (
-        confirmationFilter.every((v) => confirmations.includes(v)) &&
+        CONFIRMATION_KINDS.every((kind) =>
+          confirmationFilters[kind].every((v) => confirmations[kind].includes(v))
+        ) &&
         (validityFilter === null || normalizeValidity(e.validity) === validityFilter) &&
         (zoneFilter === null || e.zone === zoneFilter) &&
         (setupFilter === null || e.setup === setupFilter) &&
@@ -2351,7 +2389,7 @@ function ExampleCategory({
         reasonFilter.every((v) => reasons.includes(v))
       );
     });
-  }, [examples, filtering, confirmationFilter, validityFilter, reasonFilter, zoneFilter, setupFilter, typeFilter]);
+  }, [examples, filtering, confirmationFilters, validityFilter, reasonFilter, zoneFilter, setupFilter, typeFilter]);
 
   // Dragging one example onto another puts it in that one's place. The order is
   // computed over every example, not the ones on screen: a filtered view hides
@@ -2408,7 +2446,7 @@ function ExampleCategory({
   };
 
   const clearFilter = () => {
-    setConfirmationFilter([]);
+    setConfirmationFilters({ confirmation: [], confirmationBox: [], confirmationReverse: [] });
     setValidityFilter(null);
     setReasonFilter([]);
     setZoneFilter(null);
@@ -2420,7 +2458,7 @@ function ExampleCategory({
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
   const hasAnythingToFilter =
-    available.confirmations.length > 0 ||
+    CONFIRMATION_KINDS.some((kind) => available.confirmations[kind].length > 0) ||
     available.reasons.length > 0 ||
     available.hasValidity ||
     available.zones.length > 0 ||
@@ -2597,12 +2635,20 @@ function ExampleCategory({
               selected={setupFilter ? [setupFilter] : []}
               onToggle={(v) => setSetupFilter(setupFilter === v ? null : v)}
             />
-            <FilterRow
-              label={setupFilter ? `Confirmation ${setupFilter.toLowerCase()}` : "Confirmation"}
-              values={available.confirmations}
-              selected={confirmationFilter}
-              onToggle={(v) => toggleIn(confirmationFilter, setConfirmationFilter, v)}
-            />
+            {CONFIRMATION_KINDS.map((kind) => (
+              <FilterRow
+                key={kind}
+                label={CONFIRMATION_LABELS[kind]}
+                values={available.confirmations[kind]}
+                selected={confirmationFilters[kind]}
+                onToggle={(v) =>
+                  setConfirmationFilters((prev) => ({
+                    ...prev,
+                    [kind]: prev[kind].includes(v) ? prev[kind].filter((x) => x !== v) : [...prev[kind], v],
+                  }))
+                }
+              />
+            ))}
             <FilterRow
               label="Type"
               values={[...available.types]}
@@ -2711,19 +2757,22 @@ function ExampleCategory({
                   applyToSelection("setup", value);
                 }}
               />
-              <ChipDropdown
-                placeholder="+ confirmation"
-                options={vocabulary.values("confirmation", setupFilter)}
-                selected={[]}
-                multiple
-                visible
-                onToggle={(value) => applyToSelection("confirmations", value)}
-                onAdd={(value) => {
-                  vocabulary.remember("confirmation", value);
-                  restoreTagValue("confirmations", value);
-                  applyToSelection("confirmations", value);
-                }}
-              />
+              {CONFIRMATION_KINDS.map((kind) => (
+                <ChipDropdown
+                  key={kind}
+                  placeholder={`+ ${CONFIRMATION_LABELS[kind].toLowerCase()}`}
+                  options={vocabulary.values(kind, setupFilter)}
+                  selected={[]}
+                  multiple
+                  visible
+                  onToggle={(value) => applyToSelection(KIND_TO_FIELD[kind], value)}
+                  onAdd={(value) => {
+                    vocabulary.remember(kind, value);
+                    restoreTagValue(KIND_TO_FIELD[kind], value);
+                    applyToSelection(KIND_TO_FIELD[kind], value);
+                  }}
+                />
+              ))}
               <ChipDropdown
                 placeholder="zone"
                 options={vocabulary.values("zone")}
@@ -3128,7 +3177,11 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   // The three hand-written annotations. Each write is fire-and-forget, like the
   // title above it: the value on screen is already the new one, and the action
   // revalidates /notes for the next load.
-  const [confirmations, setConfirmations] = useState<string[]>(() => parseArr(example.confirmations));
+  const [confirmationsPar, setConfirmationsPar] = useState<Record<(typeof CONFIRMATION_KINDS)[number], string[]>>(() => ({
+    confirmation: parseArr(example.confirmations),
+    confirmationBox: parseArr(example.confirmationsBox),
+    confirmationReverse: parseArr(example.confirmationsReverse),
+  }));
   const [validity, setValidity] = useState<Validity>(() => normalizeValidity(example.validity));
   const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseArr(example.invalidReasons));
   const [zone, setZone] = useState<string | null>(example.zone);
@@ -3142,6 +3195,8 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   // never on a plain re-render, which would wipe a click not yet saved.
   const annotationsKey = [
     example.confirmations,
+    example.confirmationsBox,
+    example.confirmationsReverse,
     example.validity,
     example.invalidReasons,
     example.zone,
@@ -3152,7 +3207,11 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   useEffect(() => {
     if (syncedAnnotations.current === annotationsKey) return;
     syncedAnnotations.current = annotationsKey;
-    setConfirmations(parseArr(example.confirmations));
+    setConfirmationsPar({
+      confirmation: parseArr(example.confirmations),
+      confirmationBox: parseArr(example.confirmationsBox),
+      confirmationReverse: parseArr(example.confirmationsReverse),
+    });
     setValidity(normalizeValidity(example.validity));
     setInvalidReasons(parseArr(example.invalidReasons));
     setZone(example.zone);
@@ -3469,39 +3528,44 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               setSetup((prev) => (prev === from ? to : prev));
             }}
           />
-          <ChipDropdown
-            /* Named after the setup once one is chosen: the words offered are
-               that setup's own, and a list that changes under an unchanged
-               label reads as the page losing track of itself. */
-            placeholder={setup ? `Confirmation ${setup.toLowerCase()}` : "Confirmation"}
-            options={optionsFor("confirmation", confirmations, setup)}
-            selected={confirmations}
-            multiple
-            visible={headerHover}
-            onToggle={(value) => {
-              const next = confirmations.includes(value)
-                ? confirmations.filter((v) => v !== value)
-                : [...confirmations, value];
-              setConfirmations(next);
-              updateExample(example.id, { confirmations: next });
-            }}
-            onAdd={(value) => {
-              if (confirmations.includes(value)) return;
-              write("confirmation", value);
-              const next = [...confirmations, value];
-              setConfirmations(next);
-              updateExample(example.id, { confirmations: next });
-            }}
-            onRemoveOption={(value) => {
-              if (!forget("confirmation", value)) return false;
-              setConfirmations((prev) => prev.filter((v) => v !== value));
-              return true;
-            }}
-            onRenameOption={(from, to) => {
-              rename("confirmation", from, to);
-              setConfirmations((prev) => renameLocally(prev, from, to));
-            }}
-          />
+          {/* The three confirmation lists. Each one keeps its own vocabulary,
+              and each of those is scoped to the setup chosen beside them: what
+              the cluster confirms on a trend run is not what it confirms on a
+              reverse. */}
+          {CONFIRMATION_KINDS.map((kind) => {
+            const valeurs = confirmationsPar[kind];
+            const poser = (next: string[]) => {
+              setConfirmationsPar((prev) => ({ ...prev, [kind]: next }));
+              updateExample(example.id, { [KIND_TO_FIELD[kind]]: next });
+            };
+            return (
+              <ChipDropdown
+                key={kind}
+                placeholder={CONFIRMATION_LABELS[kind]}
+                options={optionsFor(kind, valeurs, setup)}
+                selected={valeurs}
+                multiple
+                visible={headerHover}
+                onToggle={(value) =>
+                  poser(valeurs.includes(value) ? valeurs.filter((v) => v !== value) : [...valeurs, value])
+                }
+                onAdd={(value) => {
+                  if (valeurs.includes(value)) return;
+                  write(kind, value);
+                  poser([...valeurs, value]);
+                }}
+                onRemoveOption={(value) => {
+                  if (!forget(kind, value)) return false;
+                  setConfirmationsPar((prev) => ({ ...prev, [kind]: prev[kind].filter((v) => v !== value) }));
+                  return true;
+                }}
+                onRenameOption={(from, to) => {
+                  rename(kind, from, to);
+                  setConfirmationsPar((prev) => ({ ...prev, [kind]: renameLocally(prev[kind], from, to) }));
+                }}
+              />
+            );
+          })}
           <ChipDropdown
             placeholder="Type"
             options={typeOptions}
