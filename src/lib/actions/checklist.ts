@@ -39,6 +39,18 @@ export async function createChecklistItem(group: string, label: string, category
  * A category exists only through its lines, like a group: there is nothing
  * else to rename.
  */
+/**
+ * Removes a heading and the lines filed under it.
+ *
+ * Like a group: a category exists only through its lines, so leaving them
+ * behind without one would scatter them back into the group with no way to
+ * tell which heading they came from.
+ */
+export async function deleteChecklistCategory(group: string, category: string) {
+  await prisma.checklistItem.deleteMany({ where: { group, category } });
+  revalidatePath("/checklist");
+}
+
 export async function renameChecklistCategory(group: string, from: string, to: string) {
   const trimmed = to.trim();
   if (!trimmed || trimmed === from) return;

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useMenuDismiss } from "@/components/useMenuDismiss";
 import { accentColor, glassCard } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
-import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistGroup } from "@/lib/actions/checklist";
+import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistCategory, deleteChecklistGroup } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
 
@@ -19,10 +19,9 @@ type ChecklistItem = {
 };
 
 /** The answers an item offers, if any. Stored as JSON, empty when malformed. */
-type TypeDeBloc = "titre" | "case" | "choix";
+type TypeDeBloc = "case" | "choix";
 
 const BLOCS: { type: TypeDeBloc; label: string }[] = [
-  { type: "titre", label: "Titre" },
   { type: "case", label: "Case à cocher" },
   { type: "choix", label: "Liste de choix" },
 ];
@@ -154,23 +153,16 @@ export default function ChecklistClient({
   const [editMode, setEditMode] = useState(false);
   const [newItemDrafts, setNewItemDrafts] = useState<Record<string, string>>({});
   const [newGroupName, setNewGroupName] = useState("");
-  /**
-   * Headings typed but not yet filled, by group.
-   *
-   * A category exists only through its lines, so a new one has nowhere to be
-   * filled from until it holds something. Named here, it shows with its own
-   * box and becomes real with the first line.
-   */
-  const [nouvellesCategories, setNouvellesCategories] = useState<Record<string, string[]>>({});
-  const [categorieDrafts, setCategorieDrafts] = useState<Record<string, string>>({});
 
   /**
    * The block being written, if any: where it goes, and what kind it is.
    *
    * `cle` is the group, or "group::category" for a line under a heading.
    */
-  const [bloc, setBloc] = useState<{ cle: string; type: TypeDeBloc } | null>(null);
+  const [bloc, setBloc] = useState<{ cle: string; type: TypeDeBloc; item?: ChecklistItem } | null>(null);
   const [blocLabel, setBlocLabel] = useState("");
+  /** The heading this block sits under, typed with it. Optional. */
+  const [blocTitre, setBlocTitre] = useState("");
   const [blocReponses, setBlocReponses] = useState("");
   const [newGroupItem, setNewGroupItem] = useState("");
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
@@ -223,9 +215,9 @@ export default function ChecklistClient({
     // Uncategorised lines first, then each heading in the order it appears.
     // Sorted here rather than in the query so the headings stay whole: a
     // category split in two by insertion order would read as two categories.
-    const categories = [
-      ...new Set([...dedans.map((i) => i.category ?? ""), ...(nouvellesCategories[group] ?? [])]),
-    ].sort((a, b) => (a === "" ? -1 : b === "" ? 1 : 0));
+    const categories = [...new Set(dedans.map((i) => i.category ?? ""))].sort((a, b) =>
+      a === "" ? -1 : b === "" ? 1 : 0,
+    );
 
     return {
       title: group,
@@ -338,28 +330,36 @@ export default function ChecklistClient({
     if (!label) return;
 
     const [group, categorie] = bloc.cle.split("::");
-    const reponses = blocReponses.split("/").map((r) => r.trim()).filter(Boolean);
+    const reponses = blocReponses.split(/[\n/]/).map((r) => r.trim()).filter(Boolean);
+    // A heading typed with the block, or the one it was added under.
+    const titre = categorie || blocTitre.trim();
 
     setBloc(null);
     setBlocLabel("");
+    setBlocTitre("");
     setBlocReponses("");
 
-    if (bloc.type === "titre") {
-      setNouvellesCategories((prev) => ({ ...prev, [group]: [...(prev[group] ?? []), label] }));
+    // Editing an existing line goes through the same form, so what is written
+    // and what is corrected look alike.
+    if (bloc.item) {
+      if (label !== bloc.item.label) await renameChecklistItem(bloc.item.id, label);
+      await setChecklistItemOptions(bloc.item.id, reponses);
       return;
     }
 
-    const cree = await createChecklistItem(group, label, categorie);
+    const cree = await createChecklistItem(group, label, titre);
     // The answers are set straight after, so a choice block is born as one
     // rather than as a tick box to be converted afterwards.
     if (cree && bloc.type === "choix" && reponses.length > 0) await setChecklistItemOptions(cree.id, reponses);
   }
 
-  function addCategorie(group: string) {
-    const nom = (categorieDrafts[group] ?? "").trim();
-    if (!nom) return;
-    setCategorieDrafts((d) => ({ ...d, [group]: "" }));
-    setNouvellesCategories((prev) => ({ ...prev, [group]: [...(prev[group] ?? []), nom] }));
+  /** Drops a heading, asking first: it takes its lines with it, as a group does. */
+  function removeCategorie(group: string, categorie: string, combien: number) {
+    const question = `Supprimer « ${categorie} » et ses ${combien} ligne${combien > 1 ? "s" : ""} ?`;
+    if (!window.confirm(question)) return;
+    startTransition(async () => {
+      await deleteChecklistCategory(group, categorie);
+    });
   }
 
   function renameCategorie(group: string, from: string, to: string) {
@@ -404,6 +404,20 @@ export default function ChecklistClient({
 
     return (
       <div style={{ padding: "6px 0 10px", maxWidth: 460 }}>
+        {/* Only when the block is not already under one: a heading is written
+            with the block it introduces, rather than created on its own and
+            then filled. */}
+        {!cle.includes("::") && (
+          <input
+            value={blocTitre}
+            onChange={(e) => setBlocTitre(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setBloc(null);
+            }}
+            placeholder="Titre (facultatif)"
+            style={{ ...champ, fontSize: 11.5, letterSpacing: "0.06em", textTransform: "uppercase", color: accentColor }}
+          />
+        )}
         <input
           autoFocus
           value={blocLabel}
@@ -412,19 +426,21 @@ export default function ChecklistClient({
             if (e.key === "Enter" && bloc.type !== "choix") poserBloc();
             if (e.key === "Escape") setBloc(null);
           }}
-          placeholder={bloc.type === "titre" ? "Titre de la catégorie…" : "Intitulé de la ligne…"}
+          placeholder="Intitulé de la ligne…"
           style={champ}
         />
         {bloc.type === "choix" && (
-          <input
+          // A line each, not slashes: the answers are written as they will be
+          // read, and Enter goes to the next one rather than ending the block.
+          <textarea
             value={blocReponses}
             onChange={(e) => setBlocReponses(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") poserBloc();
               if (e.key === "Escape") setBloc(null);
             }}
-            placeholder="Réponses possibles, séparées par « / »"
-            style={champ}
+            rows={Math.max(3, blocReponses.split("\n").length + 1)}
+            placeholder={"Une réponse par ligne\nTendance\nRange"}
+            style={{ ...champ, resize: "vertical", lineHeight: 1.5 }}
           />
         )}
         <div style={{ display: "flex", gap: 8 }}>
@@ -548,6 +564,7 @@ export default function ChecklistClient({
                   <div key={item.id}>
                   {ouvre &&
                     (editMode ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, marginBottom: 2 }}>
                       <input
                         defaultValue={categorie}
                         onBlur={(e) => renameCategorie(g.title, categorie, e.target.value)}
@@ -555,8 +572,6 @@ export default function ChecklistClient({
                           if (e.key === "Enter") e.currentTarget.blur();
                         }}
                         style={{
-                          marginTop: 10,
-                          marginBottom: 2,
                           fontSize: 11.5,
                           fontWeight: 600,
                           letterSpacing: "0.08em",
@@ -568,6 +583,23 @@ export default function ChecklistClient({
                           padding: "3px 8px",
                         }}
                       />
+                      <button
+                        onClick={() => removeCategorie(g.title, categorie, g.items.filter((i) => (i.category ?? "") === categorie).length)}
+                        title="Supprimer ce titre et ses lignes"
+                        style={{
+                          flexShrink: 0,
+                          fontSize: 12,
+                          padding: "2px 9px",
+                          borderRadius: 6,
+                          border: "1px solid oklch(0.4 0.034 250)",
+                          background: "transparent",
+                          color: "oklch(0.65 0.034 250)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ✕
+                      </button>
+                      </div>
                     ) : (
                       <div
                         style={{
@@ -606,7 +638,39 @@ export default function ChecklistClient({
                         </svg>
                       )}
                     </div>
-                    {editMode ? (
+                    {editMode && builder ? (
+                      // The label stays text and a pill opens the block form:
+                      // a choice line is a label and its answers together, and
+                      // an inline field could only ever correct half of it.
+                      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                        <span style={{ fontSize: 14, color: "oklch(0.88 0.017 250)" }}>{item.label}</span>
+                        {options.length > 0 && (
+                          <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.5 0.02 250)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {options.join(" · ")}
+                          </span>
+                        )}
+                        <span
+                          onClick={() => {
+                            setBloc({ cle: `modifier::${item.id}`, type: options.length > 0 ? "choix" : "case", item });
+                            setBlocLabel(item.label);
+                            setBlocTitre(item.category ?? "");
+                            setBlocReponses(options.join("\n"));
+                          }}
+                          style={{
+                            fontFamily: "var(--font-jetbrains-mono), monospace",
+                            fontSize: 10,
+                            padding: "3px 9px",
+                            borderRadius: 999,
+                            border: "1px dashed oklch(0.34 0.034 250)",
+                            color: "oklch(0.6 0.034 250)",
+                            cursor: "pointer",
+                            flex: "none",
+                          }}
+                        >
+                          modifier
+                        </span>
+                      </div>
+                    ) : editMode ? (
                       <input
                         defaultValue={item.label}
                         onClick={(e) => e.stopPropagation()}
@@ -700,6 +764,8 @@ export default function ChecklistClient({
                       onChanged={() => setIdeasVersion((v) => v + 1)}
                     />
                   )}
+                  {formulaire(`modifier::${item.id}`)}
+
                   {/* Not while building with blocks: a line there is written
                       as what it is — a tick box or a choice — so its answers
                       are already set, and a pre-trade list is ticked in the
@@ -765,17 +831,33 @@ export default function ChecklistClient({
                         return (
                           <div key={cle} style={{ padding: "2px 0 10px" }}>
                             {!g.items.some((i) => (i.category ?? "") === categorie) && (
-                              <div
-                                style={{
-                                  fontSize: 11.5,
-                                  fontWeight: 600,
-                                  letterSpacing: "0.08em",
-                                  textTransform: "uppercase",
-                                  color: accentColor,
-                                  marginBottom: 6,
-                                }}
-                              >
-                                {categorie}
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                <span
+                                  style={{
+                                    fontSize: 11.5,
+                                    fontWeight: 600,
+                                    letterSpacing: "0.08em",
+                                    textTransform: "uppercase",
+                                    color: accentColor,
+                                  }}
+                                >
+                                  {categorie}
+                                </span>
+                                <button
+                                  onClick={() => removeCategorie(g.title, categorie, 0)}
+                                  title="Retirer ce titre"
+                                  style={{
+                                    fontSize: 11,
+                                    padding: "1px 8px",
+                                    borderRadius: 6,
+                                    border: "1px solid oklch(0.4 0.034 250)",
+                                    background: "transparent",
+                                    color: "oklch(0.65 0.034 250)",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  ✕
+                                </button>
                               </div>
                             )}
                             <AjouterBloc
@@ -783,6 +865,7 @@ export default function ChecklistClient({
                               onChoisir={(type) => {
                                 setBloc({ cle, type });
                                 setBlocLabel("");
+                                setBlocTitre("");
                                 setBlocReponses("");
                               }}
                             />
@@ -792,10 +875,11 @@ export default function ChecklistClient({
                       })}
                     <div style={{ padding: "2px 0 6px" }}>
                       <AjouterBloc
-                        types={["titre", "case", "choix"]}
+                        types={["case", "choix"]}
                         onChoisir={(type) => {
                           setBloc({ cle: g.title, type });
                           setBlocLabel("");
+                          setBlocTitre("");
                           setBlocReponses("");
                         }}
                       />
@@ -851,44 +935,6 @@ export default function ChecklistClient({
                       );
                     })}
 
-                {editMode && !builder && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 8px 10px" }}>
-                    <div style={{ width: 20, flexShrink: 0 }} />
-                    <input
-                      placeholder="Nouvelle catégorie…"
-                      value={categorieDrafts[g.title] ?? ""}
-                      onChange={(e) => setCategorieDrafts((d) => ({ ...d, [g.title]: e.target.value }))}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") addCategorie(g.title);
-                      }}
-                      style={{
-                        flex: 1,
-                        fontSize: 12.5,
-                        letterSpacing: "0.04em",
-                        color: accentColor,
-                        background: "transparent",
-                        border: "1px dashed oklch(0.34 0.034 250)",
-                        borderRadius: 6,
-                        padding: "4px 8px",
-                      }}
-                    />
-                    <button
-                      onClick={() => addCategorie(g.title)}
-                      style={{
-                        flexShrink: 0,
-                        fontSize: 12,
-                        padding: "4px 10px",
-                        borderRadius: 6,
-                        border: "1px solid oklch(0.4 0.034 250)",
-                        background: "transparent",
-                        color: "oklch(0.7 0.034 250)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Catégorie
-                    </button>
-                  </div>
-                )}
 
                 {editMode && !builder && (
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px" }}>
@@ -931,7 +977,9 @@ export default function ChecklistClient({
             </div>
           ))}
 
-          {editMode && (
+          {/* No new sections while building with blocks: this tab has the two
+              strategies and no reason to grow a third. */}
+          {editMode && !builder && (
             <div style={{ paddingTop: 6, borderTop: "1px solid oklch(0.3 0.034 250 / 0.6)" }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>Nouveau groupe</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
