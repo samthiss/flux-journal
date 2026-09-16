@@ -517,11 +517,12 @@ export default function TradeForm({
                     ))}
                   </div>
                 </div>
-                {/* Only where the verdict asks for one. A reason left behind by
-                    a verdict since changed is dropped on save, not kept. */}
-                {(validity === "invalid" || validity === "risk") && (
-                  <div>
-                    {fieldLabel("Raison")}
+                {/* Shown whatever the verdict. It held the reason a trade was
+                    invalid and only appeared under one, which made it a list of
+                    excuses; it is the risk management — what would have called
+                    the trade off — and a trade that worked had one too. */}
+                <div>
+                    {fieldLabel("Risk management")}
                     <input type="hidden" name="invalidReasons" value={JSON.stringify(invalidReasons)} />
                     <ChipDropdown
                       block
@@ -537,8 +538,7 @@ export default function TradeForm({
                       }
                       onAdd={(value) => setInvalidReasons((prev) => (prev.includes(value) ? prev : [...prev, value]))}
                     />
-                  </div>
-                )}
+                </div>
                 <div>
                   {fieldLabel("Confirmation")}
                   <ChipDropdown

@@ -382,10 +382,15 @@ export async function getTradeVocabularies() {
     // vary: the same handful comes back, and re-typing them invites three
     // wordings of one rule.
     cancelIfs: rank([...ecrits("cancelIf"), ...desNotes("cancelIf")], [], removed("cancelIf")),
-    // Written on examples and on trades alike, and hidden under the notes' own
-    // kind, so a reason dropped there stays dropped here.
+    // The same list as `cancelIfs` above, read from everywhere it is written:
+    // the examples, the trades, and the pre-trade form. Two names for one list
+    // only ever produced two spellings of one condition. Hidden under the
+    // notes' own kind, so a word dropped there stays dropped here.
     invalidReasons: rank(
-      [...examples, ...trades].flatMap((r) => parseTagArray(r.invalidReasons)),
+      [
+        ...[...examples, ...trades].flatMap((r) => parseTagArray(r.invalidReasons)),
+        ...ecrits("cancelIf"),
+      ],
       [],
       removed("invalidReason"),
     ),

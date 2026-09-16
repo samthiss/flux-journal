@@ -57,7 +57,7 @@ export default async function TradeDetail({ id }: { id: string }) {
       label: "Verdict",
       values: VERDICTS[trade.validity ?? ""] ? [VERDICTS[trade.validity ?? ""]] : [],
     },
-    { label: "Raison", values: parseTagArray(trade.invalidReasons) },
+    { label: "Risk management", values: parseTagArray(trade.invalidReasons) },
   ].filter((row) => row.values.length > 0);
 
   const chartValues: Record<string, string | null> = {

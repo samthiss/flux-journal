@@ -73,11 +73,13 @@ function parseTradeForm(formData: FormData) {
   const zone = String(formData.get("zone") ?? "").trim() || null;
   const confirmations = tagList("confirmations");
 
-  // The verdict, and why — kept only where it means something: a reason on a
-  // trade that was afterwards judged valid is a leftover, not an annotation.
   const posted = String(formData.get("validity") ?? "").trim();
   const validity = ["valid", "invalid", "risk"].includes(posted) ? posted : null;
-  const invalidReasons = validity === "valid" || validity === null ? null : tagList("invalidReasons");
+  // Kept whatever the verdict. It used to be dropped on anything but an
+  // invalid or risky one, on the grounds that a reason under a valid verdict
+  // was a leftover — but the field holds the risk management now, what would
+  // have called the trade off, and a trade that worked was managed too.
+  const invalidReasons = tagList("invalidReasons");
 
   const setup = String(formData.get("setup") ?? "");
   const emotion = String(formData.get("emotion") ?? "") || null;
