@@ -560,12 +560,10 @@ export default function TradeIdeas({
             connus={vocabulary.tradeTypes}
             onChange={setTypes}
           />
-          <MotsLibres
-            titre="Confirmations"
-            valeurs={confirmations}
-            connus={vocabulary.confirmations}
-            onChange={setConfirmations}
-          />
+          {/* Nothing suggested here, on purpose: a confirmation is written for
+              the trade in front of you, and a list of past ones invites picking
+              the nearest rather than saying what was actually seen. */}
+          <MotsLibres titre="Confirmations" valeurs={confirmations} connus={[]} onChange={setConfirmations} />
 
           {/* What would call the trade off, kept apart from the case for it. */}
           <div
@@ -585,32 +583,31 @@ export default function TradeIdeas({
                 produced three wordings of one rule, which no filter can gather
                 back together. */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-              {[...new Set([...vocabulary.cancelIfs, ...cancelIf.filter(Boolean)])].map((condition) => {
-                const coche = cancelIf.includes(condition);
-                return (
+              {cancelIf.filter(Boolean).map((condition) => (
+                <span
+                  key={condition}
+                  style={{
+                    ...mono,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 10,
+                    padding: "3px 9px",
+                    borderRadius: 999,
+                    border: `1px solid ${lossColor}`,
+                    background: lossColor.replace(")", " / 0.14)"),
+                    color: lossColor,
+                  }}
+                >
+                  {condition}
                   <span
-                    key={condition}
-                    onClick={() =>
-                      setCancelIf((prev) =>
-                        prev.includes(condition) ? prev.filter((c) => c !== condition) : [...prev.filter(Boolean), condition],
-                      )
-                    }
-                    style={{
-                      ...mono,
-                      fontSize: 10,
-                      padding: "3px 9px",
-                      borderRadius: 999,
-                      cursor: "pointer",
-                      border: `1px ${coche ? "solid" : "dashed"} ${coche ? lossColor : "oklch(0.34 0.02 250)"}`,
-                      background: coche ? lossColor.replace(")", " / 0.14)") : "transparent",
-                      color: coche ? lossColor : "oklch(0.6 0.02 250)",
-                    }}
+                    onClick={() => setCancelIf((prev) => prev.filter((c) => c !== condition))}
+                    style={{ cursor: "pointer", opacity: 0.7 }}
                   >
-                    {coche ? "✓ " : ""}
-                    {condition}
+                    ✕
                   </span>
-                );
-              })}
+                </span>
+              ))}
               <input
                 value={nouvelleCondition}
                 onChange={(e) => setNouvelleCondition(e.target.value)}
