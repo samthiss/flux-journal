@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { accentColor, winColor, lossColor } from "@/lib/theme";
-import { tagTone, parseTagArray, kindPourSetup } from "@/lib/tags";
+import { tagTone, parseTagArray, kindPourSetup, SETUPS } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
 import ImageLightbox from "@/components/ImageLightbox";
 import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot, supprimerMot, renommerMot, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
@@ -86,6 +86,35 @@ function SideChip({ side, on, onClick }: { side: "long" | "short"; on: boolean; 
       }}
     >
       {side === "long" ? "Long" : "Short"}
+    </span>
+  );
+}
+
+/**
+ * The setup this idea is for, offered rather than imposed.
+ *
+ * It starts on the one the line stands for — an idea under "Trend Run (TR)" is
+ * a trend run — but it can be turned off, and turning it off is what puts the
+ * whole vocabulary back under each confirmation list. Some mornings the useful
+ * list is the long one.
+ */
+function SetupChip({ setup, on, onClick }: { setup: string; on: boolean; onClick: () => void }) {
+  const tone = tagTone(setup);
+  return (
+    <span
+      onClick={onClick}
+      style={{
+        ...mono,
+        fontSize: 11,
+        padding: "4px 14px",
+        borderRadius: 999,
+        cursor: "pointer",
+        border: `1px ${on ? "solid" : "dashed"} ${on ? tone.line : "oklch(0.38 0.034 250)"}`,
+        background: on ? tone.bg : "transparent",
+        color: on ? tone.fg : "oklch(0.62 0.034 250)",
+      }}
+    >
+      {setup}
     </span>
   );
 }
@@ -469,6 +498,10 @@ export default function TradeIdeas({
     confirmationsBox: [],
     confirmationsReverse: [],
   });
+  // Which setup the lists are scoped to. It starts on the line's own, and a
+  // second click on it clears it — which is how the whole vocabulary comes
+  // back under each list.
+  const [setupChoisi, setSetupChoisi] = useState<string | null>(setup ?? null);
   const [reason, setReason] = useState("");
   // One empty line to start: the box is a list, and a list with no line in it
   // has nothing to type into.
@@ -544,6 +577,7 @@ export default function TradeIdeas({
     setTypes([]);
     setZone(null);
     setConfirmations({ confirmations: [], confirmationsBox: [], confirmationsReverse: [] });
+    setSetupChoisi(setup ?? null);
     setReason("");
     setOpen(false);
     setEditingId(null);
@@ -552,6 +586,7 @@ export default function TradeIdeas({
   /** Opens the form on an idea already written, with what it says in it. */
   function startEditing(idea: TradeIdeaRecord) {
     setSide(idea.side === "short" ? "short" : "long");
+    setSetupChoisi(idea.setup ?? setup ?? null);
     setTypes(parseTagArray(idea.tradeTypes));
     setZone(idea.zone);
     setConfirmations({
@@ -586,7 +621,7 @@ export default function TradeIdeas({
     setSaving(true);
 
     if (editingId) {
-      await updateTradeIdea(editingId, { side, tradeTypes: types, zone, ...confirmations, reason, cancelIf });
+      await updateTradeIdea(editingId, { side, setup: setupChoisi, tradeTypes: types, zone, ...confirmations, reason, cancelIf });
       // Charts picked while rewriting go up too. Leaving this out is what made
       // an image added from the edit form vanish on save.
       await uploadPending(editingId);
@@ -601,6 +636,7 @@ export default function TradeIdeas({
       market,
       day,
       side,
+      setup: setupChoisi,
       tradeTypes: types,
       zone,
       ...confirmations,
@@ -657,9 +693,20 @@ export default function TradeIdeas({
             borderRadius: 4,
           }}
         >
-          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
             <SideChip side="long" on={side === "long"} onClick={() => setSide("long")} />
             <SideChip side="short" on={side === "short"} onClick={() => setSide("short")} />
+            <span style={{ width: 10 }} />
+            {/* The line's own setup first, then the other: an idea is usually
+                for the setup it was written under, and occasionally not. */}
+            {[...new Set([...(setup ? [setup] : []), ...SETUPS])].map((nom) => (
+              <SetupChip
+                key={nom}
+                setup={nom}
+                on={setupChoisi === nom}
+                onClick={() => setSetupChoisi((prev) => (prev === nom ? null : nom))}
+              />
+            ))}
           </div>
   
           <textarea
@@ -699,14 +746,14 @@ export default function TradeIdeas({
           {CONFIRMATIONS.map(({ kind, titre }) => {
             // The words this setup has used, or all of them while it has used
             // none: an empty row on the first trade reads as a fault.
-            const propres = vocabulary.parSetup[kindPourSetup(kind, setup)] ?? [];
+            const propres = vocabulary.parSetup[kindPourSetup(kind, setupChoisi)] ?? [];
             return (
             <MotsLibres
               key={kind}
-              titre={setup ? `${titre} · ${setup}` : titre}
+              titre={setupChoisi ? `${titre} · ${setupChoisi}` : titre}
               valeurs={confirmations[kind]}
-              connus={propres.length ? propres : vocabulary[kind]}
-              kind={kindPourSetup(kind, setup)}
+              connus={setupChoisi && propres.length ? propres : vocabulary[kind]}
+              kind={kindPourSetup(kind, setupChoisi)}
               onChange={(valeurs) => setConfirmations((prev) => ({ ...prev, [kind]: valeurs }))}
             />
             );

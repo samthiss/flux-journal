@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { TRADE_TYPES, ZONES, parseTagArray, setupDeLigne, kindDeBase } from "@/lib/tags";
+import { TRADE_TYPES, ZONES, parseTagArray, kindDeBase, kindPourSetup } from "@/lib/tags";
 
 /**
  * The trade ideas written for one market on one day.
@@ -30,11 +30,44 @@ export async function setTradeIdeaStatus(id: string, status: "plan" | "position"
   revalidatePath("/checklist");
 }
 
+/**
+ * Files the words an idea carries under the setup it was written for.
+ *
+ * Typing a word remembers it as it is typed, but ticking one that already
+ * exists remembered nothing — so a list written before the setups existed
+ * stayed setup-less however often it was used, and the scoped list stayed
+ * empty, which kept the whole vocabulary showing for ever. Saving is the
+ * moment a word and a setup are known to go together, so that is where it is
+ * recorded.
+ */
+async function classerParSetup(setup: string | null, listes: Record<string, string[]>) {
+  if (!setup) return;
+  for (const [kind, mots] of Object.entries(listes)) {
+    for (const mot of mots) {
+      const value = mot.trim();
+      if (!value) continue;
+      await prisma.tagOption.upsert({
+        where: { kind_value: { kind: kindPourSetup(kind, setup), value } },
+        create: { kind: kindPourSetup(kind, setup), value },
+        update: {},
+      });
+    }
+  }
+}
+
 export async function createTradeIdea(input: {
   itemId: string;
   market: string;
   day: string;
   side: string;
+  /**
+   * Which setup this idea is for.
+   *
+   * Offered by the line it is written under and kept unless the writer turns
+   * it off — `null` is a decision, not a gap, so it is taken as written rather
+   * than filled back in from the line.
+   */
+  setup: string | null;
   tradeTypes: string[];
   zone: string | null;
   confirmations: string[];
@@ -62,15 +95,10 @@ export async function createTradeIdea(input: {
     !input.withImages;
   if (empty) return null;
 
-  const ligne = await prisma.checklistItem.findUnique({
-    where: { id: input.itemId },
-    select: { label: true },
-  });
-
   const idea = await prisma.tradeIdea.create({
     data: {
       itemId: input.itemId,
-      setup: setupDeLigne(ligne?.label),
+      setup: input.setup,
       market: input.market,
       day: input.day,
       side: input.side === "short" ? "short" : "long",
@@ -82,6 +110,11 @@ export async function createTradeIdea(input: {
       reason,
       cancelIf: cancelIf.length ? JSON.stringify(cancelIf) : null,
     },
+  });
+  await classerParSetup(input.setup, {
+    confirmations: input.confirmations,
+    confirmationsBox: input.confirmationsBox,
+    confirmationsReverse: input.confirmationsReverse,
   });
   revalidatePath("/checklist");
   return idea;
@@ -98,6 +131,7 @@ export async function updateTradeIdea(
   id: string,
   input: {
     side: string;
+    setup: string | null;
     tradeTypes: string[];
     zone: string | null;
     confirmations: string[];
@@ -112,6 +146,7 @@ export async function updateTradeIdea(
     where: { id },
     data: {
       side: input.side === "short" ? "short" : "long",
+      setup: input.setup,
       tradeTypes: input.tradeTypes.length ? JSON.stringify(input.tradeTypes) : null,
       zone: input.zone?.trim() || null,
       confirmations: input.confirmations.length ? JSON.stringify(input.confirmations) : null,
@@ -120,6 +155,11 @@ export async function updateTradeIdea(
       reason: input.reason.trim(),
       cancelIf: cancelIf.length ? JSON.stringify(cancelIf) : null,
     },
+  });
+  await classerParSetup(input.setup, {
+    confirmations: input.confirmations,
+    confirmationsBox: input.confirmationsBox,
+    confirmationsReverse: input.confirmationsReverse,
   });
   revalidatePath("/checklist");
 }
