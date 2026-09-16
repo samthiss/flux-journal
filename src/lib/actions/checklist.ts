@@ -10,7 +10,7 @@ export async function getChecklistItems() {
   return prisma.checklistItem.findMany({ orderBy: { order: "asc" } });
 }
 
-export async function createChecklistItem(group: string, label: string) {
+export async function createChecklistItem(group: string, label: string, category?: string) {
   const trimmedGroup = group.trim();
   const trimmedLabel = label.trim();
   if (!trimmedGroup || !trimmedLabel) return;
@@ -20,7 +20,29 @@ export async function createChecklistItem(group: string, label: string) {
   });
 
   await prisma.checklistItem.create({
-    data: { group: trimmedGroup, label: trimmedLabel, order: (last?.order ?? -1) + 1 },
+    data: {
+      group: trimmedGroup,
+      label: trimmedLabel,
+      category: category?.trim() || null,
+      order: (last?.order ?? -1) + 1,
+    },
+  });
+  revalidatePath("/checklist");
+}
+
+/**
+ * Renames a heading, and everything filed under it with it.
+ *
+ * A category exists only through its lines, like a group: there is nothing
+ * else to rename.
+ */
+export async function renameChecklistCategory(group: string, from: string, to: string) {
+  const trimmed = to.trim();
+  if (!trimmed || trimmed === from) return;
+
+  await prisma.checklistItem.updateMany({
+    where: { group, category: from },
+    data: { category: trimmed },
   });
   revalidatePath("/checklist");
 }

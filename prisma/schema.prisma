@@ -95,6 +95,16 @@ model ChecklistItem {
   label String
   order Int
 
+  /**
+   * A heading inside its group, or nothing.
+   *
+   * The pre-trade lists gather several questions of the same kind — the
+   * confirmations, the zone, the volume — and read as one flat column without
+   * a level between the strategy and its lines. Optional, because the older
+   * lists have no categories and must not grow one.
+   */
+  category String?
+
   // Whether trade ideas can be written under this item. True for the two
   // strategy lines, where the reader decides what they will actually trade
   // today; false everywhere else, where an item is a thing to do and not a

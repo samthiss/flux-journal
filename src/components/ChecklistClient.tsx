@@ -3,11 +3,19 @@
 import { useEffect, useState, useTransition } from "react";
 import { accentColor, glassCard } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
-import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, deleteChecklistGroup } from "@/lib/actions/checklist";
+import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistGroup } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
 
-type ChecklistItem = { id: string; group: string; label: string; options?: string | null; allowsIdeas?: boolean };
+type ChecklistItem = {
+  id: string;
+  group: string;
+  label: string;
+  /** A heading inside the group, or nothing. */
+  category?: string | null;
+  options?: string | null;
+  allowsIdeas?: boolean;
+};
 
 /** The answers an item offers, if any. Stored as JSON, empty when malformed. */
 function answerOptions(item: ChecklistItem): string[] {
@@ -63,6 +71,15 @@ export default function ChecklistClient({
   const [editMode, setEditMode] = useState(false);
   const [newItemDrafts, setNewItemDrafts] = useState<Record<string, string>>({});
   const [newGroupName, setNewGroupName] = useState("");
+  /**
+   * Headings typed but not yet filled, by group.
+   *
+   * A category exists only through its lines, so a new one has nowhere to be
+   * filled from until it holds something. Named here, it shows with its own
+   * box and becomes real with the first line.
+   */
+  const [nouvellesCategories, setNouvellesCategories] = useState<Record<string, string[]>>({});
+  const [categorieDrafts, setCategorieDrafts] = useState<Record<string, string>>({});
   const [newGroupItem, setNewGroupItem] = useState("");
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [answerMap, setAnswerMap] = useState<Record<string, string>>({});
@@ -108,10 +125,22 @@ export default function ChecklistClient({
     };
   }, [market, ideasVersion]);
 
-  const groups = Array.from(new Set([...sections, ...items.map((i) => i.group)])).map((group) => ({
-    title: group,
-    items: items.filter((i) => i.group === group),
-  }));
+  const groups = Array.from(new Set([...sections, ...items.map((i) => i.group)])).map((group) => {
+    const dedans = items.filter((i) => i.group === group);
+
+    // Uncategorised lines first, then each heading in the order it appears.
+    // Sorted here rather than in the query so the headings stay whole: a
+    // category split in two by insertion order would read as two categories.
+    const categories = [
+      ...new Set([...dedans.map((i) => i.category ?? ""), ...(nouvellesCategories[group] ?? [])]),
+    ].sort((a, b) => (a === "" ? -1 : b === "" ? 1 : 0));
+
+    return {
+      title: group,
+      items: categories.flatMap((categorie) => dedans.filter((i) => (i.category ?? "") === categorie)),
+      categories,
+    };
+  });
 
   const doneCount = items.filter((i) => checkedMap[i.id]).length;
   const totalCount = items.length;
@@ -199,12 +228,28 @@ export default function ChecklistClient({
     });
   }
 
-  function addItem(group: string) {
-    const label = (newItemDrafts[group] ?? "").trim();
+  /** `cle` is the group, or "group::category" when the line goes under one. */
+  function addItem(cle: string) {
+    const label = (newItemDrafts[cle] ?? "").trim();
     if (!label) return;
-    setNewItemDrafts((d) => ({ ...d, [group]: "" }));
+    const [group, categorie] = cle.split("::");
+    setNewItemDrafts((d) => ({ ...d, [cle]: "" }));
     startTransition(async () => {
-      await createChecklistItem(group, label);
+      await createChecklistItem(group, label, categorie);
+    });
+  }
+
+  function addCategorie(group: string) {
+    const nom = (categorieDrafts[group] ?? "").trim();
+    if (!nom) return;
+    setCategorieDrafts((d) => ({ ...d, [group]: "" }));
+    setNouvellesCategories((prev) => ({ ...prev, [group]: [...(prev[group] ?? []), nom] }));
+  }
+
+  function renameCategorie(group: string, from: string, to: string) {
+    if (!to.trim() || to.trim() === from) return;
+    startTransition(async () => {
+      await renameChecklistCategory(group, from, to);
     });
   }
 
@@ -317,10 +362,53 @@ export default function ChecklistClient({
                 <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>{g.title}</div>
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {g.items.map((item) => {
+                {g.items.map((item, rang) => {
+                  // The heading is drawn from the first line that carries it,
+                  // rather than by nesting the list: the row below is a hundred
+                  // lines of markup, and wrapping it in another map to gain a
+                  // title would have meant rewriting all of it.
+                  const categorie = item.category ?? "";
+                  const ouvre = categorie !== "" && (rang === 0 || (g.items[rang - 1].category ?? "") !== categorie);
                   const options = answerOptions(item);
                   return (
                   <div key={item.id}>
+                  {ouvre &&
+                    (editMode ? (
+                      <input
+                        defaultValue={categorie}
+                        onBlur={(e) => renameCategorie(g.title, categorie, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.currentTarget.blur();
+                        }}
+                        style={{
+                          marginTop: 10,
+                          marginBottom: 2,
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: accentColor,
+                          background: "oklch(0.2 0.034 250)",
+                          border: "1px solid oklch(0.35 0.034 250)",
+                          borderRadius: 6,
+                          padding: "3px 8px",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          marginBottom: 2,
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: "oklch(0.6 0.034 250)",
+                        }}
+                      >
+                        {categorie}
+                      </div>
+                    ))}
                   <div
                     onClick={editMode ? undefined : () => toggle(item)}
                     style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderRadius: 8, cursor: editMode ? "default" : "pointer" }}
@@ -486,6 +574,92 @@ export default function ChecklistClient({
                   </div>
                   );
                 })}
+                {/* One box per heading, plus the group's own for lines that
+                    belong under none: a line has to be typed where it is going,
+                    or it lands at the bottom and has to be moved. */}
+                {editMode &&
+                  g.categories
+                    .filter((categorie) => categorie !== "")
+                    .map((categorie) => {
+                      const cle = `${g.title}::${categorie}`;
+                      const vide = !g.items.some((i) => (i.category ?? "") === categorie);
+                      return (
+                        <div key={cle} style={{ padding: "4px 8px 10px", marginLeft: 32 }}>
+                          {vide && (
+                            <div
+                              style={{
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                letterSpacing: "0.08em",
+                                textTransform: "uppercase",
+                                color: accentColor,
+                                marginBottom: 6,
+                              }}
+                            >
+                              {categorie}
+                            </div>
+                          )}
+                          <input
+                            placeholder={`Ajouter dans « ${categorie} »…`}
+                            value={newItemDrafts[cle] ?? ""}
+                            onChange={(e) => setNewItemDrafts((d) => ({ ...d, [cle]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") addItem(cle);
+                            }}
+                            style={{
+                              width: "100%",
+                              boxSizing: "border-box",
+                              fontSize: 13.5,
+                              color: "oklch(0.88 0.017 250)",
+                              background: "transparent",
+                              border: "1px dashed oklch(0.4 0.034 250)",
+                              borderRadius: 6,
+                              padding: "4px 8px",
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+
+                {editMode && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 8px 10px" }}>
+                    <div style={{ width: 20, flexShrink: 0 }} />
+                    <input
+                      placeholder="Nouvelle catégorie…"
+                      value={categorieDrafts[g.title] ?? ""}
+                      onChange={(e) => setCategorieDrafts((d) => ({ ...d, [g.title]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addCategorie(g.title);
+                      }}
+                      style={{
+                        flex: 1,
+                        fontSize: 12.5,
+                        letterSpacing: "0.04em",
+                        color: accentColor,
+                        background: "transparent",
+                        border: "1px dashed oklch(0.34 0.034 250)",
+                        borderRadius: 6,
+                        padding: "4px 8px",
+                      }}
+                    />
+                    <button
+                      onClick={() => addCategorie(g.title)}
+                      style={{
+                        flexShrink: 0,
+                        fontSize: 12,
+                        padding: "4px 10px",
+                        borderRadius: 6,
+                        border: "1px solid oklch(0.4 0.034 250)",
+                        background: "transparent",
+                        color: "oklch(0.7 0.034 250)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Catégorie
+                    </button>
+                  </div>
+                )}
+
                 {editMode && (
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px" }}>
                     <div style={{ width: 20, flexShrink: 0 }} />
