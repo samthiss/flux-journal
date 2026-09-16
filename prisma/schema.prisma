@@ -353,7 +353,14 @@ model TradeIdea {
   /** The same vocabularies the note examples are typed with. */
   tradeTypes    String?
   zone          String?
-  confirmations String?
+
+  // The three confirmation lists, as on a note example: what the cluster chart
+  // says, what the box says, what the reverse chart says. `confirmations` is
+  // the CC list — it kept its name so what was written before stays where it
+  // was written.
+  confirmations        String?
+  confirmationsBox     String?
+  confirmationsReverse String?
 
   /** Why: the conditions that would make this trade the right one. */
   reason String

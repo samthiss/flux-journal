@@ -15,6 +15,8 @@ export type TradeIdeaRecord = {
   tradeTypes: string | null;
   zone: string | null;
   confirmations: string | null;
+  confirmationsBox: string | null;
+  confirmationsReverse: string | null;
   reason: string;
   cancelIf: string | null;
   images: string | null;
@@ -37,7 +39,30 @@ function parseImages(raw: string | null): IdeaImage[] {
 /** The same ceiling the note examples upload under, for the same network. */
 const MAX_IMAGE_BYTES = 900_000;
 
-export type TradeVocabularies = { tradeTypes: string[]; zones: string[]; confirmations: string[]; cancelIfs: string[] };
+export type TradeVocabularies = {
+  tradeTypes: string[];
+  zones: string[];
+  confirmations: string[];
+  confirmationsBox: string[];
+  confirmationsReverse: string[];
+  cancelIfs: string[];
+};
+
+/**
+ * The three confirmation lists, as the notes name them.
+ *
+ * One list held what the cluster, the box and the reverse chart each said, and
+ * a single pile of words answers none of the three questions on its own. The
+ * CC list keeps the `confirmations` field it has always had, so what was
+ * written before is still where it was written.
+ */
+const CONFIRMATIONS = [
+  { kind: "confirmations", titre: "Confirmation CC" },
+  { kind: "confirmationsBox", titre: "Confirmation Box cluster" },
+  { kind: "confirmationsReverse", titre: "Confirmation Reverse chart" },
+] as const;
+
+type ConfirmationKind = (typeof CONFIRMATIONS)[number]["kind"];
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -427,7 +452,11 @@ export default function TradeIdeas({
   const [side, setSide] = useState<"long" | "short">("long");
   const [types, setTypes] = useState<string[]>([]);
   const [zone, setZone] = useState<string | null>(null);
-  const [confirmations, setConfirmations] = useState<string[]>([]);
+  const [confirmations, setConfirmations] = useState<Record<ConfirmationKind, string[]>>({
+    confirmations: [],
+    confirmationsBox: [],
+    confirmationsReverse: [],
+  });
   const [reason, setReason] = useState("");
   // One empty line to start: the box is a list, and a list with no line in it
   // has nothing to type into.
@@ -502,7 +531,7 @@ export default function TradeIdeas({
     setSide("long");
     setTypes([]);
     setZone(null);
-    setConfirmations([]);
+    setConfirmations({ confirmations: [], confirmationsBox: [], confirmationsReverse: [] });
     setReason("");
     setOpen(false);
     setEditingId(null);
@@ -513,7 +542,11 @@ export default function TradeIdeas({
     setSide(idea.side === "short" ? "short" : "long");
     setTypes(parseTagArray(idea.tradeTypes));
     setZone(idea.zone);
-    setConfirmations(parseTagArray(idea.confirmations));
+    setConfirmations({
+      confirmations: parseTagArray(idea.confirmations),
+      confirmationsBox: parseTagArray(idea.confirmationsBox),
+      confirmationsReverse: parseTagArray(idea.confirmationsReverse),
+    });
     setReason(idea.reason);
     const lines = parseTagArray(idea.cancelIf);
     setCancelIf(lines.length ? lines : [""]);
@@ -527,7 +560,7 @@ export default function TradeIdeas({
     reason.trim().length > 0 ||
     types.length > 0 ||
     !!zone ||
-    confirmations.length > 0 ||
+    CONFIRMATIONS.some(({ kind }) => confirmations[kind].length > 0) ||
     cancelIf.some((line) => line.trim()) ||
     pending.length > 0;
 
@@ -541,7 +574,7 @@ export default function TradeIdeas({
     setSaving(true);
 
     if (editingId) {
-      await updateTradeIdea(editingId, { side, tradeTypes: types, zone, confirmations, reason, cancelIf });
+      await updateTradeIdea(editingId, { side, tradeTypes: types, zone, ...confirmations, reason, cancelIf });
       // Charts picked while rewriting go up too. Leaving this out is what made
       // an image added from the edit form vanish on save.
       await uploadPending(editingId);
@@ -558,7 +591,7 @@ export default function TradeIdeas({
       side,
       tradeTypes: types,
       zone,
-      confirmations,
+      ...confirmations,
       reason,
       cancelIf,
       withImages: pending.length > 0,
@@ -649,13 +682,18 @@ export default function TradeIdeas({
             connus={vocabulary.tradeTypes}
             onChange={setTypes}
           />
-          <MotsLibres
-            titre="Confirmations"
-            valeurs={confirmations}
-            connus={vocabulary.confirmations}
-            kind="confirmations"
-            onChange={setConfirmations}
-          />
+          {/* CC first, then the box and the reverse chart under it: three
+              lists rather than one, because they answer three questions. */}
+          {CONFIRMATIONS.map(({ kind, titre }) => (
+            <MotsLibres
+              key={kind}
+              titre={titre}
+              valeurs={confirmations[kind]}
+              connus={vocabulary[kind]}
+              kind={kind}
+              onChange={(valeurs) => setConfirmations((prev) => ({ ...prev, [kind]: valeurs }))}
+            />
+          ))}
 
           {/* What would call the trade off, kept apart from the case for it. */}
           <div
@@ -963,9 +1001,9 @@ export default function TradeIdeas({
               {long ? "LONG" : "SHORT"}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {[...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations)].length > 0 && (
+              {[...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations), ...parseTagArray(idea.confirmationsBox), ...parseTagArray(idea.confirmationsReverse)].length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
-                  {[...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations)].map((t) => {
+                  {[...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations), ...parseTagArray(idea.confirmationsBox), ...parseTagArray(idea.confirmationsReverse)].map((t) => {
                     const tone = tagTone(t);
                     return (
                       <span

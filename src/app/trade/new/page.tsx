@@ -37,7 +37,16 @@ async function ideePrealable(id: string | undefined) {
   if (!id) return null;
   const idea = await prisma.tradeIdea.findUnique({
     where: { id },
-    select: { side: true, reason: true, cancelIf: true, confirmations: true, tradeTypes: true, images: true },
+    select: {
+      side: true,
+      reason: true,
+      cancelIf: true,
+      confirmations: true,
+      confirmationsBox: true,
+      confirmationsReverse: true,
+      tradeTypes: true,
+      images: true,
+    },
   });
   if (!idea) return null;
 
@@ -51,9 +60,16 @@ async function ideePrealable(id: string | undefined) {
   };
 
   const conditions = lignes(idea.cancelIf);
+  // Each list keeps its name: which chart said what is half of what the note
+  // is worth re-reading for.
+  const listes: [string, string | null][] = [
+    ["Confirmation CC", idea.confirmations],
+    ["Confirmation Box cluster", idea.confirmationsBox],
+    ["Confirmation Reverse chart", idea.confirmationsReverse],
+  ];
   const notes = [
     idea.reason,
-    lignes(idea.confirmations).length ? `Confirmations : ${lignes(idea.confirmations).join(", ")}` : "",
+    ...listes.map(([titre, brut]) => (lignes(brut).length ? `${titre} : ${lignes(brut).join(", ")}` : "")),
     conditions.length ? `Annuler si : ${conditions.join(", ")}` : "",
   ]
     .filter(Boolean)

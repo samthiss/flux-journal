@@ -209,7 +209,7 @@ export default function ChecklistClient({
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [answerMap, setAnswerMap] = useState<Record<string, string>>({});
   const [ideas, setIdeas] = useState<TradeIdeaRecord[]>([]);
-  const [vocabulary, setVocabulary] = useState<TradeVocabularies>({ tradeTypes: [], zones: [], confirmations: [], cancelIfs: [] });
+  const [vocabulary, setVocabulary] = useState<TradeVocabularies>({ tradeTypes: [], zones: [], confirmations: [], confirmationsBox: [], confirmationsReverse: [], cancelIfs: [] });
   // Bumped after a write, to read the ideas back rather than guess at them.
   const [ideasVersion, setIdeasVersion] = useState(0);
 
@@ -445,7 +445,13 @@ export default function ChecklistClient({
   const dynamiques = ideas
     .filter((idea) => idea.status === "position")
     .flatMap((idea) => [
-      ...parseTagArray(idea.confirmations).map((texte, i) => ({
+      // All three confirmation lists: what the cluster, the box and the
+      // reverse chart each have to show is equally worth ticking off.
+      ...[
+        ...parseTagArray(idea.confirmations),
+        ...parseTagArray(idea.confirmationsBox),
+        ...parseTagArray(idea.confirmationsReverse),
+      ].map((texte, i) => ({
         id: `idee-${idea.id}-c${i}`,
         texte,
         annulation: false,

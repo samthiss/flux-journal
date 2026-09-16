@@ -38,6 +38,8 @@ export async function createTradeIdea(input: {
   tradeTypes: string[];
   zone: string | null;
   confirmations: string[];
+  confirmationsBox: string[];
+  confirmationsReverse: string[];
   reason: string;
   cancelIf: string[];
   /** Charts picked in the form, uploaded once this row exists. */
@@ -54,6 +56,8 @@ export async function createTradeIdea(input: {
     !input.tradeTypes.length &&
     !input.zone?.trim() &&
     !input.confirmations.length &&
+    !input.confirmationsBox.length &&
+    !input.confirmationsReverse.length &&
     !cancelIf.length &&
     !input.withImages;
   if (empty) return null;
@@ -67,6 +71,8 @@ export async function createTradeIdea(input: {
       tradeTypes: input.tradeTypes.length ? JSON.stringify(input.tradeTypes) : null,
       zone: input.zone?.trim() || null,
       confirmations: input.confirmations.length ? JSON.stringify(input.confirmations) : null,
+      confirmationsBox: input.confirmationsBox.length ? JSON.stringify(input.confirmationsBox) : null,
+      confirmationsReverse: input.confirmationsReverse.length ? JSON.stringify(input.confirmationsReverse) : null,
       reason,
       cancelIf: cancelIf.length ? JSON.stringify(cancelIf) : null,
     },
@@ -89,6 +95,8 @@ export async function updateTradeIdea(
     tradeTypes: string[];
     zone: string | null;
     confirmations: string[];
+    confirmationsBox: string[];
+    confirmationsReverse: string[];
     reason: string;
     cancelIf: string[];
   }
@@ -101,6 +109,8 @@ export async function updateTradeIdea(
       tradeTypes: input.tradeTypes.length ? JSON.stringify(input.tradeTypes) : null,
       zone: input.zone?.trim() || null,
       confirmations: input.confirmations.length ? JSON.stringify(input.confirmations) : null,
+      confirmationsBox: input.confirmationsBox.length ? JSON.stringify(input.confirmationsBox) : null,
+      confirmationsReverse: input.confirmationsReverse.length ? JSON.stringify(input.confirmationsReverse) : null,
       reason: input.reason.trim(),
       cancelIf: cancelIf.length ? JSON.stringify(cancelIf) : null,
     },
@@ -183,10 +193,20 @@ export async function renommerMot(kind: string, from: string, to: string) {
     update: {},
   });
 
-  const champ = kind === "cancelIf" ? "cancelIf" : "confirmations";
-  const ideas = await prisma.tradeIdea.findMany({ select: { id: true, confirmations: true, cancelIf: true } });
+  // The word lives in whichever list it was written in — the three
+  // confirmation lists and the cancel conditions are each their own.
+  const CHAMPS: Record<string, "cancelIf" | "confirmations" | "confirmationsBox" | "confirmationsReverse"> = {
+    cancelIf: "cancelIf",
+    confirmations: "confirmations",
+    confirmationsBox: "confirmationsBox",
+    confirmationsReverse: "confirmationsReverse",
+  };
+  const champ = CHAMPS[kind] ?? "confirmations";
+  const ideas = await prisma.tradeIdea.findMany({
+    select: { id: true, confirmations: true, confirmationsBox: true, confirmationsReverse: true, cancelIf: true },
+  });
   for (const idea of ideas) {
-    const mots = parseTagArray(champ === "cancelIf" ? idea.cancelIf : idea.confirmations);
+    const mots = parseTagArray(idea[champ]);
     if (!mots.includes(from)) continue;
     const remplacés = [...new Set(mots.map((mot) => (mot === from ? nouveau : mot)))];
     await prisma.tradeIdea.update({
@@ -243,6 +263,9 @@ export async function getTradeVocabularies() {
      * nobody recognises is worse than no suggestion.
      */
     confirmations: rank(ecrits("confirmations"), [], removed("confirmations")),
+    // The two other charts, each remembering its own words the same way.
+    confirmationsBox: rank(ecrits("confirmationsBox"), [], removed("confirmationsBox")),
+    confirmationsReverse: rank(ecrits("confirmationsReverse"), [], removed("confirmationsReverse")),
     // The conditions that call a trade off, which repeat far more than they
     // vary: the same handful comes back, and re-typing them invites three
     // wordings of one rule.
