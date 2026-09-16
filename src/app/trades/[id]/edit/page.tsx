@@ -22,13 +22,32 @@ async function lastRiskPerLot() {
 }
 
 
+/**
+ * The Bilan questions, read off the post-market checklist rather than copied.
+ *
+ * The post-mortem is usually written after the fact, on this page, so the
+ * prompts belong here as much as on the form that creates the trade.
+ */
+async function questionsBilan() {
+  const rows = await prisma.checklistItem.findMany({
+    where: { group: "Bilan" },
+    orderBy: { order: "asc" },
+    select: { label: true },
+  });
+  return rows.map((row) => row.label).filter(Boolean);
+}
+
 export default async function EditTradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const trade = await prisma.trade.findUnique({ where: { id } });
   if (!trade) notFound();
 
   const updateTradeWithId = updateTrade.bind(null, trade.id);
-  const [riskPerLot, vocabulary] = await Promise.all([lastRiskPerLot(), getTradeVocabularies()]);
+  const [riskPerLot, vocabulary, bilan] = await Promise.all([
+    lastRiskPerLot(),
+    getTradeVocabularies(),
+    questionsBilan(),
+  ]);
 
   const existingCharts: ExistingCharts = {
     cluster: trade.chartCluster ?? undefined,
@@ -43,6 +62,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
       tradeId={trade.id}
       vocabulary={vocabulary}
       riskPerLot={riskPerLot}
+      bilanQuestions={bilan}
       title="Edit Trade"
       subtitle="Update this journal entry"
       existingCharts={existingCharts}

@@ -259,6 +259,7 @@ export default function ChecklistTabs({
           market={market}
           title="Post-Market Analyse"
           subtitle="Bilan post-marché"
+          closes
         />
       )}
     </div>

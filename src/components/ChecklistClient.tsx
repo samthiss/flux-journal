@@ -131,6 +131,7 @@ export default function ChecklistClient({
   tab,
   builder = false,
   positions = false,
+  closes = false,
 }: {
   items: ChecklistItem[];
   market: string;
@@ -160,6 +161,13 @@ export default function ChecklistClient({
    * read with the position in view.
    */
   positions?: boolean;
+  /**
+   * Shows the trades that are over, each with a way into the journal.
+   *
+   * A closed position is no longer a thing to watch; it is a thing to write
+   * up, which is what this page is for.
+   */
+  closes?: boolean;
 }) {
   const [, startTransition] = useTransition();
   const [editMode, setEditMode] = useState(false);
@@ -1244,6 +1252,65 @@ export default function ChecklistClient({
         </div>
 
       </div>
+      {closes && (
+        <div style={{ ...glassCard, marginBottom: 20 }}>
+          <div
+            style={{
+              fontSize: 13,
+              color: "oklch(0.62 0.034 250)",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 8,
+            }}
+          >
+            Positions clôturées
+          </div>
+          {ideas.filter((idea) => idea.status === "closed").length === 0 ? (
+            <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+              Rien à écrire. Une carte arrive ici quand tu la marques « Position closed » pendant le trade.
+            </div>
+          ) : (
+            ideas
+              .filter((idea) => idea.status === "closed")
+              .map((idea) => (
+                <div
+                  key={idea.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 12px",
+                    marginBottom: 6,
+                    border: "1px solid oklch(0.3 0.034 250)",
+                    background: "oklch(0.17 0.03 250 / 0.6)",
+                  }}
+                >
+                  <span style={{ fontSize: 13.5, flex: 1, minWidth: 0 }}>{idea.reason}</span>
+                  {/* Straight into the trade form, carrying what the idea
+                      already holds: its case becomes the pre-trade analysis and
+                      its charts the trade's own. Retyping it is how a journal
+                      stops being written. */}
+                  <a
+                    href={`/trade/new?idea=${idea.id}`}
+                    style={{
+                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                      fontSize: 11,
+                      padding: "5px 12px",
+                      borderRadius: 6,
+                      border: `1px solid ${accentColor}`,
+                      color: accentColor,
+                      textDecoration: "none",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Ajouter au journal
+                  </a>
+                </div>
+              ))
+          )}
+        </div>
+      )}
+
       {positions && (
         <div style={{ ...glassCard, marginTop: 20 }}>
           <div

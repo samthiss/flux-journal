@@ -75,14 +75,18 @@ function ChartSlotInput({
   slotKey,
   label,
   initialSrc,
+  prefillUrl,
   tradeId,
 }: {
   slotKey: string;
   label: string;
   initialSrc?: string;
+  /** A chart taken from the trade idea: shown, and posted as a URL, not a file. */
+  prefillUrl?: string;
   tradeId?: string;
 }) {
-  const [preview, setPreview] = useState(initialSrc ?? "");
+  const [preview, setPreview] = useState(initialSrc ?? prefillUrl ?? "");
+  const [carried, setCarried] = useState(prefillUrl ?? "");
   const [dragOver, setDragOver] = useState(false);
   const [typeError, setTypeError] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -98,6 +102,8 @@ function ChartSlotInput({
       return;
     }
     setTypeError(false);
+    // A file picked here replaces the chart carried over from the idea.
+    setCarried("");
     const dt = new DataTransfer();
     dt.items.add(file);
     if (inputRef.current) inputRef.current.files = dt.files;
@@ -107,8 +113,14 @@ function ChartSlotInput({
   }
 
   function removeExisting() {
-    if (!tradeId) return;
     setPreview("");
+    // Nothing is saved yet for a chart carried over from the idea, so dropping
+    // it is a matter of not posting it; the idea keeps its own copy either way.
+    if (carried) {
+      setCarried("");
+      return;
+    }
+    if (!tradeId) return;
     startTransition(() => removeChartSlot(tradeId, slotKey));
   }
 
@@ -150,7 +162,7 @@ function ChartSlotInput({
               border: "1px solid oklch(0.32 0.051 250 / 0.5)",
             }}
           />
-          {tradeId && (
+          {(tradeId || carried) && (
             <div
               onClick={(e) => {
                 e.preventDefault();
@@ -192,6 +204,7 @@ function ChartSlotInput({
           if (file) loadFile(file);
         }}
       />
+      {carried && <input type="hidden" name={`chart_${slotKey}_url`} value={carried} />}
     </label>
   );
 }
@@ -206,6 +219,8 @@ export default function TradeForm({
   subtitle,
   riskPerLot,
   vocabulary,
+  prefillCharts = [],
+  bilanQuestions = [],
 }: {
   action: (formData: FormData) => void;
   deleteAction?: (formData: FormData) => void;
@@ -216,11 +231,34 @@ export default function TradeForm({
   /** The words the examples and the trade ideas are already annotated with. */
   vocabulary: { tradeTypes: string[]; zones: string[]; confirmations: string[]; invalidReasons: string[] };
   existingCharts?: ExistingCharts;
+  /** Charts from the trade idea this trade was opened from, in slot order. */
+  prefillCharts?: string[];
+  /** The Bilan questions from the post-market checklist, offered as prompts. */
+  bilanQuestions?: string[];
   title: string;
   subtitle: string;
 }) {
   const [side, setSide] = useState(initial.side);
   const [emotion, setEmotion] = useState(initial.emotion);
+  // Held here so the Bilan questions can be written into it: the post-mortem
+  // was already a checklist, and answering it in the journal beats ticking it
+  // somewhere the answers are not kept.
+  const [postNotes, setPostNotes] = useState(initial.postTradeNotes);
+  const postRef = useRef<HTMLTextAreaElement>(null);
+
+  function ajouterQuestion(question: string) {
+    setPostNotes((texte) => {
+      if (texte.includes(question)) return texte;
+      return `${texte.trimEnd()}${texte.trim() ? "\n\n" : ""}${question}\n`;
+    });
+    // The cursor belongs where the answer goes, which is the end.
+    requestAnimationFrame(() => {
+      const zone = postRef.current;
+      if (!zone) return;
+      zone.focus();
+      zone.setSelectionRange(zone.value.length, zone.value.length);
+    });
+  }
 
   // The three vocabularies, held here and posted as JSON: a dropdown cannot be
   // a form field on its own.
@@ -561,23 +599,49 @@ export default function TradeForm({
             <div style={{ gridColumn: "span 2" }}>
               {fieldLabel("Post trade analysis")}
               <textarea
+                ref={postRef}
                 name="postTradeNotes"
-                defaultValue={initial.postTradeNotes}
+                value={postNotes}
+                onChange={(e) => setPostNotes(e.target.value)}
                 placeholder="What happened, what you'd do differently…"
                 rows={3}
                 style={{ ...inputStyle, resize: "vertical" }}
               />
+              {bilanQuestions.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                  {bilanQuestions.map((question) => (
+                    <button
+                      key={question}
+                      type="button"
+                      onClick={() => ajouterQuestion(question)}
+                      style={{
+                        cursor: "pointer",
+                        fontSize: 11,
+                        padding: "5px 10px",
+                        borderRadius: 999,
+                        border: "1px solid oklch(0.36 0.051 250 / 0.6)",
+                        background: postNotes.includes(question) ? "oklch(0.3 0.051 250)" : "transparent",
+                        color: "oklch(0.72 0.034 250)",
+                        textAlign: "left",
+                      }}
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div style={{ gridColumn: "span 2" }}>
               {fieldLabel("Chart screenshots")}
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-                {CHART_SLOTS.map((slot) => (
+                {CHART_SLOTS.map((slot, i) => (
                   <ChartSlotInput
                     key={slot.key}
                     slotKey={slot.key}
                     label={slot.label}
                     initialSrc={existingCharts[slot.key]}
+                    prefillUrl={existingCharts[slot.key] ? undefined : prefillCharts[i]}
                     tradeId={tradeId}
                   />
                 ))}

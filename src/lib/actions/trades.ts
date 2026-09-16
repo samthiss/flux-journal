@@ -32,6 +32,14 @@ async function parseChartFields(formData: FormData) {
     const file = formData.get(`chart_${slot.key}`);
     if (file instanceof File && file.size > 0) {
       fields[slot.field] = await saveImage(file);
+      continue;
+    }
+    // A chart carried over from the trade idea: the file is already on the
+    // volume, so the trade points at it instead of storing the bytes twice.
+    // Only our own upload paths are accepted — the field comes from the page.
+    const url = String(formData.get(`chart_${slot.key}_url`) ?? "");
+    if (url.startsWith("/api/uploads/") && !url.includes("..")) {
+      fields[slot.field] = url;
     }
   }
   return fields;

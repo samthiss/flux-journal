@@ -19,12 +19,13 @@ export async function getTradeIdeas(market: string, day: string) {
 }
 
 /**
- * Moves an idea between the plan and the position.
+ * Moves an idea along: plan, position, closed.
  *
- * Which page shows it follows from this, so it is the one gesture that says a
- * trade has actually been taken.
+ * Which page shows it follows from this — the strategies, the discipline list,
+ * then the post-mortem — so these are the gestures that say a trade was taken
+ * and then finished.
  */
-export async function setTradeIdeaStatus(id: string, status: "plan" | "position") {
+export async function setTradeIdeaStatus(id: string, status: "plan" | "position" | "closed") {
   await prisma.tradeIdea.update({ where: { id }, data: { status } });
   revalidatePath("/checklist");
 }

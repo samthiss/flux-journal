@@ -38,6 +38,11 @@ export async function deleteImageFileIfUnused(url: string | null | undefined) {
   });
   if (usedByTrade > 0) return;
 
+  // A trade opened from an idea reuses the idea's charts rather than copying
+  // the bytes, so the idea still shows the picture after the trade is deleted.
+  const usedByIdea = await prisma.tradeIdea.count({ where: { images: { contains: url } } });
+  if (usedByIdea > 0) return;
+
   await unlink(path.join(UPLOAD_DIR, filename)).catch(() => {});
   // The derivatives go with it. A thumbnail whose source is gone is a file
   // nothing can reach any more, and it would never be swept by anything else.

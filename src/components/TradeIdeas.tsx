@@ -924,8 +924,29 @@ export default function TradeIdeas({
                 color: idea.status === "position" ? accentColor : "oklch(0.6 0.02 250)",
               }}
             >
-              {idea.status === "position" ? "Trading" : "Trading plan"}
+              {idea.status === "closed" ? "Clôturé" : idea.status === "position" ? "Trading" : "Trading plan"}
             </span>
+
+            {idea.status === "position" && (
+              <span
+                onClick={() => void setTradeIdeaStatus(idea.id, "closed").then(onChanged)}
+                title="La position est fermée — la carte passe en Post-Market Analyse"
+                style={{
+                  ...mono,
+                  fontSize: 9.5,
+                  flex: "none",
+                  marginTop: 1,
+                  padding: "2px 9px",
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  border: "1px dashed oklch(0.4 0.034 250)",
+                  color: "oklch(0.7 0.02 250)",
+                }}
+              >
+                Position closed
+              </span>
+            )}
 
             <span
               style={{
