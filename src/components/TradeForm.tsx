@@ -229,7 +229,17 @@ export default function TradeForm({
   /** What one lot risked on the last trade that recorded it, if any. */
   riskPerLot?: number | null;
   /** The words the examples and the trade ideas are already annotated with. */
-  vocabulary: { tradeTypes: string[]; zones: string[]; confirmations: string[]; invalidReasons: string[] };
+  vocabulary: {
+    tradeTypes: string[];
+    zones: string[];
+    confirmations: string[];
+    confirmationsBox: string[];
+    confirmationsReverse: string[];
+    invalidReasons: string[];
+    cancelIfs: string[];
+    /** The same lists setup by setup, keyed "list@setup". */
+    parSetup: Record<string, string[]>;
+  };
   existingCharts?: ExistingCharts;
   /** Charts from the trade idea this trade was opened from, in slot order. */
   prefillCharts?: string[];
@@ -240,6 +250,10 @@ export default function TradeForm({
 }) {
   const [side, setSide] = useState(initial.side);
   const [emotion, setEmotion] = useState(initial.emotion);
+  // Held rather than left to the select, because the confirmations and the
+  // risk management offered are this setup's own — as they are on a note and
+  // on a trade idea. Changing it here changes what is offered below.
+  const [setup, setSetup] = useState(initial.setup);
   // Held here so the Bilan questions can be written into it: the post-mortem
   // was already a checklist, and answering it in the journal beats ticking it
   // somewhere the answers are not kept.
@@ -280,6 +294,23 @@ export default function TradeForm({
 
   /** A word typed a moment ago is offered too, before the list is read again. */
   const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
+
+  /**
+   * The words this setup has used, or the whole list while it has used none.
+   *
+   * The confirmations here are one field where a note keeps three — the trade
+   * records what was seen, not which chart said it — so all three of the
+   * setup's lists are offered together. An empty list on the first trade of a
+   * setup would read as a fault, hence the fallback.
+   */
+  const motsDuSetup = (liste: "confirmations" | "cancelIf", complet: string[]) => {
+    const cles =
+      liste === "cancelIf"
+        ? ["cancelIf"]
+        : ["confirmations", "confirmationsBox", "confirmationsReverse"];
+    const propres = [...new Set(cles.flatMap((cle) => vocabulary.parSetup[`${cle}@${setup}`] ?? []))];
+    return propres.length ? propres : complet;
+  };
 
   // P&L, size and risk are held here rather than left uncontrolled, because the
   // R:R is computed from them as they are typed.
@@ -378,7 +409,7 @@ export default function TradeForm({
             </div>
             <div>
               {fieldLabel("Setup")}
-              <select name="setup" defaultValue={initial.setup} style={inputStyle}>
+              <select name="setup" value={setup} onChange={(e) => setSetup(e.target.value)} style={inputStyle}>
                 {SETUP_OPTIONS.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -522,12 +553,12 @@ export default function TradeForm({
                     excuses; it is the risk management — what would have called
                     the trade off — and a trade that worked had one too. */}
                 <div>
-                    {fieldLabel("Risk management")}
+                    {fieldLabel(`Risk management · ${setup}`)}
                     <input type="hidden" name="invalidReasons" value={JSON.stringify(invalidReasons)} />
                     <ChipDropdown
                       block
                       placeholder="Aucune"
-                      options={offer(vocabulary.invalidReasons, invalidReasons)}
+                      options={offer(motsDuSetup("cancelIf", vocabulary.invalidReasons), invalidReasons)}
                       selected={invalidReasons}
                       multiple
                       visible
@@ -540,11 +571,11 @@ export default function TradeForm({
                     />
                 </div>
                 <div>
-                  {fieldLabel("Confirmation")}
+                  {fieldLabel(`Confirmation · ${setup}`)}
                   <ChipDropdown
                     block
                     placeholder="Aucune"
-                    options={offer(vocabulary.confirmations, confirmations)}
+                    options={offer(motsDuSetup("confirmations", vocabulary.confirmations), confirmations)}
                     selected={confirmations}
                     multiple
                     visible
