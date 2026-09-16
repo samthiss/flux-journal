@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { TRADE_TYPES, ZONES, parseTagArray } from "@/lib/tags";
+import { TRADE_TYPES, ZONES, parseTagArray, setupDeLigne, kindDeBase } from "@/lib/tags";
 
 /**
  * The trade ideas written for one market on one day.
@@ -62,9 +62,15 @@ export async function createTradeIdea(input: {
     !input.withImages;
   if (empty) return null;
 
+  const ligne = await prisma.checklistItem.findUnique({
+    where: { id: input.itemId },
+    select: { label: true },
+  });
+
   const idea = await prisma.tradeIdea.create({
     data: {
       itemId: input.itemId,
+      setup: setupDeLigne(ligne?.label),
       market: input.market,
       day: input.day,
       side: input.side === "short" ? "short" : "long",
@@ -201,7 +207,7 @@ export async function renommerMot(kind: string, from: string, to: string) {
     confirmationsBox: "confirmationsBox",
     confirmationsReverse: "confirmationsReverse",
   };
-  const champ = CHAMPS[kind] ?? "confirmations";
+  const champ = CHAMPS[kindDeBase(kind)] ?? "confirmations";
   const ideas = await prisma.tradeIdea.findMany({
     select: { id: true, confirmations: true, confirmationsBox: true, confirmationsReverse: true, cancelIf: true },
   });
@@ -229,8 +235,17 @@ export async function getTradeVocabularies() {
   const removed = (kind: string) =>
     new Set(hidden.filter((h) => h.kind === kind).map((h) => h.value));
 
-  /** Words written down on their own, whether or not an idea kept them. */
-  const ecrits = (kind: string) => ajoutes.filter((mot) => mot.kind === kind).map((mot) => mot.value);
+  /**
+   * Words written down on their own, whether or not an idea kept them.
+   *
+   * A kind with no setup gathers every setup's words as well: it is the list
+   * offered where no setup is in force, and a word written under one setup is
+   * still a word this reader uses.
+   */
+  const ecrits = (kind: string) =>
+    ajoutes
+      .filter((mot) => (kind.includes("@") ? mot.kind === kind : kindDeBase(mot.kind) === kind))
+      .map((mot) => mot.value);
 
   // Most-used first, then alphabetical, so the order does not shuffle between
   // two renders; the shipped words keep the head of their list whatever the
@@ -266,6 +281,18 @@ export async function getTradeVocabularies() {
     // The two other charts, each remembering its own words the same way.
     confirmationsBox: rank(ecrits("confirmationsBox"), [], removed("confirmationsBox")),
     confirmationsReverse: rank(ecrits("confirmationsReverse"), [], removed("confirmationsReverse")),
+    /**
+     * The same three lists, setup by setup: what a trend run is confirmed by
+     * is not what a reverse is confirmed by. Keyed "list@setup"; a key with
+     * nothing under it yet leaves the form falling back to the whole list,
+     * rather than opening on an empty row that reads as a fault.
+     */
+    parSetup: Object.fromEntries(
+      [...new Set(ajoutes.map((mot) => mot.kind).filter((kind) => kind.includes("@")))].map((kind) => [
+        kind,
+        rank(ecrits(kind), [], removed(kind)),
+      ])
+    ) as Record<string, string[]>,
     // The conditions that call a trade off, which repeat far more than they
     // vary: the same handful comes back, and re-typing them invites three
     // wordings of one rule.

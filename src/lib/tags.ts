@@ -25,6 +25,39 @@ export const TRADE_TYPES = [
 export const SETUPS = ["Trend run", "Backtest reverse"] as const;
 
 /**
+ * The setup a checklist line stands for, if it stands for one.
+ *
+ * The Trading Plan holds one line per setup — "Trend Run (TR) : …" and
+ * "Backtest Reverse (BR) : …" — so an idea written under one of them is an
+ * idea for that setup. Nothing has to be picked: where it was written says it.
+ * The match is on the opening words, since the rest of the line is its
+ * description and the reader may reword it.
+ */
+export function setupDeLigne(label: string | null | undefined) {
+  const debut = (label ?? "").trim().toLowerCase();
+  if (debut.startsWith("trend run")) return "Trend run";
+  if (debut.startsWith("backtest reverse")) return "Backtest reverse";
+  return null;
+}
+
+/**
+ * The vocabulary a word belongs to: the list, and the setup it was written
+ * under when there is one.
+ *
+ * Kept in the kind rather than in a column of its own — a vocabulary has never
+ * had a table here, and "confirmationsBox@Trend run" is the same idea as the
+ * notes': a word belongs to the setup it was used under.
+ */
+export function kindPourSetup(kind: string, setup: string | null | undefined) {
+  return setup ? `${kind}@${setup}` : kind;
+}
+
+/** The list a kind names, with any setup stripped off. */
+export function kindDeBase(kind: string) {
+  return kind.split("@")[0];
+}
+
+/**
  * The zones that ship with the app. The value stored is the word itself, so the
  * list can grow the way the trade types and the confirmations do.
  */

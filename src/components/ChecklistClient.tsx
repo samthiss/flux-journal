@@ -7,7 +7,7 @@ import { PageTitle } from "@/components/NeonText";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistCategory, deleteChecklistGroup, reorderChecklistItems } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
-import { parseTagArray } from "@/lib/tags";
+import { parseTagArray, setupDeLigne } from "@/lib/tags";
 
 type ChecklistItem = {
   id: string;
@@ -209,7 +209,7 @@ export default function ChecklistClient({
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [answerMap, setAnswerMap] = useState<Record<string, string>>({});
   const [ideas, setIdeas] = useState<TradeIdeaRecord[]>([]);
-  const [vocabulary, setVocabulary] = useState<TradeVocabularies>({ tradeTypes: [], zones: [], confirmations: [], confirmationsBox: [], confirmationsReverse: [], cancelIfs: [] });
+  const [vocabulary, setVocabulary] = useState<TradeVocabularies>({ tradeTypes: [], zones: [], confirmations: [], confirmationsBox: [], confirmationsReverse: [], cancelIfs: [], parSetup: {} });
   // Bumped after a write, to read the ideas back rather than guess at them.
   const [ideasVersion, setIdeasVersion] = useState(0);
 
@@ -931,6 +931,10 @@ export default function ChecklistClient({
                       itemId={item.id}
                       market={market}
                       day={todayKey()}
+                      // "Trend Run (TR)" and "Backtest Reverse (BR)" are lines
+                      // of the Trading Plan, so the line says which setup the
+                      // idea is for without anything being picked.
+                      setup={setupDeLigne(item.label)}
                       // A taken trade leaves the plan: it is read on the
                       // discipline page from then on.
                       ideas={ideas.filter((idea) => idea.itemId === item.id && idea.status !== "position")}

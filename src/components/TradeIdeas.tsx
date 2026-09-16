@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { accentColor, winColor, lossColor } from "@/lib/theme";
-import { tagTone, parseTagArray } from "@/lib/tags";
+import { tagTone, parseTagArray, kindPourSetup } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
 import ImageLightbox from "@/components/ImageLightbox";
 import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot, supprimerMot, renommerMot, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
@@ -14,6 +14,7 @@ export type TradeIdeaRecord = {
   side: string;
   tradeTypes: string | null;
   zone: string | null;
+  setup: string | null;
   confirmations: string | null;
   confirmationsBox: string | null;
   confirmationsReverse: string | null;
@@ -46,6 +47,8 @@ export type TradeVocabularies = {
   confirmationsBox: string[];
   confirmationsReverse: string[];
   cancelIfs: string[];
+  /** The same three lists again, keyed "list@setup". */
+  parSetup: Record<string, string[]>;
 };
 
 /**
@@ -426,6 +429,7 @@ export default function TradeIdeas({
   itemId,
   market,
   day,
+  setup,
   ideas,
   vocabulary,
   onChanged,
@@ -434,6 +438,14 @@ export default function TradeIdeas({
   itemId: string;
   market: string;
   day: string;
+  /**
+   * The setup this line stands for, when it stands for one.
+   *
+   * Nothing is picked: an idea written under "Trend Run (TR)" is a trend run,
+   * and that is what the confirmation lists are scoped by — the words offered
+   * are the ones this setup has already used.
+   */
+  setup?: string | null;
   ideas: TradeIdeaRecord[];
   vocabulary: TradeVocabularies;
   onChanged: () => void;
@@ -684,16 +696,21 @@ export default function TradeIdeas({
           />
           {/* CC first, then the box and the reverse chart under it: three
               lists rather than one, because they answer three questions. */}
-          {CONFIRMATIONS.map(({ kind, titre }) => (
+          {CONFIRMATIONS.map(({ kind, titre }) => {
+            // The words this setup has used, or all of them while it has used
+            // none: an empty row on the first trade reads as a fault.
+            const propres = vocabulary.parSetup[kindPourSetup(kind, setup)] ?? [];
+            return (
             <MotsLibres
               key={kind}
-              titre={titre}
+              titre={setup ? `${titre} · ${setup}` : titre}
               valeurs={confirmations[kind]}
-              connus={vocabulary[kind]}
-              kind={kind}
+              connus={propres.length ? propres : vocabulary[kind]}
+              kind={kindPourSetup(kind, setup)}
               onChange={(valeurs) => setConfirmations((prev) => ({ ...prev, [kind]: valeurs }))}
             />
-          ))}
+            );
+          })}
 
           {/* What would call the trade off, kept apart from the case for it. */}
           <div
@@ -1001,9 +1018,9 @@ export default function TradeIdeas({
               {long ? "LONG" : "SHORT"}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {[...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations), ...parseTagArray(idea.confirmationsBox), ...parseTagArray(idea.confirmationsReverse)].length > 0 && (
+              {[...(idea.setup ? [idea.setup] : []), ...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations), ...parseTagArray(idea.confirmationsBox), ...parseTagArray(idea.confirmationsReverse)].length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
-                  {[...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations), ...parseTagArray(idea.confirmationsBox), ...parseTagArray(idea.confirmationsReverse)].map((t) => {
+                  {[...(idea.setup ? [idea.setup] : []), ...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations), ...parseTagArray(idea.confirmationsBox), ...parseTagArray(idea.confirmationsReverse)].map((t) => {
                     const tone = tagTone(t);
                     return (
                       <span

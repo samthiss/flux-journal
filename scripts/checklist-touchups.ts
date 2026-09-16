@@ -36,6 +36,7 @@
 import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { setupDeLigne } from "../src/lib/tags";
 
 const TREND_RANGE = ["Tendance", "Range"];
 const YES_NO = ["Oui", "Non"];
@@ -152,6 +153,34 @@ async function main() {
     if (anciens.length > 0) {
       await prisma.checklistItem.deleteMany({ where: { id: { in: anciens.map((i) => i.id) } } });
       console.log(`checklist-touchups: ${anciens.length} ligne(s) des sections en double retirée(s).`);
+    }
+
+    /**
+     * The setup an idea was written for, filled in for the ones written before
+     * the column existed.
+     *
+     * It is read off the Trading Plan line the idea hangs from — the same rule
+     * the form applies when writing a new one — so a journal opened after this
+     * change has its confirmations scoped like everything written since.
+     */
+    const sansSetup = await prisma.tradeIdea.findMany({
+      where: { setup: null },
+      select: { id: true, itemId: true },
+    });
+    if (sansSetup.length > 0) {
+      const lignes = await prisma.checklistItem.findMany({
+        where: { id: { in: [...new Set(sansSetup.map((i) => i.itemId))] } },
+        select: { id: true, label: true },
+      });
+      const parLigne = new Map(lignes.map((l) => [l.id, setupDeLigne(l.label)]));
+      let remplies = 0;
+      for (const idea of sansSetup) {
+        const setup = parLigne.get(idea.itemId);
+        if (!setup) continue;
+        await prisma.tradeIdea.update({ where: { id: idea.id }, data: { setup } });
+        remplies++;
+      }
+      if (remplies > 0) console.log(`checklist-touchups: setup rempli sur ${remplies} idée(s).`);
     }
 
     // Matched on its number rather than its wording, which differs between the

@@ -350,6 +350,15 @@ model TradeIdea {
    */
   status String @default("plan")
 
+  /**
+   * Which setup this idea is for, as the notes record it.
+   *
+   * Not picked but derived: the Trading Plan has one line per setup, so an
+   * idea written under "Trend Run (TR)" is a trend run. It is what scopes the
+   * confirmation lists, exactly as it does on a note example.
+   */
+  setup         String?
+
   /** The same vocabularies the note examples are typed with. */
   tradeTypes    String?
   zone          String?

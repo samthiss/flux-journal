@@ -39,6 +39,7 @@ async function ideePrealable(id: string | undefined) {
     where: { id },
     select: {
       side: true,
+      setup: true,
       reason: true,
       cancelIf: true,
       confirmations: true,
@@ -83,7 +84,16 @@ async function ideePrealable(id: string | undefined) {
     urls = [];
   }
 
-  return { notes, urls, side: idea.side === "short" ? "Short" : "Long", tradeTypes: idea.tradeTypes ?? "", confirmations: idea.confirmations ?? "" };
+  return {
+    notes,
+    urls,
+    side: idea.side === "short" ? "Short" : "Long",
+    // The idea was written under one of the Trading Plan's two lines, so the
+    // trade's setup is already known.
+    setup: idea.setup,
+    tradeTypes: idea.tradeTypes ?? "",
+    confirmations: idea.confirmations ?? "",
+  };
 }
 
 /**
@@ -132,7 +142,7 @@ export default async function NewTradePage({
         time: "",
         symbol: "",
         market: "",
-        setup: "Trend run",
+        setup: prealable?.setup ?? "Trend run",
         side: prealable?.side ?? "Long",
         size: "",
         pnl: "",
