@@ -344,7 +344,10 @@ export default function ChecklistClient({
     if (!label) return;
 
     const [group, categorie] = bloc.cle.split("::");
-    const reponses = blocReponses.split(/[\n/]/).map((r) => r.trim()).filter(Boolean);
+    // Split on line breaks alone. Slashes were accepted too, back when the
+    // answers were typed on one line — and an answer that contains one, "Top /
+    // Bottom", was quietly cut in two, leaving a "Bottom)" nobody wrote.
+    const reponses = blocReponses.split("\n").map((r) => r.trim()).filter(Boolean);
     // A heading typed with the block, or the one it was added under.
     const titre = bloc.type === "choix" ? categorie : categorie || blocTitre.trim();
 

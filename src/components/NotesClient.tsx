@@ -20,6 +20,7 @@ import {
   updateNoteBlockContent,
   deleteNoteBlock,
   reorderNoteBlocks,
+  reorderNote,
   createCategoryNamed,
   renameCategory,
   deleteCategory,
@@ -811,6 +812,10 @@ export default function NotesClient({
           <NoteSection
             key={node.id}
             note={node}
+            onDropNote={async (dragId) => {
+              await reorderNote(dragId, node.id);
+              router.refresh();
+            }}
             blocks={blocks.filter((b) => b.noteId === node.id)}
             categories={categories.filter((c) => c.noteId === node.id)}
             examples={examples.filter((e) => e.noteId === node.id)}
@@ -835,6 +840,7 @@ function NoteSection({
   onChanged,
   collapsed,
   onToggleCollapse,
+  onDropNote,
 }: {
   note: NoteRecord;
   blocks: BlockRecord[];
@@ -844,8 +850,19 @@ function NoteSection({
   onChanged: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  /** A note was dropped on this one: it takes this one's place. */
+  onDropNote: (dragId: string) => void;
 }) {
   const [title, setTitle] = useState(note.title);
+  /**
+   * Armed by the grip, as everything draggable here is.
+   *
+   * A note header left permanently draggable hands the browser the whole
+   * section as its drag image — the heading, its rules, its screenshots — which
+   * is the bug the note blocks already taught us once.
+   */
+  const [armed, setArmed] = useState(false);
+  const [surNote, setSurNote] = useState(false);
   const [blockList, setBlockList] = useState<BlockRecord[]>(() => [...blocks].sort((a, b) => a.order - b.order));
   const blockListRef = useRef(blockList);
   useEffect(() => {
@@ -1059,8 +1076,55 @@ function NoteSection({
         <div
           onMouseEnter={() => setHeaderHover(true)}
           onMouseLeave={() => setHeaderHover(false)}
-          style={{ display: "flex", alignItems: "center", marginBottom: 20 }}
+          draggable={armed}
+          onDragStart={(e) => {
+            e.dataTransfer.setData("text/note", note.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onDragEnd={() => {
+            setArmed(false);
+            setSurNote(false);
+          }}
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("text/note")) return;
+            e.preventDefault();
+            setSurNote(true);
+          }}
+          onDragLeave={() => setSurNote(false)}
+          onDrop={(e) => {
+            const dragId = e.dataTransfer.getData("text/note");
+            setSurNote(false);
+            setArmed(false);
+            if (!dragId || dragId === note.id) return;
+            e.preventDefault();
+            onDropNote(dragId);
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            marginBottom: 20,
+            borderTop: surNote ? `2px solid ${accentColor}` : "2px solid transparent",
+          }}
         >
+          <span
+            onMouseDown={() => setArmed(true)}
+            onMouseUp={() => setArmed(false)}
+            title="Glisser pour déplacer la note"
+            style={{
+              flex: "none",
+              width: 16,
+              marginLeft: -20,
+              cursor: "grab",
+              color: "oklch(0.42 0.02 250)",
+              fontSize: 13,
+              lineHeight: 1,
+              userSelect: "none",
+              opacity: headerHover ? 1 : 0,
+              transition: "opacity 0.12s ease",
+            }}
+          >
+            ⠿
+          </span>
           <div
             onClick={onToggleCollapse}
             style={{ width: "var(--note-indent)", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
