@@ -120,6 +120,13 @@ type TagKind =
 /** The three confirmation lists, each scoped to the setup that is chosen. */
 const CONFIRMATION_KINDS = ["confirmation", "confirmationBox", "confirmationReverse"] as const;
 
+/**
+ * Everything a setup narrows: the three confirmation lists and the risk
+ * management one. What calls a trend run off is not what calls a reverse off
+ * any more than their confirmations are the same.
+ */
+const SCOPED_KINDS = [...CONFIRMATION_KINDS, "invalidReason"] as const;
+
 /** What each one is called on a card, and in the filter bar. */
 const CONFIRMATION_LABELS: Record<(typeof CONFIRMATION_KINDS)[number], string> = {
   confirmation: "Confirmation CC",
@@ -159,6 +166,25 @@ const FIELD_TO_KIND: Record<string, TagKind> = {
   tradeTypes: "tradeType",
   zone: "zone",
   setup: "setup",
+};
+
+/**
+ * The checklist's name for each of these vocabularies.
+ *
+ * The two pages write the same lists under different names — what the notes
+ * call an invalid reason the pre-trade form calls risk management, and it is
+ * one list: a condition that would call a trade off is the reason it was one
+ * to pass on. Mapping them is what lets a word typed on either page be
+ * offered on the other.
+ */
+const KIND_TO_CHECKLIST: Record<TagKind, string | null> = {
+  confirmation: "confirmations",
+  confirmationBox: "confirmationsBox",
+  confirmationReverse: "confirmationsReverse",
+  invalidReason: "cancelIf",
+  tradeType: null,
+  zone: null,
+  setup: null,
 };
 
 const TagVocabularyContext = createContext<TagVocabulary>({ values: () => [], remember: () => {} });
@@ -734,6 +760,7 @@ export default function NotesClient({
   examples,
   images,
   hiddenTagOptions,
+  tagOptions,
   initialCollapsedNotes,
 }: {
   notes: NoteRecord[];
@@ -742,6 +769,8 @@ export default function NotesClient({
   examples: ExampleRecord[];
   images: ImageRecord[];
   hiddenTagOptions: { kind: string; value: string }[];
+  /** The words written in the pre-trade form, offered here as well. */
+  tagOptions: { kind: string; value: string }[];
   initialCollapsedNotes: string[];
 }) {
   const router = useRouter();
@@ -799,6 +828,22 @@ export default function NotesClient({
   }, [hiddenTagOptions]);
 
   const vocabulary = useMemo<TagVocabulary>(() => {
+    /**
+     * The words the pre-trade form holds for one of these lists.
+     *
+     * Its kinds carry the setup they were written under — "cancelIf@Trend run"
+     * — so a setup asked for here reads that one, and a list asked for without
+     * a setup reads them all.
+     */
+    const duPreTrade = (kind: TagKind, setup?: string | null) => {
+      const champ = KIND_TO_CHECKLIST[kind];
+      if (!champ) return [];
+      const cherche = setup ? `${champ}@${setup}` : null;
+      return tagOptions
+        .filter((mot) => (cherche ? mot.kind === cherche : mot.kind.split("@")[0] === champ))
+        .map((mot) => mot.value);
+    };
+
     const count = (pick: (e: ExampleRecord) => string | null, fresh: string[]) => {
       const counts = new Map<string, number>();
       for (const value of [...examples.flatMap((e) => parseArr(pick(e))), ...fresh]) {
@@ -839,15 +884,23 @@ export default function NotesClient({
     // The confirmations, kept setup by setup and list by list. A word counts
     // for a setup once an example carrying that setup was annotated with it,
     // which is what ties a word to a setup — nothing says so separately.
-    const champ: Record<(typeof CONFIRMATION_KINDS)[number], (e: ExampleRecord) => string | null> = {
+    const champ: Record<(typeof SCOPED_KINDS)[number], (e: ExampleRecord) => string | null> = {
       confirmation: (e) => e.confirmations,
       confirmationBox: (e) => e.confirmationsBox,
       confirmationReverse: (e) => e.confirmationsReverse,
+      invalidReason: (e) => e.invalidReasons,
     };
     const parSetup = new Map<string, string[]>();
-    for (const setup of new Set(examples.map((e) => e.setup).filter((v): v is string => !!v))) {
-      for (const kind of CONFIRMATION_KINDS) {
-        parSetup.set(`${kind}|${setup}`, count((e) => (e.setup === setup ? champ[kind](e) : null), []));
+    const setups = new Set([
+      ...examples.map((e) => e.setup).filter((v): v is string => !!v),
+      ...tagOptions.filter((mot) => mot.kind.includes("@")).map((mot) => mot.kind.split("@")[1]),
+    ]);
+    for (const setup of setups) {
+      for (const kind of SCOPED_KINDS) {
+        parSetup.set(`${kind}|${setup}`, [
+          ...count((e) => (e.setup === setup ? champ[kind](e) : null), []),
+          ...duPreTrade(kind, setup),
+        ]);
       }
     }
 
@@ -855,18 +908,18 @@ export default function NotesClient({
       // A word the reader removed is gone from every list, including the ones
       // the app ships with — that is the whole point of remembering it.
       values: (kind, setup) => {
-        const all = ranked[kind].filter((v) => !hidden.get(kind)?.has(v));
-        if (!setup || !(CONFIRMATION_KINDS as readonly string[]).includes(kind)) return all;
+        const all = [...new Set([...ranked[kind], ...duPreTrade(kind)])].filter((v) => !hidden.get(kind)?.has(v));
+        if (!setup || !(SCOPED_KINDS as readonly string[]).includes(kind)) return all;
         // A setup nothing has been written under yet starts from the whole
         // list: an empty dropdown would read as a bug, and the first word
         // picked there is what begins that setup's own list.
-        const scoped = (parSetup.get(`${kind}|${setup}`) ?? []).filter((v) => !hidden.get(kind)?.has(v));
+        const scoped = [...new Set(parSetup.get(`${kind}|${setup}`) ?? [])].filter((v) => !hidden.get(kind)?.has(v));
         return scoped.length ? scoped : all;
       },
       remember: (kind, value) =>
         setFreshTags((prev) => (prev[kind].includes(value) ? prev : { ...prev, [kind]: [...prev[kind], value] })),
     };
-  }, [examples, freshTags, hidden]);
+  }, [examples, freshTags, hidden, tagOptions]);
 
   return (
     <TagVocabularyContext.Provider value={vocabulary}>
@@ -2336,7 +2389,7 @@ function ExampleCategory({
         confirmationBox: collect((e) => (setupFilter && e.setup !== setupFilter ? null : e.confirmationsBox)),
         confirmationReverse: collect((e) => (setupFilter && e.setup !== setupFilter ? null : e.confirmationsReverse)),
       },
-      reasons: collect((e) => e.invalidReasons),
+      reasons: collect((e) => (setupFilter && e.setup !== setupFilter ? null : e.invalidReasons)),
       hasValidity: examples.some((e) => normalizeValidity(e.validity) !== null),
       // Only the setups this category uses, the two shipped ones first.
       setups: (() => {
@@ -2674,7 +2727,7 @@ function ExampleCategory({
               />
             )}
             <FilterRow
-              label="Raison"
+              label={setupFilter ? `Risk management · ${setupFilter}` : "Risk management"}
               values={available.reasons}
               selected={reasonFilter}
               onToggle={(v) => toggleIn(reasonFilter, setReasonFilter, v)}
@@ -3633,10 +3686,13 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               updateExample(example.id, { validity: next });
             }}
           />
-          {(validity === "invalid" || validity === "risk") && (
-            <ChipDropdown
-              placeholder="Raison"
-              options={optionsFor("invalidReason", invalidReasons)}
+          {/* Shown whatever the verdict. It used to appear only under an
+              invalid or risky one, which read as a list of excuses; it is the
+              risk management of the trade — what would have called it off —
+              and a trade that worked has one too. */}
+          <ChipDropdown
+              placeholder={setup ? `Risk management · ${setup}` : "Risk management"}
+              options={optionsFor("invalidReason", invalidReasons, setup)}
               selected={invalidReasons}
               multiple
               visible={headerHover}
@@ -3664,7 +3720,6 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
                 setInvalidReasons((prev) => renameLocally(prev, from, to));
               }}
             />
-          )}
         </div>
       </div>
       {!collapsed && (

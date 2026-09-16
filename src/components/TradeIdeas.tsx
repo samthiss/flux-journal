@@ -602,6 +602,13 @@ export default function TradeIdeas({
     setOpen(false);
   }
 
+  /**
+   * What the risk management list offers: this setup's conditions, or every
+   * one written while it has none of its own.
+   */
+  const propresAuSetup = vocabulary.parSetup[kindPourSetup("cancelIf", setupChoisi)] ?? [];
+  const conditionsOffertes = setupChoisi && propresAuSetup.length ? propresAuSetup : vocabulary.cancelIfs;
+
   /** Something was said: the form is worth saving. */
   const filled =
     reason.trim().length > 0 ||
@@ -770,7 +777,7 @@ export default function TradeIdeas({
             }}
           >
             <div style={{ ...mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 8 }}>
-              Risk management
+              {setupChoisi ? `Risk management · ${setupChoisi}` : "Risk management"}
             </div>
             {/* Ticked, not retyped. The same few conditions come back — the
                 zone breaks, no cluster forms — and typing them again each time
@@ -780,7 +787,7 @@ export default function TradeIdeas({
               {/* Everything written before, ticked or not: a condition that
                   only lived on the idea that used it had to be retyped for the
                   next trade, and retyped is respelt. */}
-              {[...new Set([...cancelIf.filter(Boolean), ...conditionsEcrites, ...vocabulary.cancelIfs])]
+              {[...new Set([...cancelIf.filter(Boolean), ...conditionsEcrites, ...conditionsOffertes])]
                 .filter((condition) => !conditionsRetirees.includes(condition))
                 .map((condition) => {
                   const coche = cancelIf.includes(condition);
@@ -801,7 +808,7 @@ export default function TradeIdeas({
                           setConditionsEcrites((prev) => [...prev.filter((c) => c !== condition), suivant]);
                           setConditionsRetirees((prev) => [...prev, condition]);
                           setCancelIf((prev) => prev.map((c) => (c === condition ? suivant : c)));
-                          void renommerMot("cancelIf", condition, suivant);
+                          void renommerMot(kindPourSetup("cancelIf", setupChoisi), condition, suivant);
                         }}
                         onBlur={() => setConditionRenommee(null)}
                         style={{ ...mono, fontSize: 10, padding: "3px 9px", borderRadius: 999, border: `1px solid ${lossColor}`, background: "transparent", color: "oklch(0.88 0.02 250)", outline: "none", width: 190 }}
@@ -843,7 +850,7 @@ export default function TradeIdeas({
                           e.stopPropagation();
                           setConditionsRetirees((prev) => [...prev, condition]);
                           setCancelIf((prev) => prev.filter((c) => c !== condition));
-                          void supprimerMot("cancelIf", condition);
+                          void supprimerMot(kindPourSetup("cancelIf", setupChoisi), condition);
                         }}
                         title="Retirer de la liste"
                         style={{ opacity: 0.55 }}
@@ -863,7 +870,7 @@ export default function TradeIdeas({
                   setNouvelleCondition("");
                   if (!mot) return;
                   setConditionsEcrites((prev) => (prev.includes(mot) ? prev : [...prev, mot]));
-                  void ajouterMot("cancelIf", mot);
+                  void ajouterMot(kindPourSetup("cancelIf", setupChoisi), mot);
                   if (!cancelIf.includes(mot)) setCancelIf((prev) => [...prev.filter(Boolean), mot]);
                 }}
                 // Not an example condition: beside the real ones, a greyed

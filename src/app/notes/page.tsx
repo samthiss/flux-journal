@@ -14,7 +14,7 @@ export default async function NotesPage() {
     } catch {}
   }
 
-  const { notes, blocks, categories, examples, images, hiddenTagOptions } = await getNotesPageData();
+  const { notes, blocks, categories, examples, images, hiddenTagOptions, tagOptions } = await getNotesPageData();
   return (
     <NotesClient
       notes={notes}
@@ -23,6 +23,7 @@ export default async function NotesPage() {
       examples={examples}
       images={images}
       hiddenTagOptions={hiddenTagOptions}
+      tagOptions={tagOptions}
       initialCollapsedNotes={initialCollapsedNotes}
     />
   );

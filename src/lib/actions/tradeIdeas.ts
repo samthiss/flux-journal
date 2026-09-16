@@ -115,6 +115,7 @@ export async function createTradeIdea(input: {
     confirmations: input.confirmations,
     confirmationsBox: input.confirmationsBox,
     confirmationsReverse: input.confirmationsReverse,
+    cancelIf,
   });
   revalidatePath("/checklist");
   return idea;
@@ -160,6 +161,7 @@ export async function updateTradeIdea(
     confirmations: input.confirmations,
     confirmationsBox: input.confirmationsBox,
     confirmationsReverse: input.confirmationsReverse,
+    cancelIf,
   });
   revalidatePath("/checklist");
 }
@@ -313,6 +315,9 @@ export async function getTradeVocabularies() {
       confirmations: (e: (typeof examples)[number]) => e.confirmations,
       confirmationsBox: (e: (typeof examples)[number]) => e.confirmationsBox,
       confirmationsReverse: (e: (typeof examples)[number]) => e.confirmationsReverse,
+      // One list under two names: what would call a trade off here is what the
+      // notes record as the reason it was one to pass on.
+      cancelIf: (e: (typeof examples)[number]) => e.invalidReasons,
     } as Record<string, (e: (typeof examples)[number]) => string | null>)[base];
     if (!champ) return [];
     return examples
@@ -367,14 +372,16 @@ export async function getTradeVocabularies() {
           // word that only ever lived in the notes is offered here too.
           ...examples
             .filter((e) => e.setup)
-            .flatMap((e) => ["confirmations", "confirmationsBox", "confirmationsReverse"].map((base) => `${base}@${e.setup}`)),
+            .flatMap((e) =>
+              ["confirmations", "confirmationsBox", "confirmationsReverse", "cancelIf"].map((base) => `${base}@${e.setup}`)
+            ),
         ]),
       ].map((kind) => [kind, rank([...ecrits(kind), ...desNotes(kind)], [], removed(kind))])
     ) as Record<string, string[]>,
     // The conditions that call a trade off, which repeat far more than they
     // vary: the same handful comes back, and re-typing them invites three
     // wordings of one rule.
-    cancelIfs: rank(ecrits("cancelIf"), [], removed("cancelIf")),
+    cancelIfs: rank([...ecrits("cancelIf"), ...desNotes("cancelIf")], [], removed("cancelIf")),
     // Written on examples and on trades alike, and hidden under the notes' own
     // kind, so a reason dropped there stays dropped here.
     invalidReasons: rank(

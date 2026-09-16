@@ -98,13 +98,20 @@ export async function getNotesPageData() {
     prisma.noteExample.findMany({ orderBy: { order: "asc" } }),
   ]);
   const hiddenTagOptions = await prisma.hiddenTagOption.findMany();
+  // The words written in the pre-trade form. The two pages annotate the same
+  // trades with the same lists, so a word typed in one is a word for the
+  // other; without this the notes only ever saw their own examples' words.
+  const tagOptions = await prisma.tagOption.findMany({
+    orderBy: { createdAt: "asc" },
+    select: { kind: true, value: true },
+  });
   const images = examples.length
     ? await prisma.noteExampleImage.findMany({
         where: { exampleId: { in: examples.map((e) => e.id) } },
         orderBy: { order: "asc" },
       })
     : [];
-  return { notes, blocks, categories, examples, images, hiddenTagOptions };
+  return { notes, blocks, categories, examples, images, hiddenTagOptions, tagOptions };
 }
 
 export async function createNote(parentId: string | null) {
