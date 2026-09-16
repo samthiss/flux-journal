@@ -19,6 +19,12 @@
  * there is only safe once those have run. The German wordings are matched too,
  * in case this ever runs first.
  *
+ * The fourth: "4b) Quelle stratégie puis-je trader aujourd'hui et où ?" becomes
+ * "Trading Plan" and moves to the pre-trade tab, which is where its question is
+ * actually answered — in the minute before an entry, not once at dawn with the
+ * rest of the morning routine. Renaming the group is the move: the tab a group
+ * shows in is decided by its name.
+ *
  * Idempotent both ways: an item that already carries answers is left alone, so
  * a reader who removed or reworded them does not get them back on the next
  * deploy, and a title with no abbreviation left in it is not rewritten.
@@ -99,6 +105,15 @@ async function main() {
       if (renamed === group || !renamed) continue;
       await prisma.checklistItem.updateMany({ where: { group }, data: { group: renamed } });
       console.log(`checklist-touchups: « ${group} » → « ${renamed} »`);
+    }
+
+    // Matched on its number rather than its wording, which differs between the
+    // French and German lists and has already been rewritten once above.
+    const quatreB = [...new Set((await prisma.checklistItem.findMany({ select: { group: true } })).map((g) => g.group))]
+      .filter((group) => /^4\s*b\)/i.test(group));
+    for (const group of quatreB) {
+      await prisma.checklistItem.updateMany({ where: { group }, data: { group: "Trading Plan" } });
+      console.log(`checklist-touchups: « ${group} » → « Trading Plan » (onglet Pre Trade Check)`);
     }
   } finally {
     await prisma.$disconnect();
