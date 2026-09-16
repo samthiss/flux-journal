@@ -428,7 +428,7 @@ export async function duplicateExample(id: string) {
  * list for good.
  */
 /** The four vocabularies, as the client names them. */
-export type TagField = "tradeTypes" | "confirmations" | "invalidReasons" | "zone";
+export type TagField = "tradeTypes" | "confirmations" | "invalidReasons" | "zone" | "setup";
 
 export async function deleteTagValue(field: TagField, value: string) {
   // Remembered as removed, so the ones the app ships with do not come straight
@@ -439,10 +439,10 @@ export async function deleteTagValue(field: TagField, value: string) {
     update: {},
   });
 
-  // The zone is one word rather than a list of them, so forgetting it is a
-  // clear rather than a filter.
-  if (field === "zone") {
-    await prisma.noteExample.updateMany({ where: { zone: value }, data: { zone: null } });
+  // The zone and the setup are one word rather than a list of them, so
+  // forgetting one is a clear rather than a filter.
+  if (field === "zone" || field === "setup") {
+    await prisma.noteExample.updateMany({ where: { [field]: value }, data: { [field]: null } });
     revalidatePath("/notes");
     return;
   }
@@ -485,8 +485,8 @@ export async function renameTagValue(field: TagField, from: string, to: string) 
   const next = to.trim();
   if (!next || next === from) return;
 
-  if (field === "zone") {
-    await prisma.noteExample.updateMany({ where: { zone: from }, data: { zone: next } });
+  if (field === "zone" || field === "setup") {
+    await prisma.noteExample.updateMany({ where: { [field]: from }, data: { [field]: next } });
   } else {
     const examples = await prisma.noteExample.findMany({
       where: { [field]: { contains: from } },
@@ -533,7 +533,7 @@ export async function applyTagToExamples(
 ) {
   if (!exampleIds.length) return;
 
-  if (field === "zone" || field === "validity") {
+  if (field === "zone" || field === "setup" || field === "validity") {
     await prisma.noteExample.updateMany({ where: { id: { in: exampleIds } }, data: { [field]: value } });
     revalidatePath("/notes");
     return;
@@ -694,6 +694,7 @@ export async function updateExample(
     validity?: "valid" | "invalid" | "risk" | null;
     invalidReasons?: string[];
     zone?: string | null;
+    setup?: string | null;
     tradeTypes?: string[];
   }
 ) {
@@ -707,6 +708,7 @@ export async function updateExample(
   if (data.validity !== undefined) payload.validity = data.validity;
   if (data.invalidReasons !== undefined) payload.invalidReasons = JSON.stringify(data.invalidReasons);
   if (data.zone !== undefined) payload.zone = data.zone;
+  if (data.setup !== undefined) payload.setup = data.setup;
   if (data.tradeTypes !== undefined) payload.tradeTypes = JSON.stringify(data.tradeTypes);
   await prisma.noteExample.update({ where: { id }, data: payload });
   revalidatePath("/notes");

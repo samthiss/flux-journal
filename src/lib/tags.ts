@@ -15,6 +15,16 @@ export const TRADE_TYPES = [
 ] as const;
 
 /**
+ * The setups that ship with the app.
+ *
+ * The setup is what a confirmation hangs off: the same word can be worth
+ * looking for on a trend run and meaningless on a reverse, so the list of
+ * confirmations offered is the one that setup has already used. Like every
+ * other vocabulary here, these two are only a starting point.
+ */
+export const SETUPS = ["Trend run", "Backtest reverse"] as const;
+
+/**
  * The zones that ship with the app. The value stored is the word itself, so the
  * list can grow the way the trade types and the confirmations do.
  */

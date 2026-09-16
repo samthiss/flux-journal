@@ -6,7 +6,7 @@ import { compressImage, MAX_SOURCE_BYTES } from "@/lib/compressImage";
 import Link from "next/link";
 import Image from "next/image";
 import { accentColor } from "@/lib/theme";
-import { TRADE_TYPES, ZONES, tagTone } from "@/lib/tags";
+import { SETUPS, TRADE_TYPES, ZONES, tagTone } from "@/lib/tags";
 import ChipDropdown from "@/components/ChipDropdown";
 import ImageLightbox from "@/components/ImageLightbox";
 import MoveExampleMenu, { MoveTargetMenu } from "@/components/MoveExampleMenu";
@@ -108,10 +108,16 @@ type BlockRecord = { id: string; noteId: string; categoryId: string | null; exam
 // typed once, picked from a list from then on. The vocabulary is derived from
 // the examples the page was given rather than stored in a table of its own: a
 // word exists exactly as long as some example still carries it.
-type TagKind = "confirmation" | "invalidReason" | "tradeType" | "zone";
+type TagKind = "confirmation" | "invalidReason" | "tradeType" | "zone" | "setup";
 
 type TagVocabulary = {
-  values: (kind: TagKind) => string[];
+  /**
+   * The words offered for a vocabulary. Confirmations take a setup: the list
+   * under a trend run is the one trend runs have used, and a word typed while
+   * a setup is chosen belongs to it from then on. Without a setup — or for any
+   * other vocabulary — the whole list is offered.
+   */
+  values: (kind: TagKind, setup?: string | null) => string[];
   // Keeps a value that was just typed in the list without waiting for the page
   // data to come back, so it can be reused on the next example straight away.
   remember: (kind: TagKind, value: string) => void;
@@ -123,6 +129,7 @@ const KIND_TO_FIELD: Record<TagKind, TagField> = {
   invalidReason: "invalidReasons",
   tradeType: "tradeTypes",
   zone: "zone",
+  setup: "setup",
 };
 
 const FIELD_TO_KIND: Record<string, TagKind> = {
@@ -130,6 +137,7 @@ const FIELD_TO_KIND: Record<string, TagKind> = {
   invalidReasons: "invalidReason",
   tradeTypes: "tradeType",
   zone: "zone",
+  setup: "setup",
 };
 
 const TagVocabularyContext = createContext<TagVocabulary>({ values: () => [], remember: () => {} });
@@ -367,7 +375,7 @@ function BlockFoldToggle({ collapsed, visible, onToggle }: { collapsed: boolean;
 }
 
 type CategoryRecord = { id: string; noteId: string; name: string; order: number; collapsed: boolean };
-type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; validity: string | null; invalidReasons: string | null; zone: string | null; tradeTypes: string | null; order: number; collapsed: boolean };
+type ExampleRecord = { id: string; noteId: string; categoryId: string | null; title: string; caption: string | null; tags: string | null; hideText: boolean; imagesPerRow: number; confirmations: string | null; validity: string | null; invalidReasons: string | null; zone: string | null; setup: string | null; tradeTypes: string | null; order: number; collapsed: boolean };
 type ImageRecord = { id: string; exampleId: string; url: string; caption: string | null; tradeId: string | null; order: number; width: number | null; height: number | null };
 type TradeSearchResult = { id: string; symbol: string; date: string; setup: string; side: string; pnl: number; imageCount: number };
 
@@ -754,6 +762,7 @@ export default function NotesClient({
     invalidReason: [],
     tradeType: [],
     zone: [],
+    setup: [],
   });
 
   const hidden = useMemo(() => {
@@ -786,6 +795,13 @@ export default function NotesClient({
           (t) => !(TRADE_TYPES as readonly string[]).includes(t)
         ),
       ],
+      // The setup, like the zone, is one word rather than a list.
+      setup: [
+        ...SETUPS,
+        ...count((e) => (e.setup ? JSON.stringify([e.setup]) : null), freshTags.setup).filter(
+          (v) => !(SETUPS as readonly string[]).includes(v)
+        ),
+      ],
       // The zone is a single word rather than a list, so it is wrapped in one
       // before being counted like the rest.
       zone: [
@@ -795,10 +811,32 @@ export default function NotesClient({
         ),
       ],
     };
+    // The confirmations, kept setup by setup. A word counts for a setup once an
+    // example carrying that setup was annotated with it, which is what makes
+    // "confirmation trend run" a list of its own rather than a label.
+    const parSetup = new Map<string, string[]>();
+    for (const setup of new Set(examples.map((e) => e.setup).filter((s): s is string => !!s))) {
+      parSetup.set(
+        setup,
+        count(
+          (e) => (e.setup === setup ? e.confirmations : null),
+          [],
+        )
+      );
+    }
+
     return {
       // A word the reader removed is gone from every list, including the ones
       // the app ships with — that is the whole point of remembering it.
-      values: (kind) => ranked[kind].filter((v) => !hidden.get(kind)?.has(v)),
+      values: (kind, setup) => {
+        const all = ranked[kind].filter((v) => !hidden.get(kind)?.has(v));
+        if (kind !== "confirmation" || !setup) return all;
+        // A setup nothing has been written under yet starts from the whole
+        // list: an empty dropdown would read as a bug, and the first word
+        // picked there is what begins that setup's own list.
+        const scoped = (parSetup.get(setup) ?? []).filter((v) => !hidden.get("confirmation")?.has(v));
+        return scoped.length ? scoped : all;
+      },
       remember: (kind, value) =>
         setFreshTags((prev) => (prev[kind].includes(value) ? prev : { ...prev, [kind]: [...prev[kind], value] })),
     };
@@ -2248,6 +2286,7 @@ function ExampleCategory({
   const [validityFilter, setValidityFilter] = useState<Validity>(null);
   const [reasonFilter, setReasonFilter] = useState<string[]>([]);
   const [zoneFilter, setZoneFilter] = useState<string | null>(null);
+  const [setupFilter, setSetupFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
   const available = useMemo(() => {
@@ -2260,9 +2299,18 @@ function ExampleCategory({
       return rankTagValues(counts);
     };
     return {
-      confirmations: collect((e) => e.confirmations),
+      // Filtered by setup when one is picked: the point of the setup filter is
+      // to be shown what that setup is confirmed by, not the whole vocabulary.
+      confirmations: collect((e) =>
+        setupFilter && e.setup !== setupFilter ? null : e.confirmations
+      ),
       reasons: collect((e) => e.invalidReasons),
       hasValidity: examples.some((e) => normalizeValidity(e.validity) !== null),
+      // Only the setups this category uses, the two shipped ones first.
+      setups: (() => {
+        const used = new Set(examples.map((e) => e.setup).filter((v): v is string => !!v));
+        return [...SETUPS.filter((v) => used.has(v)), ...[...used].filter((v) => !(SETUPS as readonly string[]).includes(v)).sort()];
+      })(),
       // Only the zones this category uses, the two shipped ones first.
       zones: (() => {
         const used = new Set(examples.map((e) => e.zone).filter((z): z is string => !!z));
@@ -2276,9 +2324,10 @@ function ExampleCategory({
         return [...shipped, ...[...used].filter((t) => !(TRADE_TYPES as readonly string[]).includes(t)).sort()];
       })(),
     };
-  }, [examples]);
+  }, [examples, setupFilter]);
 
   const filtering =
+    setupFilter !== null ||
     confirmationFilter.length > 0 ||
     validityFilter !== null ||
     reasonFilter.length > 0 ||
@@ -2297,11 +2346,12 @@ function ExampleCategory({
         confirmationFilter.every((v) => confirmations.includes(v)) &&
         (validityFilter === null || normalizeValidity(e.validity) === validityFilter) &&
         (zoneFilter === null || e.zone === zoneFilter) &&
+        (setupFilter === null || e.setup === setupFilter) &&
         typeFilter.every((t) => parseArr(e.tradeTypes).includes(t)) &&
         reasonFilter.every((v) => reasons.includes(v))
       );
     });
-  }, [examples, filtering, confirmationFilter, validityFilter, reasonFilter, zoneFilter, typeFilter]);
+  }, [examples, filtering, confirmationFilter, validityFilter, reasonFilter, zoneFilter, setupFilter, typeFilter]);
 
   // Dragging one example onto another puts it in that one's place. The order is
   // computed over every example, not the ones on screen: a filtered view hides
@@ -2362,6 +2412,7 @@ function ExampleCategory({
     setValidityFilter(null);
     setReasonFilter([]);
     setZoneFilter(null);
+    setSetupFilter(null);
     setTypeFilter([]);
   };
 
@@ -2373,6 +2424,7 @@ function ExampleCategory({
     available.reasons.length > 0 ||
     available.hasValidity ||
     available.zones.length > 0 ||
+    available.setups.length > 0 ||
     available.types.length > 0;
 
   // As for the examples: the fold comes from the server so the first paint is
@@ -2540,7 +2592,13 @@ function ExampleCategory({
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <FilterRow
-              label="Confirmation"
+              label="Setup"
+              values={available.setups}
+              selected={setupFilter ? [setupFilter] : []}
+              onToggle={(v) => setSetupFilter(setupFilter === v ? null : v)}
+            />
+            <FilterRow
+              label={setupFilter ? `Confirmation ${setupFilter.toLowerCase()}` : "Confirmation"}
               values={available.confirmations}
               selected={confirmationFilter}
               onToggle={(v) => toggleIn(confirmationFilter, setConfirmationFilter, v)}
@@ -2642,8 +2700,20 @@ function ExampleCategory({
                 }}
               />
               <ChipDropdown
+                placeholder="setup"
+                options={vocabulary.values("setup")}
+                selected={[]}
+                visible
+                onToggle={(value) => applyToSelection("setup", value)}
+                onAdd={(value) => {
+                  vocabulary.remember("setup", value);
+                  restoreTagValue("setup", value);
+                  applyToSelection("setup", value);
+                }}
+              />
+              <ChipDropdown
                 placeholder="+ confirmation"
-                options={vocabulary.values("confirmation")}
+                options={vocabulary.values("confirmation", setupFilter)}
                 selected={[]}
                 multiple
                 visible
@@ -3062,6 +3132,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
   const [validity, setValidity] = useState<Validity>(() => normalizeValidity(example.validity));
   const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseArr(example.invalidReasons));
   const [zone, setZone] = useState<string | null>(example.zone);
+  const [setup, setSetup] = useState<string | null>(example.setup);
   const [tradeTypes, setTradeTypes] = useState<string[]>(() => parseArr(example.tradeTypes));
 
   // The annotations are held here so a click paints immediately, but they are
@@ -3074,6 +3145,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
     example.validity,
     example.invalidReasons,
     example.zone,
+    example.setup,
     example.tradeTypes,
   ].join("|");
   const syncedAnnotations = useRef(annotationsKey);
@@ -3084,6 +3156,7 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
     setValidity(normalizeValidity(example.validity));
     setInvalidReasons(parseArr(example.invalidReasons));
     setZone(example.zone);
+    setSetup(example.setup);
     setTradeTypes(parseArr(example.tradeTypes));
   }, [annotationsKey, example]);
   const vocabulary = useContext(TagVocabularyContext);
@@ -3091,8 +3164,8 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
    * What the journal knows of a vocabulary, plus anything on this card it has
    * not seen yet — a word written a second ago has not reached the page data.
    */
-  const optionsFor = (kind: TagKind, current: string[]) => {
-    const known = vocabulary.values(kind);
+  const optionsFor = (kind: TagKind, current: string[], scope?: string | null) => {
+    const known = vocabulary.values(kind, scope);
     return [...known, ...current.filter((v) => !known.includes(v))];
   };
 
@@ -3372,8 +3445,36 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
             the chips say what they are without a word in front of them. */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <ChipDropdown
-            placeholder="Confirmation"
-            options={optionsFor("confirmation", confirmations)}
+            placeholder="Setup"
+            options={optionsFor("setup", setup ? [setup] : [])}
+            selected={setup ? [setup] : []}
+            visible={headerHover}
+            onToggle={(value) => {
+              const next = setup === value ? null : value;
+              setSetup(next);
+              updateExample(example.id, { setup: next });
+            }}
+            onAdd={(value) => {
+              write("setup", value);
+              setSetup(value);
+              updateExample(example.id, { setup: value });
+            }}
+            onRemoveOption={(value) => {
+              if (!forget("setup", value)) return false;
+              setSetup((prev) => (prev === value ? null : prev));
+              return true;
+            }}
+            onRenameOption={(from, to) => {
+              rename("setup", from, to);
+              setSetup((prev) => (prev === from ? to : prev));
+            }}
+          />
+          <ChipDropdown
+            /* Named after the setup once one is chosen: the words offered are
+               that setup's own, and a list that changes under an unchanged
+               label reads as the page losing track of itself. */
+            placeholder={setup ? `Confirmation ${setup.toLowerCase()}` : "Confirmation"}
+            options={optionsFor("confirmation", confirmations, setup)}
             selected={confirmations}
             multiple
             visible={headerHover}

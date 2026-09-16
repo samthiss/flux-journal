@@ -223,6 +223,12 @@ model NoteExample {
   // list can be added to. Two ship with the app; null until one is chosen.
   zone           String?
 
+  // Which setup the example illustrates — "Trend run" or "Backtest reverse",
+  // and whatever else is added later. It is single-valued because an example
+  // shows one setup, and it is what scopes the confirmations: the words worth
+  // offering under a trend run are not the ones worth offering under a reverse.
+  setup          String?
+
   // Folded, for the same reason as Note.collapsed.
   collapsed Boolean  @default(false)
   order     Int      @default(0)
