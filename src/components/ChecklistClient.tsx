@@ -226,9 +226,11 @@ export default function ChecklistClient({
     // Uncategorised lines first, then each heading in the order it appears.
     // Sorted here rather than in the query so the headings stay whole: a
     // category split in two by insertion order would read as two categories.
-    const categories = [...new Set(dedans.map((i) => i.category ?? ""))].sort((a, b) =>
-      a === "" ? -1 : b === "" ? 1 : 0,
-    );
+    // In the order each heading first appears, and the untitled lines are one
+    // more heading — an empty one. Lifting those to the top instead put a
+    // choice written after a tick box in front of it, for the sole reason that
+    // one had been given a title.
+    const categories = [...new Set(dedans.map((i) => i.category ?? ""))];
 
     return {
       title: group,
