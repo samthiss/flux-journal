@@ -179,7 +179,7 @@ export default function ChecklistClient({
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [answerMap, setAnswerMap] = useState<Record<string, string>>({});
   const [ideas, setIdeas] = useState<TradeIdeaRecord[]>([]);
-  const [vocabulary, setVocabulary] = useState<TradeVocabularies>({ tradeTypes: [], zones: [], confirmations: [] });
+  const [vocabulary, setVocabulary] = useState<TradeVocabularies>({ tradeTypes: [], zones: [], confirmations: [], cancelIfs: [] });
   // Bumped after a write, to read the ideas back rather than guess at them.
   const [ideasVersion, setIdeasVersion] = useState(0);
 

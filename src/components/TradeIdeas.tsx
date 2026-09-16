@@ -35,7 +35,7 @@ function parseImages(raw: string | null): IdeaImage[] {
 /** The same ceiling the note examples upload under, for the same network. */
 const MAX_IMAGE_BYTES = 900_000;
 
-export type TradeVocabularies = { tradeTypes: string[]; zones: string[]; confirmations: string[] };
+export type TradeVocabularies = { tradeTypes: string[]; zones: string[]; confirmations: string[]; cancelIfs: string[] };
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -360,7 +360,8 @@ export default function TradeIdeas({
   const [reason, setReason] = useState("");
   // One empty line to start: the box is a list, and a list with no line in it
   // has nothing to type into.
-  const [cancelIf, setCancelIf] = useState<string[]>([""]);
+  const [cancelIf, setCancelIf] = useState<string[]>([]);
+  const [nouvelleCondition, setNouvelleCondition] = useState("");
   const [saving, setSaving] = useState(false);
   // Charts picked while writing, held until the idea they belong to exists.
   const [pending, setPending] = useState<{ file: File; preview: string }[]>([]);
@@ -370,7 +371,6 @@ export default function TradeIdeas({
   // instead lost the first characters of a fast line to the field above: the
   // ref callback runs as the field is created, which is before the next
   // keystroke can be delivered.
-  const [focusCancel, setFocusCancel] = useState<number | null>(null);
   const [zoomed, setZoomed] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -593,50 +593,64 @@ export default function TradeIdeas({
             <div style={{ ...mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 8 }}>
               Annuler mon trade si :
             </div>
-            {cancelIf.map((line, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                <span style={{ color: lossColor, fontSize: 12, flex: "none" }}>—</span>
-                <input
-                  value={line}
-                  onChange={(e) =>
-                    setCancelIf((prev) => prev.map((l, li) => (li === i ? e.target.value : l)))
-                  }
-                  onKeyDown={(e) => {
-                    // Enter opens the next line, as a bullet list does anywhere
-                    // else; backspace on an empty one closes it again.
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      setCancelIf((prev) => [...prev.slice(0, i + 1), "", ...prev.slice(i + 1)]);
-                      setFocusCancel(i + 1);
+            {/* Ticked, not retyped. The same few conditions come back — the
+                zone breaks, no cluster forms — and typing them again each time
+                produced three wordings of one rule, which no filter can gather
+                back together. */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+              {[...new Set([...vocabulary.cancelIfs, ...cancelIf.filter(Boolean)])].map((condition) => {
+                const coche = cancelIf.includes(condition);
+                return (
+                  <span
+                    key={condition}
+                    onClick={() =>
+                      setCancelIf((prev) =>
+                        prev.includes(condition) ? prev.filter((c) => c !== condition) : [...prev.filter(Boolean), condition],
+                      )
                     }
-                    if (e.key === "Backspace" && !line && cancelIf.length > 1) {
-                      e.preventDefault();
-                      setCancelIf((prev) => prev.filter((_, li) => li !== i));
-                      setFocusCancel(Math.max(0, i - 1));
-                    }
-                  }}
-                  ref={(el) => {
-                    if (el && focusCancel === i) {
-                      el.focus();
-                      setFocusCancel(null);
-                    }
-                  }}
-                  placeholder={i === 0 ? "le marché casse la zone" : ""}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontSize: 12.5,
-                    fontFamily: "inherit",
-                    padding: "3px 0",
-                    border: "none",
-                    borderBottom: "1px solid oklch(0.3 0.034 250)",
-                    background: "transparent",
-                    color: "oklch(0.88 0.017 250)",
-                    outline: "none",
-                  }}
-                />
-              </div>
-            ))}
+                    style={{
+                      ...mono,
+                      fontSize: 10,
+                      padding: "3px 9px",
+                      borderRadius: 999,
+                      cursor: "pointer",
+                      border: `1px ${coche ? "solid" : "dashed"} ${coche ? lossColor : "oklch(0.34 0.02 250)"}`,
+                      background: coche ? lossColor.replace(")", " / 0.14)") : "transparent",
+                      color: coche ? lossColor : "oklch(0.6 0.02 250)",
+                    }}
+                  >
+                    {coche ? "✓ " : ""}
+                    {condition}
+                  </span>
+                );
+              })}
+              <input
+                value={nouvelleCondition}
+                onChange={(e) => setNouvelleCondition(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  const mot = nouvelleCondition.trim();
+                  setNouvelleCondition("");
+                  if (mot && !cancelIf.includes(mot)) setCancelIf((prev) => [...prev.filter(Boolean), mot]);
+                }}
+                // Not an example condition: beside the real ones, a greyed
+                // "le marché casse la zone" read as a fourth chip nobody had
+                // written.
+                placeholder="ajouter une condition…"
+                style={{
+                  ...mono,
+                  fontSize: 10,
+                  padding: "3px 9px",
+                  borderRadius: 999,
+                  border: "1px dashed oklch(0.34 0.02 250)",
+                  background: "transparent",
+                  color: "oklch(0.8 0.02 250)",
+                  outline: "none",
+                  width: 170,
+                }}
+              />
+            </div>
           </div>
   
           {/* Charts chosen now, uploaded once the idea they belong to exists. */}
