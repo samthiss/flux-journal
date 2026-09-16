@@ -43,8 +43,12 @@ const PRETRADE_GROUPS = ["Trading Plan"];
  * Its own tab and not a heading inside the pre-trade list: that one is read
  * with a finger on the mouse, and a question about one's own state answered in
  * that moment is answered yes. This one is for before and after.
+ *
+ * "5) MINDEST – Attendre son entrée" joins it, keeping its own title rather
+ * than being folded into the other: it is a step with a name, and merging it
+ * would leave its lines in an unnamed pile nobody could tell apart afterwards.
  */
-const MINDSET_GROUPS = ["Mindset & Discipline"];
+const MINDSET_GROUPS = ["Mindset & Discipline", "5) MINDEST – Attendre son entrée"];
 
 // Cards stretched to whatever the window was, which on a wide screen left a
 // checklist line ending a third of the way across and a lot of empty card to
