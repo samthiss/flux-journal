@@ -227,12 +227,13 @@ function IdeaImages({
  * read against what was intended rather than against a memory of it.
  */
 /**
- * A short list of words, typed rather than picked.
+ * A short list of words, ticked from what has been written before.
  *
- * What is written here is saved on the idea, and the vocabulary offered next
- * time is built from what has been written before — so the list grows out of
- * use instead of being decided in advance. Past words are suggested while
- * typing, which is what keeps "rejet de cluster" from becoming three spellings.
+ * The words are shown rather than hidden behind a dropdown: a list of four
+ * confirmations is quicker to read than to open, and seeing them is what stops
+ * the same one being written a second time in different words. Anything new is
+ * typed into the same row and joins the list for next time, since the
+ * vocabulary offered here is built from what past ideas carry.
  */
 function MotsLibres({
   titre,
@@ -246,7 +247,7 @@ function MotsLibres({
   onChange: (valeurs: string[]) => void;
 }) {
   const [brouillon, setBrouillon] = useState("");
-  const liste = `mots-${titre.toLowerCase()}`;
+  const tous = [...new Set([...valeurs, ...connus])];
 
   const ajouter = () => {
     const mot = brouillon.trim();
@@ -259,7 +260,7 @@ function MotsLibres({
     <div style={{ marginTop: 10 }}>
       <div
         style={{
-          fontFamily: "var(--font-jetbrains-mono), monospace",
+          ...mono,
           fontSize: 10,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
@@ -270,31 +271,26 @@ function MotsLibres({
         {titre}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-        {valeurs.map((valeur) => {
-          const tone = tagTone(valeur);
+        {tous.map((mot) => {
+          const choisi = valeurs.includes(mot);
+          const tone = tagTone(mot);
           return (
             <span
-              key={valeur}
+              key={mot}
+              onClick={() => onChange(choisi ? valeurs.filter((v) => v !== mot) : [...valeurs, mot])}
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontFamily: "var(--font-jetbrains-mono), monospace",
+                ...mono,
                 fontSize: 10,
                 padding: "3px 9px",
                 borderRadius: 999,
-                border: `1px solid ${tone.line}`,
-                background: tone.bg,
-                color: tone.fg,
+                cursor: "pointer",
+                border: `1px ${choisi ? "solid" : "dashed"} ${choisi ? tone.line : "oklch(0.34 0.02 250)"}`,
+                background: choisi ? tone.bg : "transparent",
+                color: choisi ? tone.fg : "oklch(0.6 0.02 250)",
               }}
             >
-              {valeur}
-              <span
-                onClick={() => onChange(valeurs.filter((v) => v !== valeur))}
-                style={{ cursor: "pointer", opacity: 0.7 }}
-              >
-                ✕
-              </span>
+              {choisi ? "✓ " : ""}
+              {mot}
             </span>
           );
         })}
@@ -302,16 +298,14 @@ function MotsLibres({
           value={brouillon}
           onChange={(e) => setBrouillon(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              ajouter();
-            }
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            ajouter();
           }}
           onBlur={ajouter}
-          list={connus.length ? liste : undefined}
           placeholder="ajouter…"
           style={{
-            fontFamily: "var(--font-jetbrains-mono), monospace",
+            ...mono,
             fontSize: 10,
             padding: "3px 9px",
             borderRadius: 999,
@@ -319,16 +313,9 @@ function MotsLibres({
             background: "transparent",
             color: "oklch(0.8 0.02 250)",
             outline: "none",
-            width: 120,
+            width: 110,
           }}
         />
-        {connus.length > 0 && (
-          <datalist id={liste}>
-            {connus.map((mot) => (
-              <option key={mot} value={mot} />
-            ))}
-          </datalist>
-        )}
       </div>
     </div>
   );
