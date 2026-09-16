@@ -62,7 +62,14 @@ model Trade {
    */
   tradeTypes     String?
   zone           String?
-  confirmations  String?
+
+  // The three confirmation lists, as on a note example and on the idea this
+  // trade came from: what the cluster chart said, what the box said, what the
+  // reverse chart said. `confirmations` is the CC list — it kept its name, so
+  // every trade already annotated stays as it was annotated.
+  confirmations         String?
+  confirmationsBox      String?
+  confirmationsReverse  String?
 
   /**
    * Whether the trade was one the rules allowed, and why it was not.

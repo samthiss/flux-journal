@@ -12,6 +12,19 @@ import { CHART_SLOTS } from "@/lib/chartSlots";
 const SYMBOL_OPTIONS = ["6E", "6B", "6J", "ZS", "ZM"] as const;
 
 const SETUP_OPTIONS = ["Trend run", "Backtest reverse"];
+
+/**
+ * The three confirmation lists, named as the notes and the pre-trade form name
+ * them. A trade is annotated with the same three, so what was planned and what
+ * was taken can be read side by side.
+ */
+const CONFIRMATIONS = [
+  { kind: "confirmations", titre: "Confirmation CC" },
+  { kind: "confirmationsBox", titre: "Confirmation Box cluster" },
+  { kind: "confirmationsReverse", titre: "Confirmation Reverse chart" },
+] as const;
+
+type ConfirmationKind = (typeof CONFIRMATIONS)[number]["kind"];
 const EMOTIONS = ["Calm", "Cautious", "Nervous", "Impatient", "Frustrated", "Revenge", "Greedy"];
 
 export type TradeFormValues = {
@@ -30,6 +43,8 @@ export type TradeFormValues = {
   tradeTypes: string;
   zone: string;
   confirmations: string;
+  confirmationsBox: string;
+  confirmationsReverse: string;
   /** "valid", "invalid", "risk" or "" — nothing decided. */
   validity: string;
   /** A JSON array, only ever written where the verdict is not "valid". */
@@ -279,7 +294,11 @@ export default function TradeForm({
   const [tpReached, setTpReached] = useState(initial.tpReached);
   const [types, setTypes] = useState<string[]>(() => parseTagArray(initial.tradeTypes));
   const [zone, setZone] = useState<string | null>(initial.zone || null);
-  const [confirmations, setConfirmations] = useState<string[]>(() => parseTagArray(initial.confirmations));
+  const [confirmations, setConfirmations] = useState<Record<ConfirmationKind, string[]>>(() => ({
+    confirmations: parseTagArray(initial.confirmations),
+    confirmationsBox: parseTagArray(initial.confirmationsBox),
+    confirmationsReverse: parseTagArray(initial.confirmationsReverse),
+  }));
 
   /**
    * The verdict, and why — the notes' two annotations, in the notes' words.
@@ -296,19 +315,11 @@ export default function TradeForm({
   const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
 
   /**
-   * The words this setup has used, or the whole list while it has used none.
-   *
-   * The confirmations here are one field where a note keeps three — the trade
-   * records what was seen, not which chart said it — so all three of the
-   * setup's lists are offered together. An empty list on the first trade of a
-   * setup would read as a fault, hence the fallback.
+   * The words this setup has used in one list, or the whole list while it has
+   * used none — an empty row on the first trade of a setup reads as a fault.
    */
-  const motsDuSetup = (liste: "confirmations" | "cancelIf", complet: string[]) => {
-    const cles =
-      liste === "cancelIf"
-        ? ["cancelIf"]
-        : ["confirmations", "confirmationsBox", "confirmationsReverse"];
-    const propres = [...new Set(cles.flatMap((cle) => vocabulary.parSetup[`${cle}@${setup}`] ?? []))];
+  const motsDuSetup = (liste: string, complet: string[]) => {
+    const propres = vocabulary.parSetup[`${liste}@${setup}`] ?? [];
     return propres.length ? propres : complet;
   };
 
@@ -504,7 +515,9 @@ export default function TradeForm({
                   be describable in one vocabulary or they cannot be compared. */}
               <input type="hidden" name="tradeTypes" value={JSON.stringify(types)} />
               <input type="hidden" name="zone" value={zone ?? ""} />
-              <input type="hidden" name="confirmations" value={JSON.stringify(confirmations)} />
+              {CONFIRMATIONS.map(({ kind }) => (
+                <input key={kind} type="hidden" name={kind} value={JSON.stringify(confirmations[kind])} />
+              ))}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
                   {fieldLabel("Type")}
@@ -570,23 +583,31 @@ export default function TradeForm({
                       onAdd={(value) => setInvalidReasons((prev) => (prev.includes(value) ? prev : [...prev, value]))}
                     />
                 </div>
-                <div>
-                  {fieldLabel(`Confirmation · ${setup}`)}
-                  <ChipDropdown
-                    block
-                    placeholder="Aucune"
-                    options={offer(motsDuSetup("confirmations", vocabulary.confirmations), confirmations)}
-                    selected={confirmations}
-                    multiple
-                    visible
-                    onToggle={(value) =>
-                      setConfirmations((prev) =>
-                        prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value],
-                      )
-                    }
-                    onAdd={(value) => setConfirmations((prev) => (prev.includes(value) ? prev : [...prev, value]))}
-                  />
-                </div>
+                {CONFIRMATIONS.map(({ kind, titre }) => (
+                  <div key={kind}>
+                    {fieldLabel(`${titre} · ${setup}`)}
+                    <ChipDropdown
+                      block
+                      placeholder="Aucune"
+                      options={offer(motsDuSetup(kind, vocabulary[kind]), confirmations[kind])}
+                      selected={confirmations[kind]}
+                      multiple
+                      visible
+                      onToggle={(value) =>
+                        setConfirmations((prev) => ({
+                          ...prev,
+                          [kind]: prev[kind].includes(value) ? prev[kind].filter((c) => c !== value) : [...prev[kind], value],
+                        }))
+                      }
+                      onAdd={(value) =>
+                        setConfirmations((prev) => ({
+                          ...prev,
+                          [kind]: prev[kind].includes(value) ? prev[kind] : [...prev[kind], value],
+                        }))
+                      }
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 

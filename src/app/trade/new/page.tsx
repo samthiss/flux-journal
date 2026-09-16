@@ -60,21 +60,10 @@ async function ideePrealable(id: string | undefined) {
     }
   };
 
-  const conditions = lignes(idea.cancelIf);
-  // Each list keeps its name: which chart said what is half of what the note
-  // is worth re-reading for.
-  const listes: [string, string | null][] = [
-    ["Confirmation CC", idea.confirmations],
-    ["Confirmation Box cluster", idea.confirmationsBox],
-    ["Confirmation Reverse chart", idea.confirmationsReverse],
-  ];
-  const notes = [
-    idea.reason,
-    ...listes.map(([titre, brut]) => (lignes(brut).length ? `${titre} : ${lignes(brut).join(", ")}` : "")),
-    conditions.length ? `Risk management : ${conditions.join(", ")}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  // The case for the trade is prose; the lists are lists, and the trade now
+  // has a field for each of them. Writing them into the notes as well would be
+  // the same words twice, one copy of which nothing can count.
+  const notes = idea.reason;
 
   let urls: string[] = [];
   try {
@@ -93,6 +82,10 @@ async function ideePrealable(id: string | undefined) {
     setup: idea.setup,
     tradeTypes: idea.tradeTypes ?? "",
     confirmations: idea.confirmations ?? "",
+    confirmationsBox: idea.confirmationsBox ?? "",
+    confirmationsReverse: idea.confirmationsReverse ?? "",
+    // What would have called the trade off: the journal's own field for it.
+    invalidReasons: JSON.stringify(lignes(idea.cancelIf)),
   };
 }
 
@@ -151,8 +144,10 @@ export default async function NewTradePage({
         tradeTypes: prealable?.tradeTypes ?? "",
         zone: "",
         confirmations: prealable?.confirmations ?? "",
+        confirmationsBox: prealable?.confirmationsBox ?? "",
+        confirmationsReverse: prealable?.confirmationsReverse ?? "",
         validity: "",
-        invalidReasons: "",
+        invalidReasons: prealable?.invalidReasons ?? "",
         emotion: "Calm",
         preTradeNotes: prealable?.notes ?? "",
         postTradeNotes: "",

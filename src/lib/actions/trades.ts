@@ -72,6 +72,8 @@ function parseTradeForm(formData: FormData) {
   const tradeTypes = tagList("tradeTypes");
   const zone = String(formData.get("zone") ?? "").trim() || null;
   const confirmations = tagList("confirmations");
+  const confirmationsBox = tagList("confirmationsBox");
+  const confirmationsReverse = tagList("confirmationsReverse");
 
   const posted = String(formData.get("validity") ?? "").trim();
   const validity = ["valid", "invalid", "risk"].includes(posted) ? posted : null;
@@ -88,7 +90,7 @@ function parseTradeForm(formData: FormData) {
 
   return {
     date, time, symbol, market, side, size, pnl, risk, rr,
-    tpReached, tradeTypes, zone, confirmations, validity, invalidReasons,
+    tpReached, tradeTypes, zone, confirmations, confirmationsBox, confirmationsReverse, validity, invalidReasons,
     setup, emotion, preTradeNotes, postTradeNotes,
   };
 }

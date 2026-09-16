@@ -49,7 +49,9 @@ export default async function TradeDetail({ id }: { id: string }) {
   const tagRows: { label: string; values: string[] }[] = [
     { label: "Type", values: parseTagArray(trade.tradeTypes) },
     { label: "Zone", values: trade.zone ? [trade.zone] : [] },
-    { label: "Confirmation", values: parseTagArray(trade.confirmations) },
+    { label: "Confirmation CC", values: parseTagArray(trade.confirmations) },
+    { label: "Confirmation Box cluster", values: parseTagArray(trade.confirmationsBox) },
+    { label: "Confirmation Reverse chart", values: parseTagArray(trade.confirmationsReverse) },
     // The verdict and, where it asks for one, why. Read here rather than only
     // written: a winner taken on a setup the rules forbade is the trade worth
     // finding again, and the P&L column will never say so.

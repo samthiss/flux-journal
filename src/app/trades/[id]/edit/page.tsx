@@ -80,6 +80,8 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         tradeTypes: trade.tradeTypes ?? "",
         zone: trade.zone ?? "",
         confirmations: trade.confirmations ?? "",
+        confirmationsBox: trade.confirmationsBox ?? "",
+        confirmationsReverse: trade.confirmationsReverse ?? "",
         validity: trade.validity ?? "",
         invalidReasons: trade.invalidReasons ?? "",
         emotion: trade.emotion ?? "Calm",
