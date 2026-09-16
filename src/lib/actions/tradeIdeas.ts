@@ -183,19 +183,20 @@ export async function getTradeVocabularies() {
     tradeTypes: rank(rows.flatMap((r) => parseTagArray(r.tradeTypes)), TRADE_TYPES, removed("tradeTypes")),
     zones: rank(rows.map((r) => r.zone ?? "").filter(Boolean), ZONES, removed("zone")),
     // Confirmations are the reader's own words from the start: nothing ships.
-    confirmations: rank(
-      [...rows.flatMap((r) => parseTagArray(r.confirmations)), ...ecrits("confirmations")],
-      [],
-      removed("confirmations"),
-    ),
+    /**
+     * Only the words written in the pre-trade form itself.
+     *
+     * They were gathered from the note examples and the past ideas as well —
+     * deliberately, so that a confirmation written while annotating a chart
+     * would be offered on the next trade. In practice the list filled with
+     * words from elsewhere that had never been typed here, and a suggestion
+     * nobody recognises is worse than no suggestion.
+     */
+    confirmations: rank(ecrits("confirmations"), [], removed("confirmations")),
     // The conditions that call a trade off, which repeat far more than they
     // vary: the same handful comes back, and re-typing them invites three
     // wordings of one rule.
-    cancelIfs: rank(
-      [...ideas.flatMap((idea) => parseTagArray(idea.cancelIf)), ...ecrits("cancelIf")],
-      [],
-      removed("cancelIf"),
-    ),
+    cancelIfs: rank(ecrits("cancelIf"), [], removed("cancelIf")),
     // Written on examples and on trades alike, and hidden under the notes' own
     // kind, so a reason dropped there stays dropped here.
     invalidReasons: rank(
