@@ -18,6 +18,17 @@ export async function getTradeIdeas(market: string, day: string) {
   });
 }
 
+/**
+ * Moves an idea between the plan and the position.
+ *
+ * Which page shows it follows from this, so it is the one gesture that says a
+ * trade has actually been taken.
+ */
+export async function setTradeIdeaStatus(id: string, status: "plan" | "position") {
+  await prisma.tradeIdea.update({ where: { id }, data: { status } });
+  revalidatePath("/checklist");
+}
+
 export async function createTradeIdea(input: {
   itemId: string;
   market: string;

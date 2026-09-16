@@ -258,6 +258,7 @@ export default function ChecklistTabs({
           subtitle="Ce qui dépend de toi, pas du marché"
           sections={MINDSET_GROUPS}
           builder
+          positions
         />
       )}
       {tab === "postmarket" && (

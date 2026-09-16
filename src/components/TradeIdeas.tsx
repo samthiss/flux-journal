@@ -6,7 +6,7 @@ import { accentColor, winColor, lossColor } from "@/lib/theme";
 import { tagTone, parseTagArray } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
 import ImageLightbox from "@/components/ImageLightbox";
-import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot } from "@/lib/actions/tradeIdeas";
+import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
 
 export type TradeIdeaRecord = {
   id: string;
@@ -18,6 +18,8 @@ export type TradeIdeaRecord = {
   reason: string;
   cancelIf: string | null;
   images: string | null;
+  /** "plan" while it is only written, "position" once it has been taken. */
+  status?: string;
 };
 
 type IdeaImage = { url: string; width: number | null; height: number | null };
@@ -347,6 +349,7 @@ export default function TradeIdeas({
   ideas,
   vocabulary,
   onChanged,
+  lectureSeule = false,
 }: {
   itemId: string;
   market: string;
@@ -354,6 +357,13 @@ export default function TradeIdeas({
   ideas: TradeIdeaRecord[];
   vocabulary: TradeVocabularies;
   onChanged: () => void;
+  /**
+   * Shows the ideas without offering to write one.
+   *
+   * The positions are read on the discipline page, where nothing new is
+   * planned: a trade is decided among the strategies and only then taken.
+   */
+  lectureSeule?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // The idea the form is rewriting, if it is not writing a new one. The same
@@ -786,6 +796,32 @@ export default function TradeIdeas({
               clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)",
             }}
           >
+            {/* The one gesture that says the trade was actually taken: it
+                moves the card from the plan to the discipline page, which is
+                where the rules about not touching it live. */}
+            <span
+              onClick={() => {
+                const suivant = idea.status === "position" ? "plan" : "position";
+                void setTradeIdeaStatus(idea.id, suivant).then(onChanged);
+              }}
+              title={idea.status === "position" ? "Remettre au plan" : "Passer en position"}
+              style={{
+                ...mono,
+                fontSize: 9.5,
+                flex: "none",
+                marginTop: 1,
+                padding: "2px 9px",
+                borderRadius: 999,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                border: `1px ${idea.status === "position" ? "solid" : "dashed"} ${idea.status === "position" ? accentColor : "oklch(0.34 0.02 250)"}`,
+                background: idea.status === "position" ? accentColor.replace(")", " / 0.14)") : "transparent",
+                color: idea.status === "position" ? accentColor : "oklch(0.6 0.02 250)",
+              }}
+            >
+              {idea.status === "position" ? "En position" : "Trading plan"}
+            </span>
+
             <span
               style={{
                 ...mono,
@@ -857,7 +893,7 @@ export default function TradeIdeas({
         );
       })}
 
-      {!open || editingId ? (
+      {lectureSeule ? null : !open || editingId ? (
         <span
           onClick={() => {
             // Starting a new one puts down whatever was being rewritten.

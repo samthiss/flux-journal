@@ -126,6 +126,7 @@ export default function ChecklistClient({
   subtitle = "Routine avant-marché",
   sections = [],
   builder = false,
+  positions = false,
 }: {
   items: ChecklistItem[];
   market: string;
@@ -148,6 +149,15 @@ export default function ChecklistClient({
    * one that was there.
    */
   builder?: boolean;
+  /**
+   * Shows the trades already taken, at the top.
+   *
+   * An idea arrives here the moment it is marked "en position": the rules on
+   * this page are the ones about a trade in flight — wait for the entry, do not
+   * redraw a zone, do not touch the cluster settings mid-trade — and they are
+   * read with the position in view.
+   */
+  positions?: boolean;
 }) {
   const [, startTransition] = useTransition();
   const [editMode, setEditMode] = useState(false);
@@ -530,6 +540,37 @@ export default function ChecklistClient({
         </div>
       </div>
 
+      {positions && (
+        <div style={{ ...glassCard, marginBottom: 20 }}>
+          <div
+            style={{
+              fontSize: 13,
+              color: "oklch(0.62 0.034 250)",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 8,
+            }}
+          >
+            En position
+          </div>
+          {ideas.filter((idea) => idea.status === "position").length === 0 ? (
+            <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+              Aucun trade en cours. Une idée arrive ici quand tu la marques « en position » dans Pre Trade Check.
+            </div>
+          ) : (
+            <TradeIdeas
+              itemId=""
+              market={market}
+              day={new Date().toLocaleDateString("en-CA")}
+              ideas={ideas.filter((idea) => idea.status === "position")}
+              vocabulary={vocabulary}
+              onChanged={() => setIdeasVersion((v) => v + 1)}
+              lectureSeule
+            />
+          )}
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={glassCard}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
@@ -590,6 +631,11 @@ export default function ChecklistClient({
                       padding: "5px 8px",
                     }}
                   />
+                  {/* Not offered on a section this page declares itself: its
+                      existence does not depend on its lines, so deleting them
+                      left the heading exactly where it was and the button did
+                      nothing at all. */}
+                  {!sections.includes(g.title) && (
                   <button
                     onClick={() => removeGroup(g.title, g.items.length)}
                     aria-label="Supprimer le groupe"
@@ -607,6 +653,7 @@ export default function ChecklistClient({
                   >
                     Supprimer le groupe
                   </button>
+                  )}
                 </div>
               ) : (
                 <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>{g.title}</div>
@@ -867,7 +914,9 @@ export default function ChecklistClient({
                       itemId={item.id}
                       market={market}
                       day={todayKey()}
-                      ideas={ideas.filter((idea) => idea.itemId === item.id)}
+                      // A taken trade leaves the plan: it is read on the
+                      // discipline page from then on.
+                      ideas={ideas.filter((idea) => idea.itemId === item.id && idea.status !== "position")}
                       vocabulary={vocabulary}
                       onChanged={() => setIdeasVersion((v) => v + 1)}
                     />
