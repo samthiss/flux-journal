@@ -6,7 +6,7 @@ import { accentColor, winColor, lossColor } from "@/lib/theme";
 import { tagTone, parseTagArray } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
 import ImageLightbox from "@/components/ImageLightbox";
-import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
+import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot, supprimerMot, renommerMot, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
 
 export type TradeIdeaRecord = {
   id: string;
@@ -253,7 +253,11 @@ function MotsLibres({
 }) {
   const [brouillon, setBrouillon] = useState("");
   const [ecrits, setEcrits] = useState<string[]>([]);
-  const tous = [...new Set([...valeurs, ...ecrits, ...connus])];
+  /** The word being rewritten, and what it is being rewritten to. */
+  const [renomme, setRenomme] = useState<string | null>(null);
+  const [nouveauNom, setNouveauNom] = useState("");
+  const [retires, setRetires] = useState<string[]>([]);
+  const tous = [...new Set([...valeurs, ...ecrits, ...connus])].filter((mot) => !retires.includes(mot));
 
   const ajouter = () => {
     const mot = brouillon.trim();
@@ -295,12 +299,49 @@ function MotsLibres({
         {tous.map((mot) => {
           const choisi = valeurs.includes(mot);
           const tone = tagTone(mot);
+
+          // Rewritten in place, and everywhere at once: the point of keeping a
+          // word is that one spelling of it exists, so correcting it here
+          // corrects it on the trades that carry it.
+          if (renomme === mot) {
+            return (
+              <input
+                key={mot}
+                autoFocus
+                value={nouveauNom}
+                onChange={(e) => setNouveauNom(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setRenomme(null);
+                  if (e.key !== "Enter") return;
+                  const suivant = nouveauNom.trim();
+                  setRenomme(null);
+                  if (!suivant || suivant === mot || !kind) return;
+                  setEcrits((prev) => [...prev.filter((v) => v !== mot), suivant]);
+                  setRetires((prev) => [...prev, mot]);
+                  onChange(valeurs.map((v) => (v === mot ? suivant : v)));
+                  void renommerMot(kind, mot, suivant);
+                }}
+                onBlur={() => setRenomme(null)}
+                style={{ ...mono, fontSize: 10, padding: "3px 9px", borderRadius: 999, border: `1px solid ${accentColor}`, background: "transparent", color: "oklch(0.88 0.02 250)", outline: "none", width: 160 }}
+              />
+            );
+          }
+
           return (
             <span
               key={mot}
               onClick={() => onChange(choisi ? valeurs.filter((v) => v !== mot) : [...valeurs, mot])}
+              onDoubleClick={() => {
+                if (!kind) return;
+                setRenomme(mot);
+                setNouveauNom(mot);
+              }}
+              title={kind ? "Double-clic pour renommer" : undefined}
               style={{
                 ...mono,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
                 fontSize: 10,
                 padding: "3px 9px",
                 borderRadius: 999,
@@ -312,6 +353,20 @@ function MotsLibres({
             >
               {choisi ? "✓ " : ""}
               {mot}
+              {kind && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRetires((prev) => [...prev, mot]);
+                    onChange(valeurs.filter((v) => v !== mot));
+                    void supprimerMot(kind, mot);
+                  }}
+                  title="Retirer de la liste"
+                  style={{ opacity: 0.55 }}
+                >
+                  ✕
+                </span>
+              )}
             </span>
           );
         })}
@@ -380,6 +435,9 @@ export default function TradeIdeas({
   const [nouvelleCondition, setNouvelleCondition] = useState("");
   /** Conditions written in this form, kept on screen even once unticked. */
   const [conditionsEcrites, setConditionsEcrites] = useState<string[]>([]);
+  const [conditionsRetirees, setConditionsRetirees] = useState<string[]>([]);
+  const [conditionRenommee, setConditionRenommee] = useState<string | null>(null);
+  const [nouveauNomCondition, setNouveauNomCondition] = useState("");
   const [saving, setSaving] = useState(false);
   // Charts picked while writing, held until the idea they belong to exists.
   const [pending, setPending] = useState<{ file: File; preview: string }[]>([]);
@@ -620,32 +678,79 @@ export default function TradeIdeas({
               {/* Everything written before, ticked or not: a condition that
                   only lived on the idea that used it had to be retyped for the
                   next trade, and retyped is respelt. */}
-              {[...new Set([...cancelIf.filter(Boolean), ...conditionsEcrites, ...vocabulary.cancelIfs])].map((condition) => {
-                const coche = cancelIf.includes(condition);
-                return (
-                  <span
-                    key={condition}
-                    onClick={() =>
-                      setCancelIf((prev) =>
-                        prev.includes(condition) ? prev.filter((c) => c !== condition) : [...prev.filter(Boolean), condition],
-                      )
-                    }
-                    style={{
-                      ...mono,
-                      fontSize: 10,
-                      padding: "3px 9px",
-                      borderRadius: 999,
-                      cursor: "pointer",
-                      border: `1px ${coche ? "solid" : "dashed"} ${coche ? lossColor : "oklch(0.34 0.02 250)"}`,
-                      background: coche ? lossColor.replace(")", " / 0.14)") : "transparent",
-                      color: coche ? lossColor : "oklch(0.6 0.02 250)",
-                    }}
-                  >
-                    {coche ? "✓ " : ""}
-                    {condition}
-                  </span>
-                );
-              })}
+              {[...new Set([...cancelIf.filter(Boolean), ...conditionsEcrites, ...vocabulary.cancelIfs])]
+                .filter((condition) => !conditionsRetirees.includes(condition))
+                .map((condition) => {
+                  const coche = cancelIf.includes(condition);
+
+                  if (conditionRenommee === condition) {
+                    return (
+                      <input
+                        key={condition}
+                        autoFocus
+                        value={nouveauNomCondition}
+                        onChange={(e) => setNouveauNomCondition(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") setConditionRenommee(null);
+                          if (e.key !== "Enter") return;
+                          const suivant = nouveauNomCondition.trim();
+                          setConditionRenommee(null);
+                          if (!suivant || suivant === condition) return;
+                          setConditionsEcrites((prev) => [...prev.filter((c) => c !== condition), suivant]);
+                          setConditionsRetirees((prev) => [...prev, condition]);
+                          setCancelIf((prev) => prev.map((c) => (c === condition ? suivant : c)));
+                          void renommerMot("cancelIf", condition, suivant);
+                        }}
+                        onBlur={() => setConditionRenommee(null)}
+                        style={{ ...mono, fontSize: 10, padding: "3px 9px", borderRadius: 999, border: `1px solid ${lossColor}`, background: "transparent", color: "oklch(0.88 0.02 250)", outline: "none", width: 190 }}
+                      />
+                    );
+                  }
+
+                  return (
+                    <span
+                      key={condition}
+                      onClick={() =>
+                        setCancelIf((prev) =>
+                          prev.includes(condition) ? prev.filter((c) => c !== condition) : [...prev.filter(Boolean), condition],
+                        )
+                      }
+                      onDoubleClick={() => {
+                        setConditionRenommee(condition);
+                        setNouveauNomCondition(condition);
+                      }}
+                      title="Double-clic pour renommer"
+                      style={{
+                        ...mono,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 10,
+                        padding: "3px 9px",
+                        borderRadius: 999,
+                        cursor: "pointer",
+                        border: `1px ${coche ? "solid" : "dashed"} ${coche ? lossColor : "oklch(0.34 0.02 250)"}`,
+                        background: coche ? lossColor.replace(")", " / 0.14)") : "transparent",
+                        color: coche ? lossColor : "oklch(0.6 0.02 250)",
+                      }}
+                    >
+                      {coche ? "✓ " : ""}
+                      {condition}
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConditionsRetirees((prev) => [...prev, condition]);
+                          setCancelIf((prev) => prev.filter((c) => c !== condition));
+                          void supprimerMot("cancelIf", condition);
+                        }}
+                        title="Retirer de la liste"
+                        style={{ opacity: 0.55 }}
+                      >
+                        ✕
+                      </span>
+                    </span>
+                  );
+                })}
               <input
                 value={nouvelleCondition}
                 onChange={(e) => setNouvelleCondition(e.target.value)}

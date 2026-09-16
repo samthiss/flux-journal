@@ -158,6 +158,44 @@ export async function ajouterMot(kind: string, value: string) {
   });
 }
 
+/** Drops a word from the list offered. Ideas that used it keep their own copy. */
+export async function supprimerMot(kind: string, value: string) {
+  await prisma.tagOption.deleteMany({ where: { kind, value } });
+  revalidatePath("/checklist");
+}
+
+/**
+ * Renames a word, and rewrites it on the ideas that carry it.
+ *
+ * Both halves matter: renaming only the list would leave the old spelling on
+ * past trades and put the new one beside it, which is the very split the list
+ * exists to prevent.
+ */
+export async function renommerMot(kind: string, from: string, to: string) {
+  const nouveau = to.trim();
+  if (!nouveau || nouveau === from) return;
+
+  await prisma.tagOption.deleteMany({ where: { kind, value: from } });
+  await prisma.tagOption.upsert({
+    where: { kind_value: { kind, value: nouveau } },
+    create: { kind, value: nouveau },
+    update: {},
+  });
+
+  const champ = kind === "cancelIf" ? "cancelIf" : "confirmations";
+  const ideas = await prisma.tradeIdea.findMany({ select: { id: true, confirmations: true, cancelIf: true } });
+  for (const idea of ideas) {
+    const mots = parseTagArray(champ === "cancelIf" ? idea.cancelIf : idea.confirmations);
+    if (!mots.includes(from)) continue;
+    const remplacés = [...new Set(mots.map((mot) => (mot === from ? nouveau : mot)))];
+    await prisma.tradeIdea.update({
+      where: { id: idea.id },
+      data: { [champ]: JSON.stringify(remplacés) },
+    });
+  }
+  revalidatePath("/checklist");
+}
+
 export async function getTradeVocabularies() {
   const [examples, ideas, hidden, ajoutes, trades] = await Promise.all([
     prisma.noteExample.findMany({ select: { tradeTypes: true, zone: true, confirmations: true, invalidReasons: true } }),
