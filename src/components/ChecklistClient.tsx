@@ -551,11 +551,11 @@ export default function ChecklistClient({
               marginBottom: 8,
             }}
           >
-            En trading
+            Trading
           </div>
           {ideas.filter((idea) => idea.status === "position").length === 0 ? (
             <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
-              Aucun trade en cours. Une idée arrive ici quand tu la passes « en trading » dans Pre Trade Check.
+              Aucun trade en cours. Une idée arrive ici quand tu la passes en « Trading » dans Pre Trade Check.
             </div>
           ) : (
             <TradeIdeas

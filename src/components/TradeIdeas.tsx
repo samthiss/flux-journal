@@ -819,7 +819,7 @@ export default function TradeIdeas({
                 color: idea.status === "position" ? accentColor : "oklch(0.6 0.02 250)",
               }}
             >
-              {idea.status === "position" ? "En trading" : "Trading plan"}
+              {idea.status === "position" ? "Trading" : "Trading plan"}
             </span>
 
             <span
