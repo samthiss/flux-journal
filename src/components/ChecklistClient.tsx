@@ -388,7 +388,7 @@ export default function ChecklistClient({
   });
 
   /** Where a block is being written, if it is being written here. */
-  const formulaire = (cle: string) => {
+  const formulaire = (cle: string, titresConnus: string[] = []) => {
     if (!bloc || bloc.cle !== cle) return null;
     const champ = {
       width: "100%",
@@ -415,8 +415,19 @@ export default function ChecklistClient({
               if (e.key === "Escape") setBloc(null);
             }}
             placeholder="Titre (facultatif)"
+            // Suggests the headings already in this section, so a second line
+            // joins the first one's title instead of being typed again — and
+            // spelt differently, which would split the heading in two.
+            list={titresConnus.length ? `titres-${cle}` : undefined}
             style={{ ...champ, fontSize: 11.5, letterSpacing: "0.06em", textTransform: "uppercase", color: accentColor }}
           />
+        )}
+        {!cle.includes("::") && titresConnus.length > 0 && (
+          <datalist id={`titres-${cle}`}>
+            {titresConnus.map((titre) => (
+              <option key={titre} value={titre} />
+            ))}
+          </datalist>
         )}
         <input
           autoFocus
@@ -819,72 +830,21 @@ export default function ChecklistClient({
                   </div>
                   );
                 })}
-                {/* A button per heading and one for the group itself: a block
-                    is born where it will live, rather than at the bottom to be
-                    moved afterwards. */}
+                {/* One button for the section, not one per heading: a block
+                    carries its own title now, so a second button that only
+                    pre-filled it was the same gesture twice. */}
                 {editMode && builder && (
-                  <div style={{ paddingLeft: 32 }}>
-                    {g.categories
-                      .filter((categorie) => categorie !== "")
-                      .map((categorie) => {
-                        const cle = `${g.title}::${categorie}`;
-                        return (
-                          <div key={cle} style={{ padding: "2px 0 10px" }}>
-                            {!g.items.some((i) => (i.category ?? "") === categorie) && (
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                                <span
-                                  style={{
-                                    fontSize: 11.5,
-                                    fontWeight: 600,
-                                    letterSpacing: "0.08em",
-                                    textTransform: "uppercase",
-                                    color: accentColor,
-                                  }}
-                                >
-                                  {categorie}
-                                </span>
-                                <button
-                                  onClick={() => removeCategorie(g.title, categorie, 0)}
-                                  title="Retirer ce titre"
-                                  style={{
-                                    fontSize: 11,
-                                    padding: "1px 8px",
-                                    borderRadius: 6,
-                                    border: "1px solid oklch(0.4 0.034 250)",
-                                    background: "transparent",
-                                    color: "oklch(0.65 0.034 250)",
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            )}
-                            <AjouterBloc
-                              types={["case", "choix"]}
-                              onChoisir={(type) => {
-                                setBloc({ cle, type });
-                                setBlocLabel("");
-                                setBlocTitre("");
-                                setBlocReponses("");
-                              }}
-                            />
-                            {formulaire(cle)}
-                          </div>
-                        );
-                      })}
-                    <div style={{ padding: "2px 0 6px" }}>
-                      <AjouterBloc
-                        types={["case", "choix"]}
-                        onChoisir={(type) => {
-                          setBloc({ cle: g.title, type });
-                          setBlocLabel("");
-                          setBlocTitre("");
-                          setBlocReponses("");
-                        }}
-                      />
-                      {formulaire(g.title)}
-                    </div>
+                  <div style={{ paddingLeft: 32, padding: "2px 0 6px 32px" }}>
+                    <AjouterBloc
+                      types={["case", "choix"]}
+                      onChoisir={(type) => {
+                        setBloc({ cle: g.title, type });
+                        setBlocLabel("");
+                        setBlocTitre("");
+                        setBlocReponses("");
+                      }}
+                    />
+                    {formulaire(g.title, g.categories.filter(Boolean))}
                   </div>
                 )}
 
