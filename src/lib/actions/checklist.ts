@@ -46,6 +46,41 @@ export async function createChecklistItem(group: string, label: string, category
  * behind without one would scatter them back into the group with no way to
  * tell which heading they came from.
  */
+/**
+ * Puts the lines of a section back in the order they were dragged into.
+ *
+ * The moved line is given its new heading first — a drop under another one is
+ * how a line changes heading — and then the whole section is renumbered.
+ *
+ * Renumbered over the slots it already occupied, not from zero: `order` runs
+ * across the whole checklist, and a section renumbered 0..n would slide in
+ * front of every other line in the journal.
+ */
+export async function reorderChecklistItems(
+  ids: string[],
+  moved?: { id: string; group: string; category: string | null },
+) {
+  if (ids.length === 0) return;
+
+  if (moved) {
+    await prisma.checklistItem.update({
+      where: { id: moved.id },
+      data: { group: moved.group, category: moved.category },
+    });
+  }
+
+  const concernes = await prisma.checklistItem.findMany({
+    where: { id: { in: ids } },
+    select: { order: true },
+  });
+  const places = concernes.map((item) => item.order).sort((a, b) => a - b);
+
+  await prisma.$transaction(
+    ids.map((id, i) => prisma.checklistItem.update({ where: { id }, data: { order: places[i] } })),
+  );
+  revalidatePath("/checklist");
+}
+
 export async function deleteChecklistCategory(group: string, category: string) {
   await prisma.checklistItem.deleteMany({ where: { group, category } });
   revalidatePath("/checklist");

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useMenuDismiss } from "@/components/useMenuDismiss";
 import { accentColor, glassCard } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
-import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistCategory, deleteChecklistGroup } from "@/lib/actions/checklist";
+import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistCategory, deleteChecklistGroup, reorderChecklistItems } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
 
@@ -160,6 +160,17 @@ export default function ChecklistClient({
    * `cle` is the group, or "group::category" for a line under a heading.
    */
   const [bloc, setBloc] = useState<{ cle: string; type: TypeDeBloc; item?: ChecklistItem } | null>(null);
+
+  /**
+   * The line being dragged, and the one it is hovering over.
+   *
+   * Armed from the grip rather than making the row draggable outright: a row
+   * that is always draggable hands the browser its whole content as the drag
+   * image, which is what made the notes drag a wall of text instead of a line.
+   */
+  const [tire, setTire] = useState<string | null>(null);
+  const [survole, setSurvole] = useState<string | null>(null);
+  const [armee, setArmee] = useState<string | null>(null);
   const [blocLabel, setBlocLabel] = useState("");
   /** The heading this block sits under, typed with it. Optional. */
   const [blocTitre, setBlocTitre] = useState("");
@@ -354,6 +365,33 @@ export default function ChecklistClient({
     // The answers are set straight after, so a choice block is born as one
     // rather than as a tick box to be converted afterwards.
     if (cree && bloc.type === "choix" && reponses.length > 0) await setChecklistItemOptions(cree.id, reponses);
+  }
+
+  /**
+   * Moves a line where it was dropped, heading and all.
+   *
+   * The whole section is renumbered from what is on screen, so the order the
+   * eye sees is the order that is written down.
+   */
+  function deposer(cible: ChecklistItem) {
+    const source = items.find((i) => i.id === tire);
+    setTire(null);
+    setSurvole(null);
+    setArmee(null);
+    if (!source || source.id === cible.id) return;
+
+    // Taken from what is displayed, headings included: the order written down
+    // is the order that was on screen.
+    const section = groups.find((g) => g.title === cible.group)?.items.filter((i) => i.id !== source.id) ?? [];
+    const place = section.findIndex((i) => i.id === cible.id);
+    const ordonnee = [...section.slice(0, place), source, ...section.slice(place)];
+
+    startTransition(async () => {
+      await reorderChecklistItems(
+        ordonnee.map((i) => i.id),
+        { id: source.id, group: cible.group, category: cible.category ?? null },
+      );
+    });
   }
 
   /** Drops a heading, asking first: it takes its lines with it, as a group does. */
@@ -634,8 +672,56 @@ export default function ChecklistClient({
                     ))}
                   <div
                     onClick={editMode ? undefined : () => toggle(item)}
-                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderRadius: 8, cursor: editMode ? "default" : "pointer" }}
+                    draggable={editMode && builder && armee === item.id}
+                    onDragStart={(e) => {
+                      setTire(item.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => {
+                      setTire(null);
+                      setSurvole(null);
+                      setArmee(null);
+                    }}
+                    onDragOver={(e) => {
+                      if (!tire || tire === item.id) return;
+                      e.preventDefault();
+                      setSurvole(item.id);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      deposer(item);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 8px",
+                      borderRadius: 8,
+                      cursor: editMode ? "default" : "pointer",
+                      opacity: tire === item.id ? 0.4 : 1,
+                      // The line is drawn where it would land, rather than the
+                      // row being highlighted: what is being chosen is a place
+                      // between two lines, not a line.
+                      borderTop: survole === item.id ? `2px solid ${accentColor}` : "2px solid transparent",
+                    }}
                   >
+                    {editMode && builder && (
+                      <span
+                        onMouseDown={() => setArmee(item.id)}
+                        onMouseUp={() => setArmee(null)}
+                        title="Glisser pour déplacer"
+                        style={{
+                          flexShrink: 0,
+                          cursor: "grab",
+                          color: "oklch(0.45 0.02 250)",
+                          fontSize: 13,
+                          lineHeight: 1,
+                          userSelect: "none",
+                        }}
+                      >
+                        ⠿
+                      </span>
+                    )}
                     <div
                       style={{
                         width: 20,
