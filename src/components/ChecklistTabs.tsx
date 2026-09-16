@@ -17,6 +17,7 @@ const TABS = [
   { key: "volume", label: "Lignes de volumes" },
   { key: "premarket", label: "Pre-Market Analyse" },
   { key: "pretrade", label: "Pre Trade Check" },
+  { key: "mindset", label: "Trading: Mindset & Discipline" },
   { key: "postmarket", label: "Post-Market Analyse" },
 ] as const;
 
@@ -35,6 +36,15 @@ const POSTMARKET_GROUP = "Bilan";
  * moment of a decision has to hold nothing but that decision.
  */
 const PRETRADE_GROUPS = ["Trading Plan"];
+
+/**
+ * What is checked about the trader rather than the market.
+ *
+ * Its own tab and not a heading inside the pre-trade list: that one is read
+ * with a finger on the mouse, and a question about one's own state answered in
+ * that moment is answered yes. This one is for before and after.
+ */
+const MINDSET_GROUPS = ["Mindset & Discipline"];
 
 // Cards stretched to whatever the window was, which on a wide screen left a
 // checklist line ending a third of the way across and a lot of empty card to
@@ -217,7 +227,12 @@ export default function ChecklistTabs({
       )}
       {tab === "premarket" && (
         <ChecklistClient
-          items={items.filter((i) => i.group !== POSTMARKET_GROUP && !PRETRADE_GROUPS.includes(i.group))}
+          items={items.filter(
+            (i) =>
+              i.group !== POSTMARKET_GROUP &&
+              !PRETRADE_GROUPS.includes(i.group) &&
+              !MINDSET_GROUPS.includes(i.group),
+          )}
           market={market}
         />
       )}
@@ -228,6 +243,16 @@ export default function ChecklistTabs({
           title="Pre Trade Check"
           subtitle="À cocher avant d'entrer, selon la stratégie"
           sections={PRETRADE_GROUPS}
+          builder
+        />
+      )}
+      {tab === "mindset" && (
+        <ChecklistClient
+          items={items.filter((i) => MINDSET_GROUPS.includes(i.group))}
+          market={market}
+          title="Trading: Mindset & Discipline"
+          subtitle="Ce qui dépend de toi, pas du marché"
+          sections={MINDSET_GROUPS}
           builder
         />
       )}
