@@ -96,6 +96,17 @@ model ChecklistItem {
   order Int
 
   /**
+   * Which tab of the checklist page the line belongs to.
+   *
+   * "pretrade", "mindset", or nothing for the pre-market routine that came
+   * first. Sections used to be named in the page's own code, which meant a
+   * heading nobody could delete: nothing in the data made it exist, so nothing
+   * in the data could remove it. Written down, a section is created and
+   * deleted like everything else.
+   */
+  tab String?
+
+  /**
    * A heading inside its group, or nothing.
    *
    * The pre-trade lists gather several questions of the same kind — the

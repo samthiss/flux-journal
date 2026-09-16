@@ -10,7 +10,7 @@ export async function getChecklistItems() {
   return prisma.checklistItem.findMany({ orderBy: { order: "asc" } });
 }
 
-export async function createChecklistItem(group: string, label: string, category?: string) {
+export async function createChecklistItem(group: string, label: string, category?: string, tab?: string) {
   const trimmedGroup = group.trim();
   const trimmedLabel = label.trim();
   if (!trimmedGroup || !trimmedLabel) return;
@@ -26,6 +26,7 @@ export async function createChecklistItem(group: string, label: string, category
       group: trimmedGroup,
       label: trimmedLabel,
       category: category?.trim() || null,
+      tab: tab || null,
       order: (last?.order ?? -1) + 1,
     },
   });

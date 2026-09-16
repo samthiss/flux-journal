@@ -124,7 +124,7 @@ export default function ChecklistClient({
   market,
   title = "Checklist & News",
   subtitle = "Routine avant-marché",
-  sections = [],
+  tab,
   builder = false,
   positions = false,
 }: {
@@ -133,14 +133,12 @@ export default function ChecklistClient({
   title?: string;
   subtitle?: string;
   /**
-   * Sections to draw even while they hold nothing.
+   * Which tab this list is, written onto every line it creates.
    *
-   * A group exists only through its lines — there is no group table — so a
-   * section waiting to be filled would have nowhere to be filled from. Named
-   * here, it appears with its own "add a line" box and becomes real with the
-   * first line typed into it.
+   * It is what decides where a section shows, so a section can be created and
+   * deleted like anything else instead of being named in the page's code.
    */
-  sections?: string[];
+  tab?: string;
   /**
    * Builds the list the way a note is built: one "+ bloc" button per place,
    * instead of a field for lines, another for headings and a third for the
@@ -170,6 +168,16 @@ export default function ChecklistClient({
    * `cle` is the group, or "group::category" for a line under a heading.
    */
   const [bloc, setBloc] = useState<{ cle: string; type: TypeDeBloc; item?: ChecklistItem } | null>(null);
+
+  /**
+   * Sections typed but still empty.
+   *
+   * A group exists only through its lines, so a new one has nowhere to be
+   * filled from until it holds something; it lives here until the first block
+   * makes it real.
+   */
+  const [nouvellesSections, setNouvellesSections] = useState<string[]>([]);
+  const [sectionDraft, setSectionDraft] = useState("");
 
   /**
    * The line being dragged, and the one it is hovering over.
@@ -230,7 +238,7 @@ export default function ChecklistClient({
     };
   }, [market, ideasVersion]);
 
-  const groups = Array.from(new Set([...sections, ...items.map((i) => i.group)])).map((group) => {
+  const groups = Array.from(new Set([...items.map((i) => i.group), ...nouvellesSections])).map((group) => {
     const dedans = items.filter((i) => i.group === group);
 
     // Uncategorised lines first, then each heading in the order it appears.
@@ -328,6 +336,10 @@ export default function ChecklistClient({
    * written under them, so it asks first and says how much is going.
    */
   function removeGroup(group: string, count: number) {
+    // One typed a moment ago and still empty simply goes; one holding lines
+    // asks first and takes them with it.
+    setNouvellesSections((prev) => prev.filter((s) => s !== group));
+    if (count === 0) return;
     const question = `Supprimer « ${group} » et ses ${count} ligne${count > 1 ? "s" : ""} ?`;
     if (!window.confirm(question)) return;
     startTransition(async () => {
@@ -376,7 +388,7 @@ export default function ChecklistClient({
       return;
     }
 
-    const cree = await createChecklistItem(group, label, titre);
+    const cree = await createChecklistItem(group, label, titre, tab);
     // The answers are set straight after, so a choice block is born as one
     // rather than as a tick box to be converted afterwards.
     if (cree && bloc.type === "choix" && reponses.length > 0) await setChecklistItemOptions(cree.id, reponses);
@@ -600,11 +612,6 @@ export default function ChecklistClient({
                       padding: "5px 8px",
                     }}
                   />
-                  {/* Not offered on a section this page declares itself: its
-                      existence does not depend on its lines, so deleting them
-                      left the heading exactly where it was and the button did
-                      nothing at all. */}
-                  {!sections.includes(g.title) && (
                   <button
                     onClick={() => removeGroup(g.title, g.items.length)}
                     aria-label="Supprimer le groupe"
@@ -622,7 +629,6 @@ export default function ChecklistClient({
                   >
                     Supprimer le groupe
                   </button>
-                  )}
                 </div>
               ) : (
                 <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>{g.title}</div>
@@ -1052,8 +1058,54 @@ export default function ChecklistClient({
             </div>
           ))}
 
-          {/* No new sections while building with blocks: this tab has the two
-              strategies and no reason to grow a third. */}
+          {/* A section is created here and deleted by its ✕, like everything
+              else: naming them in the page's code is what made one of them
+              impossible to remove. */}
+          {editMode && builder && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 6 }}>
+              <input
+                value={sectionDraft}
+                onChange={(e) => setSectionDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  const nom = sectionDraft.trim();
+                  setSectionDraft("");
+                  if (nom && !groups.some((g) => g.title === nom)) setNouvellesSections((prev) => [...prev, nom]);
+                }}
+                placeholder="Nouvelle section…"
+                style={{
+                  flex: 1,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "oklch(0.85 0.017 250)",
+                  background: "transparent",
+                  border: "1px dashed oklch(0.34 0.034 250)",
+                  borderRadius: 6,
+                  padding: "5px 8px",
+                }}
+              />
+              <button
+                onClick={() => {
+                  const nom = sectionDraft.trim();
+                  setSectionDraft("");
+                  if (nom && !groups.some((g) => g.title === nom)) setNouvellesSections((prev) => [...prev, nom]);
+                }}
+                style={{
+                  flexShrink: 0,
+                  fontSize: 12,
+                  padding: "5px 12px",
+                  borderRadius: 6,
+                  border: `1px solid ${accentColor}`,
+                  background: "transparent",
+                  color: accentColor,
+                  cursor: "pointer",
+                }}
+              >
+                Section
+              </button>
+            </div>
+          )}
+
           {editMode && !builder && (
             <div style={{ paddingTop: 6, borderTop: "1px solid oklch(0.3 0.034 250 / 0.6)" }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>Nouveau groupe</div>

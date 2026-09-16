@@ -10,7 +10,7 @@ import ChecklistClient from "@/components/ChecklistClient";
 import EconomicCalendar from "@/components/EconomicCalendar";
 import type { EconomicEvent } from "@/lib/economicCalendar";
 
-type ChecklistItem = { id: string; group: string; label: string };
+type ChecklistItem = { id: string; group: string; label: string; tab?: string | null };
 
 const TABS = [
   { key: "calendar", label: "Calendrier économique" },
@@ -35,20 +35,17 @@ const POSTMARKET_GROUP = "Bilan";
  * session, while these are read again at every entry — and a list read at the
  * moment of a decision has to hold nothing but that decision.
  */
-const PRETRADE_GROUPS = ["Trading Plan"];
-
 /**
- * What is checked about the trader rather than the market.
+ * Which tab a line belongs to, read from the line itself.
  *
- * Its own tab and not a heading inside the pre-trade list: that one is read
- * with a finger on the mouse, and a question about one's own state answered in
- * that moment is answered yes. This one is for before and after.
- *
- * "5) MINDEST – Attendre son entrée" joins it, keeping its own title rather
- * than being folded into the other: it is a step with a name, and merging it
- * would leave its lines in an unnamed pile nobody could tell apart afterwards.
+ * The groups of each tab used to be named here, which made their headings
+ * undeletable — nothing in the data made them exist, so nothing in the data
+ * could remove them. A boot script wrote the tab onto the rows that were
+ * listed here, and new sections carry it from the start.
  */
-const MINDSET_GROUPS = ["Mindset & Discipline", "5) MINDEST – Attendre son entrée"];
+const PRETRADE = "pretrade";
+const MINDSET = "mindset";
+
 
 // Cards stretched to whatever the window was, which on a wide screen left a
 // checklist line ending a third of the way across and a lot of empty card to
@@ -231,32 +228,27 @@ export default function ChecklistTabs({
       )}
       {tab === "premarket" && (
         <ChecklistClient
-          items={items.filter(
-            (i) =>
-              i.group !== POSTMARKET_GROUP &&
-              !PRETRADE_GROUPS.includes(i.group) &&
-              !MINDSET_GROUPS.includes(i.group),
-          )}
+          items={items.filter((i) => i.group !== POSTMARKET_GROUP && !i.tab)}
           market={market}
         />
       )}
       {tab === "pretrade" && (
         <ChecklistClient
-          items={items.filter((i) => PRETRADE_GROUPS.includes(i.group))}
+          items={items.filter((i) => i.tab === PRETRADE)}
           market={market}
           title="Pre Trade Check"
           subtitle="À cocher avant d'entrer, selon la stratégie"
-          sections={PRETRADE_GROUPS}
+          tab={PRETRADE}
           builder
         />
       )}
       {tab === "mindset" && (
         <ChecklistClient
-          items={items.filter((i) => MINDSET_GROUPS.includes(i.group))}
+          items={items.filter((i) => i.tab === MINDSET)}
           market={market}
           title="Trading: Mindset & Discipline"
           subtitle="Ce qui dépend de toi, pas du marché"
-          sections={MINDSET_GROUPS}
+          tab={MINDSET}
           builder
           positions
         />

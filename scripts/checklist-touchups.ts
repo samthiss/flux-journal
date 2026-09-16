@@ -112,6 +112,27 @@ async function main() {
     }
 
     /**
+     * Which tab each of the moved groups belongs to, written into the rows.
+     *
+     * They were listed in the page's code, which made their headings
+     * undeletable: nothing in the data made them exist. Only filled where it is
+     * empty, so a group moved by hand afterwards stays where it was put.
+     */
+    const ONGLETS: [motif: RegExp, onglet: string][] = [
+      [/^Trading Plan$/i, "pretrade"],
+      [/^Mindset & Discipline$/i, "mindset"],
+      [/^5\s*\)/, "mindset"],
+    ];
+    for (const [motif, onglet] of ONGLETS) {
+      const groupes = [...new Set((await prisma.checklistItem.findMany({ where: { tab: null }, select: { group: true } })).map((g) => g.group))]
+        .filter((group) => motif.test(group));
+      for (const group of groupes) {
+        const { count } = await prisma.checklistItem.updateMany({ where: { group, tab: null }, data: { tab: onglet } });
+        if (count) console.log(`checklist-touchups: « ${group} » rattaché à l'onglet ${onglet} (${count} ligne(s)).`);
+      }
+    }
+
+    /**
      * The duplicate strategy sections, once.
      *
      * Bounded by time rather than by a flag: a cuid carries the instant it was
