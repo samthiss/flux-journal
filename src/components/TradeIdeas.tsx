@@ -5,7 +5,6 @@ import Image from "next/image";
 import { accentColor, winColor, lossColor } from "@/lib/theme";
 import { tagTone, parseTagArray } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
-import ChipDropdown from "@/components/ChipDropdown";
 import ImageLightbox from "@/components/ImageLightbox";
 import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage } from "@/lib/actions/tradeIdeas";
 
@@ -227,6 +226,114 @@ function IdeaImages({
  * the right trade. Written while planning, so that the trade taken later can be
  * read against what was intended rather than against a memory of it.
  */
+/**
+ * A short list of words, typed rather than picked.
+ *
+ * What is written here is saved on the idea, and the vocabulary offered next
+ * time is built from what has been written before — so the list grows out of
+ * use instead of being decided in advance. Past words are suggested while
+ * typing, which is what keeps "rejet de cluster" from becoming three spellings.
+ */
+function MotsLibres({
+  titre,
+  valeurs,
+  connus,
+  onChange,
+}: {
+  titre: string;
+  valeurs: string[];
+  connus: string[];
+  onChange: (valeurs: string[]) => void;
+}) {
+  const [brouillon, setBrouillon] = useState("");
+  const liste = `mots-${titre.toLowerCase()}`;
+
+  const ajouter = () => {
+    const mot = brouillon.trim();
+    setBrouillon("");
+    if (!mot || valeurs.includes(mot)) return;
+    onChange([...valeurs, mot]);
+  };
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div
+        style={{
+          fontFamily: "var(--font-jetbrains-mono), monospace",
+          fontSize: 10,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "oklch(0.55 0.03 250)",
+          marginBottom: 6,
+        }}
+      >
+        {titre}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        {valeurs.map((valeur) => {
+          const tone = tagTone(valeur);
+          return (
+            <span
+              key={valeur}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: "var(--font-jetbrains-mono), monospace",
+                fontSize: 10,
+                padding: "3px 9px",
+                borderRadius: 999,
+                border: `1px solid ${tone.line}`,
+                background: tone.bg,
+                color: tone.fg,
+              }}
+            >
+              {valeur}
+              <span
+                onClick={() => onChange(valeurs.filter((v) => v !== valeur))}
+                style={{ cursor: "pointer", opacity: 0.7 }}
+              >
+                ✕
+              </span>
+            </span>
+          );
+        })}
+        <input
+          value={brouillon}
+          onChange={(e) => setBrouillon(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              ajouter();
+            }
+          }}
+          onBlur={ajouter}
+          list={connus.length ? liste : undefined}
+          placeholder="ajouter…"
+          style={{
+            fontFamily: "var(--font-jetbrains-mono), monospace",
+            fontSize: 10,
+            padding: "3px 9px",
+            borderRadius: 999,
+            border: "1px dashed oklch(0.34 0.02 250)",
+            background: "transparent",
+            color: "oklch(0.8 0.02 250)",
+            outline: "none",
+            width: 120,
+          }}
+        />
+        {connus.length > 0 && (
+          <datalist id={liste}>
+            {connus.map((mot) => (
+              <option key={mot} value={mot} />
+            ))}
+          </datalist>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TradeIdeas({
   itemId,
   market,
@@ -267,8 +374,6 @@ export default function TradeIdeas({
   const [zoomed, setZoomed] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  /** A word typed a moment ago is offered too, before the list is read again. */
-  const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
 
   /**
    * Sends one chart to an idea that already exists.
@@ -436,42 +541,6 @@ export default function TradeIdeas({
             <SideChip side="short" on={side === "short"} onClick={() => setSide("short")} />
           </div>
   
-          {/* The same dropdowns the note examples are annotated with, on the
-              same words: a type or a confirmation written here is one the
-              examples will offer next time. */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-            <ChipDropdown
-              placeholder="Type"
-              options={offer(vocabulary.tradeTypes, types)}
-              selected={types}
-              multiple
-              visible
-              onToggle={(value) =>
-                setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
-              }
-              onAdd={(value) => setTypes((prev) => (prev.includes(value) ? prev : [...prev, value]))}
-            />
-            <ChipDropdown
-              placeholder="Zone"
-              options={offer(vocabulary.zones, zone ? [zone] : [])}
-              selected={zone ? [zone] : []}
-              visible
-              onToggle={(value) => setZone((prev) => (prev === value ? null : value))}
-              onAdd={(value) => setZone(value)}
-            />
-            <ChipDropdown
-              placeholder="Confirmation"
-              options={offer(vocabulary.confirmations, confirmations)}
-              selected={confirmations}
-              multiple
-              visible
-              onToggle={(value) =>
-                setConfirmations((prev) => (prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value]))
-              }
-              onAdd={(value) => setConfirmations((prev) => (prev.includes(value) ? prev : [...prev, value]))}
-            />
-          </div>
-  
           <textarea
             autoFocus
             value={reason}
@@ -494,6 +563,23 @@ export default function TradeIdeas({
             }}
           />
   
+          {/* Below the case, not above it: the words come out of writing it.
+              Typed rather than picked, and kept — what is written here is
+              offered next time, which is how the vocabulary builds itself
+              instead of being decided in advance. */}
+          <MotsLibres
+            titre="Type"
+            valeurs={types}
+            connus={vocabulary.tradeTypes}
+            onChange={setTypes}
+          />
+          <MotsLibres
+            titre="Confirmations"
+            valeurs={confirmations}
+            connus={vocabulary.confirmations}
+            onChange={setConfirmations}
+          />
+
           {/* What would call the trade off, kept apart from the case for it. */}
           <div
             style={{
