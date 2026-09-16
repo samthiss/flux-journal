@@ -19,7 +19,9 @@ export async function createChecklistItem(group: string, label: string, category
     orderBy: { order: "desc" },
   });
 
-  await prisma.checklistItem.create({
+  // Returned so a choice block can be given its answers straight after, in one
+  // gesture, instead of being created then converted.
+  const cree = await prisma.checklistItem.create({
     data: {
       group: trimmedGroup,
       label: trimmedLabel,
@@ -28,6 +30,7 @@ export async function createChecklistItem(group: string, label: string, category
     },
   });
   revalidatePath("/checklist");
+  return { id: cree.id };
 }
 
 /**

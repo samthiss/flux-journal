@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useMenuDismiss } from "@/components/useMenuDismiss";
 import { accentColor, glassCard } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistGroup } from "@/lib/actions/checklist";
@@ -18,6 +19,79 @@ type ChecklistItem = {
 };
 
 /** The answers an item offers, if any. Stored as JSON, empty when malformed. */
+type TypeDeBloc = "titre" | "case" | "choix";
+
+const BLOCS: { type: TypeDeBloc; label: string }[] = [
+  { type: "titre", label: "Titre" },
+  { type: "case", label: "Case à cocher" },
+  { type: "choix", label: "Liste de choix" },
+];
+
+/**
+ * The "+ bloc" pill, borrowed from the notes.
+ *
+ * The same gesture builds a note and now builds a list: pick what to add, then
+ * write it. What it replaces was three fields sitting in three different
+ * places — one for a line, one for a heading, one for the answers — which had
+ * to be found before anything could be written.
+ */
+function AjouterBloc({ types, onChoisir }: { types: TypeDeBloc[]; onChoisir: (type: TypeDeBloc) => void }) {
+  const [open, setOpen] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  useMenuDismiss(open, wrapper, () => setOpen(false));
+
+  return (
+    <div ref={wrapper} style={{ position: "relative", display: "inline-block" }}>
+      <span
+        onClick={() => setOpen((o) => !o)}
+        title="Ajouter un bloc"
+        style={{
+          fontFamily: "var(--font-jetbrains-mono), monospace",
+          fontSize: 10,
+          padding: "3px 10px",
+          borderRadius: 999,
+          border: "1px dashed oklch(0.34 0.034 250)",
+          color: "oklch(0.6 0.034 250)",
+          cursor: "pointer",
+        }}
+      >
+        + bloc
+      </span>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "130%",
+            left: 0,
+            zIndex: 30,
+            background: "oklch(0.21 0.034 250)",
+            border: "1px solid oklch(0.34 0.034 250)",
+            borderRadius: 8,
+            padding: 4,
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 150,
+            boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
+          }}
+        >
+          {BLOCS.filter((bloc) => types.includes(bloc.type)).map((bloc) => (
+            <span
+              key={bloc.type}
+              onClick={() => {
+                onChoisir(bloc.type);
+                setOpen(false);
+              }}
+              style={{ fontSize: 12.5, padding: "6px 10px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.034 250)", whiteSpace: "nowrap" }}
+            >
+              {bloc.label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function answerOptions(item: ChecklistItem): string[] {
   if (!item.options) return [];
   try {
@@ -52,6 +126,7 @@ export default function ChecklistClient({
   title = "Checklist & News",
   subtitle = "Routine avant-marché",
   sections = [],
+  builder = false,
 }: {
   items: ChecklistItem[];
   market: string;
@@ -66,6 +141,14 @@ export default function ChecklistClient({
    * first line typed into it.
    */
   sections?: string[];
+  /**
+   * Builds the list the way a note is built: one "+ bloc" button per place,
+   * instead of a field for lines, another for headings and a third for the
+   * answers. Only the pre-trade lists use it — the older tabs hold data typed
+   * the other way, and two ways of editing in one page would be worse than the
+   * one that was there.
+   */
+  builder?: boolean;
 }) {
   const [, startTransition] = useTransition();
   const [editMode, setEditMode] = useState(false);
@@ -80,6 +163,15 @@ export default function ChecklistClient({
    */
   const [nouvellesCategories, setNouvellesCategories] = useState<Record<string, string[]>>({});
   const [categorieDrafts, setCategorieDrafts] = useState<Record<string, string>>({});
+
+  /**
+   * The block being written, if any: where it goes, and what kind it is.
+   *
+   * `cle` is the group, or "group::category" for a line under a heading.
+   */
+  const [bloc, setBloc] = useState<{ cle: string; type: TypeDeBloc } | null>(null);
+  const [blocLabel, setBlocLabel] = useState("");
+  const [blocReponses, setBlocReponses] = useState("");
   const [newGroupItem, setNewGroupItem] = useState("");
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [answerMap, setAnswerMap] = useState<Record<string, string>>({});
@@ -239,6 +331,30 @@ export default function ChecklistClient({
     });
   }
 
+  /** Writes the block being composed, whatever kind it is. */
+  async function poserBloc() {
+    if (!bloc) return;
+    const label = blocLabel.trim();
+    if (!label) return;
+
+    const [group, categorie] = bloc.cle.split("::");
+    const reponses = blocReponses.split("/").map((r) => r.trim()).filter(Boolean);
+
+    setBloc(null);
+    setBlocLabel("");
+    setBlocReponses("");
+
+    if (bloc.type === "titre") {
+      setNouvellesCategories((prev) => ({ ...prev, [group]: [...(prev[group] ?? []), label] }));
+      return;
+    }
+
+    const cree = await createChecklistItem(group, label, categorie);
+    // The answers are set straight after, so a choice block is born as one
+    // rather than as a tick box to be converted afterwards.
+    if (cree && bloc.type === "choix" && reponses.length > 0) await setChecklistItemOptions(cree.id, reponses);
+  }
+
   function addCategorie(group: string) {
     const nom = (categorieDrafts[group] ?? "").trim();
     if (!nom) return;
@@ -270,6 +386,64 @@ export default function ChecklistClient({
     day: "numeric",
     year: "numeric",
   });
+
+  /** Where a block is being written, if it is being written here. */
+  const formulaire = (cle: string) => {
+    if (!bloc || bloc.cle !== cle) return null;
+    const champ = {
+      width: "100%",
+      boxSizing: "border-box" as const,
+      fontSize: 13.5,
+      color: "oklch(0.88 0.017 250)",
+      background: "oklch(0.2 0.034 250)",
+      border: "1px solid oklch(0.35 0.034 250)",
+      borderRadius: 6,
+      padding: "5px 8px",
+      marginBottom: 6,
+    };
+
+    return (
+      <div style={{ padding: "6px 0 10px", maxWidth: 460 }}>
+        <input
+          autoFocus
+          value={blocLabel}
+          onChange={(e) => setBlocLabel(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && bloc.type !== "choix") poserBloc();
+            if (e.key === "Escape") setBloc(null);
+          }}
+          placeholder={bloc.type === "titre" ? "Titre de la catégorie…" : "Intitulé de la ligne…"}
+          style={champ}
+        />
+        {bloc.type === "choix" && (
+          <input
+            value={blocReponses}
+            onChange={(e) => setBlocReponses(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") poserBloc();
+              if (e.key === "Escape") setBloc(null);
+            }}
+            placeholder="Réponses possibles, séparées par « / »"
+            style={champ}
+          />
+        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={poserBloc}
+            style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: `1px solid ${accentColor}`, background: "transparent", color: accentColor, cursor: "pointer" }}
+          >
+            Ajouter
+          </button>
+          <button
+            onClick={() => setBloc(null)}
+            style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: "1px solid oklch(0.4 0.034 250)", background: "transparent", color: "oklch(0.65 0.034 250)", cursor: "pointer" }}
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -574,10 +748,61 @@ export default function ChecklistClient({
                   </div>
                   );
                 })}
+                {/* A button per heading and one for the group itself: a block
+                    is born where it will live, rather than at the bottom to be
+                    moved afterwards. */}
+                {editMode && builder && (
+                  <div style={{ paddingLeft: 32 }}>
+                    {g.categories
+                      .filter((categorie) => categorie !== "")
+                      .map((categorie) => {
+                        const cle = `${g.title}::${categorie}`;
+                        return (
+                          <div key={cle} style={{ padding: "2px 0 10px" }}>
+                            {!g.items.some((i) => (i.category ?? "") === categorie) && (
+                              <div
+                                style={{
+                                  fontSize: 11.5,
+                                  fontWeight: 600,
+                                  letterSpacing: "0.08em",
+                                  textTransform: "uppercase",
+                                  color: accentColor,
+                                  marginBottom: 6,
+                                }}
+                              >
+                                {categorie}
+                              </div>
+                            )}
+                            <AjouterBloc
+                              types={["case", "choix"]}
+                              onChoisir={(type) => {
+                                setBloc({ cle, type });
+                                setBlocLabel("");
+                                setBlocReponses("");
+                              }}
+                            />
+                            {formulaire(cle)}
+                          </div>
+                        );
+                      })}
+                    <div style={{ padding: "2px 0 6px" }}>
+                      <AjouterBloc
+                        types={["titre", "case", "choix"]}
+                        onChoisir={(type) => {
+                          setBloc({ cle: g.title, type });
+                          setBlocLabel("");
+                          setBlocReponses("");
+                        }}
+                      />
+                      {formulaire(g.title)}
+                    </div>
+                  </div>
+                )}
+
                 {/* One box per heading, plus the group's own for lines that
                     belong under none: a line has to be typed where it is going,
                     or it lands at the bottom and has to be moved. */}
-                {editMode &&
+                {editMode && !builder &&
                   g.categories
                     .filter((categorie) => categorie !== "")
                     .map((categorie) => {
@@ -621,7 +846,7 @@ export default function ChecklistClient({
                       );
                     })}
 
-                {editMode && (
+                {editMode && !builder && (
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 8px 10px" }}>
                     <div style={{ width: 20, flexShrink: 0 }} />
                     <input
@@ -660,7 +885,7 @@ export default function ChecklistClient({
                   </div>
                 )}
 
-                {editMode && (
+                {editMode && !builder && (
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px" }}>
                     <div style={{ width: 20, flexShrink: 0 }} />
                     <input

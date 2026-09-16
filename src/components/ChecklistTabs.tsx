@@ -223,6 +223,7 @@ export default function ChecklistTabs({
           title="Pre Trade Check"
           subtitle="À cocher avant d'entrer, selon la stratégie"
           sections={PRETRADE_GROUPS}
+          builder
         />
       )}
       {tab === "postmarket" && (
