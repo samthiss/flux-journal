@@ -258,8 +258,9 @@ export default function ChecklistTabs({
           items={items.filter((i) => i.group === POSTMARKET_GROUP)}
           market={market}
           title="Post-Market Analyse"
-          subtitle="Bilan post-marché"
+          subtitle="Les positions à écrire dans le journal"
           closes
+          sansListe
         />
       )}
     </div>

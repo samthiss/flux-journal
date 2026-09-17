@@ -132,6 +132,7 @@ export default function ChecklistClient({
   builder = false,
   positions = false,
   closes = false,
+  sansListe = false,
 }: {
   items: ChecklistItem[];
   market: string;
@@ -168,6 +169,16 @@ export default function ChecklistClient({
    * up, which is what this page is for.
    */
   closes?: boolean;
+  /**
+   * Shows the positions alone, without a list to tick.
+   *
+   * Post-Market asked the six Bilan questions here and the trade form asks
+   * them again while the trade is being written up, where the answers are
+   * actually kept. Asked twice, they were answered in the place that forgets
+   * them. The questions still live in the checklist rows — that is where the
+   * form reads them from — they are simply not a list to tick any more.
+   */
+  sansListe?: boolean;
 }) {
   const [, startTransition] = useTransition();
   const [editMode, setEditMode] = useState(false);
@@ -632,6 +643,7 @@ export default function ChecklistClient({
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {!sansListe && (
         <div style={glassCard}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -1304,6 +1316,7 @@ export default function ChecklistClient({
             </div>
           )}
         </div>
+        )}
 
       </div>
       {closes && (
