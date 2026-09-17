@@ -1027,7 +1027,7 @@ export default function TradeIdeas({
                 buttons — a card in Trading Plan once showed "Clôturé" with no
                 way back — so they are a list, drawn rather than left to the
                 browser's own grey rectangle. */}
-            <div style={{ flex: "none", marginTop: 1 }}>
+            <div style={{ flex: "none", marginTop: 1, display: "flex" }}>
               <StatutTrade
                 compact
                 statut={idea.status ?? "plan"}

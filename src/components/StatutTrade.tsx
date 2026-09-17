@@ -83,7 +83,9 @@ export default function StatutTrade({
   const enCours = courant.valeur === "position";
 
   return (
-    <div style={{ position: "relative", flex: "none" }}>
+    // A flex box rather than a block: as an inline child the pill sat on a
+    // text baseline, which pushed it a few pixels below the chips beside it.
+    <div style={{ position: "relative", flex: "none", display: "inline-flex" }}>
       <span
         ref={pilule}
         onClick={basculer}
@@ -93,8 +95,12 @@ export default function StatutTrade({
           alignItems: "center",
           gap: 6,
           fontFamily: "var(--font-jetbrains-mono), monospace",
-          fontSize: compact ? 9.5 : 10.5,
-          padding: compact ? "3px 10px" : "5px 12px",
+          // Compact matches the chips it sits beside — the direction, the
+          // setup, the tags — so the row reads as one line rather than as a
+          // control dropped into it.
+          fontSize: compact ? 10 : 10.5,
+          lineHeight: compact ? "14px" : undefined,
+          padding: compact ? "2px 9px" : "5px 12px",
           borderRadius: 999,
           cursor: "pointer",
           whiteSpace: "nowrap",
