@@ -444,6 +444,16 @@ export type TagField =
   | "zone"
   | "setup";
 
+/** What the pre-trade form calls each of these lists. */
+const KIND_PRE_TRADE: Record<string, string> = {
+  confirmations: "confirmations",
+  confirmationsBox: "confirmationsBox",
+  confirmationsReverse: "confirmationsReverse",
+  invalidReasons: "cancelIf",
+  tradeTypes: "tradeTypes",
+  zone: "zone",
+};
+
 export async function deleteTagValue(field: TagField, value: string) {
   // Remembered as removed, so the ones the app ships with do not come straight
   // back from the code on the next render.
@@ -452,6 +462,16 @@ export async function deleteTagValue(field: TagField, value: string) {
     create: { kind: field, value },
     update: {},
   });
+
+  // And out of the pre-trade form's own list, under whatever setup it was
+  // given to: the two pages share one vocabulary, so removing a word here and
+  // being offered it there would be the removal undone.
+  const base = KIND_PRE_TRADE[field];
+  if (base) {
+    await prisma.tagOption.deleteMany({
+      where: { value, OR: [{ kind: base }, { kind: { startsWith: `${base}@` } }] },
+    });
+  }
 
   // The zone and the setup are one word rather than a list of them, so
   // forgetting one is a clear rather than a filter.

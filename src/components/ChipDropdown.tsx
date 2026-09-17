@@ -56,6 +56,15 @@ export default function ChipDropdown({
   const [draft, setDraft] = useState("");
   // The option being rewritten, if any, and what it is being rewritten to.
   const [renaming, setRenaming] = useState<string | null>(null);
+  /**
+   * The option whose ✕ is waiting to be pressed a second time.
+   *
+   * It used to ask through `window.confirm`, which a browser stops honouring
+   * once the reader has ticked "prevent this page from creating more dialogs";
+   * from then on nothing could be removed and nothing said why. A button that
+   * asks in itself cannot be switched off.
+   */
+  const [aRetirer, setARetirer] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const wrapper = useRef<HTMLDivElement>(null);
   useMenuDismiss(open, wrapper, () => setOpen(false));
@@ -204,14 +213,27 @@ export default function ChipDropdown({
                 )}
                 {removable && renaming !== option && (
                   <span
-                    title="Retirer de la liste, sur tous les exemples"
+                    title={
+                      aRetirer === option
+                        ? "Confirmer : le retirer de la liste et de tous les exemples"
+                        : "Retirer de la liste, sur tous les exemples"
+                    }
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (aRetirer !== option) {
+                        setARetirer(option);
+                        return;
+                      }
+                      setARetirer(null);
                       if (onRemoveOption(option)) setOpen(false);
                     }}
-                    style={{ fontSize: 11, opacity: 0.55 }}
+                    style={
+                      aRetirer === option
+                        ? { fontSize: 9.5, color: "oklch(0.72 0.27 340)", whiteSpace: "nowrap" }
+                        : { fontSize: 11, opacity: 0.55 }
+                    }
                   >
-                    ✕
+                    {aRetirer === option ? "confirmer ✕" : "✕"}
                   </span>
                 )}
               </div>

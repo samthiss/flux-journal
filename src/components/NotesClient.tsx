@@ -905,7 +905,10 @@ export default function NotesClient({
         // Given to this setup first, then the words given to none. One given
         // to another setup is not offered here at all — that is what giving it
         // away means.
-        return motsPourSetup(KIND_TO_CHECKLIST[kind] ?? kind, setup, all, parSetup);
+        const donnes = Object.fromEntries(
+          Object.entries(parSetup).map(([cle, mots]) => [cle, mots.filter((v) => !hidden.get(kind)?.has(v))])
+        );
+        return motsPourSetup(KIND_TO_CHECKLIST[kind] ?? kind, setup, all, donnes);
       },
       setupDe: (kind, value) => setupDuMot(KIND_TO_CHECKLIST[kind] ?? kind, value, parSetup),
       remember: (kind, value) =>
@@ -3281,7 +3284,9 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
    * leave it written on examples where it no longer appears.
    */
   const forget = (kind: TagKind, value: string) => {
-    if (!window.confirm(`Retirer « ${value} » de tous les exemples ?`)) return false;
+    // Asked by the ✕ itself, which takes two presses: a browser that has been
+    // told to stop showing dialogs answers no to `window.confirm` for the rest
+    // of the visit, and nothing could be removed any more.
     deleteTagValue(KIND_TO_FIELD[kind], value).then(onChanged);
     return true;
   };

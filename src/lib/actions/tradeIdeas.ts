@@ -211,10 +211,26 @@ export async function ajouterMot(kind: string, value: string) {
   });
 }
 
-/** Drops a word from the list offered. Ideas that used it keep their own copy. */
+/**
+ * Drops a word from the list offered. Ideas that used it keep their own copy.
+ *
+ * Removed under every setup, not only the one showing — a word put away is put
+ * away — and recorded as removed under the notes' own name for the list, since
+ * the same word can also be written on an example there.
+ */
 export async function supprimerMot(kind: string, value: string) {
-  await prisma.tagOption.deleteMany({ where: { kind, value } });
+  const base = kindDeBase(kind);
+  await prisma.tagOption.deleteMany({
+    where: { value, OR: [{ kind: base }, { kind: { startsWith: `${base}@` } }] },
+  });
+  const champ = base === "cancelIf" ? "invalidReasons" : base;
+  await prisma.hiddenTagOption.upsert({
+    where: { kind_value: { kind: champ, value } },
+    create: { kind: champ, value },
+    update: {},
+  });
   revalidatePath("/checklist");
+  revalidatePath("/notes");
 }
 
 /**
@@ -367,7 +383,12 @@ export async function getTradeVocabularies() {
     // The conditions that call a trade off, which repeat far more than they
     // vary: the same handful comes back, and re-typing them invites three
     // wordings of one rule.
-    cancelIfs: rank([...ecrits("cancelIf"), ...desNotes("cancelIf")], [], removed("cancelIf")),
+    // Hidden under either name: the notes call this list the invalid reasons.
+    cancelIfs: rank(
+      [...ecrits("cancelIf"), ...desNotes("cancelIf")],
+      [],
+      new Set([...removed("cancelIf"), ...removed("invalidReasons"), ...removed("invalidReason")])
+    ),
     // The same list as `cancelIfs` above, read from everywhere it is written:
     // the examples, the trades, and the pre-trade form. Two names for one list
     // only ever produced two spellings of one condition. Hidden under the
