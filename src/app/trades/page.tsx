@@ -12,31 +12,41 @@ export default async function TradesPage() {
     // The two newer confirmation lists are read here rather than through the
     // shared select, which the dashboard and the report use as well and have
     // no use for them.
-    select: { ...TRADE_FOR_STATS_SELECT, confirmationsBox: true, confirmationsReverse: true },
+    select: {
+      ...TRADE_FOR_STATS_SELECT,
+      confirmationsBox: true,
+      confirmationsReverse: true,
+      invalidReasons: true,
+      emotion: true,
+      planFollowed: true,
+    },
   });
 
   const stored = (await cookies()).get("dash-period")?.value;
   const initialPeriod = isValidPeriod(stored) ? stored : "week";
 
   /**
-   * What each trade is annotated with, in one list per trade.
+   * What each trade is annotated with, said rather than shown.
    *
-   * Gathered here rather than in the table, so the table shows words without
-   * knowing which column each came from: the setup, the zone, the type and the
-   * three confirmation lists all read as the same kind of thing in a row.
+   * A pile of chips made "Range" and "Nervous" look like the same kind of
+   * thing. Each line names what it is — Emotion, Type, Zone, and one line per
+   * confirmation list — and a line with nothing on it is left out.
    */
-  const tags = Object.fromEntries(
-    trades.map((t) => [
-      t.id,
-      [
-        ...parseTagArray(t.tradeTypes),
-        ...(t.zone ? [t.zone] : []),
-        ...parseTagArray(t.confirmations),
-        ...parseTagArray(t.confirmationsBox),
-        ...parseTagArray(t.confirmationsReverse),
-      ],
-    ])
+  const details = Object.fromEntries(
+    trades.map((t) => {
+      const lignes: [string, string][] = [
+        ["Emotion", t.emotion ?? ""],
+        ["Type", parseTagArray(t.tradeTypes).join(", ")],
+        ["Zone", t.zone ?? ""],
+        ["Confirmation CC", parseTagArray(t.confirmations).join(", ")],
+        ["Confirmation Box cluster", parseTagArray(t.confirmationsBox).join(", ")],
+        ["Confirmation Reverse chart", parseTagArray(t.confirmationsReverse).join(", ")],
+        ["Risk management", parseTagArray(t.invalidReasons).join(", ")],
+        ["Plan respecté", t.planFollowed === null ? "" : t.planFollowed ? "Oui" : "Non"],
+      ];
+      return [t.id, lignes.filter(([, valeur]) => valeur)];
+    })
   );
 
-  return <TradesClient trades={trades} initialPeriod={initialPeriod} tags={tags} />;
+  return <TradesClient trades={trades} initialPeriod={initialPeriod} details={details} />;
 }

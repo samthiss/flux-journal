@@ -20,7 +20,7 @@ const selectStyle: React.CSSProperties = {
 
 const OPEN_NEW_TAB_KEY = "trades-open-new-tab";
 
-export default function TradesClient({ trades, initialPeriod, tags = {} }: { tags?: Record<string, string[]>; trades: Trade[]; initialPeriod: string }) {
+export default function TradesClient({ trades, initialPeriod, details = {} }: { details?: Record<string, [string, string][]>; trades: Trade[]; initialPeriod: string }) {
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
@@ -244,7 +244,7 @@ export default function TradesClient({ trades, initialPeriod, tags = {} }: { tag
           <div>P&amp;L</div>
           <div>R:R</div>
           <div>Outcome</div>
-          <div>Tags</div>
+          <div />
         </div>
         {filteredTrades.map((t, i) => {
           const outcome = t.pnl > 0 ? "win" : "loss";
@@ -306,38 +306,25 @@ export default function TradesClient({ trades, initialPeriod, tags = {} }: { tag
                   {outcome === "win" ? "Win" : "Loss"}
                 </span>
               </div>
-              {/* What the trade was annotated with, beside its outcome: the
-                  row already says how it went, and this says what it was —
-                  which is the pair worth scanning a list of trades for. */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, minWidth: 0 }}>
-                {(tags[t.id] ?? []).slice(0, 4).map((mot) => {
-                  const tone = tagTone(mot);
-                  return (
-                    <span
-                      key={mot}
-                      style={{
-                        fontFamily: "var(--font-jetbrains-mono), monospace",
-                        fontSize: 10,
-                        padding: "2px 7px",
-                        borderRadius: 999,
-                        border: `1px solid ${tone.line}`,
-                        background: tone.bg,
-                        color: tone.fg,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        maxWidth: 150,
-                      }}
-                    >
-                      {mot}
-                    </span>
-                  );
-                })}
-                {(tags[t.id] ?? []).length > 4 && (
-                  <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 250)" }}>
-                    +{(tags[t.id] ?? []).length - 4}
-                  </span>
-                )}
+              {/* What the trade was, beside how it went. Named line by line
+                  rather than piled up as chips: "Range" and "Nervous" are not
+                  the same kind of thing, and a pile made them look alike. */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                {(details[t.id] ?? []).map(([intitule, valeur]) => (
+                  <div
+                    key={intitule}
+                    style={{
+                      fontSize: 11,
+                      lineHeight: 1.45,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    <span style={{ color: "oklch(0.52 0.02 250)" }}>{intitule}: </span>
+                    <span style={{ color: tagTone(valeur).fg }}>{valeur}</span>
+                  </div>
+                ))}
               </div>
             </Link>
           );
