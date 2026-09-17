@@ -377,7 +377,19 @@ export async function getTradeVocabularies() {
     parSetup: Object.fromEntries(
       [...new Set(ajoutes.map((mot) => mot.kind).filter((kind) => kind.includes("@")))].map((kind) => [
         kind,
-        rank(ecrits(kind), [], removed(kind)),
+        // Filtered by what was removed from the list itself, not from this
+        // setup's slice of it: a word put away is put away, and a word given
+        // to a setup was the one case that kept coming back. The notes record
+        // a removal under their own name for the list, so both are read.
+        rank(
+          ecrits(kind),
+          [],
+          (() => {
+            const base = kindDeBase(kind);
+            const champ = base === "cancelIf" ? "invalidReasons" : base;
+            return new Set([...removed(base), ...removed(champ), ...removed("invalidReason")]);
+          })()
+        ),
       ])
     ) as Record<string, string[]>,
     // The conditions that call a trade off, which repeat far more than they
