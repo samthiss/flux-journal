@@ -16,7 +16,7 @@ const TABS = [
   { key: "calendar", label: "Calendrier économique" },
   { key: "volume", label: "Lignes de volumes" },
   { key: "premarket", label: "Pre-Market Analyse" },
-  { key: "pretrade", label: "Pre Trade Check" },
+  { key: "pretrade", label: "Trading Plan" },
   { key: "mindset", label: "Trading: Mindset & Discipline" },
   { key: "postmarket", label: "Post-Market Analyse" },
 ] as const;
@@ -236,7 +236,7 @@ export default function ChecklistTabs({
         <ChecklistClient
           items={items.filter((i) => i.tab === PRETRADE)}
           market={market}
-          title="Pre Trade Check"
+          title="Trading Plan"
           subtitle="À cocher avant d'entrer, selon la stratégie"
           tab={PRETRADE}
           builder
