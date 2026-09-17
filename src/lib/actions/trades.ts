@@ -26,6 +26,25 @@ async function saveImage(file: File): Promise<string> {
   return `/api/uploads/${filename}`;
 }
 
+/**
+ * The plan's charts, as posted by the form.
+ *
+ * Only our own upload paths are accepted: the field is filled from the idea by
+ * the page, and a URL is a URL once it is in a form.
+ */
+function parsePlanCharts(formData: FormData) {
+  const raw = String(formData.get("planCharts") ?? "");
+  let urls: string[] = [];
+  try {
+    const parsed = JSON.parse(raw || "[]");
+    if (Array.isArray(parsed)) urls = parsed.filter((u): u is string => typeof u === "string");
+  } catch {
+    return null;
+  }
+  const gardes = urls.filter((url) => url.startsWith("/api/uploads/") && !url.includes(".."));
+  return gardes.length ? JSON.stringify(gardes) : null;
+}
+
 async function parseChartFields(formData: FormData) {
   const fields: Record<string, string> = {};
   for (const slot of CHART_SLOTS) {
@@ -83,6 +102,10 @@ function parseTradeForm(formData: FormData) {
   // have called the trade off, and a trade that worked was managed too.
   const invalidReasons = tagList("invalidReasons");
 
+  const planCharts = parsePlanCharts(formData);
+  // Three states, not two: unanswered is not "no".
+  const repondu = String(formData.get("planFollowed") ?? "");
+  const planFollowed = repondu === "oui" ? true : repondu === "non" ? false : null;
   const setup = String(formData.get("setup") ?? "");
   const emotion = String(formData.get("emotion") ?? "") || null;
   const preTradeNotes = String(formData.get("preTradeNotes") ?? "") || null;
@@ -90,7 +113,7 @@ function parseTradeForm(formData: FormData) {
 
   return {
     date, time, symbol, market, side, size, pnl, risk, rr,
-    tpReached, tradeTypes, zone, confirmations, confirmationsBox, confirmationsReverse, validity, invalidReasons,
+    tpReached, tradeTypes, zone, confirmations, confirmationsBox, confirmationsReverse, validity, invalidReasons, planCharts, planFollowed,
     setup, emotion, preTradeNotes, postTradeNotes,
   };
 }

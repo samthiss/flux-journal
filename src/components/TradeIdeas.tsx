@@ -751,6 +751,15 @@ export default function TradeIdeas({
             connus={vocabulary.tradeTypes}
             onChange={setTypes}
           />
+          {/* One zone, not several: a trade is taken on one. Picking a second
+              replaces the first rather than adding to it. */}
+          <MotsLibres
+            titre="Zone"
+            valeurs={zone ? [zone] : []}
+            connus={vocabulary.zones}
+            kind="zone"
+            onChange={(valeurs) => setZone(valeurs.length ? valeurs[valeurs.length - 1] : null)}
+          />
           {/* CC first, then the box and the reverse chart under it: three
               lists rather than one, because they answer three questions. */}
           {CONFIRMATIONS.map(({ kind, titre }) => {

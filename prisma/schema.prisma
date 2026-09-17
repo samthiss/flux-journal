@@ -63,6 +63,26 @@ model Trade {
   tradeTypes     String?
   zone           String?
 
+  /**
+   * The charts the trade idea carried, as a JSON array of URLs.
+   *
+   * Kept apart from the four chart slots below: those are the trade's own
+   * captures, taken afterwards, and a plan read next to its outcome is the
+   * whole point of writing both down. Pointed at, not copied — the same files
+   * still belong to the idea.
+   */
+  planCharts     String?
+
+  /**
+   * Whether the plan was followed, answered rather than written.
+   *
+   * It is one of the Bilan questions, and the only one whose answer is yes or
+   * no — asked as prose it was answered in prose, which cannot be counted. A
+   * trade that made money against its plan is exactly what a journal exists to
+   * surface, and that needs a column.
+   */
+  planFollowed   Boolean?
+
   // The three confirmation lists, as on a note example and on the idea this
   // trade came from: what the cluster chart said, what the box said, what the
   // reverse chart said. `confirmations` is the CC list — it kept its name, so
@@ -356,6 +376,14 @@ model TradeIdea {
    * cluster settings. The same idea, read at two moments, from two places.
    */
   status String @default("plan")
+
+  /**
+   * When the position was marked closed.
+   *
+   * The journal asks for the time of the trade, and by the time it is being
+   * written up that hour is already a guess. The click that ended it knew.
+   */
+  closedAt DateTime?
 
   /**
    * Which setup this idea is for, as the notes record it.

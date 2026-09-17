@@ -26,7 +26,14 @@ export async function getTradeIdeas(market: string, day: string) {
  * and then finished.
  */
 export async function setTradeIdeaStatus(id: string, status: "plan" | "position" | "closed") {
-  await prisma.tradeIdea.update({ where: { id }, data: { status } });
+  // The moment the position ended, kept because the journal will ask for it:
+  // written up an hour later, the time of the trade is a guess, and this click
+  // knew. Only ever set going into "closed", so re-opening and closing again
+  // records the second ending rather than the first.
+  await prisma.tradeIdea.update({
+    where: { id },
+    data: { status, ...(status === "closed" ? { closedAt: new Date() } : {}) },
+  });
   revalidatePath("/checklist");
 }
 

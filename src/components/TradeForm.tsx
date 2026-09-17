@@ -45,6 +45,8 @@ export type TradeFormValues = {
   confirmations: string;
   confirmationsBox: string;
   confirmationsReverse: string;
+  /** "oui", "non", or "" while the question has not been answered. */
+  planFollowed: string;
   /** "valid", "invalid", "risk" or "" — nothing decided. */
   validity: string;
   /** A JSON array, only ever written where the verdict is not "valid". */
@@ -234,7 +236,8 @@ export default function TradeForm({
   subtitle,
   riskPerLot,
   vocabulary,
-  prefillCharts = [],
+  planCharts: planChartsInitial = [],
+  closedAt,
   bilanQuestions = [],
 }: {
   action: (formData: FormData) => void;
@@ -256,8 +259,21 @@ export default function TradeForm({
     parSetup: Record<string, string[]>;
   };
   existingCharts?: ExistingCharts;
-  /** Charts from the trade idea this trade was opened from, in slot order. */
-  prefillCharts?: string[];
+  /**
+   * The charts written with the plan, kept as their own section.
+   *
+   * They are not the trade's captures: those are taken afterwards, and a plan
+   * read beside its outcome is why both are written down.
+   */
+  planCharts?: string[];
+  /**
+   * When the position was marked closed, as an ISO instant.
+   *
+   * Turned into a date and an hour here rather than on the server, whose clock
+   * is UTC: the journal is kept in the reader's own time, and an hour off by
+   * two is worse than no hour at all.
+   */
+  closedAt?: string;
   /** The Bilan questions from the post-market checklist, offered as prompts. */
   bilanQuestions?: string[];
   title: string;
@@ -269,6 +285,27 @@ export default function TradeForm({
   // risk management offered are this setup's own — as they are on a note and
   // on a trade idea. Changing it here changes what is offered below.
   const [setup, setSetup] = useState(initial.setup);
+  const [planCharts, setPlanCharts] = useState<string[]>(planChartsInitial);
+  const [planFollowed, setPlanFollowed] = useState<string | null>(initial.planFollowed || null);
+
+  /**
+   * The date and the hour, held rather than left to the inputs.
+   *
+   * When the trade comes from a position that was closed, they are that
+   * instant read in the reader's own time — which only the browser knows. The
+   * server renders its own idea of it first, in UTC, so both fields say so and
+   * are corrected on hydration; hence `suppressHydrationWarning` on them, the
+   * documented escape hatch for exactly this.
+   */
+  const cloture = closedAt ? new Date(closedAt) : null;
+  const valide = cloture && !Number.isNaN(cloture.valueOf()) ? cloture : null;
+  const deuxChiffres = (n: number) => String(n).padStart(2, "0");
+  const [date, setDate] = useState(
+    valide ? `${valide.getFullYear()}-${deuxChiffres(valide.getMonth() + 1)}-${deuxChiffres(valide.getDate())}` : initial.date
+  );
+  const [time, setTime] = useState(
+    valide ? `${deuxChiffres(valide.getHours())}:${deuxChiffres(valide.getMinutes())}` : initial.time
+  );
   // Held here so the Bilan questions can be written into it: the post-mortem
   // was already a checklist, and answering it in the journal beats ticking it
   // somewhere the answers are not kept.
@@ -397,11 +434,25 @@ export default function TradeForm({
           <div className="trade-form-grid">
             <div>
               {fieldLabel("Date")}
-              <input type="date" name="date" defaultValue={initial.date} style={monoInputStyle} />
+              <input
+                type="date"
+                name="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                suppressHydrationWarning
+                style={monoInputStyle}
+              />
             </div>
             <div>
               {fieldLabel("Time")}
-              <input type="time" name="time" defaultValue={initial.time} style={monoInputStyle} />
+              <input
+                type="time"
+                name="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                suppressHydrationWarning
+                style={monoInputStyle}
+              />
             </div>
             <div>
               {fieldLabel("Symbol")}
@@ -649,6 +700,39 @@ export default function TradeForm({
             </div>
 
             <div style={{ gridColumn: "span 2" }}>
+              {/* The one Bilan question whose answer is yes or no, asked as
+                  two chips rather than as a prompt to write prose under. A
+                  trade that made money against its plan is what a journal
+                  exists to surface, and prose cannot be counted. */}
+              {fieldLabel("Ai-je respecté mon plan ?")}
+              <input type="hidden" name="planFollowed" value={planFollowed ?? ""} />
+              <div style={{ display: "flex", gap: 10 }}>
+                {[
+                  ["oui", "Oui", accentColor],
+                  ["non", "Non", lossColor],
+                ].map(([valeur, texte, couleur]) => (
+                  <div
+                    key={valeur}
+                    onClick={() => setPlanFollowed((prev) => (prev === valeur ? null : valeur))}
+                    style={{
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      padding: "9px 22px",
+                      borderRadius: 8,
+                      textAlign: "center",
+                      border: `1px solid ${planFollowed === valeur ? couleur : "oklch(0.32 0.051 250 / 0.6)"}`,
+                      background: planFollowed === valeur ? couleur.replace(")", " / 0.14)") : "oklch(0.18 0.034 250)",
+                      color: planFollowed === valeur ? couleur : "oklch(0.7 0.02 250)",
+                    }}
+                  >
+                    {texte}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ gridColumn: "span 2" }}>
               {fieldLabel("Post trade analysis")}
               <textarea
                 ref={postRef}
@@ -684,16 +768,64 @@ export default function TradeForm({
               )}
             </div>
 
+            {/* The plan's own captures, above the ones taken afterwards: they
+                were there first, and they are what the rest is judged against.
+                Nothing is uploaded here — the files belong to the idea and the
+                trade points at them — so the only gesture is dropping one. */}
+            {planCharts.length > 0 && (
+              <div style={{ gridColumn: "span 2" }}>
+                {fieldLabel("Trading Plan screenshot")}
+                <input type="hidden" name="planCharts" value={JSON.stringify(planCharts)} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  {planCharts.map((url) => (
+                    <div key={url} style={{ position: "relative" }}>
+                      <div
+                        style={{
+                          width: "100%",
+                          aspectRatio: "16/10",
+                          borderRadius: 8,
+                          backgroundImage: `url(${url})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          border: "1px solid oklch(0.32 0.051 250 / 0.5)",
+                        }}
+                      />
+                      <div
+                        onClick={() => setPlanCharts((prev) => prev.filter((u) => u !== url))}
+                        title="Retirer cette capture du trade"
+                        style={{
+                          position: "absolute",
+                          top: 6,
+                          right: 6,
+                          width: 22,
+                          height: 22,
+                          borderRadius: "50%",
+                          background: "oklch(0.15 0.034 250 / 0.85)",
+                          color: "oklch(0.9 0 0)",
+                          fontSize: 13,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ×
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ gridColumn: "span 2" }}>
-              {fieldLabel("Chart screenshots")}
+              {fieldLabel("Post Trade screenshots")}
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-                {CHART_SLOTS.map((slot, i) => (
+                {CHART_SLOTS.map((slot) => (
                   <ChartSlotInput
                     key={slot.key}
                     slotKey={slot.key}
                     label={slot.label}
                     initialSrc={existingCharts[slot.key]}
-                    prefillUrl={existingCharts[slot.key] ? undefined : prefillCharts[i]}
                     tradeId={tradeId}
                   />
                 ))}

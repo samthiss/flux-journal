@@ -59,8 +59,15 @@ export default async function TradeDetail({ id }: { id: string }) {
       label: "Verdict",
       values: VERDICTS[trade.validity ?? ""] ? [VERDICTS[trade.validity ?? ""]] : [],
     },
+    {
+      label: "Ai-je respecté mon plan ?",
+      values: trade.planFollowed === null ? [] : [trade.planFollowed ? "Oui" : "Non"],
+    },
     { label: "Risk management", values: parseTagArray(trade.invalidReasons) },
   ].filter((row) => row.values.length > 0);
+
+  // Stored as a JSON array of URLs, and read the way every other list here is.
+  const planCharts = parseTagArray(trade.planCharts);
 
   const chartValues: Record<string, string | null> = {
     cluster: trade.chartCluster,
@@ -281,9 +288,21 @@ export default async function TradeDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      {/* The plan's captures first, then the trade's own: written before and
+          written after, and the point of keeping both is reading one against
+          the other. */}
+      {planCharts.length > 0 && (
+        <div style={glassCard}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+            Trading Plan screenshot
+          </div>
+          <TradeCharts charts={planCharts.map((url, i) => ({ key: url, label: `Plan ${i + 1}`, src: url }))} />
+        </div>
+      )}
+
       <div style={glassCard}>
         <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
-          Charts
+          Post Trade screenshots
         </div>
         <TradeCharts
           charts={CHART_SLOTS.map((slot) => ({ key: slot.key, label: slot.label, src: chartValues[slot.key] }))}

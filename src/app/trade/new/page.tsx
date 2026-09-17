@@ -38,8 +38,10 @@ async function ideePrealable(id: string | undefined) {
   const idea = await prisma.tradeIdea.findUnique({
     where: { id },
     select: {
+      zone: true,
       side: true,
       setup: true,
+      closedAt: true,
       reason: true,
       cancelIf: true,
       confirmations: true,
@@ -86,6 +88,10 @@ async function ideePrealable(id: string | undefined) {
     confirmationsReverse: idea.confirmationsReverse ?? "",
     // What would have called the trade off: the journal's own field for it.
     invalidReasons: JSON.stringify(lignes(idea.cancelIf)),
+    zone: idea.zone ?? "",
+    // The click that closed the position knew the hour; written up later, it
+    // would be a guess.
+    closedAt: idea.closedAt,
   };
 }
 
@@ -95,13 +101,21 @@ async function ideePrealable(id: string | undefined) {
  * They are the reader's own wording and they change there; a second copy in the
  * form would drift away from the list it came from.
  */
+/**
+ * "Ai-je respecté mon plan ?", which the form answers with two chips.
+ *
+ * Matched on the question rather than on its exact wording, which lives in the
+ * checklist and can be rewritten there.
+ */
+const EST_RESPECT_DU_PLAN = /respect\S*\s+(mon|le)\s+plan/i;
+
 async function questionsBilan() {
   const rows = await prisma.checklistItem.findMany({
     where: { group: "Bilan" },
     orderBy: { order: "asc" },
     select: { label: true },
   });
-  return rows.map((row) => row.label).filter(Boolean);
+  return rows.map((row) => row.label).filter((label) => label && !EST_RESPECT_DU_PLAN.test(label));
 }
 
 export default async function NewTradePage({
@@ -125,10 +139,12 @@ export default async function NewTradePage({
       subtitle="Log a new entry to your journal"
       vocabulary={vocabulary}
       riskPerLot={riskPerLot}
-      // The idea's charts, laid into the slots in order: which chart is which
-      // is not recorded on an idea, and a wrong label is easier to fix than a
-      // lost screenshot.
-      prefillCharts={prealable?.urls ?? []}
+      // The plan's captures, kept as their own section rather than laid into
+      // the trade's four slots: those are for the charts taken afterwards.
+      planCharts={prealable?.urls ?? []}
+      // The instant, not a formatted hour: this runs on the server, whose
+      // clock is UTC, and the journal is kept in the reader's own time.
+      closedAt={prealable?.closedAt?.toISOString()}
       bilanQuestions={bilan}
       initial={{
         date: today,
@@ -142,7 +158,7 @@ export default async function NewTradePage({
         risk: "",
         tpReached: "",
         tradeTypes: prealable?.tradeTypes ?? "",
-        zone: "",
+        zone: prealable?.zone ?? "",
         confirmations: prealable?.confirmations ?? "",
         confirmationsBox: prealable?.confirmationsBox ?? "",
         confirmationsReverse: prealable?.confirmationsReverse ?? "",
@@ -151,6 +167,7 @@ export default async function NewTradePage({
         emotion: "Calm",
         preTradeNotes: prealable?.notes ?? "",
         postTradeNotes: "",
+        planFollowed: "",
       }}
     />
   );

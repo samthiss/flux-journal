@@ -34,7 +34,13 @@ export async function deleteImageFileIfUnused(url: string | null | undefined) {
   if (usedByNote > 0) return;
 
   const usedByTrade = await prisma.trade.count({
-    where: { OR: CHART_SLOTS.map((slot) => ({ [slot.field]: url })) },
+    where: {
+      OR: [
+        ...CHART_SLOTS.map((slot) => ({ [slot.field]: url })),
+        // The plan's charts, which a trade points at rather than copies.
+        { planCharts: { contains: url } },
+      ],
+    },
   });
   if (usedByTrade > 0) return;
 

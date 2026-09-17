@@ -1,6 +1,7 @@
 import { getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { parseTagArray } from "@/lib/tags";
 import TradeForm, { type ExistingCharts } from "@/components/TradeForm";
 import { updateTrade } from "@/lib/actions/trades";
 
@@ -34,7 +35,7 @@ async function questionsBilan() {
     orderBy: { order: "asc" },
     select: { label: true },
   });
-  return rows.map((row) => row.label).filter(Boolean);
+  return rows.map((row) => row.label).filter((label) => label && !/respect\S*\s+(mon|le)\s+plan/i.test(label));
 }
 
 export default async function EditTradePage({ params }: { params: Promise<{ id: string }> }) {
@@ -63,6 +64,9 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
       vocabulary={vocabulary}
       riskPerLot={riskPerLot}
       bilanQuestions={bilan}
+      // Carried through the form, or editing a trade would drop the plan it
+      // was written from.
+      planCharts={parseTagArray(trade.planCharts)}
       title="Edit Trade"
       subtitle="Update this journal entry"
       existingCharts={existingCharts}
@@ -87,6 +91,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         emotion: trade.emotion ?? "Calm",
         preTradeNotes: trade.preTradeNotes ?? "",
         postTradeNotes: trade.postTradeNotes ?? "",
+        planFollowed: trade.planFollowed === null ? "" : trade.planFollowed ? "oui" : "non",
       }}
     />
   );
