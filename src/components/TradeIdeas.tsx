@@ -3,11 +3,11 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { accentColor, winColor, lossColor } from "@/lib/theme";
-import { tagTone, parseTagArray, kindPourSetup, SETUPS } from "@/lib/tags";
+import { tagTone, parseTagArray, motsPourSetup, setupDuMot, SETUPS } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
 import ImageLightbox from "@/components/ImageLightbox";
 import StatutTrade from "@/components/StatutTrade";
-import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot, supprimerMot, renommerMot, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
+import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot, supprimerMot, renommerMot, setTradeIdeaStatus, definirSetupDuMot } from "@/lib/actions/tradeIdeas";
 
 export type TradeIdeaRecord = {
   id: string;
@@ -303,6 +303,9 @@ function MotsLibres({
   valeurs,
   connus,
   kind,
+  setupsConnus = [],
+  setupDe,
+  onSetup,
   onChange,
 }: {
   titre: string;
@@ -310,6 +313,12 @@ function MotsLibres({
   connus: string[];
   /** Where a newly written word is kept, so it outlives this form. */
   kind?: string;
+  /** The setups a word can be given to. Empty where the question is moot. */
+  setupsConnus?: string[];
+  /** The setup a word was given, if any. */
+  setupDe?: (mot: string) => string | null;
+  /** Gives a word to one setup, or back to all of them. */
+  onSetup?: (mot: string, setup: string | null) => void;
   onChange: (valeurs: string[]) => void;
 }) {
   const [brouillon, setBrouillon] = useState("");
@@ -365,9 +374,21 @@ function MotsLibres({
           // word is that one spelling of it exists, so correcting it here
           // corrects it on the trades that carry it.
           if (renomme === mot) {
+            const actuel = setupDe?.(mot) ?? null;
             return (
-              <input
+              <span
                 key={mot}
+                style={{
+                  display: "inline-flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  padding: 8,
+                  borderRadius: 8,
+                  border: `1px solid ${accentColor.replace(")", " / 0.5)")}`,
+                  background: "oklch(0.18 0.03 250)",
+                }}
+              >
+              <input
                 autoFocus
                 value={nouveauNom}
                 onChange={(e) => setNouveauNom(e.target.value)}
@@ -382,9 +403,40 @@ function MotsLibres({
                   onChange(valeurs.map((v) => (v === mot ? suivant : v)));
                   void renommerMot(kind, mot, suivant);
                 }}
-                onBlur={() => setRenomme(null)}
                 style={{ ...mono, fontSize: 10, padding: "3px 9px", borderRadius: 999, border: `1px solid ${accentColor}`, background: "transparent", color: "oklch(0.88 0.02 250)", outline: "none", width: 160 }}
               />
+              {/* And which setup it belongs to. A word given to one is offered
+                  under that one alone; "Tous" takes it back. */}
+              {setupsConnus.length > 0 && onSetup && (
+                <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ ...mono, fontSize: 8.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.55 0.02 250)" }}>
+                    Setup
+                  </span>
+                  {[null, ...setupsConnus].map((choix) => (
+                    <span
+                      key={choix ?? "tous"}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        onSetup(mot, choix);
+                        setRenomme(null);
+                      }}
+                      style={{
+                        ...mono,
+                        fontSize: 9,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        cursor: "pointer",
+                        border: `1px ${choix === actuel ? "solid" : "dashed"} ${choix === actuel ? accentColor : "oklch(0.34 0.02 250)"}`,
+                        background: choix === actuel ? accentColor.replace(")", " / 0.14)") : "transparent",
+                        color: choix === actuel ? accentColor : "oklch(0.62 0.02 250)",
+                      }}
+                    >
+                      {choix ?? "Tous"}
+                    </span>
+                  ))}
+                </span>
+              )}
+              </span>
             );
           }
 
@@ -414,6 +466,19 @@ function MotsLibres({
             >
               {choisi ? "✓ " : ""}
               {mot}
+              {kind && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRenomme(mot);
+                    setNouveauNom(mot);
+                  }}
+                  title="Modifier : le nom, et le setup auquel il appartient"
+                  style={{ opacity: 0.55 }}
+                >
+                  ✎
+                </span>
+              )}
               {kind && (
                 <span
                   onClick={(e) => {
@@ -607,10 +672,7 @@ export default function TradeIdeas({
   }
 
   /** What the risk management list offers: this setup's conditions first. */
-  const propresAuSetup = vocabulary.parSetup[kindPourSetup("cancelIf", setupChoisi)] ?? [];
-  const conditionsOffertes = setupChoisi
-    ? [...propresAuSetup, ...vocabulary.cancelIfs.filter((m) => !propresAuSetup.includes(m))]
-    : vocabulary.cancelIfs;
+  const conditionsOffertes = motsPourSetup("cancelIf", setupChoisi, vocabulary.cancelIfs, vocabulary.parSetup);
 
   /** Something was said: the form is worth saving. */
   const filled =
@@ -763,17 +825,16 @@ export default function TradeIdeas({
           {/* CC first, then the box and the reverse chart under it: three
               lists rather than one, because they answer three questions. */}
           {CONFIRMATIONS.map(({ kind, titre }) => {
-            // This setup's words first, then the rest: a list that shrinks to
-            // one the moment a word is written under a setup hides everything
-            // still worth offering.
-            const propres = vocabulary.parSetup[kindPourSetup(kind, setupChoisi)] ?? [];
             return (
             <MotsLibres
               key={kind}
               titre={setupChoisi ? `${titre} · ${setupChoisi}` : titre}
               valeurs={confirmations[kind]}
-              connus={setupChoisi ? [...propres, ...vocabulary[kind].filter((m) => !propres.includes(m))] : vocabulary[kind]}
-              kind={kindPourSetup(kind, setupChoisi)}
+              connus={motsPourSetup(kind, setupChoisi, vocabulary[kind], vocabulary.parSetup)}
+              kind={kind}
+              setupsConnus={[...new Set([...(setup ? [setup] : []), ...SETUPS])]}
+              setupDe={(mot) => setupDuMot(kind, mot, vocabulary.parSetup)}
+              onSetup={(mot, choix) => void definirSetupDuMot(kind, mot, choix).then(onChanged)}
               onChange={(valeurs) => setConfirmations((prev) => ({ ...prev, [kind]: valeurs }))}
             />
             );
@@ -821,7 +882,7 @@ export default function TradeIdeas({
                           setConditionsEcrites((prev) => [...prev.filter((c) => c !== condition), suivant]);
                           setConditionsRetirees((prev) => [...prev, condition]);
                           setCancelIf((prev) => prev.map((c) => (c === condition ? suivant : c)));
-                          void renommerMot(kindPourSetup("cancelIf", setupChoisi), condition, suivant);
+                          void renommerMot("cancelIf", condition, suivant);
                         }}
                         onBlur={() => setConditionRenommee(null)}
                         style={{ ...mono, fontSize: 10, padding: "3px 9px", borderRadius: 999, border: `1px solid ${lossColor}`, background: "transparent", color: "oklch(0.88 0.02 250)", outline: "none", width: 190 }}
@@ -863,7 +924,7 @@ export default function TradeIdeas({
                           e.stopPropagation();
                           setConditionsRetirees((prev) => [...prev, condition]);
                           setCancelIf((prev) => prev.filter((c) => c !== condition));
-                          void supprimerMot(kindPourSetup("cancelIf", setupChoisi), condition);
+                          void supprimerMot("cancelIf", condition);
                         }}
                         title="Retirer de la liste"
                         style={{ opacity: 0.55 }}
@@ -883,7 +944,7 @@ export default function TradeIdeas({
                   setNouvelleCondition("");
                   if (!mot) return;
                   setConditionsEcrites((prev) => (prev.includes(mot) ? prev : [...prev, mot]));
-                  void ajouterMot(kindPourSetup("cancelIf", setupChoisi), mot);
+                  void ajouterMot("cancelIf", mot);
                   if (!cancelIf.includes(mot)) setCancelIf((prev) => [...prev.filter(Boolean), mot]);
                 }}
                 // Not an example condition: beside the real ones, a greyed

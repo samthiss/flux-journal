@@ -38,28 +38,27 @@ export async function setTradeIdeaStatus(id: string, status: "plan" | "position"
 }
 
 /**
- * Files the words an idea carries under the setup it was written for.
+ * Says which setup a word belongs to, or that it belongs to all of them.
  *
- * Typing a word remembers it as it is typed, but ticking one that already
- * exists remembered nothing — so a list written before the setups existed
- * stayed setup-less however often it was used, and the scoped list stayed
- * empty, which kept the whole vocabulary showing for ever. Saving is the
- * moment a word and a setup are known to go together, so that is where it is
- * recorded.
+ * A word used to be filed under whichever setup happened to be chosen when it
+ * was typed or ticked, which meant the lists sorted themselves — and got it
+ * wrong often enough that a word written once under a reverse was missing
+ * from every trend run afterwards. It is a decision now, made on the word
+ * itself: "Modifier", then the setup, or "Tous" to take it back.
+ *
+ * Stored in the kind — "confirmationsBox@Trend run" — so a word sits under
+ * exactly one heading and moving it is a delete and a create.
  */
-async function classerParSetup(setup: string | null, listes: Record<string, string[]>) {
-  if (!setup) return;
-  for (const [kind, mots] of Object.entries(listes)) {
-    for (const mot of mots) {
-      const value = mot.trim();
-      if (!value) continue;
-      await prisma.tagOption.upsert({
-        where: { kind_value: { kind: kindPourSetup(kind, setup), value } },
-        create: { kind: kindPourSetup(kind, setup), value },
-        update: {},
-      });
-    }
-  }
+export async function definirSetupDuMot(kind: string, value: string, setup: string | null) {
+  const base = kindDeBase(kind);
+  const mot = value.trim();
+  if (!mot) return;
+  await prisma.tagOption.deleteMany({
+    where: { value: mot, OR: [{ kind: base }, { kind: { startsWith: `${base}@` } }] },
+  });
+  await prisma.tagOption.create({ data: { kind: kindPourSetup(base, setup), value: mot } });
+  revalidatePath("/checklist");
+  revalidatePath("/notes");
 }
 
 export async function createTradeIdea(input: {
@@ -118,12 +117,6 @@ export async function createTradeIdea(input: {
       cancelIf: cancelIf.length ? JSON.stringify(cancelIf) : null,
     },
   });
-  await classerParSetup(input.setup, {
-    confirmations: input.confirmations,
-    confirmationsBox: input.confirmationsBox,
-    confirmationsReverse: input.confirmationsReverse,
-    cancelIf,
-  });
   revalidatePath("/checklist");
   return idea;
 }
@@ -163,12 +156,6 @@ export async function updateTradeIdea(
       reason: input.reason.trim(),
       cancelIf: cancelIf.length ? JSON.stringify(cancelIf) : null,
     },
-  });
-  await classerParSetup(input.setup, {
-    confirmations: input.confirmations,
-    confirmationsBox: input.confirmationsBox,
-    confirmationsReverse: input.confirmationsReverse,
-    cancelIf,
   });
   revalidatePath("/checklist");
 }
@@ -366,24 +353,16 @@ export async function getTradeVocabularies() {
       removed("confirmationsReverse")
     ),
     /**
-     * The same three lists, setup by setup: what a trend run is confirmed by
-     * is not what a reverse is confirmed by. Keyed "list@setup"; a key with
-     * nothing under it yet leaves the form falling back to the whole list,
-     * rather than opening on an empty row that reads as a fault.
+     * The words given to a setup, keyed "list@setup".
+     *
+     * Only what was assigned by hand: a word nobody filed belongs to every
+     * setup, and one filed under a setup belongs to that one alone.
      */
     parSetup: Object.fromEntries(
-      [
-        ...new Set([
-          ...ajoutes.map((mot) => mot.kind).filter((kind) => kind.includes("@")),
-          // Every list × every setup the examples are annotated with, so a
-          // word that only ever lived in the notes is offered here too.
-          ...examples
-            .filter((e) => e.setup)
-            .flatMap((e) =>
-              ["confirmations", "confirmationsBox", "confirmationsReverse", "cancelIf"].map((base) => `${base}@${e.setup}`)
-            ),
-        ]),
-      ].map((kind) => [kind, rank([...ecrits(kind), ...desNotes(kind)], [], removed(kind))])
+      [...new Set(ajoutes.map((mot) => mot.kind).filter((kind) => kind.includes("@")))].map((kind) => [
+        kind,
+        rank(ecrits(kind), [], removed(kind)),
+      ])
     ) as Record<string, string[]>,
     // The conditions that call a trade off, which repeat far more than they
     // vary: the same handful comes back, and re-typing them invites three

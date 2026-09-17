@@ -21,6 +21,9 @@ export default function ChipDropdown({
   onAdd,
   onRemoveOption,
   onRenameOption,
+  setupsConnus = [],
+  setupDe,
+  onSetup,
 }: {
   placeholder: string;
   options: string[];
@@ -42,6 +45,12 @@ export default function ChipDropdown({
   onRemoveOption?: (value: string) => boolean;
   /** Present when an option can be renamed wherever it is written. */
   onRenameOption?: (from: string, to: string) => void;
+  /** The setups a word can be given to, offered while it is being edited. */
+  setupsConnus?: string[];
+  /** The setup a word was given, if any. */
+  setupDe?: (value: string) => string | null;
+  /** Gives a word to one setup, or back to all of them. */
+  onSetup?: (value: string, setup: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -126,9 +135,10 @@ export default function ChipDropdown({
             const on = selected.includes(option);
             const optionTone = tagTone(option);
             const removable = onRemoveOption !== undefined;
+            const setupActuel = setupDe?.(option) ?? null;
             return (
+              <div key={option} style={{ display: "flex", flexDirection: "column" }}>
               <div
-                key={option}
                 onClick={() => {
                   onToggle(option);
                   if (!multiple) setOpen(false);
@@ -204,6 +214,39 @@ export default function ChipDropdown({
                     ✕
                   </span>
                 )}
+              </div>
+              {/* Which setup the word belongs to, asked while it is being
+                  edited: given to one, it is offered under that one alone. */}
+              {renaming === option && setupsConnus.length > 0 && onSetup && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", padding: "2px 8px 6px 26px" }}>
+                  <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 8.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.55 0.02 250)" }}>
+                    Setup
+                  </span>
+                  {[null, ...setupsConnus].map((choix) => (
+                    <span
+                      key={choix ?? "tous"}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onSetup(option, choix);
+                        setRenaming(null);
+                      }}
+                      style={{
+                        fontFamily: "var(--font-jetbrains-mono), monospace",
+                        fontSize: 9,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        cursor: "pointer",
+                        border: `1px ${choix === setupActuel ? "solid" : "dashed"} ${choix === setupActuel ? accentColor : "oklch(0.34 0.02 250)"}`,
+                        background: choix === setupActuel ? "oklch(0.84 0.17 196 / 0.14)" : "transparent",
+                        color: choix === setupActuel ? accentColor : "oklch(0.62 0.02 250)",
+                      }}
+                    >
+                      {choix ?? "Tous"}
+                    </span>
+                  ))}
+                </div>
+              )}
               </div>
             );
           })}

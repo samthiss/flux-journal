@@ -6,7 +6,7 @@ import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import { removeChartSlot } from "@/lib/actions/trades";
 import ChipDropdown from "@/components/ChipDropdown";
-import { parseTagArray } from "@/lib/tags";
+import { motsPourSetup, parseTagArray } from "@/lib/tags";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 
 const SYMBOL_OPTIONS = ["6E", "6B", "6J", "ZS", "ZM"] as const;
@@ -352,15 +352,11 @@ export default function TradeForm({
   const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
 
   /**
-   * This setup's words first, then the rest of the list.
-   *
-   * They used to be the whole list, which meant that writing one word under a
-   * setup hid every other suggestion from then on.
+   * What this setup offers in one list: the words given to it, then the ones
+   * given to no setup at all.
    */
-  const motsDuSetup = (liste: string, complet: string[]) => {
-    const propres = vocabulary.parSetup[`${liste}@${setup}`] ?? [];
-    return [...propres, ...complet.filter((m) => !propres.includes(m))];
-  };
+  const motsDuSetup = (liste: string, complet: string[]) =>
+    motsPourSetup(liste, setup, complet, vocabulary.parSetup);
 
   // P&L, size and risk are held here rather than left uncontrolled, because the
   // R:R is computed from them as they are typed.

@@ -52,6 +52,39 @@ export function kindPourSetup(kind: string, setup: string | null | undefined) {
   return setup ? `${kind}@${setup}` : kind;
 }
 
+/**
+ * The words a list offers under one setup.
+ *
+ * A word given to a setup is offered under that setup alone; a word nobody
+ * has filed is offered everywhere. Assigned first, then the rest — so the
+ * ones that belong here are at hand without the others being out of reach.
+ *
+ * `parSetup` is keyed "list@setup", as the vocabularies are stored.
+ */
+export function motsPourSetup(
+  base: string,
+  setup: string | null | undefined,
+  tous: string[],
+  parSetup: Record<string, string[]>
+) {
+  if (!setup) return tous;
+  const affectes = new Set(
+    Object.entries(parSetup)
+      .filter(([cle]) => kindDeBase(cle) === base)
+      .flatMap(([, mots]) => mots)
+  );
+  const propres = parSetup[`${base}@${setup}`] ?? [];
+  return [...propres, ...tous.filter((mot) => !affectes.has(mot))];
+}
+
+/** The setup a word was given, if it was given one. */
+export function setupDuMot(base: string, mot: string, parSetup: Record<string, string[]>) {
+  const cle = Object.keys(parSetup).find(
+    (k) => kindDeBase(k) === base && k.includes("@") && parSetup[k].includes(mot)
+  );
+  return cle ? cle.slice(kindDeBase(cle).length + 1) : null;
+}
+
 /** The list a kind names, with any setup stripped off. */
 export function kindDeBase(kind: string) {
   return kind.split("@")[0];

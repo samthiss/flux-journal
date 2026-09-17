@@ -6,8 +6,9 @@ import { compressImage, MAX_SOURCE_BYTES } from "@/lib/compressImage";
 import Link from "next/link";
 import Image from "next/image";
 import { accentColor } from "@/lib/theme";
-import { SETUPS, TRADE_TYPES, ZONES, tagTone } from "@/lib/tags";
+import { SETUPS, TRADE_TYPES, ZONES, motsPourSetup, setupDuMot, tagTone } from "@/lib/tags";
 import ChipDropdown from "@/components/ChipDropdown";
+import { definirSetupDuMot } from "@/lib/actions/tradeIdeas";
 import ImageLightbox from "@/components/ImageLightbox";
 import MoveExampleMenu, { MoveTargetMenu } from "@/components/MoveExampleMenu";
 import MoveCategoryMenu from "@/components/MoveCategoryMenu";
@@ -142,6 +143,8 @@ type TagVocabulary = {
    * other vocabulary — the whole list is offered.
    */
   values: (kind: TagKind, setup?: string | null) => string[];
+  /** The setup a word was given, if it was given one. */
+  setupDe: (kind: TagKind, value: string) => string | null;
   // Keeps a value that was just typed in the list without waiting for the page
   // data to come back, so it can be reused on the next example straight away.
   remember: (kind: TagKind, value: string) => void;
@@ -187,7 +190,7 @@ const KIND_TO_CHECKLIST: Record<TagKind, string | null> = {
   setup: null,
 };
 
-const TagVocabularyContext = createContext<TagVocabulary>({ values: () => [], remember: () => {} });
+const TagVocabularyContext = createContext<TagVocabulary>({ values: () => [], setupDe: () => null, remember: () => {} });
 
 /**
  * Saves a block's content, and tells the list that holds it.
@@ -884,24 +887,13 @@ export default function NotesClient({
     // The confirmations, kept setup by setup and list by list. A word counts
     // for a setup once an example carrying that setup was annotated with it,
     // which is what ties a word to a setup — nothing says so separately.
-    const champ: Record<(typeof SCOPED_KINDS)[number], (e: ExampleRecord) => string | null> = {
-      confirmation: (e) => e.confirmations,
-      confirmationBox: (e) => e.confirmationsBox,
-      confirmationReverse: (e) => e.confirmationsReverse,
-      invalidReason: (e) => e.invalidReasons,
-    };
-    const parSetup = new Map<string, string[]>();
-    const setups = new Set([
-      ...examples.map((e) => e.setup).filter((v): v is string => !!v),
-      ...tagOptions.filter((mot) => mot.kind.includes("@")).map((mot) => mot.kind.split("@")[1]),
-    ]);
-    for (const setup of setups) {
-      for (const kind of SCOPED_KINDS) {
-        parSetup.set(`${kind}|${setup}`, [
-          ...count((e) => (e.setup === setup ? champ[kind](e) : null), []),
-          ...duPreTrade(kind, setup),
-        ]);
-      }
+    // What was given to a setup, as the pre-trade form records it: "list@setup"
+    // in the stored kind. Nothing is inferred from the examples — a word
+    // belongs to a setup because someone said so, under "Modifier".
+    const parSetup: Record<string, string[]> = {};
+    for (const mot of tagOptions) {
+      if (!mot.kind.includes("@")) continue;
+      (parSetup[mot.kind] ??= []).push(mot.value);
     }
 
     return {
@@ -910,14 +902,12 @@ export default function NotesClient({
       values: (kind, setup) => {
         const all = [...new Set([...ranked[kind], ...duPreTrade(kind)])].filter((v) => !hidden.get(kind)?.has(v));
         if (!setup || !(SCOPED_KINDS as readonly string[]).includes(kind)) return all;
-        // The setup's own words first, then the rest of the vocabulary. They
-        // used to be the whole list, which meant the first word written under
-        // a setup hid every other suggestion — the list was at its shortest
-        // exactly when there was most left to write. Ordering says which words
-        // belong to this setup without putting the others out of reach.
-        const scoped = [...new Set(parSetup.get(`${kind}|${setup}`) ?? [])].filter((v) => !hidden.get(kind)?.has(v));
-        return [...scoped, ...all.filter((v) => !scoped.includes(v))];
+        // Given to this setup first, then the words given to none. One given
+        // to another setup is not offered here at all — that is what giving it
+        // away means.
+        return motsPourSetup(KIND_TO_CHECKLIST[kind] ?? kind, setup, all, parSetup);
       },
+      setupDe: (kind, value) => setupDuMot(KIND_TO_CHECKLIST[kind] ?? kind, value, parSetup),
       remember: (kind, value) =>
         setFreshTags((prev) => (prev[kind].includes(value) ? prev : { ...prev, [kind]: [...prev[kind], value] })),
     };
@@ -3601,6 +3591,11 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
                 selected={valeurs}
                 multiple
                 visible={headerHover}
+                setupsConnus={[...SETUPS]}
+                setupDe={(value) => vocabulary.setupDe(kind, value)}
+                onSetup={(value, choix) => {
+                  void definirSetupDuMot(KIND_TO_CHECKLIST[kind] ?? kind, value, choix).then(onChanged);
+                }}
                 onToggle={(value) =>
                   poser(valeurs.includes(value) ? valeurs.filter((v) => v !== value) : [...valeurs, value])
                 }
@@ -3698,6 +3693,11 @@ function ExampleCard({ example, images, blocks, onChanged }: { example: ExampleR
               selected={invalidReasons}
               multiple
               visible={headerHover}
+              setupsConnus={[...SETUPS]}
+              setupDe={(value) => vocabulary.setupDe("invalidReason", value)}
+              onSetup={(value, choix) => {
+                void definirSetupDuMot("cancelIf", value, choix).then(onChanged);
+              }}
               onToggle={(value) => {
                 const next = invalidReasons.includes(value)
                   ? invalidReasons.filter((v) => v !== value)
