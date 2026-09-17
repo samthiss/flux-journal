@@ -6,7 +6,7 @@ import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } fro
 import { PageTitle } from "@/components/NeonText";
 import PeriodFilter from "@/components/PeriodFilter";
 import { filterByPeriod, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
-import { parseTagArray } from "@/lib/tags";
+import { parseTagArray, tagTone } from "@/lib/tags";
 
 const selectStyle: React.CSSProperties = {
   background: "oklch(0.18 0.034 250)",
@@ -20,7 +20,7 @@ const selectStyle: React.CSSProperties = {
 
 const OPEN_NEW_TAB_KEY = "trades-open-new-tab";
 
-export default function TradesClient({ trades, initialPeriod }: { trades: Trade[]; initialPeriod: string }) {
+export default function TradesClient({ trades, initialPeriod, tags = {} }: { tags?: Record<string, string[]>; trades: Trade[]; initialPeriod: string }) {
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
@@ -223,11 +223,11 @@ export default function TradesClient({ trades, initialPeriod }: { trades: Trade[
       </div>
 
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>
-        <div style={{ minWidth: 740 }}>
+        <div style={{ minWidth: 900 }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "100px 90px 70px 120px 70px 110px 90px 90px",
+            gridTemplateColumns: "100px 90px 70px 120px 70px 110px 90px 90px 1fr",
             padding: "14px 20px",
             fontSize: 11,
             textTransform: "uppercase",
@@ -244,6 +244,7 @@ export default function TradesClient({ trades, initialPeriod }: { trades: Trade[
           <div>P&amp;L</div>
           <div>R:R</div>
           <div>Outcome</div>
+          <div>Tags</div>
         </div>
         {filteredTrades.map((t, i) => {
           const outcome = t.pnl > 0 ? "win" : "loss";
@@ -261,7 +262,7 @@ export default function TradesClient({ trades, initialPeriod }: { trades: Trade[
                 // on 88 trades the last one would wait two seconds.
                 animationDelay: `${Math.min(i, 15) * 28}ms`,
                 display: "grid",
-                gridTemplateColumns: "100px 90px 70px 120px 70px 110px 90px 90px",
+                gridTemplateColumns: "100px 90px 70px 120px 70px 110px 90px 90px 1fr",
                 padding: "15px 20px",
                 fontSize: 13,
                 alignItems: "center",
@@ -304,6 +305,39 @@ export default function TradesClient({ trades, initialPeriod }: { trades: Trade[
                 >
                   {outcome === "win" ? "Win" : "Loss"}
                 </span>
+              </div>
+              {/* What the trade was annotated with, beside its outcome: the
+                  row already says how it went, and this says what it was —
+                  which is the pair worth scanning a list of trades for. */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, minWidth: 0 }}>
+                {(tags[t.id] ?? []).slice(0, 4).map((mot) => {
+                  const tone = tagTone(mot);
+                  return (
+                    <span
+                      key={mot}
+                      style={{
+                        fontFamily: "var(--font-jetbrains-mono), monospace",
+                        fontSize: 10,
+                        padding: "2px 7px",
+                        borderRadius: 999,
+                        border: `1px solid ${tone.line}`,
+                        background: tone.bg,
+                        color: tone.fg,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: 150,
+                      }}
+                    >
+                      {mot}
+                    </span>
+                  );
+                })}
+                {(tags[t.id] ?? []).length > 4 && (
+                  <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 250)" }}>
+                    +{(tags[t.id] ?? []).length - 4}
+                  </span>
+                )}
               </div>
             </Link>
           );
