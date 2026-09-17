@@ -26,26 +26,26 @@ export default async function TradesPage() {
   const initialPeriod = isValidPeriod(stored) ? stored : "week";
 
   /**
-   * What each trade is annotated with, said rather than shown.
+   * What each trade is annotated with, a column per vocabulary.
    *
-   * A pile of chips made "Range" and "Nervous" look like the same kind of
-   * thing. Each line names what it is — Emotion, Type, Zone, and one line per
-   * confirmation list — and a line with nothing on it is left out.
+   * Keyed by the column names the table declares, so a trade with nothing in
+   * one of them leaves that cell empty rather than shifting the next word
+   * under the wrong heading — which is what a single pile of chips did.
    */
   const details = Object.fromEntries(
-    trades.map((t) => {
-      const lignes: [string, string][] = [
-        ["Emotion", t.emotion ?? ""],
-        ["Type", parseTagArray(t.tradeTypes).join(", ")],
-        ["Zone", t.zone ?? ""],
-        ["Confirmation CC", parseTagArray(t.confirmations).join(", ")],
-        ["Confirmation Box cluster", parseTagArray(t.confirmationsBox).join(", ")],
-        ["Confirmation Reverse chart", parseTagArray(t.confirmationsReverse).join(", ")],
-        ["Risk management", parseTagArray(t.invalidReasons).join(", ")],
-        ["Plan respecté", t.planFollowed === null ? "" : t.planFollowed ? "Oui" : "Non"],
-      ];
-      return [t.id, lignes.filter(([, valeur]) => valeur)];
-    })
+    trades.map((t) => [
+      t.id,
+      {
+        emotion: t.emotion ?? "",
+        type: parseTagArray(t.tradeTypes).join(", "),
+        zone: t.zone ?? "",
+        cc: parseTagArray(t.confirmations).join(", "),
+        box: parseTagArray(t.confirmationsBox).join(", "),
+        reverse: parseTagArray(t.confirmationsReverse).join(", "),
+        risk: parseTagArray(t.invalidReasons).join(", "),
+        plan: t.planFollowed === null ? "" : t.planFollowed ? "Oui" : "Non",
+      },
+    ])
   );
 
   return <TradesClient trades={trades} initialPeriod={initialPeriod} details={details} />;

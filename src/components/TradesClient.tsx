@@ -8,6 +8,27 @@ import PeriodFilter from "@/components/PeriodFilter";
 import { filterByPeriod, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
 import { parseTagArray, tagTone } from "@/lib/tags";
 
+/**
+ * The annotation columns, after the figures.
+ *
+ * One vocabulary per column, as Size, P&L and R:R are one number per column:
+ * a word means something different under each of these headings, and a single
+ * column of everything hid which was which.
+ */
+const COLONNES: { cle: string; titre: string; largeur: string }[] = [
+  { cle: "emotion", titre: "Emotion", largeur: "90px" },
+  { cle: "type", titre: "Type", largeur: "110px" },
+  { cle: "zone", titre: "Zone", largeur: "140px" },
+  { cle: "cc", titre: "Conf. CC", largeur: "150px" },
+  { cle: "box", titre: "Conf. Box cluster", largeur: "150px" },
+  { cle: "reverse", titre: "Conf. Reverse chart", largeur: "150px" },
+  { cle: "risk", titre: "Risk management", largeur: "150px" },
+  { cle: "plan", titre: "Plan", largeur: "60px" },
+];
+
+/** The figures, then one column per vocabulary. */
+const GRILLE = `100px 90px 70px 120px 70px 110px 90px 90px ${COLONNES.map((c) => c.largeur).join(" ")}`;
+
 const selectStyle: React.CSSProperties = {
   background: "oklch(0.18 0.034 250)",
   border: "1px solid oklch(0.32 0.051 250 / 0.6)",
@@ -20,7 +41,7 @@ const selectStyle: React.CSSProperties = {
 
 const OPEN_NEW_TAB_KEY = "trades-open-new-tab";
 
-export default function TradesClient({ trades, initialPeriod, details = {} }: { details?: Record<string, [string, string][]>; trades: Trade[]; initialPeriod: string }) {
+export default function TradesClient({ trades, initialPeriod, details = {} }: { details?: Record<string, Record<string, string>>; trades: Trade[]; initialPeriod: string }) {
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
@@ -223,11 +244,11 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
       </div>
 
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>
-        <div style={{ minWidth: 900 }}>
+        <div style={{ minWidth: 1740 }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "100px 90px 70px 120px 70px 110px 90px 90px 1fr",
+            gridTemplateColumns: GRILLE,
             padding: "14px 20px",
             fontSize: 11,
             textTransform: "uppercase",
@@ -244,7 +265,11 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
           <div>P&amp;L</div>
           <div>R:R</div>
           <div>Outcome</div>
-          <div />
+          {COLONNES.map((c) => (
+            <div key={c.cle} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {c.titre}
+            </div>
+          ))}
         </div>
         {filteredTrades.map((t, i) => {
           const outcome = t.pnl > 0 ? "win" : "loss";
@@ -262,7 +287,7 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
                 // on 88 trades the last one would wait two seconds.
                 animationDelay: `${Math.min(i, 15) * 28}ms`,
                 display: "grid",
-                gridTemplateColumns: "100px 90px 70px 120px 70px 110px 90px 90px 1fr",
+                gridTemplateColumns: GRILLE,
                 padding: "15px 20px",
                 fontSize: 13,
                 alignItems: "center",
@@ -306,26 +331,27 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
                   {outcome === "win" ? "Win" : "Loss"}
                 </span>
               </div>
-              {/* What the trade was, beside how it went. Named line by line
-                  rather than piled up as chips: "Range" and "Nervous" are not
-                  the same kind of thing, and a pile made them look alike. */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-                {(details[t.id] ?? []).map(([intitule, valeur]) => (
+              {/* One cell per vocabulary, so a word always sits under the
+                  heading that says what it is — as the figures do. */}
+              {COLONNES.map((c) => {
+                const valeur = details[t.id]?.[c.cle] ?? "";
+                return (
                   <div
-                    key={intitule}
+                    key={c.cle}
+                    title={valeur || undefined}
                     style={{
-                      fontSize: 11,
-                      lineHeight: 1.45,
+                      fontSize: 11.5,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
+                      paddingRight: 10,
+                      color: valeur ? tagTone(valeur).fg : "oklch(0.4 0.02 250)",
                     }}
                   >
-                    <span style={{ color: "oklch(0.52 0.02 250)" }}>{intitule}: </span>
-                    <span style={{ color: tagTone(valeur).fg }}>{valeur}</span>
+                    {valeur || "—"}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </Link>
           );
         })}
