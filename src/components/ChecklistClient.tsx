@@ -217,6 +217,16 @@ export default function ChecklistClient({
   const [blocTitre, setBlocTitre] = useState("");
   const [blocReponses, setBlocReponses] = useState("");
   const [newGroupItem, setNewGroupItem] = useState("");
+  /**
+   * The section whose delete button is waiting to be pressed a second time.
+   *
+   * It asked through `window.confirm`, which a browser stops honouring once
+   * the reader has ticked "prevent this page from creating more dialogs" —
+   * after that it answers no to everything, silently, and nothing can be
+   * deleted for the rest of the visit with no sign of why. Asking in the
+   * button itself cannot be turned off.
+   */
+  const [aConfirmer, setAConfirmer] = useState<string | null>(null);
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [answerMap, setAnswerMap] = useState<Record<string, string>>({});
   const [ideas, setIdeas] = useState<TradeIdeaRecord[]>([]);
@@ -363,8 +373,11 @@ export default function ChecklistClient({
     // asks first and takes them with it.
     setNouvellesSections((prev) => prev.filter((s) => s !== group));
     if (ids.length === 0) return;
-    const question = `Supprimer « ${group} » et ses ${ids.length} ligne${ids.length > 1 ? "s" : ""} ?`;
-    if (!window.confirm(question)) return;
+    if (aConfirmer !== group) {
+      setAConfirmer(group);
+      return;
+    }
+    setAConfirmer(null);
     startTransition(async () => {
       await deleteChecklistItems(ids);
     });
@@ -513,8 +526,12 @@ export default function ChecklistClient({
   /** Drops a heading, asking first: it takes its lines with it, as a group does. */
   function removeCategorie(categorie: string, ids: string[]) {
     if (ids.length === 0) return;
-    const question = `Supprimer « ${categorie} » et ses ${ids.length} ligne${ids.length > 1 ? "s" : ""} ?`;
-    if (!window.confirm(question)) return;
+    const cle = `titre::${categorie}`;
+    if (aConfirmer !== cle) {
+      setAConfirmer(cle);
+      return;
+    }
+    setAConfirmer(null);
     startTransition(async () => {
       await deleteChecklistItems(ids);
     });
@@ -705,6 +722,7 @@ export default function ChecklistClient({
                   />
                   <button
                     onClick={() => removeGroup(g.title, g.items.map((i) => i.id))}
+                    onBlur={() => setAConfirmer((prev) => (prev === g.title ? null : prev))}
                     aria-label="Supprimer le groupe"
                     title="Supprimer ce groupe et tout ce qu'il contient"
                     style={{
@@ -712,13 +730,15 @@ export default function ChecklistClient({
                       fontSize: 12,
                       padding: "5px 10px",
                       borderRadius: 6,
-                      border: "1px solid oklch(0.4 0.034 250)",
-                      background: "transparent",
-                      color: "oklch(0.65 0.034 250)",
+                      border: `1px solid ${aConfirmer === g.title ? lossColor : "oklch(0.4 0.034 250)"}`,
+                      background: aConfirmer === g.title ? lossColor.replace(")", " / 0.12)") : "transparent",
+                      color: aConfirmer === g.title ? lossColor : "oklch(0.65 0.034 250)",
                       cursor: "pointer",
                     }}
                   >
-                    Supprimer le groupe
+                    {aConfirmer === g.title
+                      ? `Confirmer : ${g.items.length} ligne${g.items.length > 1 ? "s" : ""}`
+                      : "Supprimer le groupe"}
                   </button>
                 </div>
               ) : (
@@ -763,19 +783,20 @@ export default function ChecklistClient({
                             g.items.filter((i) => (i.category ?? "") === categorie).map((i) => i.id)
                           )
                         }
+                        onBlur={() => setAConfirmer((prev) => (prev === `titre::${categorie}` ? null : prev))}
                         title="Supprimer ce titre et ses lignes"
                         style={{
                           flexShrink: 0,
                           fontSize: 12,
                           padding: "2px 9px",
                           borderRadius: 6,
-                          border: "1px solid oklch(0.4 0.034 250)",
-                          background: "transparent",
-                          color: "oklch(0.65 0.034 250)",
+                          border: `1px solid ${aConfirmer === `titre::${categorie}` ? lossColor : "oklch(0.4 0.034 250)"}`,
+                          background: aConfirmer === `titre::${categorie}` ? lossColor.replace(")", " / 0.12)") : "transparent",
+                          color: aConfirmer === `titre::${categorie}` ? lossColor : "oklch(0.65 0.034 250)",
                           cursor: "pointer",
                         }}
                       >
-                        ✕
+                        {aConfirmer === `titre::${categorie}` ? "Confirmer ✕" : "✕"}
                       </button>
                       </div>
                     ) : (
