@@ -63,6 +63,19 @@ export type TradeVocabularies = {
  * CC list keeps the `confirmations` field it has always had, so what was
  * written before is still where it was written.
  */
+/**
+ * What is checked before an entry, every time.
+ *
+ * Three questions rather than a vocabulary: they are asked of every trade in
+ * the same words, and the free list they replace produced three spellings of
+ * each of them — which no filter could gather back together.
+ */
+const RISK_MANAGEMENT = [
+  "Confirmation Cluster chart",
+  "Pas de barrières ? (VWAP / High low / cluster)",
+  "Déviation flat ?",
+];
+
 const CONFIRMATIONS = [
   { kind: "confirmations", titre: "Confirmation CC" },
   { kind: "confirmationsBox", titre: "Confirmation Box cluster" },
@@ -575,12 +588,6 @@ export default function TradeIdeas({
   // One empty line to start: the box is a list, and a list with no line in it
   // has nothing to type into.
   const [cancelIf, setCancelIf] = useState<string[]>([]);
-  const [nouvelleCondition, setNouvelleCondition] = useState("");
-  /** Conditions written in this form, kept on screen even once unticked. */
-  const [conditionsEcrites, setConditionsEcrites] = useState<string[]>([]);
-  const [conditionsRetirees, setConditionsRetirees] = useState<string[]>([]);
-  const [conditionRenommee, setConditionRenommee] = useState<string | null>(null);
-  const [nouveauNomCondition, setNouveauNomCondition] = useState("");
   const [saving, setSaving] = useState(false);
   // Charts picked while writing, held until the idea they belong to exists.
   const [pending, setPending] = useState<{ file: File; preview: string }[]>([]);
@@ -670,9 +677,6 @@ export default function TradeIdeas({
     setEditingId(idea.id);
     setOpen(false);
   }
-
-  /** What the risk management list offers: this setup's conditions first. */
-  const conditionsOffertes = motsPourSetup("cancelIf", setupChoisi, vocabulary.cancelIfs, vocabulary.parSetup);
 
   /** Something was said: the form is worth saving. */
   const filled =
@@ -840,7 +844,10 @@ export default function TradeIdeas({
             );
           })}
 
-          {/* What would call the trade off, kept apart from the case for it. */}
+          {/* What is checked before the entry, kept apart from the case for
+              it. A list of ticks rather than a vocabulary: these three are
+              asked of every trade, in the same words, and a free list only
+              ever produced three spellings of one question. */}
           <div
             style={{
               marginTop: 10,
@@ -851,121 +858,53 @@ export default function TradeIdeas({
             }}
           >
             <div style={{ ...mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 8 }}>
-              {setupChoisi ? `Risk management · ${setupChoisi}` : "Risk management"}
+              Risk management
             </div>
-            {/* Ticked, not retyped. The same few conditions come back — the
-                zone breaks, no cluster forms — and typing them again each time
-                produced three wordings of one rule, which no filter can gather
-                back together. */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-              {/* Everything written before, ticked or not: a condition that
-                  only lived on the idea that used it had to be retyped for the
-                  next trade, and retyped is respelt. */}
-              {[...new Set([...cancelIf.filter(Boolean), ...conditionsEcrites, ...conditionsOffertes])]
-                .filter((condition) => !conditionsRetirees.includes(condition))
-                .map((condition) => {
-                  const coche = cancelIf.includes(condition);
-
-                  if (conditionRenommee === condition) {
-                    return (
-                      <input
-                        key={condition}
-                        autoFocus
-                        value={nouveauNomCondition}
-                        onChange={(e) => setNouveauNomCondition(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") setConditionRenommee(null);
-                          if (e.key !== "Enter") return;
-                          const suivant = nouveauNomCondition.trim();
-                          setConditionRenommee(null);
-                          if (!suivant || suivant === condition) return;
-                          setConditionsEcrites((prev) => [...prev.filter((c) => c !== condition), suivant]);
-                          setConditionsRetirees((prev) => [...prev, condition]);
-                          setCancelIf((prev) => prev.map((c) => (c === condition ? suivant : c)));
-                          void renommerMot("cancelIf", condition, suivant);
-                        }}
-                        onBlur={() => setConditionRenommee(null)}
-                        style={{ ...mono, fontSize: 10, padding: "3px 9px", borderRadius: 999, border: `1px solid ${lossColor}`, background: "transparent", color: "oklch(0.88 0.02 250)", outline: "none", width: 190 }}
-                      />
-                    );
-                  }
-
-                  return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {/* The three checks, plus anything an older idea carries: what
+                  was written before the list was fixed is still shown, ticked,
+                  so nothing goes missing from a plan already made. */}
+              {[...RISK_MANAGEMENT, ...cancelIf.filter((l) => l.trim() && !RISK_MANAGEMENT.includes(l))].map((ligne) => {
+                const coche = cancelIf.includes(ligne);
+                return (
+                  <span
+                    key={ligne}
+                    onClick={() =>
+                      setCancelIf((prev) => (coche ? prev.filter((l) => l !== ligne) : [...prev.filter(Boolean), ligne]))
+                    }
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: "pointer",
+                      fontSize: 12.5,
+                      color: coche ? "oklch(0.88 0.02 250)" : "oklch(0.62 0.02 250)",
+                    }}
+                  >
                     <span
-                      key={condition}
-                      onClick={() =>
-                        setCancelIf((prev) =>
-                          prev.includes(condition) ? prev.filter((c) => c !== condition) : [...prev.filter(Boolean), condition],
-                        )
-                      }
-                      onDoubleClick={() => {
-                        setConditionRenommee(condition);
-                        setNouveauNomCondition(condition);
-                      }}
-                      title="Double-clic pour renommer"
                       style={{
-                        ...mono,
+                        width: 15,
+                        height: 15,
+                        flex: "none",
+                        borderRadius: 4,
                         display: "inline-flex",
                         alignItems: "center",
-                        gap: 6,
+                        justifyContent: "center",
                         fontSize: 10,
-                        padding: "3px 9px",
-                        borderRadius: 999,
-                        cursor: "pointer",
-                        border: `1px ${coche ? "solid" : "dashed"} ${coche ? lossColor : "oklch(0.34 0.02 250)"}`,
-                        background: coche ? lossColor.replace(")", " / 0.14)") : "transparent",
-                        color: coche ? lossColor : "oklch(0.6 0.02 250)",
+                        border: `1.5px solid ${coche ? lossColor : "oklch(0.42 0.034 250)"}`,
+                        background: coche ? lossColor : "transparent",
+                        color: "oklch(0.14 0.02 250)",
                       }}
                     >
-                      {coche ? "✓ " : ""}
-                      {condition}
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConditionsRetirees((prev) => [...prev, condition]);
-                          setCancelIf((prev) => prev.filter((c) => c !== condition));
-                          void supprimerMot("cancelIf", condition);
-                        }}
-                        title="Retirer de la liste"
-                        style={{ opacity: 0.55 }}
-                      >
-                        ✕
-                      </span>
+                      {coche ? "✓" : ""}
                     </span>
-                  );
-                })}
-              <input
-                value={nouvelleCondition}
-                onChange={(e) => setNouvelleCondition(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  const mot = nouvelleCondition.trim();
-                  setNouvelleCondition("");
-                  if (!mot) return;
-                  setConditionsEcrites((prev) => (prev.includes(mot) ? prev : [...prev, mot]));
-                  void ajouterMot("cancelIf", mot);
-                  if (!cancelIf.includes(mot)) setCancelIf((prev) => [...prev.filter(Boolean), mot]);
-                }}
-                // Not an example condition: beside the real ones, a greyed
-                // "le marché casse la zone" read as a fourth chip nobody had
-                // written.
-                placeholder="ajouter une condition…"
-                style={{
-                  ...mono,
-                  fontSize: 10,
-                  padding: "3px 9px",
-                  borderRadius: 999,
-                  border: "1px dashed oklch(0.34 0.02 250)",
-                  background: "transparent",
-                  color: "oklch(0.8 0.02 250)",
-                  outline: "none",
-                  width: 170,
-                }}
-              />
+                    {ligne}
+                  </span>
+                );
+              })}
             </div>
           </div>
-  
+
           {/* Charts chosen now, uploaded once the idea they belong to exists. */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 10 }}>
             {pending.map((p) => (
