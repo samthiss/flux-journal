@@ -606,12 +606,11 @@ export default function TradeIdeas({
     setOpen(false);
   }
 
-  /**
-   * What the risk management list offers: this setup's conditions, or every
-   * one written while it has none of its own.
-   */
+  /** What the risk management list offers: this setup's conditions first. */
   const propresAuSetup = vocabulary.parSetup[kindPourSetup("cancelIf", setupChoisi)] ?? [];
-  const conditionsOffertes = setupChoisi && propresAuSetup.length ? propresAuSetup : vocabulary.cancelIfs;
+  const conditionsOffertes = setupChoisi
+    ? [...propresAuSetup, ...vocabulary.cancelIfs.filter((m) => !propresAuSetup.includes(m))]
+    : vocabulary.cancelIfs;
 
   /** Something was said: the form is worth saving. */
   const filled =
@@ -764,15 +763,16 @@ export default function TradeIdeas({
           {/* CC first, then the box and the reverse chart under it: three
               lists rather than one, because they answer three questions. */}
           {CONFIRMATIONS.map(({ kind, titre }) => {
-            // The words this setup has used, or all of them while it has used
-            // none: an empty row on the first trade reads as a fault.
+            // This setup's words first, then the rest: a list that shrinks to
+            // one the moment a word is written under a setup hides everything
+            // still worth offering.
             const propres = vocabulary.parSetup[kindPourSetup(kind, setupChoisi)] ?? [];
             return (
             <MotsLibres
               key={kind}
               titre={setupChoisi ? `${titre} · ${setupChoisi}` : titre}
               valeurs={confirmations[kind]}
-              connus={setupChoisi && propres.length ? propres : vocabulary[kind]}
+              connus={setupChoisi ? [...propres, ...vocabulary[kind].filter((m) => !propres.includes(m))] : vocabulary[kind]}
               kind={kindPourSetup(kind, setupChoisi)}
               onChange={(valeurs) => setConfirmations((prev) => ({ ...prev, [kind]: valeurs }))}
             />

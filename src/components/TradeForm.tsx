@@ -352,12 +352,14 @@ export default function TradeForm({
   const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
 
   /**
-   * The words this setup has used in one list, or the whole list while it has
-   * used none — an empty row on the first trade of a setup reads as a fault.
+   * This setup's words first, then the rest of the list.
+   *
+   * They used to be the whole list, which meant that writing one word under a
+   * setup hid every other suggestion from then on.
    */
   const motsDuSetup = (liste: string, complet: string[]) => {
     const propres = vocabulary.parSetup[`${liste}@${setup}`] ?? [];
-    return propres.length ? propres : complet;
+    return [...propres, ...complet.filter((m) => !propres.includes(m))];
   };
 
   // P&L, size and risk are held here rather than left uncontrolled, because the

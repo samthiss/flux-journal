@@ -910,11 +910,13 @@ export default function NotesClient({
       values: (kind, setup) => {
         const all = [...new Set([...ranked[kind], ...duPreTrade(kind)])].filter((v) => !hidden.get(kind)?.has(v));
         if (!setup || !(SCOPED_KINDS as readonly string[]).includes(kind)) return all;
-        // A setup nothing has been written under yet starts from the whole
-        // list: an empty dropdown would read as a bug, and the first word
-        // picked there is what begins that setup's own list.
+        // The setup's own words first, then the rest of the vocabulary. They
+        // used to be the whole list, which meant the first word written under
+        // a setup hid every other suggestion — the list was at its shortest
+        // exactly when there was most left to write. Ordering says which words
+        // belong to this setup without putting the others out of reach.
         const scoped = [...new Set(parSetup.get(`${kind}|${setup}`) ?? [])].filter((v) => !hidden.get(kind)?.has(v));
-        return scoped.length ? scoped : all;
+        return [...scoped, ...all.filter((v) => !scoped.includes(v))];
       },
       remember: (kind, value) =>
         setFreshTags((prev) => (prev[kind].includes(value) ? prev : { ...prev, [kind]: [...prev[kind], value] })),
