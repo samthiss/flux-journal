@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useMenuDismiss } from "@/components/useMenuDismiss";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
-import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistCategory, deleteChecklistGroup, reorderChecklistItems } from "@/lib/actions/checklist";
+import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistItems, reorderChecklistItems } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
 import { parseTagArray, setupDeLigne } from "@/lib/tags";
@@ -347,15 +347,15 @@ export default function ChecklistClient({
    * Deletes a group, once. It takes its items with it, and the trade ideas
    * written under them, so it asks first and says how much is going.
    */
-  function removeGroup(group: string, count: number) {
+  function removeGroup(group: string, ids: string[]) {
     // One typed a moment ago and still empty simply goes; one holding lines
     // asks first and takes them with it.
     setNouvellesSections((prev) => prev.filter((s) => s !== group));
-    if (count === 0) return;
-    const question = `Supprimer « ${group} » et ses ${count} ligne${count > 1 ? "s" : ""} ?`;
+    if (ids.length === 0) return;
+    const question = `Supprimer « ${group} » et ses ${ids.length} ligne${ids.length > 1 ? "s" : ""} ?`;
     if (!window.confirm(question)) return;
     startTransition(async () => {
-      await deleteChecklistGroup(group);
+      await deleteChecklistItems(ids);
     });
   }
 
@@ -464,11 +464,12 @@ export default function ChecklistClient({
     ]);
 
   /** Drops a heading, asking first: it takes its lines with it, as a group does. */
-  function removeCategorie(group: string, categorie: string, combien: number) {
-    const question = `Supprimer « ${categorie} » et ses ${combien} ligne${combien > 1 ? "s" : ""} ?`;
+  function removeCategorie(categorie: string, ids: string[]) {
+    if (ids.length === 0) return;
+    const question = `Supprimer « ${categorie} » et ses ${ids.length} ligne${ids.length > 1 ? "s" : ""} ?`;
     if (!window.confirm(question)) return;
     startTransition(async () => {
-      await deleteChecklistCategory(group, categorie);
+      await deleteChecklistItems(ids);
     });
   }
 
@@ -655,7 +656,7 @@ export default function ChecklistClient({
                     }}
                   />
                   <button
-                    onClick={() => removeGroup(g.title, g.items.length)}
+                    onClick={() => removeGroup(g.title, g.items.map((i) => i.id))}
                     aria-label="Supprimer le groupe"
                     title="Supprimer ce groupe et tout ce qu'il contient"
                     style={{
@@ -708,7 +709,12 @@ export default function ChecklistClient({
                         }}
                       />
                       <button
-                        onClick={() => removeCategorie(g.title, categorie, g.items.filter((i) => (i.category ?? "") === categorie).length)}
+                        onClick={() =>
+                          removeCategorie(
+                            categorie,
+                            g.items.filter((i) => (i.category ?? "") === categorie).map((i) => i.id)
+                          )
+                        }
                         title="Supprimer ce titre et ses lignes"
                         style={{
                           flexShrink: 0,

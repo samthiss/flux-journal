@@ -82,11 +82,6 @@ export async function reorderChecklistItems(
   revalidatePath("/checklist");
 }
 
-export async function deleteChecklistCategory(group: string, category: string) {
-  await prisma.checklistItem.deleteMany({ where: { group, category } });
-  revalidatePath("/checklist");
-}
-
 export async function renameChecklistCategory(group: string, from: string, to: string) {
   const trimmed = to.trim();
   if (!trimmed || trimmed === from) return;
@@ -134,14 +129,21 @@ export async function renameChecklistGroup(group: string, name: string) {
 }
 
 /**
- * Deletes a group and everything filed under it.
+ * Deletes the lines given, by id.
  *
- * The trade ideas written under those items go with them, by the cascade on the
- * relation: an idea belongs to the line it was written under, and there is
- * nowhere to keep it once that line is gone.
+ * A group and a heading have no rows of their own — they are the words their
+ * lines carry — so deleting one is deleting those, and the trade ideas written
+ * under them go too, by the cascade on the relation.
+ *
+ * By id rather than by name, which was a race: clicking the delete button
+ * first blurs the title field, the blur saves a rename, and the deletion that
+ * followed looked for a name nothing carried any more — the section survived,
+ * renamed, and clicking delete again did nothing either. No rename can move an
+ * id, and an id is what the button actually knows.
  */
-export async function deleteChecklistGroup(group: string) {
-  await prisma.checklistItem.deleteMany({ where: { group } });
+export async function deleteChecklistItems(ids: string[]) {
+  if (!ids.length) return;
+  await prisma.checklistItem.deleteMany({ where: { id: { in: ids } } });
   revalidatePath("/checklist");
 }
 
