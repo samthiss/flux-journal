@@ -26,6 +26,19 @@ const COLONNES: { cle: string; titre: string; largeur: string }[] = [
   { cle: "plan", titre: "Plan", largeur: "60px" },
 ];
 
+/**
+ * The columns whose words are not already asked about in the bar.
+ *
+ * Type, zone and the CC list have had a filter there since before they had a
+ * column; these four are the ones that had none.
+ */
+const FILTRES_EN_PLUS: Record<string, string> = {
+  emotion: "All emotions",
+  box: "All box cluster conf.",
+  reverse: "All reverse chart conf.",
+  plan: "All plans",
+};
+
 /** Every word one column holds, for its own dropdown. */
 function motsDeColonne(cle: string, trades: { id: string }[], details: Record<string, Record<string, string[]>>) {
   const vus = new Set<string>();
@@ -223,6 +236,28 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
             </option>
           ))}
         </select>
+        {/* The annotation columns that had no filter yet, in the bar with the
+            rest rather than under their own headings: a filter is looked for
+            in one place, and this is where the others are. */}
+        {COLONNES.filter((c) => FILTRES_EN_PLUS[c.cle]).map((c) => {
+          const mots = motsDeColonne(c.cle, trades, details);
+          return (
+            <select
+              key={c.cle}
+              value={filtresColonnes[c.cle] ?? ""}
+              onChange={(e) => setFiltresColonnes((prev) => ({ ...prev, [c.cle]: e.target.value }))}
+              disabled={mots.length === 0}
+              style={{ ...selectStyle, opacity: mots.length === 0 ? 0.45 : 1 }}
+            >
+              <option value="">{FILTRES_EN_PLUS[c.cle]}</option>
+              {mots.map((mot) => (
+                <option key={mot} value={mot}>
+                  {mot}
+                </option>
+              ))}
+            </select>
+          );
+        })}
         <PeriodFilter period={period} onChange={choosePeriod} />
         {/* A two-state preference reads better as a switch than as a list of
             two sentences that both start with the same word. */}
@@ -291,38 +326,8 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
           <div>R:R</div>
           <div>Outcome</div>
           {COLONNES.map((c) => (
-            <div key={c.cle} style={{ paddingRight: 10, minWidth: 0 }}>
-              <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.titre}</div>
-              {motsDeColonne(c.cle, trades, details).length > 0 && (
-                <select
-                  value={filtresColonnes[c.cle] ?? ""}
-                  onChange={(e) =>
-                    setFiltresColonnes((prev) => ({ ...prev, [c.cle]: e.target.value }))
-                  }
-                  style={{
-                    marginTop: 5,
-                    width: "100%",
-                    maxWidth: "100%",
-                    fontFamily: "var(--font-jetbrains-mono), monospace",
-                    fontSize: 10,
-                    padding: "3px 4px",
-                    borderRadius: 6,
-                    border: `1px solid ${filtresColonnes[c.cle] ? accentColor : "oklch(0.3 0.034 250)"}`,
-                    background: "oklch(0.18 0.03 250)",
-                    color: filtresColonnes[c.cle] ? accentColor : "oklch(0.6 0.02 250)",
-                    textTransform: "none",
-                    letterSpacing: 0,
-                    outline: "none",
-                  }}
-                >
-                  <option value="">tous</option>
-                  {motsDeColonne(c.cle, trades, details).map((mot) => (
-                    <option key={mot} value={mot}>
-                      {mot}
-                    </option>
-                  ))}
-                </select>
-              )}
+            <div key={c.cle} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {c.titre}
             </div>
           ))}
         </div>
