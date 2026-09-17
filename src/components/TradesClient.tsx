@@ -26,6 +26,22 @@ const COLONNES: { cle: string; titre: string; largeur: string }[] = [
   { cle: "plan", titre: "Plan", largeur: "60px" },
 ];
 
+/** Every word one column holds, for its own dropdown. */
+function motsDeColonne(cle: string, trades: { id: string }[], details: Record<string, Record<string, string[]>>) {
+  const vus = new Set<string>();
+  for (const t of trades) for (const mot of details[t.id]?.[cle] ?? []) vus.add(mot);
+  return [...vus].sort((a, b) => a.localeCompare(b));
+}
+
+/** Whether a trade answers every column filter that is set. */
+function passeLesColonnes(
+  id: string,
+  filtres: Record<string, string>,
+  details: Record<string, Record<string, string[]>>
+) {
+  return COLONNES.every((c) => !filtres[c.cle] || (details[id]?.[c.cle] ?? []).includes(filtres[c.cle]));
+}
+
 /** The figures, then one column per vocabulary. */
 const GRILLE = `100px 90px 70px 120px 70px 110px 90px 90px ${COLONNES.map((c) => c.largeur).join(" ")}`;
 
@@ -41,7 +57,7 @@ const selectStyle: React.CSSProperties = {
 
 const OPEN_NEW_TAB_KEY = "trades-open-new-tab";
 
-export default function TradesClient({ trades, initialPeriod, details = {} }: { details?: Record<string, Record<string, string>>; trades: Trade[]; initialPeriod: string }) {
+export default function TradesClient({ trades, initialPeriod, details = {} }: { details?: Record<string, Record<string, string[]>>; trades: Trade[]; initialPeriod: string }) {
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
@@ -55,6 +71,15 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
   // three pages reading one journal should not disagree about which weeks are
   // being counted.
   const [period, setPeriod] = useState(initialPeriod);
+  /**
+   * One filter per annotation column, chosen in its own heading.
+   *
+   * Under the column it filters rather than in the bar above: seven more
+   * dropdowns up there would be a wall, and a filter placed on the column
+   * says what it filters without being labelled twice.
+   */
+  const [filtresColonnes, setFiltresColonnes] = useState<Record<string, string>>({});
+
   const choosePeriod = (next: string) => {
     setPeriod(next);
     try {
@@ -116,7 +141,7 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
       <div className="trades-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <PageTitle>Trades</PageTitle>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{filteredTrades.length} trades</div>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{filteredTrades.filter((t) => passeLesColonnes(t.id, filtresColonnes, details)).length} trades</div>
         </div>
         <Link
           href="/trade/new"
@@ -266,12 +291,46 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
           <div>R:R</div>
           <div>Outcome</div>
           {COLONNES.map((c) => (
-            <div key={c.cle} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {c.titre}
+            <div key={c.cle} style={{ paddingRight: 10, minWidth: 0 }}>
+              <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.titre}</div>
+              {motsDeColonne(c.cle, trades, details).length > 0 && (
+                <select
+                  value={filtresColonnes[c.cle] ?? ""}
+                  onChange={(e) =>
+                    setFiltresColonnes((prev) => ({ ...prev, [c.cle]: e.target.value }))
+                  }
+                  style={{
+                    marginTop: 5,
+                    width: "100%",
+                    maxWidth: "100%",
+                    fontFamily: "var(--font-jetbrains-mono), monospace",
+                    fontSize: 10,
+                    padding: "3px 4px",
+                    borderRadius: 6,
+                    border: `1px solid ${filtresColonnes[c.cle] ? accentColor : "oklch(0.3 0.034 250)"}`,
+                    background: "oklch(0.18 0.03 250)",
+                    color: filtresColonnes[c.cle] ? accentColor : "oklch(0.6 0.02 250)",
+                    textTransform: "none",
+                    letterSpacing: 0,
+                    outline: "none",
+                  }}
+                >
+                  <option value="">tous</option>
+                  {motsDeColonne(c.cle, trades, details).map((mot) => (
+                    <option key={mot} value={mot}>
+                      {mot}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           ))}
         </div>
-        {filteredTrades.map((t, i) => {
+        {/* The column filters are applied here rather than in the query
+            above: each belongs to the heading it sits under. */}
+        {filteredTrades
+          .filter((t) => passeLesColonnes(t.id, filtresColonnes, details))
+          .map((t, i) => {
           const outcome = t.pnl > 0 ? "win" : "loss";
           const pnlColor = t.pnl > 0 ? winColor : lossColor;
           return (
@@ -334,7 +393,7 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
               {/* One cell per vocabulary, so a word always sits under the
                   heading that says what it is — as the figures do. */}
               {COLONNES.map((c) => {
-                const valeur = details[t.id]?.[c.cle] ?? "";
+                const valeur = (details[t.id]?.[c.cle] ?? []).join(", ");
                 return (
                   <div
                     key={c.cle}

@@ -7,6 +7,7 @@ import { PageTitle } from "@/components/NeonText";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistItems, reorderChecklistItems } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
+import StatutTrade from "@/components/StatutTrade";
 import { parseTagArray, setupDeLigne, tagTone } from "@/lib/tags";
 
 type ChecklistItem = {
@@ -1444,30 +1445,15 @@ export default function ChecklistClient({
                   </div>
                   {/* The same list of states as on the card it came from: a
                       position closed by mistake has to be able to go back. */}
-                  <select
-                    value="closed"
-                    onChange={(e) =>
+                  <StatutTrade
+                    statut="closed"
+                    onChange={(valeur) =>
                       startTransition(async () => {
-                        await setTradeIdeaStatus(idea.id, e.target.value as "plan" | "position" | "closed");
+                        await setTradeIdeaStatus(idea.id, valeur);
                         setIdeasVersion((v) => v + 1);
                       })
                     }
-                    style={{
-                      fontFamily: "var(--font-jetbrains-mono), monospace",
-                      fontSize: 10.5,
-                      padding: "4px 6px",
-                      borderRadius: 999,
-                      cursor: "pointer",
-                      border: "1px solid oklch(0.34 0.02 250)",
-                      background: "transparent",
-                      color: "oklch(0.7 0.02 250)",
-                      outline: "none",
-                    }}
-                  >
-                    <option value="plan">Trading plan</option>
-                    <option value="position">Trading</option>
-                    <option value="closed">Position closed</option>
-                  </select>
+                  />
                   {/* Straight into the trade form, carrying what the idea
                       already holds: its case becomes the pre-trade analysis and
                       its charts the trade's own. Retyping it is how a journal

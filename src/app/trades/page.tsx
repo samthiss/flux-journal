@@ -35,15 +35,17 @@ export default async function TradesPage() {
   const details = Object.fromEntries(
     trades.map((t) => [
       t.id,
+      // Lists rather than sentences: the table joins them to display, and the
+      // column filters ask whether one word is among them.
       {
-        emotion: t.emotion ?? "",
-        type: parseTagArray(t.tradeTypes).join(", "),
-        zone: t.zone ?? "",
-        cc: parseTagArray(t.confirmations).join(", "),
-        box: parseTagArray(t.confirmationsBox).join(", "),
-        reverse: parseTagArray(t.confirmationsReverse).join(", "),
-        risk: parseTagArray(t.invalidReasons).join(", "),
-        plan: t.planFollowed === null ? "" : t.planFollowed ? "Oui" : "Non",
+        emotion: t.emotion ? [t.emotion] : [],
+        type: parseTagArray(t.tradeTypes),
+        zone: t.zone ? [t.zone] : [],
+        cc: parseTagArray(t.confirmations),
+        box: parseTagArray(t.confirmationsBox),
+        reverse: parseTagArray(t.confirmationsReverse),
+        risk: parseTagArray(t.invalidReasons),
+        plan: t.planFollowed === null ? [] : [t.planFollowed ? "Oui" : "Non"],
       },
     ])
   );

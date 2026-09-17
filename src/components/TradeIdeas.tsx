@@ -6,6 +6,7 @@ import { accentColor, winColor, lossColor } from "@/lib/theme";
 import { tagTone, parseTagArray, kindPourSetup, SETUPS } from "@/lib/tags";
 import { compressImage } from "@/lib/compressImage";
 import ImageLightbox from "@/components/ImageLightbox";
+import StatutTrade from "@/components/StatutTrade";
 import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage, ajouterMot, supprimerMot, renommerMot, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
 
 export type TradeIdeaRecord = {
@@ -1022,33 +1023,17 @@ export default function TradeIdeas({
               clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)",
             }}
           >
-            {/* Where the trade stands, picked rather than toggled. It was two
-                chips — one that flipped between plan and trading, one that
-                closed the position — and three states cannot be read off two
-                buttons: a card in Pre Trade Check showed "Clôturé" with no way
-                back. A list says what the states are and which one this is. */}
-            <select
-              value={idea.status === "closed" ? "closed" : idea.status === "position" ? "position" : "plan"}
-              onChange={(e) => void setTradeIdeaStatus(idea.id, e.target.value as "plan" | "position" | "closed").then(onChanged)}
-              title="Où en est ce trade"
-              style={{
-                ...mono,
-                fontSize: 9.5,
-                flex: "none",
-                marginTop: 1,
-                padding: "2px 6px",
-                borderRadius: 999,
-                cursor: "pointer",
-                border: `1px ${idea.status === "plan" ? "dashed" : "solid"} ${idea.status === "plan" ? "oklch(0.34 0.02 250)" : accentColor}`,
-                background: idea.status === "plan" ? "transparent" : accentColor.replace(")", " / 0.14)"),
-                color: idea.status === "plan" ? "oklch(0.6 0.02 250)" : accentColor,
-                outline: "none",
-              }}
-            >
-              <option value="plan">Trading plan</option>
-              <option value="position">Trading</option>
-              <option value="closed">Position closed</option>
-            </select>
+            {/* Where the trade stands. Three states cannot be read off two
+                buttons — a card in Trading Plan once showed "Clôturé" with no
+                way back — so they are a list, drawn rather than left to the
+                browser's own grey rectangle. */}
+            <div style={{ flex: "none", marginTop: 1 }}>
+              <StatutTrade
+                compact
+                statut={idea.status ?? "plan"}
+                onChange={(valeur) => void setTradeIdeaStatus(idea.id, valeur).then(onChanged)}
+              />
+            </div>
 
             <span
               style={{
