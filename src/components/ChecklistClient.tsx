@@ -7,7 +7,7 @@ import { PageTitle } from "@/components/NeonText";
 import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistItems, reorderChecklistItems } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
-import { parseTagArray, setupDeLigne } from "@/lib/tags";
+import { parseTagArray, setupDeLigne, tagTone } from "@/lib/tags";
 
 type ChecklistItem = {
   id: string;
@@ -462,6 +462,42 @@ export default function ChecklistClient({
         annulation: true,
       })),
     ]);
+
+  /**
+   * The charts an idea carries, as a strip of thumbnails.
+   *
+   * Small on purpose: this is a row in a list of positions to write up, and
+   * the picture is here to say which trade it is, not to be read.
+   */
+  function apercus(idea: TradeIdeaRecord) {
+    let urls: string[] = [];
+    try {
+      const parsed = JSON.parse(idea.images ?? "[]");
+      if (Array.isArray(parsed)) urls = parsed.map((i: { url?: string }) => i?.url).filter((u): u is string => !!u);
+    } catch {
+      urls = [];
+    }
+    if (!urls.length) return null;
+    return (
+      <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+        {urls.map((url) => (
+          <span
+            key={url}
+            style={{
+              display: "block",
+              width: 96,
+              height: 60,
+              borderRadius: 4,
+              border: "1px solid oklch(0.32 0.034 250)",
+              backgroundImage: `url(${url})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
 
   /** Drops a heading, asking first: it takes its lines with it, as a group does. */
   function removeCategorie(categorie: string, ids: string[]) {
@@ -1295,7 +1331,7 @@ export default function ChecklistClient({
                   key={idea.id}
                   style={{
                     display: "flex",
-                    alignItems: "center",
+                    alignItems: "flex-start",
                     gap: 12,
                     padding: "10px 12px",
                     marginBottom: 6,
@@ -1303,7 +1339,75 @@ export default function ChecklistClient({
                     background: "oklch(0.17 0.03 250 / 0.6)",
                   }}
                 >
-                  <span style={{ fontSize: 13.5, flex: 1, minWidth: 0 }}>{idea.reason}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* What the position was, before it is written up: the
+                        market it was taken on, the direction, the setup and the
+                        day. Reading it off the trade form afterwards is too
+                        late — this is the moment it is being decided what to
+                        write, and the card it came from is no longer on screen. */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                      <span
+                        style={{
+                          fontFamily: "var(--font-jetbrains-mono), monospace",
+                          fontSize: 10,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          border: `1px solid ${idea.side === "short" ? lossColor : accentColor}`,
+                          color: idea.side === "short" ? lossColor : accentColor,
+                        }}
+                      >
+                        {idea.market} · {idea.side === "short" ? "SHORT" : "LONG"}
+                      </span>
+                      {[
+                        ...(idea.setup ? [idea.setup] : []),
+                        ...parseTagArray(idea.tradeTypes),
+                        ...(idea.zone ? [idea.zone] : []),
+                        ...parseTagArray(idea.confirmations),
+                        ...parseTagArray(idea.confirmationsBox),
+                        ...parseTagArray(idea.confirmationsReverse),
+                      ].map((mot) => {
+                        const tone = tagTone(mot);
+                        return (
+                          <span
+                            key={mot}
+                            style={{
+                              fontFamily: "var(--font-jetbrains-mono), monospace",
+                              fontSize: 10,
+                              padding: "2px 8px",
+                              borderRadius: 999,
+                              border: `1px solid ${tone.line}`,
+                              background: tone.bg,
+                              color: tone.fg,
+                            }}
+                          >
+                            {mot}
+                          </span>
+                        );
+                      })}
+                      {parseTagArray(idea.cancelIf).map((mot) => (
+                        <span
+                          key={`risk-${mot}`}
+                          style={{
+                            fontFamily: "var(--font-jetbrains-mono), monospace",
+                            fontSize: 10,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            border: `1px solid ${lossColor.replace(")", " / 0.5)")}`,
+                            color: lossColor,
+                          }}
+                        >
+                          {mot}
+                        </span>
+                      ))}
+                      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 250)" }}>
+                        {idea.day}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 13.5 }}>{idea.reason}</span>
+                    {/* The charts, so the trade can be recognised without
+                        opening it: they go into the journal with it. */}
+                    {apercus(idea)}
+                  </div>
                   {/* The same list of states as on the card it came from: a
                       position closed by mistake has to be able to go back. */}
                   <select

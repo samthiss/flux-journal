@@ -11,6 +11,9 @@ import { createTradeIdea, updateTradeIdea, deleteTradeIdea, removeTradeIdeaImage
 export type TradeIdeaRecord = {
   id: string;
   itemId: string;
+  /** The contract it was written for, and the day it was written. */
+  market: string;
+  day: string;
   side: string;
   tradeTypes: string | null;
   zone: string | null;
