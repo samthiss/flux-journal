@@ -938,10 +938,14 @@ export default function TradeIdeas({
         return (
           <div
             key={idea.id}
+            // A column, not a row: the status and the direction used to sit
+            // to the left of everything else, which indented the charts by
+            // their width for the whole height of the card. They belong on a
+            // line of their own — what the trade is, above what it says.
             style={{
               display: "flex",
-              alignItems: "flex-start",
-              gap: 10,
+              flexDirection: "column",
+              gap: 6,
               padding: "9px 12px",
               marginBottom: 6,
               border: "1px solid oklch(0.3 0.034 250)",
@@ -949,33 +953,49 @@ export default function TradeIdeas({
               clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)",
             }}
           >
-            {/* Where the trade stands. Three states cannot be read off two
-                buttons — a card in Trading Plan once showed "Clôturé" with no
-                way back — so they are a list, drawn rather than left to the
-                browser's own grey rectangle. */}
-            <div style={{ flex: "none", marginTop: 1, display: "flex" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {/* Where the trade stands. Three states cannot be read off two
+                  buttons — a card in Trading Plan once showed "Clôturé" with
+                  no way back — so they are a list, drawn rather than left to
+                  the browser's own grey rectangle. */}
               <StatutTrade
                 compact
                 statut={idea.status ?? "plan"}
                 onChange={(valeur) => void setTradeIdeaStatus(idea.id, valeur).then(onChanged)}
               />
+              <span
+                style={{
+                  ...mono,
+                  fontSize: 10,
+                  flex: "none",
+                  padding: "2px 9px",
+                  borderRadius: 999,
+                  border: `1px solid ${long ? winColor : lossColor}`,
+                  color: long ? winColor : lossColor,
+                }}
+              >
+                {long ? "LONG" : "SHORT"}
+              </span>
+              <span style={{ flex: 1 }} />
+              <span
+                onClick={() => startEditing(idea)}
+                title="Modifier cette idée"
+                style={{ flex: "none", fontSize: 11, color: "oklch(0.5 0.034 250)", cursor: "pointer" }}
+              >
+                ✎
+              </span>
+              <span
+                onClick={async () => {
+                  await deleteTradeIdea(idea.id);
+                  onChanged();
+                }}
+                title="Supprimer cette idée"
+                style={{ flex: "none", fontSize: 12, color: "oklch(0.5 0.034 250)", cursor: "pointer" }}
+              >
+                ✕
+              </span>
             </div>
-
-            <span
-              style={{
-                ...mono,
-                fontSize: 10,
-                flex: "none",
-                marginTop: 1,
-                padding: "2px 9px",
-                borderRadius: 999,
-                border: `1px solid ${long ? winColor : lossColor}`,
-                color: long ? winColor : lossColor,
-              }}
-            >
-              {long ? "LONG" : "SHORT"}
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ minWidth: 0 }}>
               {[...(idea.setup ? [idea.setup] : []), ...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations), ...parseTagArray(idea.confirmationsBox), ...parseTagArray(idea.confirmationsReverse)].length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
                   {[...(idea.setup ? [idea.setup] : []), ...parseTagArray(idea.tradeTypes), ...(idea.zone ? [idea.zone] : []), ...parseTagArray(idea.confirmations), ...parseTagArray(idea.confirmationsBox), ...parseTagArray(idea.confirmationsReverse)].map((t) => {
@@ -1011,23 +1031,6 @@ export default function TradeIdeas({
               )}
               <IdeaImages idea={idea} onAdd={(files) => addImagesTo(idea.id, files)} onChanged={onChanged} />
             </div>
-            <span
-              onClick={() => startEditing(idea)}
-              title="Modifier cette idée"
-              style={{ flex: "none", fontSize: 11, color: "oklch(0.5 0.034 250)", cursor: "pointer", marginRight: 2 }}
-            >
-              ✎
-            </span>
-            <span
-              onClick={async () => {
-                await deleteTradeIdea(idea.id);
-                onChanged();
-              }}
-              title="Supprimer cette idée"
-              style={{ flex: "none", fontSize: 12, color: "oklch(0.5 0.034 250)", cursor: "pointer" }}
-            >
-              ✕
-            </span>
           </div>
         );
       })}
