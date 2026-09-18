@@ -63,19 +63,6 @@ export type TradeVocabularies = {
  * CC list keeps the `confirmations` field it has always had, so what was
  * written before is still where it was written.
  */
-/**
- * What is checked before an entry, every time.
- *
- * Three questions rather than a vocabulary: they are asked of every trade in
- * the same words, and the free list they replace produced three spellings of
- * each of them — which no filter could gather back together.
- */
-const RISK_MANAGEMENT = [
-  "Confirmation Cluster chart",
-  "Pas de barrières ? (VWAP / High low / cluster)",
-  "Déviation flat ?",
-];
-
 const CONFIRMATIONS = [
   { kind: "confirmations", titre: "Confirmation CC" },
   { kind: "confirmationsBox", titre: "Confirmation Box cluster" },
@@ -843,67 +830,6 @@ export default function TradeIdeas({
             />
             );
           })}
-
-          {/* What is checked before the entry, kept apart from the case for
-              it. A list of ticks rather than a vocabulary: these three are
-              asked of every trade, in the same words, and a free list only
-              ever produced three spellings of one question. */}
-          <div
-            style={{
-              marginTop: 10,
-              padding: "10px 12px",
-              borderRadius: 4,
-              border: `1px solid ${lossColor.replace(")", " / 0.4)")}`,
-              background: lossColor.replace(")", " / 0.06)"),
-            }}
-          >
-            <div style={{ ...mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: lossColor, marginBottom: 8 }}>
-              Risk management
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {/* The three checks, plus anything an older idea carries: what
-                  was written before the list was fixed is still shown, ticked,
-                  so nothing goes missing from a plan already made. */}
-              {[...RISK_MANAGEMENT, ...cancelIf.filter((l) => l.trim() && !RISK_MANAGEMENT.includes(l))].map((ligne) => {
-                const coche = cancelIf.includes(ligne);
-                return (
-                  <span
-                    key={ligne}
-                    onClick={() =>
-                      setCancelIf((prev) => (coche ? prev.filter((l) => l !== ligne) : [...prev.filter(Boolean), ligne]))
-                    }
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      cursor: "pointer",
-                      fontSize: 12.5,
-                      color: coche ? "oklch(0.88 0.02 250)" : "oklch(0.62 0.02 250)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 15,
-                        height: 15,
-                        flex: "none",
-                        borderRadius: 4,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 10,
-                        border: `1.5px solid ${coche ? lossColor : "oklch(0.42 0.034 250)"}`,
-                        background: coche ? lossColor : "transparent",
-                        color: "oklch(0.14 0.02 250)",
-                      }}
-                    >
-                      {coche ? "✓" : ""}
-                    </span>
-                    {ligne}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Charts chosen now, uploaded once the idea they belong to exists. */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 10 }}>

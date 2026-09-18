@@ -143,6 +143,16 @@ model ChecklistItem {
    */
   category String?
 
+  /**
+   * The setup this line only applies to, if it only applies to one.
+   *
+   * A line filed under "Trend run" is shown while a trend run is being traded
+   * and not otherwise: half the rules to hold to during a trade are the rules
+   * of that setup, and a list holding both setups at once is a list where the
+   * half that matters is read past.
+   */
+  setup String?
+
   // Whether trade ideas can be written under this item. True for the two
   // strategy lines, where the reader decides what they will actually trade
   // today; false everywhere else, where an item is a thing to do and not a

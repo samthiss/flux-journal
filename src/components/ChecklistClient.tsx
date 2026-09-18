@@ -4,11 +4,11 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useMenuDismiss } from "@/components/useMenuDismiss";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
-import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, renameChecklistGroup, renameChecklistCategory, deleteChecklistItems, reorderChecklistItems } from "@/lib/actions/checklist";
+import { createChecklistItem, deleteChecklistItem, renameChecklistItem, setChecklistItemOptions, setChecklistItemAllowsIdeas, setChecklistItemSetup, renameChecklistGroup, renameChecklistCategory, deleteChecklistItems, reorderChecklistItems } from "@/lib/actions/checklist";
 import { getTradeIdeas, getTradeVocabularies, setTradeIdeaStatus } from "@/lib/actions/tradeIdeas";
 import TradeIdeas, { type TradeIdeaRecord, type TradeVocabularies } from "@/components/TradeIdeas";
 import StatutTrade from "@/components/StatutTrade";
-import { parseTagArray, setupDeLigne, tagTone } from "@/lib/tags";
+import { SETUPS, parseTagArray, setupDeLigne, tagTone } from "@/lib/tags";
 
 type ChecklistItem = {
   id: string;
@@ -18,6 +18,8 @@ type ChecklistItem = {
   category?: string | null;
   options?: string | null;
   allowsIdeas?: boolean;
+  /** The setup this line only applies to, if it only applies to one. */
+  setup?: string | null;
 };
 
 /** The answers an item offers, if any. Stored as JSON, empty when malformed. */
@@ -272,8 +274,26 @@ export default function ChecklistClient({
     };
   }, [market, ideasVersion]);
 
-  const groups = Array.from(new Set([...items.map((i) => i.group), ...nouvellesSections])).map((group) => {
-    const dedans = items.filter((i) => i.group === group);
+  /**
+   * The setups being traded right now.
+   *
+   * A line filed under a setup is shown while a position of that setup is
+   * open, and hidden otherwise — which is what makes one list serve both
+   * strategies without either one reading past the other's rules.
+   */
+  const setupsEnCours = new Set(
+    ideas.filter((idea) => idea.status === "position" && idea.setup).map((idea) => idea.setup as string)
+  );
+
+  /**
+   * The lines to show: everything, less what belongs to a setup nobody is
+   * trading. While the list is being edited they are all shown — a line that
+   * is hidden cannot be given back its setup.
+   */
+  const visibles = editMode ? items : items.filter((i) => !i.setup || setupsEnCours.has(i.setup));
+
+  const groups = Array.from(new Set([...visibles.map((i) => i.group), ...nouvellesSections])).map((group) => {
+    const dedans = visibles.filter((i) => i.group === group);
 
     // Uncategorised lines first, then each heading in the order it appears.
     // Sorted here rather than in the query so the headings stay whole: a
@@ -291,8 +311,8 @@ export default function ChecklistClient({
     };
   });
 
-  const doneCount = items.filter((i) => checkedMap[i.id]).length;
-  const totalCount = items.length;
+  const doneCount = visibles.filter((i) => checkedMap[i.id]).length;
+  const totalCount = visibles.length;
   const percent = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
 
   function toggle(item: ChecklistItem) {
@@ -971,6 +991,45 @@ export default function ChecklistClient({
                       </button>
                     )}
                   </div>
+                  {/* Which setup the line belongs to, if it belongs to one.
+                      Shown while that setup is being traded, hidden
+                      otherwise — during a trend run, the rules of a reverse
+                      are noise. */}
+                  {editMode && (
+                    <div style={{ padding: "0 8px 10px 40px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.5 0.02 250)" }}>
+                        Afficher
+                      </span>
+                      {/* And which setup it belongs to, if it belongs to one:
+                          shown while that setup is being traded, hidden
+                          otherwise. */}
+                      {[null, ...SETUPS].map((choix) => (
+                        <span
+                          key={choix ?? "toujours"}
+                          onClick={() =>
+                            startTransition(async () => {
+                              await setChecklistItemSetup(item.id, choix);
+                            })
+                          }
+                          title={choix ? `N'afficher que pendant un ${choix}` : "Afficher quel que soit le trade"}
+                          style={{
+                            flex: "none",
+                            fontFamily: "var(--font-jetbrains-mono), monospace",
+                            fontSize: 10,
+                            padding: "4px 10px",
+                            borderRadius: 999,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            border: `1px ${(item.setup ?? null) === choix ? "solid" : "dashed"} ${(item.setup ?? null) === choix ? accentColor : "oklch(0.34 0.034 250)"}`,
+                            background: (item.setup ?? null) === choix ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
+                            color: (item.setup ?? null) === choix ? accentColor : "oklch(0.55 0.03 250)",
+                          }}
+                        >
+                          {choix ?? "toujours"}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {/* The answers sit under the line rather than beside it: the
                       questions that have any are long, and a chip pushed to the
                       end of one would be off the edge on a phone. */}

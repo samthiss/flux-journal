@@ -147,6 +147,17 @@ export async function deleteChecklistItems(ids: string[]) {
   revalidatePath("/checklist");
 }
 
+/**
+ * The setup a line only applies to, or none.
+ *
+ * A line given a setup is shown while that setup is being traded and hidden
+ * otherwise: during a trend run, the rules of a reverse are noise.
+ */
+export async function setChecklistItemSetup(itemId: string, setup: string | null) {
+  await prisma.checklistItem.update({ where: { id: itemId }, data: { setup } });
+  revalidatePath("/checklist");
+}
+
 /** Whether trade ideas can be written under this item. */
 export async function setChecklistItemAllowsIdeas(itemId: string, allowsIdeas: boolean) {
   await prisma.checklistItem.update({ where: { id: itemId }, data: { allowsIdeas } });
