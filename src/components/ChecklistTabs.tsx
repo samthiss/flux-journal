@@ -12,6 +12,9 @@ import type { EconomicEvent } from "@/lib/economicCalendar";
 
 type ChecklistItem = { id: string; group: string; label: string; tab?: string | null };
 
+/** Where the tab last read is kept. */
+const TAB_KEY = "checklist-tab";
+
 const TABS = [
   { key: "calendar", label: "Calendrier économique" },
   { key: "volume", label: "Lignes de volumes" },
@@ -88,6 +91,20 @@ export default function ChecklistTabs({
   calendarSource: string;
 }) {
   const [tab, setTab] = useState<TabKey>("calendar");
+  /**
+   * The tab is remembered between visits.
+   *
+   * Reloading a page is how this journal is read — a trade is taken, the page
+   * comes back, and it came back on the calendar every time, three clicks from
+   * where the reader was. Kept in the browser rather than in the URL, since
+   * the checklist has one address and the market is remembered the same way.
+   */
+  const choisirTab = (suivant: TabKey) => {
+    setTab(suivant);
+    try {
+      window.localStorage.setItem(TAB_KEY, suivant);
+    } catch {}
+  };
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
   const [market, setMarket] = useState(DEFAULT_MARKETS[0]);
   const [editMarkets, setEditMarkets] = useState(false);
@@ -98,6 +115,12 @@ export default function ChecklistTabs({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate from localStorage after mount to avoid SSR mismatch
     setMarkets(stored);
     setMarket(stored[0]);
+    try {
+      // The server cannot know which tab was last read, so this is hydrated
+      // after mount like the markets above it.
+      const garde = window.localStorage.getItem(TAB_KEY);
+      if (garde && TABS.some((t) => t.key === garde)) setTab(garde as TabKey);
+    } catch {}
   }, []);
 
   function addMarket() {
@@ -201,7 +224,7 @@ export default function ChecklistTabs({
 
       <div className="checklist-tabs" style={{ display: "flex", gap: 10, marginBottom: 24 }}>
         {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={tabStyle(tab === t.key)}>
+          <button key={t.key} onClick={() => choisirTab(t.key)} style={tabStyle(tab === t.key)}>
             {t.label}
           </button>
         ))}

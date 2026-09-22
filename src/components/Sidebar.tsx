@@ -8,6 +8,9 @@ import { useMenuDismiss } from "@/components/useMenuDismiss";
 import { getNoteTree, createNote, reorderNote, deleteNote, setNoteCollapsed } from "@/lib/actions/notes";
 import { signOut } from "@/app/login/actions";
 
+/** Where the note last read is kept, so a reload comes back to it. */
+const NOTE_LUE_KEY = "notes-derniere-note";
+
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", match: (p: string) => p === "/" },
   { href: "/trades", label: "Trades", match: (p: string) => p.startsWith("/trades") },
@@ -228,6 +231,8 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
     [tree]
   );
   const [activeId, setActiveId] = useState<string | null>(null);
+  /** Whether this visit has already jumped back to the note last read. */
+  const positionReprise = useRef(false);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
   // Tears down the scroll anchoring in scrollTo — on the next click, on a
@@ -360,15 +365,40 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
     const root = document.querySelector(".app-main");
     const els = Array.from(document.querySelectorAll<HTMLElement>("[data-note-section]"));
     if (!els.length) return;
+
+    /**
+     * Back to the note that was being read.
+     *
+     * The journal is one page, so a reload landed at the top of it whatever
+     * had been open — and the way this journal is read is: reload, look, act.
+     * Done once per visit, before the observer starts, so the first thing it
+     * sees is the note we jumped to rather than the first note on the page.
+     */
+    if (!positionReprise.current) {
+      positionReprise.current = true;
+      try {
+        const garde = window.localStorage.getItem(NOTE_LUE_KEY);
+        if (garde && document.getElementById("note-" + garde)) scrollTo(garde);
+      } catch {}
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActiveId(visible[0].target.getAttribute("data-note-section"));
+        const lue = visible[0]?.target.getAttribute("data-note-section");
+        if (!lue) return;
+        setActiveId(lue);
+        try {
+          window.localStorage.setItem(NOTE_LUE_KEY, lue);
+        } catch {}
       },
       { root, rootMargin: "0px 0px -70% 0px", threshold: 0 }
     );
     els.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
+    // `scrollTo` is stable enough for this: it reads the DOM and the refs, and
+    // re-running the effect on every render would re-observe on each one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onNotes, tree]);
 
   const flat = useMemo(() => flattenDFS(buildTree(tree)), [tree]);
