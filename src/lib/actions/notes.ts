@@ -95,7 +95,10 @@ export async function getNotesPageData() {
     prisma.note.findMany({ orderBy: { order: "asc" } }),
     prisma.noteBlock.findMany({ orderBy: { order: "asc" } }),
     prisma.noteCategory.findMany({ orderBy: { order: "asc" } }),
-    prisma.noteExample.findMany({ orderBy: { order: "asc" } }),
+    // Ties broken by age, so two examples that share a rank — which older
+    // data does, from before the rule above — read oldest first rather than in
+    // whatever order the database happens to return them.
+    prisma.noteExample.findMany({ orderBy: [{ order: "asc" }, { createdAt: "asc" }] }),
   ]);
   const hiddenTagOptions = await prisma.hiddenTagOption.findMany();
   // The words written in the pre-trade form. The two pages annotate the same
@@ -337,7 +340,16 @@ export async function clearNoteExamples(noteId: string) {
 
 export async function createExample(noteId: string, categoryId: string | null) {
   await prisma.$transaction(async (tx) => {
-    const count = await tx.noteExample.count({ where: { noteId, categoryId } });
+    // One past the last rank, not the number of examples. The two are the same
+    // only while the ranks run 0..n-1, and they stop doing that the first time
+    // an example is duplicated or moved in — the ranks then reach n, and a new
+    // one given the count landed on top of an existing rank, which put it in
+    // the middle of the list instead of at the end of it.
+    const dernier = await tx.noteExample.findFirst({
+      where: { noteId, categoryId },
+      orderBy: { order: "desc" },
+      select: { order: true },
+    });
     return tx.noteExample.create({
       data: {
         noteId,
@@ -345,7 +357,7 @@ export async function createExample(noteId: string, categoryId: string | null) {
         title: "",
         caption: "",
         tags: JSON.stringify([]),
-        order: count,
+        order: (dernier?.order ?? -1) + 1,
       },
     });
   });
