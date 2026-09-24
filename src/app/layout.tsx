@@ -7,7 +7,8 @@ import AgentLauncher from "@/components/agent/AgentLauncher";
 import { SESSION_COOKIE, authConfig, verifySessionToken } from "@/lib/auth";
 import { getNoteTree } from "@/lib/actions/notes";
 import NewsTicker from "@/components/NewsTicker";
-import { getEconomicEvents } from "@/lib/economicCalendar";
+import { applyRatings, getEconomicEvents, type EconomicEvent } from "@/lib/economicCalendar";
+import { getEventRatings } from "@/lib/actions/eventRatings";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -49,10 +50,17 @@ async function sidebarTree() {
  * calendar's own hourly cache, so putting this on every page costs one request
  * an hour rather than one per page.
  */
-async function actualitesDuJour() {
-  if (!(await connecte())) return [];
+async function actualitesDuJour(): Promise<{ events: EconomicEvent[]; notees: string[] }> {
+  if (!(await connecte())) return { events: [], notees: [] };
   try {
-    const { events } = await getEconomicEvents();
+    // Rated as the calendar rates them — a star clicked there is the reader's
+    // own opinion of a release, and the band that announces it should hold the
+    // same one.
+    const [calendrier, notes] = await Promise.all([getEconomicEvents(), getEventRatings()]);
+    const events = applyRatings(calendrier.events, notes);
+    // Which releases the reader has judged themselves, so the band can tell a
+    // star they clicked from one the source gave.
+    const notees = Object.keys(notes);
     const minuit = new Date();
     minuit.setHours(0, 0, 0, 0);
     const debut = minuit.getTime() - 86400000;
@@ -64,14 +72,15 @@ async function actualitesDuJour() {
     const jours = new Set(
       [-1, 0, 1, 2].map((n) => new Date(minuit.getTime() + n * 86400000).toLocaleDateString("en-CA"))
     );
-    return events.filter((e) => {
+    const fenetre = events.filter((e) => {
       if (!e.at) return jours.has(e.date);
       const t = new Date(e.at).getTime();
       return t >= debut && t < fin;
     });
+    return { events: fenetre, notees };
   } catch {
     // A calendar that will not answer is not a reason for a page not to load.
-    return [];
+    return { events: [], notees: [] };
   }
 }
 
@@ -101,7 +110,7 @@ export default async function RootLayout({
         <AgentProvider>
           <Sidebar initialTree={await sidebarTree()} />
           <div className="app-main">
-            <NewsTicker events={await actualitesDuJour()} />
+            <NewsTicker {...await actualitesDuJour()} />
             {children}
           </div>
           {modal}

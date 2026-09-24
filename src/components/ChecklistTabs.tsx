@@ -3,7 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { accentColor, glassCard } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
-import { DEFAULT_MARKETS, loadMarkets, saveMarkets } from "@/lib/markets";
+import { DEFAULT_MARKETS, loadMarket, loadMarkets, saveMarket, saveMarkets } from "@/lib/markets";
 import VolumeChecklist from "@/components/VolumeChecklist";
 import ColorCode from "@/components/ColorCode";
 import ChecklistClient from "@/components/ChecklistClient";
@@ -108,6 +108,11 @@ export default function ChecklistTabs({
   };
   const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
   const [market, setMarket] = useState(DEFAULT_MARKETS[0]);
+  /** Chosen here, read by the news band too — hence written down. */
+  const choisirMarche = (m: string) => {
+    setMarket(m);
+    saveMarket(m);
+  };
   const [editMarkets, setEditMarkets] = useState(false);
   const [newMarketDraft, setNewMarketDraft] = useState("");
 
@@ -115,7 +120,9 @@ export default function ChecklistTabs({
     const stored = loadMarkets();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate from localStorage after mount to avoid SSR mismatch
     setMarkets(stored);
-    setMarket(stored[0]);
+    // The one last read, not the first of the list: the news band shows the
+    // releases of this market, and the two must agree.
+    setMarket(loadMarket());
     try {
       // The server cannot know which tab was last read, so this is hydrated
       // after mount like the markets above it.
@@ -138,7 +145,7 @@ export default function ChecklistTabs({
     const next = markets.filter((x) => x !== m);
     setMarkets(next);
     saveMarkets(next);
-    if (market === m) setMarket(next[0]);
+    if (market === m) choisirMarche(next[0]);
   }
 
   return (
@@ -152,7 +159,7 @@ export default function ChecklistTabs({
             {markets.map((m) => (
               <button
                 key={m}
-                onClick={() => setMarket(m)}
+                onClick={() => choisirMarche(m)}
                 style={{ ...marketPillStyle(m === market), display: "flex", alignItems: "center", gap: 6 }}
               >
                 {m}

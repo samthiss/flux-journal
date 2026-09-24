@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import type { EconomicEvent } from "@/lib/economicCalendar";
+import { currenciesOf, focusFor, underFocus } from "@/lib/marketFocus";
+import { marketStore } from "@/lib/markets";
 import { accentColor, lossColor } from "@/lib/theme";
 
 /**
@@ -34,19 +36,42 @@ const horloge = {
  * window handed down is three days wide and the browser keeps the one it is
  * actually living in; a band that turns over at 2am would be worse than none.
  */
-export default function NewsTicker({ events }: { events: EconomicEvent[] }) {
+export default function NewsTicker({ events, notees = [] }: { events: EconomicEvent[]; notees?: string[] }) {
   const pathname = usePathname();
   const [survol, setSurvol] = useState(false);
   const minute = useSyncExternalStore(horloge.subscribe, horloge.maintenant, horloge.auServeur);
+  // The contract being read, chosen on the checklist. The band shows what that
+  // market shows, or it is a second calendar disagreeing with the first.
+  const marche = useSyncExternalStore(marketStore.subscribe, marketStore.lu, marketStore.auServeur);
 
   const duJour = useMemo(() => {
     if (minute === null) return [];
     const aujourdhui = new Date(minute * 60_000).toLocaleDateString("en-CA");
+    /**
+     * What this market makes of the calendar, exactly as the calendar tab
+     * applies it: its own economies, and every release held to what it is
+     * worth here — a Chinese print explains nothing about sterling, and a
+     * summit is not a payrolls number on any contract.
+     */
+    const focus = marche ? focusFor(marche) : null;
+    const devises = focus ? currenciesOf(focus) : null;
+    /**
+     * The releases the reader has rated themselves.
+     *
+     * Their star wins over the market's ceiling. The ceiling is a default for
+     * what nobody has judged — what a category is generally worth on this
+     * contract — and reading it over a star that was actually clicked is how
+     * the band ended up announcing a summit while the calendar was showing
+     * the two releases the reader had marked.
+     */
+    const juges = new Set(notees);
     return events
       // An entry with no clock — a closed session, a summit — is filed under a
       // day, and a day needs no timezone. One with a clock is placed by the
       // instant, read here in the reader's own time.
       .filter((e) => (e.at ? new Date(e.at).toLocaleDateString("en-CA") : e.date) === aujourdhui)
+      .filter((e) => !devises || devises.includes(e.currency))
+      .map((e) => (focus && !juges.has(`${e.currency}|${e.title}`) ? { ...e, impact: underFocus(e, focus) } : e))
       // Three stars, and the closed sessions. A band carrying the whole day
       // carried sixty rows and took seven minutes to come round — by which
       // time it is not news. What is left is what a trading day is planned
@@ -54,7 +79,7 @@ export default function NewsTicker({ events }: { events: EconomicEvent[] }) {
       .filter((e) => e.impact === "high" || e.kind === "holiday")
       // What has no hour comes first: it is true of the whole day.
       .sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
-  }, [events, minute]);
+  }, [events, minute, marche, notees]);
 
   // The login screen inherits the layout, and the day's releases are not for
   // someone who has not signed in.

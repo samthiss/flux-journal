@@ -32,6 +32,63 @@ export function loadMarkets(): string[] {
   return DEFAULT_MARKETS;
 }
 
+/**
+ * The contract being read, shared by everything that shows it.
+ *
+ * It used to live in the checklist's own state and reset to the first of the
+ * list on every visit — which was invisible while only that page used it, and
+ * became wrong the moment the news band had to show the same releases as the
+ * calendar. Kept in the browser, like the markets themselves, and published as
+ * a store so a page that did not change it still hears about it.
+ */
+const MARKET_STORAGE_KEY = "checklistMarket";
+const abonnes = new Set<() => void>();
+let courant: string | null | undefined;
+
+export function loadMarket(): string {
+  if (courant === undefined) {
+    try {
+      courant = window.localStorage.getItem(MARKET_STORAGE_KEY);
+    } catch {
+      courant = null;
+    }
+  }
+  const marches = loadMarkets();
+  // A market dropped from the list is no longer a market to read.
+  return courant && marches.includes(courant) ? courant : marches[0];
+}
+
+export function saveMarket(market: string) {
+  courant = market;
+  try {
+    window.localStorage.setItem(MARKET_STORAGE_KEY, market);
+  } catch {
+    // ignore storage failures
+  }
+  for (const abonne of abonnes) abonne();
+}
+
+/** For `useSyncExternalStore`: the server has no market to read. */
+export const marketStore = {
+  subscribe(listener: () => void) {
+    abonnes.add(listener);
+    // Another tab of the same journal counts as a change here too.
+    const ailleurs = (e: StorageEvent) => {
+      if (e.key === MARKET_STORAGE_KEY) {
+        courant = e.newValue;
+        listener();
+      }
+    };
+    window.addEventListener("storage", ailleurs);
+    return () => {
+      abonnes.delete(listener);
+      window.removeEventListener("storage", ailleurs);
+    };
+  },
+  lu: () => loadMarket(),
+  auServeur: (): string | null => null,
+};
+
 export function saveMarkets(markets: string[]) {
   try {
     window.localStorage.setItem(MARKETS_STORAGE_KEY, JSON.stringify(markets));
