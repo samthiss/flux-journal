@@ -255,6 +255,44 @@ body::after {
   padding: 40px 48px;
 }
 
+/* ---- News ticker ---- */
+/* Pulled out to the edges of the page's padding, so the band runs the whole
+   width the way a ticker does rather than sitting in the column — and pulled
+   by whatever that padding currently is, which the phone layout changes. */
+.news-ticker {
+  margin: -40px -48px 24px;
+  /* Sticky insets are measured from the scrollport, which includes the page's
+     padding — so the band has to be allowed those 40px of travel to come to
+     rest flush against the top rather than a padding's height below it. */
+  top: -40px;
+}
+@media (max-width: 768px) {
+  .news-ticker {
+    margin: -20px -16px 16px;
+    top: -20px;
+  }
+}
+.news-ticker-rail {
+  animation-name: news-ticker;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes news-ticker {
+  from {
+    transform: translateX(0);
+  }
+  /* Half, because the rail holds the day twice: at -50% the second copy sits
+     exactly where the first started, so the loop has no seam. */
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-ticker-rail {
+    animation: none;
+  }
+}
+
 @media (max-width: 768px) {
   .app-shell {
     flex-direction: column-reverse !important;

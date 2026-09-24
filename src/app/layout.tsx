@@ -6,6 +6,8 @@ import { AgentProvider } from "@/components/agent/AgentProvider";
 import AgentLauncher from "@/components/agent/AgentLauncher";
 import { SESSION_COOKIE, authConfig, verifySessionToken } from "@/lib/auth";
 import { getNoteTree } from "@/lib/actions/notes";
+import NewsTicker from "@/components/NewsTicker";
+import { getEconomicEvents } from "@/lib/economicCalendar";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -39,6 +41,33 @@ async function sidebarTree() {
   return getNoteTree();
 }
 
+/**
+ * The releases around today, for the band at the top of every page.
+ *
+ * A three-day window rather than a day: the server is in UTC and the reader is
+ * not, so which day is "today" is decided in the browser. Read through the
+ * calendar's own hourly cache, so putting this on every page costs one request
+ * an hour rather than one per page.
+ */
+async function actualitesDuJour() {
+  if (!(await connecte())) return [];
+  try {
+    const { events } = await getEconomicEvents();
+    const minuit = new Date();
+    minuit.setHours(0, 0, 0, 0);
+    const debut = minuit.getTime() - 86400000;
+    const fin = minuit.getTime() + 2 * 86400000;
+    return events.filter((e) => {
+      if (!e.at) return false;
+      const t = new Date(e.at).getTime();
+      return t >= debut && t < fin;
+    });
+  } catch {
+    // A calendar that will not answer is not a reason for a page not to load.
+    return [];
+  }
+}
+
 /** Whether this request carries a valid session. */
 async function connecte() {
   const config = authConfig();
@@ -64,7 +93,10 @@ export default async function RootLayout({
             is an assistant offered to a stranger. */}
         <AgentProvider>
           <Sidebar initialTree={await sidebarTree()} />
-          <div className="app-main">{children}</div>
+          <div className="app-main">
+            <NewsTicker events={await actualitesDuJour()} />
+            {children}
+          </div>
           {modal}
           {await connecte() && <AgentLauncher />}
         </AgentProvider>
