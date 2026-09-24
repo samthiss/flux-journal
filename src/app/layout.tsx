@@ -57,8 +57,15 @@ async function actualitesDuJour() {
     minuit.setHours(0, 0, 0, 0);
     const debut = minuit.getTime() - 86400000;
     const fin = minuit.getTime() + 2 * 86400000;
+    // The days the window covers, for the entries that have no clock at all —
+    // a closed session, a summit. They are filed under a day, so they are kept
+    // by day; dropping them left the band without the two things it is most
+    // worth carrying.
+    const jours = new Set(
+      [-1, 0, 1, 2].map((n) => new Date(minuit.getTime() + n * 86400000).toLocaleDateString("en-CA"))
+    );
     return events.filter((e) => {
-      if (!e.at) return false;
+      if (!e.at) return jours.has(e.date);
       const t = new Date(e.at).getTime();
       return t >= debut && t < fin;
     });

@@ -43,12 +43,16 @@ export default function NewsTicker({ events }: { events: EconomicEvent[] }) {
     if (minute === null) return [];
     const aujourdhui = new Date(minute * 60_000).toLocaleDateString("en-CA");
     return events
-      .filter((e) => e.at && new Date(e.at).toLocaleDateString("en-CA") === aujourdhui)
+      // An entry with no clock — a closed session, a summit — is filed under a
+      // day, and a day needs no timezone. One with a clock is placed by the
+      // instant, read here in the reader's own time.
+      .filter((e) => (e.at ? new Date(e.at).toLocaleDateString("en-CA") : e.date) === aujourdhui)
       // Three stars, and the closed sessions. A band carrying the whole day
       // carried sixty rows and took seven minutes to come round — by which
       // time it is not news. What is left is what a trading day is planned
       // around: the releases that move a price, and the markets that are shut.
       .filter((e) => e.impact === "high" || e.kind === "holiday")
+      // What has no hour comes first: it is true of the whole day.
       .sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
   }, [events, minute]);
 
@@ -62,8 +66,8 @@ export default function NewsTicker({ events }: { events: EconomicEvent[] }) {
   const duree = Math.max(24, duJour.length * 7);
 
   const bande = duJour.map((event, i) => {
-    const instant = new Date(event.at!);
-    const passe = instant.getTime() < maintenant;
+    const instant = event.at ? new Date(event.at) : null;
+    const passe = instant ? instant.getTime() < maintenant : false;
     const etoiles = event.impact === "high" ? 3 : event.impact === "medium" ? 2 : 1;
     const ferme = event.kind === "holiday";
     return (
@@ -80,7 +84,9 @@ export default function NewsTicker({ events }: { events: EconomicEvent[] }) {
         }}
       >
         <span style={{ color: "oklch(0.6 0.02 250)" }}>
-          {instant.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          {/* No hour where the source gives none: a day-long entry shown at an
+              hour reads as a release nobody scheduled. */}
+          {instant ? instant.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "journée"}
         </span>
         <span
           style={{

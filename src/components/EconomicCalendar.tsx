@@ -310,13 +310,14 @@ export default function EconomicCalendar({
    * card is still looking at last week.
    */
   /**
-   * The week, not the day.
+   * The day. The week is one click away, on the picker above the rows.
    *
-   * At three stars a currency future has nine or ten releases in a month, so a
-   * card showing one day is empty most mornings — and an empty card says
-   * nothing about the Thursday that will matter. The day is one click away.
+   * It was opened on the week for a while, on the grounds that three stars
+   * leaves most days empty — but what is read in the morning is what happens
+   * today, and a card answering a wider question than the one being asked is
+   * a card to be re-filtered every time.
    */
-  const [range, setRange] = useState<Range>("week");
+  const [range, setRange] = useState<Range>("today");
 
   /**
    * Ratings changed since the page was drawn.

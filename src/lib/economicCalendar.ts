@@ -219,9 +219,25 @@ async function readRange(from: Date, to: Date): Promise<EconomicEvent[] | null> 
       // UTC, and turning that into a local clock would file an American
       // holiday under the evening before for anyone west of London.
       const holiday = e.indicator === "Holidays";
+      /**
+       * Neither is a summit, a UN assembly or any other entry the source files
+       * at midnight with nothing to publish.
+       *
+       * They are days, not instants, and shown as instants they read as a
+       * release at two in the morning — which is what a Trump/Xi summit looked
+       * like in the news band. Both halves of the test are needed: the source
+       * does put real times on other entries of the same kind (a Fed bill
+       * purchase at 13:20, an auction at 15:30), and those keep their clock
+       * because they carry figures or a time that is not midnight.
+       */
+      const journeeEntiere =
+        (e.date ?? "").endsWith("T00:00:00.000Z") &&
+        e.actual == null &&
+        e.forecast == null &&
+        e.previous == null;
       return [
         {
-          at: holiday ? null : at.toISOString(),
+          at: holiday || journeeEntiere ? null : at.toISOString(),
           // A UTC day, only ever used for entries with no clock — which this
           // source does not have; every event here carries an instant.
           date: localDate(at),
