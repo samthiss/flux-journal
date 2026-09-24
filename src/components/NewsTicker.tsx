@@ -5,7 +5,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import type { EconomicEvent } from "@/lib/economicCalendar";
 import { currenciesOf, focusFor, underFocus } from "@/lib/marketFocus";
 import { marketStore } from "@/lib/markets";
-import { accentColor, lossColor } from "@/lib/theme";
+import { lossColor, newsColor } from "@/lib/theme";
 
 /**
  * The current minute, as a store rather than a clock read while rendering.
@@ -101,8 +101,8 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
         style={{
           display: "inline-flex",
           alignItems: "center",
-          gap: 7,
-          marginRight: 28,
+          gap: 8,
+          marginRight: 34,
           // What is already out is read for its figure; what is coming is read
           // for its hour, and that is the half worth keeping lit.
           opacity: passe ? 0.45 : 1,
@@ -124,10 +124,10 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
         >
           {event.currency}
         </span>
-        <span style={{ color: ferme ? lossColor : accentColor, letterSpacing: "0.5px" }}>
+        <span style={{ color: ferme ? lossColor : newsColor, letterSpacing: "1px", fontSize: 12 }}>
           {ferme ? "●" : "★".repeat(etoiles)}
         </span>
-        <span style={{ color: "oklch(0.88 0.017 250)" }}>{event.title}</span>
+        <span style={{ color: "oklch(0.95 0.01 250)", fontWeight: 500 }}>{event.title}</span>
         {/* The figure once it is out, against what was expected of it: a band
             that only ever announced releases would be worth reading once. */}
         {event.actual ? (
@@ -154,16 +154,41 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
         // it land flush is in the stylesheet, beside the padding it answers.
         position: "sticky",
         zIndex: 20,
-        padding: "7px 0",
+        padding: "12px 0",
         overflow: "hidden",
         whiteSpace: "nowrap",
         fontFamily: "var(--font-jetbrains-mono), monospace",
-        fontSize: 11,
-        background: "oklch(0.15 0.03 250 / 0.92)",
+        fontSize: 12.5,
+        // Lit in amber rather than left dark: a band nobody notices is a band
+        // that may as well not run. Dark enough underneath to stay behind the
+        // page, bright enough at its edges to be the first thing read.
+        background: "linear-gradient(oklch(0.24 0.07 75 / 0.92), oklch(0.19 0.05 75 / 0.92))",
         backdropFilter: "blur(6px)",
-        borderBottom: "1px solid oklch(0.3 0.034 250 / 0.6)",
+        borderBottom: `1px solid ${newsColor.replace(")", " / 0.45)")}`,
+        boxShadow: `0 0 26px -6px ${newsColor.replace(")", " / 0.4)")}`,
       }}
     >
+      {/* A label that does not travel, so the band says what it is even when
+          the release passing through it is halfway out of view. */}
+      <span
+        className="news-ticker-label"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 1,
+          paddingRight: 22,
+          fontSize: 10,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color: newsColor,
+          background: "linear-gradient(to right, oklch(0.22 0.07 75) 72%, oklch(0.22 0.07 75 / 0))",
+        }}
+      >
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: newsColor, boxShadow: `0 0 8px ${newsColor}` }} />
+        News du jour
+      </span>
       <div
         className="news-ticker-rail"
         style={{
@@ -175,8 +200,10 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
       >
         {/* Twice, so the second copy is already in view when the first leaves:
             one copy would cross an empty band on its way back. */}
-        <span style={{ display: "inline-flex", alignItems: "center", paddingLeft: 48 }}>{bande}</span>
-        <span aria-hidden style={{ display: "inline-flex", alignItems: "center", paddingLeft: 48 }}>
+        {/* Started clear of the label, so the first release is not read
+            through it. */}
+        <span style={{ display: "inline-flex", alignItems: "center" }}>{bande}</span>
+        <span aria-hidden style={{ display: "inline-flex", alignItems: "center" }}>
           {bande}
         </span>
       </div>

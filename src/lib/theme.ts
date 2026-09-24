@@ -9,6 +9,15 @@ export const magentaColor = "oklch(0.72 0.27 340)";
 export const winColor = accentColor;
 export const lossColor = magentaColor;
 
+/**
+ * The third light, for the news band alone.
+ *
+ * Cyan and magenta already mean something here — a trade that worked and one
+ * that did not — so a band lit in either would read as a verdict on the day.
+ * Amber says wire service and belongs to nothing else in the journal.
+ */
+export const newsColor = "oklch(0.82 0.16 75)";
+
 /** The halo every lit element carries, sized to how loud the element should be. */
 export function neonGlow(color: string, strength: 1 | 2 | 3 = 2) {
   const spread = { 1: 6, 2: 14, 3: 26 }[strength];

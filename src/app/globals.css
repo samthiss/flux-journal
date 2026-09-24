@@ -272,6 +272,28 @@ body::after {
     top: -20px;
   }
 }
+/* The label that does not travel, and the room the rail leaves for it. On a
+   phone there is no room to leave: the band is two thirds label, so the words
+   go and the releases get the width. */
+.news-ticker-label {
+  /* Laid out here rather than inline, or the media query below could not take
+     it away: an inline style wins over a stylesheet whatever the query says. */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 48px;
+}
+.news-ticker-rail > span {
+  padding-left: 210px;
+}
+@media (max-width: 768px) {
+  .news-ticker-label {
+    display: none;
+  }
+  .news-ticker-rail > span {
+    padding-left: 16px;
+  }
+}
 .news-ticker-rail {
   animation-name: news-ticker;
   animation-timing-function: linear;
