@@ -8,6 +8,7 @@ import VolumeChecklist from "@/components/VolumeChecklist";
 import ColorCode from "@/components/ColorCode";
 import ChecklistClient from "@/components/ChecklistClient";
 import EconomicCalendar from "@/components/EconomicCalendar";
+import InvestingCalendar from "@/components/InvestingCalendar";
 import type { EconomicEvent } from "@/lib/economicCalendar";
 
 type ChecklistItem = { id: string; group: string; label: string; tab?: string | null };
@@ -240,6 +241,11 @@ export default function ChecklistTabs({
               Publications de la semaine — filtre les jours, les devises et l&apos;importance
             </div>
           </div>
+          {/* The widget first, as it was before the journal drew its own
+              calendar, and the drawn one under it: investing.com refuses to be
+              framed, so the card above may well be blank — and a blank card is
+              not a reason to be without a calendar. */}
+          <InvestingCalendar />
           <EconomicCalendar events={events} ok={calendarOk} source={calendarSource} market={market} />
         </div>
       )}
