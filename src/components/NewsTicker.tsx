@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { EconomicEvent } from "@/lib/economicCalendar";
 import { currenciesOf, focusFor, underFocus } from "@/lib/marketFocus";
 import { marketStore } from "@/lib/markets";
@@ -16,6 +17,52 @@ import { lossColor, newsColor } from "@/lib/theme";
  * disagreeing at hydration. And the minute ticking is what dims a release as
  * it comes out, without anything else asking for a re-render.
  */
+/** Where the reader's answer about alerts is kept. */
+const ALERTES = "flux.news.alertes";
+
+/**
+ * How long before a release the warning goes out.
+ *
+ * Five minutes is what it takes to be flat, or to decide not to be — which is
+ * the only reason to be told at all.
+ */
+const AVANT = 5;
+
+/** The preference, as a store so every page carrying the band agrees on it. */
+const ecouteurs = new Set<() => void>();
+const alerteStore = {
+  subscribe(listener: () => void) {
+    ecouteurs.add(listener);
+    return () => void ecouteurs.delete(listener);
+  },
+  lu: () => {
+    try {
+      return window.localStorage.getItem(ALERTES);
+    } catch {
+      return null;
+    }
+  },
+  auServeur: (): string | null => null,
+};
+
+/** Turns them on, asking the browser at the moment the reader asks for them. */
+async function basculerAlertes(actif: boolean) {
+  let valeur = actif ? null : "1";
+  if (!actif && typeof Notification !== "undefined" && Notification.permission !== "granted") {
+    // Refused, or dismissed: the band keeps its own warning, which needs
+    // nobody's permission.
+    const reponse = await Notification.requestPermission();
+    if (reponse !== "granted") valeur = null;
+  }
+  try {
+    if (valeur) window.localStorage.setItem(ALERTES, valeur);
+    else window.localStorage.removeItem(ALERTES);
+  } catch {
+    // Nothing to be done about it, and the session still holds the choice.
+  }
+  for (const ecouteur of ecouteurs) ecouteur();
+}
+
 const horloge = {
   subscribe(listener: () => void) {
     const id = setInterval(listener, 30_000);
@@ -43,6 +90,19 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
   // The contract being read, chosen on the checklist. The band shows what that
   // market shows, or it is a second calendar disagreeing with the first.
   const marche = useSyncExternalStore(marketStore.subscribe, marketStore.lu, marketStore.auServeur);
+
+  /**
+   * Whether the browser should say it out loud.
+   *
+   * Off until asked for: a notification nobody agreed to is the kind of thing
+   * that gets a page muted for good. The answer is remembered, and the
+   * browser's permission is asked for at the click rather than on arrival.
+   */
+  const actif = useSyncExternalStore(alerteStore.subscribe, alerteStore.lu, alerteStore.auServeur) === "1";
+  /** What the browser has already announced, so a release is said once. */
+  const annonces = useRef<Set<string>>(new Set());
+  /** What the reader has waved away, by the same keys. */
+  const [ecartes, setEcartes] = useState<string[]>([]);
 
   const duJour = useMemo(() => {
     if (minute === null) return [];
@@ -80,6 +140,55 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
       // What has no hour comes first: it is true of the whole day.
       .sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
   }, [events, minute, marche, notees]);
+
+  /**
+   * The release to put in front of the reader, if there is one.
+   *
+   * Derived rather than announced by a timer: what is on screen is a function
+   * of the clock and of what has been waved away, so nothing has to be kept in
+   * step. Twice per release — five minutes before, to be flat or to decide not
+   * to be, and at the moment it lands.
+   */
+  const alerte = (() => {
+    if (minute === null) return null;
+    const instant = minute * 60_000;
+    for (const event of duJour) {
+      if (!event.at) continue;
+      const t = new Date(event.at).getTime();
+      const cle = `${event.currency}|${event.title}|${event.at}`;
+      const bientot = instant >= t - AVANT * 60_000 && instant < t;
+      const tombe = instant >= t && instant < t + 2 * 60_000;
+      if (!bientot && !tombe) continue;
+      const moment = bientot ? ("bientot" as const) : ("maintenant" as const);
+      if (ecartes.includes(`${cle}|${moment}`)) continue;
+      return { event, moment, cle: `${cle}|${moment}`, minutes: Math.max(0, Math.round((t - instant) / 60_000)) };
+    }
+    return null;
+  })();
+
+  /**
+   * The same warning, said by the browser.
+   *
+   * Only where it was asked for, and only once per release per moment — the
+   * ref is what keeps a re-render from announcing it again. It is the half
+   * that works when the journal is not the tab being looked at, which is most
+   * of the time during a session.
+   */
+  useEffect(() => {
+    if (!alerte || !actif) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (annonces.current.has(alerte.cle)) return;
+    annonces.current.add(alerte.cle);
+    const titre =
+      alerte.moment === "bientot"
+        ? `Dans ${alerte.minutes || 1} min · ${alerte.event.currency}`
+        : `Maintenant · ${alerte.event.currency}`;
+    try {
+      new Notification(titre, { body: alerte.event.title, tag: alerte.cle, icon: "/favicon.ico" });
+    } catch {
+      // A browser that refuses to build one is not a reason to break the page.
+    }
+  }, [alerte, actif]);
 
   // The login screen inherits the layout, and the day's releases are not for
   // someone who has not signed in.
@@ -188,6 +297,28 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
       >
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: newsColor, boxShadow: `0 0 8px ${newsColor}` }} />
         News du jour
+        {/* The browser's own warning, off until it is asked for. The popup
+            below needs nobody's permission; this is the half that reaches a
+            tab nobody is looking at. */}
+        <span
+          onClick={() => void basculerAlertes(actif)}
+          title={
+            actif
+              ? "Notifications du navigateur : activées — cliquer pour les couper"
+              : "Prévenir aussi hors de cet onglet, 5 min avant chaque publication"
+          }
+          style={{
+            cursor: "pointer",
+            marginLeft: 2,
+            padding: "2px 8px",
+            borderRadius: 999,
+            border: `1px ${actif ? "solid" : "dashed"} ${actif ? newsColor : "oklch(0.45 0.03 75)"}`,
+            color: actif ? newsColor : "oklch(0.6 0.03 75)",
+            letterSpacing: "0.08em",
+          }}
+        >
+          {actif ? "alertes ●" : "alertes ○"}
+        </span>
       </span>
       <div
         className="news-ticker-rail"
@@ -207,6 +338,64 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
           {bande}
         </span>
       </div>
+
+      {/* Put in front of the reader rather than left to travel past: five
+          minutes before a release, and again as it lands. It is drawn into the
+          body so no card's cut corners can clip it, and it goes when it is
+          waved away or when its two minutes are up. */}
+      {alerte &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: 24,
+              right: 24,
+              zIndex: 500,
+              width: 320,
+              padding: "14px 16px",
+              borderRadius: 10,
+              border: `1px solid ${newsColor.replace(")", " / 0.65)")}`,
+              background: "linear-gradient(oklch(0.26 0.08 75 / 0.97), oklch(0.2 0.06 75 / 0.97))",
+              boxShadow: `0 18px 44px -12px oklch(0 0 0 / 0.75), 0 0 30px -8px ${newsColor.replace(")", " / 0.5)")}`,
+              fontFamily: "var(--font-jetbrains-mono), monospace",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: newsColor }}>
+              <span
+                className="news-alert-dot"
+                style={{ width: 8, height: 8, borderRadius: "50%", background: newsColor, boxShadow: `0 0 10px ${newsColor}` }}
+              />
+              {alerte.moment === "bientot" ? `Dans ${alerte.minutes || 1} min` : "Maintenant"}
+              <span style={{ marginLeft: "auto", color: "oklch(0.7 0.03 75)" }}>{alerte.event.currency}</span>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 14, fontWeight: 600, color: "oklch(0.97 0.01 250)", whiteSpace: "normal" }}>
+              {alerte.event.title}
+            </div>
+            {(alerte.event.forecast || alerte.event.previous) && (
+              <div style={{ marginTop: 4, fontSize: 11, color: "oklch(0.72 0.03 75)" }}>
+                {alerte.event.forecast ? `prév. ${alerte.event.forecast}` : ""}
+                {alerte.event.forecast && alerte.event.previous ? " · " : ""}
+                {alerte.event.previous ? `préc. ${alerte.event.previous}` : ""}
+              </div>
+            )}
+            <div
+              onClick={() => setEcartes((prev) => [...prev, alerte.cle])}
+              style={{
+                marginTop: 12,
+                textAlign: "center",
+                padding: "6px 0",
+                borderRadius: 7,
+                cursor: "pointer",
+                fontSize: 11,
+                border: `1px solid ${newsColor.replace(")", " / 0.5)")}`,
+                color: newsColor,
+              }}
+            >
+              compris
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

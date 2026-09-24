@@ -314,6 +314,27 @@ body::after {
     animation: none;
   }
 }
+/* The dot on the alert breathes, so a card that appeared while the reader was
+   looking elsewhere still catches the eye on the way back. */
+.news-alert-dot {
+  animation: news-alert-pulse 1.4s ease-in-out infinite;
+}
+@keyframes news-alert-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-alert-dot {
+    animation: none;
+  }
+}
 
 @media (max-width: 768px) {
   .app-shell {
