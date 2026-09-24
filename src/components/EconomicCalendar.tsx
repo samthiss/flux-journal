@@ -188,11 +188,27 @@ function RangePicker({ range, onPick }: { range: Range; onPick: (range: Range) =
   );
 }
 
-const STORE = "flux.calendar.filters";
+/**
+ * Bumped when the default changed to three stars alone.
+ *
+ * A saved filter wins over the default, so without a new name every reader who
+ * had ever touched the stars would keep the two-star view and never see the
+ * change. The old key is left where it is — nothing reads it, and a visit
+ * costs one click to widen the view again.
+ */
+const STORE = "flux.calendar.filters.v2";
 
 type Filters = { impacts: Impact[] };
 
-const DEFAULTS: Filters = { impacts: ["high", "medium"] };
+/**
+ * Three stars, and nothing else.
+ *
+ * What is being traded here are currency futures — 6E and 6B — and on those,
+ * a two-star release is something to know about afterwards, not something to
+ * stand aside for. The rest of the calendar is one click away: the two-star
+ * chip is beside the three-star one, and what is picked is remembered.
+ */
+const DEFAULTS: Filters = { impacts: ["high"] };
 
 /**
  * The saved filters, as an external store rather than state seeded in an effect.
@@ -293,7 +309,14 @@ export default function EconomicCalendar({
    * lie — a release is missing and nothing on screen says it is because the
    * card is still looking at last week.
    */
-  const [range, setRange] = useState<Range>("today");
+  /**
+   * The week, not the day.
+   *
+   * At three stars a currency future has nine or ten releases in a month, so a
+   * card showing one day is empty most mornings — and an empty card says
+   * nothing about the Thursday that will matter. The day is one click away.
+   */
+  const [range, setRange] = useState<Range>("week");
 
   /**
    * Ratings changed since the page was drawn.
