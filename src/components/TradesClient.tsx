@@ -70,7 +70,7 @@ const selectStyle: React.CSSProperties = {
 
 const OPEN_NEW_TAB_KEY = "trades-open-new-tab";
 
-export default function TradesClient({ trades, initialPeriod, details = {} }: { details?: Record<string, Record<string, string[]>>; trades: Trade[]; initialPeriod: string }) {
+export default function TradesClient({ trades, initialPeriod, details = {}, proprietaire = true }: { proprietaire?: boolean; details?: Record<string, Record<string, string[]>>; trades: Trade[]; initialPeriod: string }) {
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
@@ -156,12 +156,16 @@ export default function TradesClient({ trades, initialPeriod, details = {} }: { 
           <PageTitle>Trades</PageTitle>
           <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{filteredTrades.filter((t) => passeLesColonnes(t.id, filtresColonnes, details)).length} trades</div>
         </div>
-        <Link
-          href="/trade/new"
-          style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", textDecoration: "none" }}
-        >
-          + Add Trade
-        </Link>
+        {/* Not offered to a shared account, which may read these rows and
+            write none of them. */}
+        {proprietaire && (
+          <Link
+            href="/trade/new"
+            style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", textDecoration: "none" }}
+          >
+            + Add Trade
+          </Link>
+        )}
       </div>
 
       <div className="trades-filters" style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>

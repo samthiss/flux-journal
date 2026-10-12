@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { SESSION_COOKIE, authConfig, verifySessionToken } from "@/lib/auth";
+import { SESSION_COOKIE, authConfig, sessionRole } from "@/lib/auth";
+
+/**
+ * What an account the journal is shared with may open.
+ *
+ * The dashboard and the trades, and the chart images those two draw. Not the
+ * notes, the checklist, the risk page or the agent — a journal shared is a
+ * record shown, not a desk handed over.
+ */
+const POUR_INVITE = [/^\/$/, /^\/trades(\/|$)/, /^\/api\/uploads\//];
 
 // Named Proxy rather than Middleware: Next 16 renamed the file and the export,
 // and it now runs on the Node.js runtime by default.
@@ -22,14 +31,31 @@ export function proxy(request: NextRequest) {
     );
   }
 
-  const signedIn = verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value, config.secret);
+  const role = sessionRole(request.cookies.get(SESSION_COOKIE)?.value, config.secret);
+  const signedIn = role !== null;
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname === "/inscription") {
     if (signedIn) return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();
   }
 
-  if (signedIn) return NextResponse.next();
+  if (role === "owner") return NextResponse.next();
+
+  if (role === "invite") {
+    /**
+     * A guest reads. Everything that writes in this app is a server action,
+     * and every server action is a POST to the page it was called from — so
+     * one rule at the door covers them all, including the ones whose buttons
+     * are hidden anyway. Hiding a button is tidiness; this is the boundary.
+     */
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new NextResponse("Lecture seule.", { status: 403 });
+    }
+    if (POUR_INVITE.some((motif) => motif.test(pathname))) return NextResponse.next();
+    // Not an error: a page they cannot open is simply not theirs to open, and
+    // the dashboard is where they came to look.
+    return NextResponse.redirect(new URL("/", request.url));
+  }
 
   // Sending a browser to /login for a page is helpful; doing it for a fetch
   // would hand back a login page where JSON was expected, which reads as a

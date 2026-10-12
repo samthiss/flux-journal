@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { AgentProvider } from "@/components/agent/AgentProvider";
 import AgentLauncher from "@/components/agent/AgentLauncher";
 import { SESSION_COOKIE, authConfig, verifySessionToken } from "@/lib/auth";
+import { estProprietaire } from "@/lib/session";
 import { getNoteTree } from "@/lib/actions/notes";
 import NewsTicker from "@/components/NewsTicker";
 import { applyRatings, getEconomicEvents, type EconomicEvent } from "@/lib/economicCalendar";
@@ -38,7 +39,8 @@ export const metadata: Metadata = {
  * screen whose whole point is that nothing has been unlocked yet.
  */
 async function sidebarTree() {
-  if (!(await connecte())) return [];
+  // A guest has no notes to show in the sidebar, and no page to show them on.
+  if (!(await estProprietaire())) return [];
   return getNoteTree();
 }
 
@@ -108,13 +110,13 @@ export default async function RootLayout({
             inherits this layout, and an assistant offered before the password
             is an assistant offered to a stranger. */}
         <AgentProvider>
-          <Sidebar initialTree={await sidebarTree()} />
+          <Sidebar initialTree={await sidebarTree()} proprietaire={await estProprietaire()} />
           <div className="app-main">
             <NewsTicker {...await actualitesDuJour()} />
             {children}
           </div>
           {modal}
-          {await connecte() && <AgentLauncher />}
+          {await estProprietaire() && <AgentLauncher />}
         </AgentProvider>
       </body>
     </html>

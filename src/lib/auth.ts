@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 // One person, one password. There are no accounts to model, so a session is
 // nothing but a signed statement that says "whoever holds this cookie typed the
@@ -45,18 +45,66 @@ export function checkPassword(typed: string, expected: string) {
   return equals(typed, expected);
 }
 
-/** A token is `<expiry>.<signature over that expiry>`. */
-export function createSessionToken(secret: string) {
+/**
+ * Who is holding the cookie.
+ *
+ * "owner" is whoever typed the one password this journal was built around;
+ * "invite" is an account it has been shared with, which may read the dashboard
+ * and the trades and write nothing.
+ */
+export type Role = "owner" | "invite";
+
+/**
+ * A token is `<expiry>.<role>.<signature over both>`.
+ *
+ * Tokens issued before roles existed are `<expiry>.<signature>` and are read as
+ * the owner's — the only person who had one. Dropping them would have signed
+ * the owner out of their own journal to add a feature for someone else.
+ */
+export function createSessionToken(secret: string, role: Role = "owner") {
   const expiresAt = Date.now() + MAX_AGE_SECONDS * 1000;
-  return `${expiresAt}.${sign(String(expiresAt), secret)}`;
+  return `${expiresAt}.${role}.${sign(`${expiresAt}|${role}`, secret)}`;
+}
+
+/** The role this token carries, or null if it carries none worth trusting. */
+export function sessionRole(token: string | undefined, secret: string): Role | null {
+  if (!token) return null;
+  const parts = token.split(".");
+
+  if (parts.length === 2) {
+    const [expiresAt, signature] = parts;
+    if (!expiresAt || !signature) return null;
+    if (!equals(signature, sign(expiresAt, secret))) return null;
+    return Number(expiresAt) > Date.now() ? "owner" : null;
+  }
+
+  const [expiresAt, role, signature] = parts;
+  if (!expiresAt || !signature || (role !== "owner" && role !== "invite")) return null;
+  if (!equals(signature, sign(`${expiresAt}|${role}`, secret))) return null;
+  return Number(expiresAt) > Date.now() ? role : null;
 }
 
 export function verifySessionToken(token: string | undefined, secret: string) {
-  if (!token) return false;
-  const [expiresAt, signature] = token.split(".");
-  if (!expiresAt || !signature) return false;
-  if (!equals(signature, sign(expiresAt, secret))) return false;
-  return Number(expiresAt) > Date.now();
+  return sessionRole(token, secret) !== null;
+}
+
+/**
+ * A password at rest, salted and slow.
+ *
+ * scrypt from the standard library rather than a dependency: this is the only
+ * place the journal stores a password of anyone's but the owner's, and the one
+ * thing that must not be reversible if the database is ever read by someone
+ * who should not have it.
+ */
+export function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  return `scrypt$${salt}$${scryptSync(password, salt, 64).toString("hex")}`;
+}
+
+export function checkHashedPassword(password: string, stored: string) {
+  const [algo, salt, cle] = stored.split("$");
+  if (algo !== "scrypt" || !salt || !cle) return false;
+  return equals(scryptSync(password, salt, 64).toString("hex"), cle);
 }
 
 export const sessionCookieOptions = {

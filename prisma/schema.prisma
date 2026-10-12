@@ -583,3 +583,34 @@ model AgentAddition {
 
   @@index([note])
 }
+
+/**
+ * Someone the journal is shared with.
+ *
+ * Not the owner: they sign in with the single password this app was built
+ * around, which no table holds. Everyone here is a guest — an account made
+ * from an invitation, able to read the dashboard and the trades and nothing
+ * else, able to write nothing at all.
+ */
+model JournalUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  /** Revoked rather than deleted, so the invitation it came from stays spent. */
+  revokedAt    DateTime?
+}
+
+/**
+ * The right to make one such account.
+ *
+ * A code rather than an open sign-up form: this journal is one person's, on one
+ * address, and a form anybody can fill is a door anybody can try.
+ */
+model Invitation {
+  code      String   @id
+  label     String?
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+  usedBy    String?
+}

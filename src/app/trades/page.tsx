@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { estProprietaire } from "@/lib/session";
 import { cookies } from "next/headers";
 import { isValidPeriod, TRADE_FOR_STATS_SELECT } from "@/lib/stats";
 import TradesClient from "@/components/TradesClient";
@@ -50,5 +51,12 @@ export default async function TradesPage() {
     ])
   );
 
-  return <TradesClient trades={trades} initialPeriod={initialPeriod} details={details} />;
+  return (
+    <TradesClient
+      trades={trades}
+      initialPeriod={initialPeriod}
+      details={details}
+      proprietaire={await estProprietaire()}
+    />
+  );
 }

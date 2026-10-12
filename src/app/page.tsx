@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { estProprietaire } from "@/lib/session";
 import { isValidPeriod, TRADE_FOR_STATS_SELECT } from "@/lib/stats";
 import DashboardClient from "@/components/DashboardClient";
 
@@ -17,5 +18,5 @@ export default async function DashboardPage() {
   const stored = (await cookies()).get("dash-period")?.value;
   const initialPeriod = isValidPeriod(stored) ? stored : "week";
 
-  return <DashboardClient trades={trades} initialPeriod={initialPeriod} />;
+  return <DashboardClient trades={trades} initialPeriod={initialPeriod} proprietaire={await estProprietaire()} />;
 }

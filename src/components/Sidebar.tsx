@@ -11,6 +11,18 @@ import { signOut } from "@/app/login/actions";
 /** Where the note last read is kept, so a reload comes back to it. */
 const NOTE_LUE_KEY = "notes-derniere-note";
 
+/** Three people joined by two lines: what sharing looks like. */
+function PartageIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <circle cx="4.5" cy="9" r="2.3" stroke={color} strokeWidth="1.4" />
+      <circle cx="13" cy="4.3" r="2.3" stroke={color} strokeWidth="1.4" />
+      <circle cx="13" cy="13.7" r="2.3" stroke={color} strokeWidth="1.4" />
+      <path d="M6.6 7.9 10.9 5.5M6.6 10.1l4.3 2.4" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", match: (p: string) => p === "/" },
   { href: "/trades", label: "Trades", match: (p: string) => p.startsWith("/trades") },
@@ -20,6 +32,7 @@ const NAV_ITEMS = [
   { href: "/volume-alert", label: "Volume Alert", match: (p: string) => p.startsWith("/volume-alert") },
   { href: "/notes", label: "Notes", match: (p: string) => p.startsWith("/notes") },
   { href: "/agent", label: "Agent journal", match: (p: string) => p.startsWith("/agent") },
+  { href: "/partage", label: "Partage", match: (p: string) => p.startsWith("/partage") },
 ];
 
 function DashboardIcon({ color }: { color: string }) {
@@ -187,7 +200,17 @@ function AgentIcon({ color }: { color: string }) {
   );
 }
 
-const ICONS = [DashboardIcon, TradesIcon, ReportIcon, RiskIcon, ChecklistIcon, VolumeAlertIcon, NotesIcon, AgentIcon];
+const ICONS = [
+  DashboardIcon,
+  TradesIcon,
+  ReportIcon,
+  RiskIcon,
+  ChecklistIcon,
+  VolumeAlertIcon,
+  NotesIcon,
+  AgentIcon,
+  PartageIcon,
+];
 
 type NoteRow = { id: string; title: string; parentId: string | null; order: number; collapsed: boolean };
 type TreeNode = NoteRow & { children: TreeNode[] };
@@ -217,7 +240,14 @@ function flattenDFS(nodes: TreeNode[], depth = 0, out: Array<{ node: TreeNode; d
   return out;
 }
 
-export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
+export default function Sidebar({
+  initialTree,
+  proprietaire = true,
+}: {
+  initialTree: NoteRow[];
+  /** A shared account sees the two pages it may open, and nothing else. */
+  proprietaire?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const onNotes = pathname.startsWith("/notes");
@@ -548,7 +578,12 @@ export default function Sidebar({ initialTree }: { initialTree: NoteRow[] }) {
             style={{ top: pill.top, left: pill.left, width: pill.width, height: pill.height }}
           />
         )}
-        {NAV_ITEMS.map((item, i) => {
+        {/* A guest is shown the two pages they may open. The icon is looked up
+            by the entry's own place in the list, which filtering would
+            otherwise shift under it. */}
+        {NAV_ITEMS.map((item, i) => [item, i] as const)
+          .filter(([item]) => proprietaire || item.href === "/" || item.href === "/trades")
+          .map(([item, i]) => {
           const active = item.match(pathname);
           const Icon = ICONS[i];
           return (

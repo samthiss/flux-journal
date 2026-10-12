@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { estProprietaire } from "@/lib/session";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 import { parseTagArray, tagTone } from "@/lib/tags";
 
@@ -17,6 +18,10 @@ import TradeCharts from "@/components/TradeCharts";
 export default async function TradeDetail({ id }: { id: string }) {
   const trade = await prisma.trade.findUnique({ where: { id } });
   if (!trade) notFound();
+
+  // A shared account reads the trade. The door already refuses the writes; the
+  // buttons go so nothing is offered that would be refused.
+  const proprietaire = await estProprietaire();
 
   const deleteTradeWithId = deleteTrade.bind(null, trade.id);
 
@@ -117,6 +122,7 @@ export default async function TradeDetail({ id }: { id: string }) {
             Realized P&amp;L
           </div>
         </div>
+        {proprietaire && (
         <div className="trade-detail-actions">
           <AddTradeToNoteButton tradeId={trade.id} />
           <Link
@@ -175,6 +181,7 @@ export default async function TradeDetail({ id }: { id: string }) {
             </button>
           </form>
         </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 18 }}>

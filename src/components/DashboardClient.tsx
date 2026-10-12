@@ -15,7 +15,16 @@ import {
 
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
-export default function DashboardClient({ trades, initialPeriod }: { trades: TradeForStats[]; initialPeriod: string }) {
+export default function DashboardClient({
+  trades,
+  initialPeriod,
+  proprietaire = true,
+}: {
+  trades: TradeForStats[];
+  initialPeriod: string;
+  /** A shared account reads the figures; it is offered nothing to write. */
+  proprietaire?: boolean;
+}) {
   // The chosen period comes from the server, read out of a cookie, so the first
   // paint is already the right one — the same reason the notes tree stores its
   // folds server-side. Read after hydration it would have shown this week's
@@ -147,12 +156,16 @@ export default function DashboardClient({ trades, initialPeriod }: { trades: Tra
             </svg>
           </div>
           <PeriodFilter period={period} onChange={choosePeriod} />
-          <Link
-            href="/trade/new"
-            style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", textDecoration: "none", whiteSpace: "nowrap" }}
-          >
-            + Add Trade
-          </Link>
+          {/* Not offered to a shared account: the door refuses the write, and
+              a button that leads to a refusal is worse than no button. */}
+          {proprietaire && (
+            <Link
+              href="/trade/new"
+              style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.017 250)", textDecoration: "none", whiteSpace: "nowrap" }}
+            >
+              + Add Trade
+            </Link>
+          )}
         </div>
       </div>
 
