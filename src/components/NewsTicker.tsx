@@ -181,8 +181,8 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
     annonces.current.add(alerte.cle);
     const titre =
       alerte.moment === "bientot"
-        ? `Dans ${alerte.minutes || 1} min · ${alerte.event.currency}`
-        : `Maintenant · ${alerte.event.currency}`;
+        ? `In ${alerte.minutes || 1} min · ${alerte.event.currency}`
+        : `Now · ${alerte.event.currency}`;
     try {
       new Notification(titre, { body: alerte.event.title, tag: alerte.cle, icon: "/favicon.ico" });
     } catch {
@@ -220,7 +220,7 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
         <span style={{ color: "oklch(0.6 0.02 250)" }}>
           {/* No hour where the source gives none: a day-long entry shown at an
               hour reads as a release nobody scheduled. */}
-          {instant ? instant.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "journée"}
+          {instant ? instant.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "all day"}
         </span>
         <span
           style={{
@@ -245,7 +245,7 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
             {event.forecast ? <span style={{ color: "oklch(0.5 0.02 250)" }}> / {event.forecast}</span> : null}
           </span>
         ) : event.forecast ? (
-          <span style={{ color: "oklch(0.5 0.02 250)" }}>prév. {event.forecast}</span>
+          <span style={{ color: "oklch(0.5 0.02 250)" }}>fcst {event.forecast}</span>
         ) : null}
       </span>
     );
@@ -256,7 +256,7 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
       onMouseEnter={() => setSurvol(true)}
       onMouseLeave={() => setSurvol(false)}
       className="news-ticker"
-      title="Publications du jour — le calendrier complet est dans Checklist & News"
+      title="Today's releases — the whole calendar is in Checklist & News"
       style={{
         // Pinned to the top of the page it scrolls with, so it is still there
         // once the reader is three screens down a note. The inset that makes
@@ -296,7 +296,7 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
         }}
       >
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: newsColor, boxShadow: `0 0 8px ${newsColor}` }} />
-        News du jour
+        Today&apos;s news
         {/* The browser's own warning, off until it is asked for. The popup
             below needs nobody's permission; this is the half that reaches a
             tab nobody is looking at. */}
@@ -304,8 +304,8 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
           onClick={() => void basculerAlertes(actif)}
           title={
             actif
-              ? "Notifications du navigateur : activées — cliquer pour les couper"
-              : "Prévenir aussi hors de cet onglet, 5 min avant chaque publication"
+              ? "Browser notifications are on — click to turn them off"
+              : "Also warn outside this tab, 5 min before each release"
           }
           style={{
             cursor: "pointer",
@@ -317,7 +317,7 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
             letterSpacing: "0.08em",
           }}
         >
-          {actif ? "alertes ●" : "alertes ○"}
+          {actif ? "alerts ●" : "alerts ○"}
         </span>
       </span>
       <div
@@ -365,7 +365,7 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
                 className="news-alert-dot"
                 style={{ width: 8, height: 8, borderRadius: "50%", background: newsColor, boxShadow: `0 0 10px ${newsColor}` }}
               />
-              {alerte.moment === "bientot" ? `Dans ${alerte.minutes || 1} min` : "Maintenant"}
+              {alerte.moment === "bientot" ? `In ${alerte.minutes || 1} min` : "Now"}
               <span style={{ marginLeft: "auto", color: "oklch(0.7 0.03 75)" }}>{alerte.event.currency}</span>
             </div>
             <div style={{ marginTop: 8, fontSize: 14, fontWeight: 600, color: "oklch(0.97 0.01 250)", whiteSpace: "normal" }}>
@@ -373,9 +373,9 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
             </div>
             {(alerte.event.forecast || alerte.event.previous) && (
               <div style={{ marginTop: 4, fontSize: 11, color: "oklch(0.72 0.03 75)" }}>
-                {alerte.event.forecast ? `prév. ${alerte.event.forecast}` : ""}
+                {alerte.event.forecast ? `fcst ${alerte.event.forecast}` : ""}
                 {alerte.event.forecast && alerte.event.previous ? " · " : ""}
-                {alerte.event.previous ? `préc. ${alerte.event.previous}` : ""}
+                {alerte.event.previous ? `prev. ${alerte.event.previous}` : ""}
               </div>
             )}
             <div
@@ -391,7 +391,7 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
                 color: newsColor,
               }}
             >
-              compris
+              got it
             </div>
           </div>,
           document.body
