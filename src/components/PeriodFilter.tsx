@@ -62,7 +62,7 @@ export default function PeriodFilter({
             {text}
           </option>
         ))}
-        <option value="custom">Personnalisé…</option>
+        <option value="custom">Custom…</option>
       </select>
 
       {custom && (
@@ -72,7 +72,7 @@ export default function PeriodFilter({
             value={from}
             max={to || undefined}
             onChange={(e) => chooseCustom(e.target.value, to)}
-            aria-label="Date de début"
+            aria-label="Start date"
             style={{ ...controlStyle, colorScheme: "dark", borderColor: `${accentColor.slice(0, -1)} / 0.35)` }}
           />
           <span style={{ fontSize: 12, color: "oklch(0.55 0.03 250)" }}>→</span>
@@ -81,13 +81,13 @@ export default function PeriodFilter({
             value={to}
             min={from || undefined}
             onChange={(e) => chooseCustom(from, e.target.value)}
-            aria-label="Date de fin"
+            aria-label="End date"
             style={{ ...controlStyle, colorScheme: "dark", borderColor: `${accentColor.slice(0, -1)} / 0.35)` }}
           />
           {(from || to) && (
             <span
               onClick={() => chooseCustom("", "")}
-              title="Vider les dates"
+              title="Clear dates"
               style={{ fontSize: 12, color: "oklch(0.55 0.03 250)", cursor: "pointer", padding: "0 2px" }}
             >
               ✕

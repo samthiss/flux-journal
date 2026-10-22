@@ -303,7 +303,7 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
               }}
             />
           </span>
-          Nouvel onglet
+          New tab
         </button>
       </div>
 
