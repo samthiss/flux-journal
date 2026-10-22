@@ -44,6 +44,9 @@ export type TradeForStats = {
   tradeTypes: string | null;
   zone: string | null;
   confirmations: string | null;
+  /** The verdict and, where it asks for one, why — the list filters on both. */
+  validity: string | null;
+  invalidReasons: string | null;
 };
 
 /**
@@ -75,6 +78,8 @@ export const TRADE_FOR_STATS_SELECT = {
   tradeTypes: true,
   zone: true,
   confirmations: true,
+  validity: true,
+  invalidReasons: true,
 } as const;
 
 export type TradeWithOutcome = TradeForStats & { outcome: "win" | "loss" };

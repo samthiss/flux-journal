@@ -78,6 +78,8 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
   const [filterType, setFilterType] = useState("all");
   const [filterZone, setFilterZone] = useState("all");
   const [filterConfirmation, setFilterConfirmation] = useState("all");
+  const [filterValidity, setFilterValidity] = useState("all");
+  const [filterReason, setFilterReason] = useState("all");
   const [openInNewTab, setOpenInNewTab] = useState(false);
 
   // The same period as the dashboard and the report, through the same cookie:
@@ -128,6 +130,10 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
     () => [...new Set(trades.flatMap((t) => parseTagArray(t.confirmations)))].sort(),
     [trades],
   );
+  const reasonOptions = useMemo(
+    () => [...new Set(trades.flatMap((t) => parseTagArray(t.invalidReasons)))].sort(),
+    [trades],
+  );
   const filteredTrades = useMemo(() => {
     return filterByPeriod(withOutcome(trades), period, now)
       .filter((t) => filterSymbol === "all" || t.symbol === filterSymbol)
@@ -145,9 +151,19 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
       .filter((t) => filterType === "all" || parseTagArray(t.tradeTypes).includes(filterType))
       .filter((t) => filterZone === "all" || t.zone === filterZone)
       .filter((t) => filterConfirmation === "all" || parseTagArray(t.confirmations).includes(filterConfirmation))
+      // "No verdict" is a filter in its own right: it finds the trades
+      // still waiting to be judged, which is the list worth clearing.
+      .filter((t) =>
+        filterValidity === "all"
+          ? true
+          : filterValidity === "none"
+            ? !t.validity
+            : t.validity === filterValidity,
+      )
+      .filter((t) => filterReason === "all" || parseTagArray(t.invalidReasons).includes(filterReason))
       .slice()
       .reverse();
-  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterTp, filterType, filterZone, filterConfirmation]);
+  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterTp, filterType, filterZone, filterConfirmation, filterValidity, filterReason]);
 
   return (
     <div>
@@ -222,6 +238,29 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
         >
           <option value="all">All zones</option>
           {zoneOptions.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+        {/* The verdict, and why — the two annotations that say whether a trade
+            should have been taken at all. A winner on a forbidden setup is
+            findable here and nowhere else. */}
+        <select value={filterValidity} onChange={(e) => setFilterValidity(e.target.value)} style={selectStyle}>
+          <option value="all">All verdicts</option>
+          <option value="valid">Valid</option>
+          <option value="invalid">Invalid</option>
+          <option value="risk">Risk</option>
+          <option value="none">No verdict</option>
+        </select>
+        <select
+          value={filterReason}
+          onChange={(e) => setFilterReason(e.target.value)}
+          disabled={reasonOptions.length === 0}
+          style={{ ...selectStyle, opacity: reasonOptions.length === 0 ? 0.45 : 1 }}
+        >
+          <option value="all">All risk management</option>
+          {reasonOptions.map((value) => (
             <option key={value} value={value}>
               {value}
             </option>
@@ -422,7 +461,7 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
               })}
             </Link>
           );
-        })}
+          })}
         </div>
       </div>
     </div>
