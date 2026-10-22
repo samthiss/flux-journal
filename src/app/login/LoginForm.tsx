@@ -54,14 +54,14 @@ export default function LoginForm({ from }: { from: string }) {
 
         <input type="hidden" name="from" value={from} />
         {partage && (
-          <input name="email" type="email" autoFocus autoComplete="email" placeholder="Adresse e-mail" style={champ} />
+          <input name="email" type="email" autoFocus autoComplete="email" placeholder="Email address" style={champ} />
         )}
         <input
           name="password"
           type="password"
           autoFocus={!partage}
           autoComplete="current-password"
-          placeholder="Mot de passe"
+          placeholder="Password"
           style={champ}
         />
 
@@ -80,7 +80,7 @@ export default function LoginForm({ from }: { from: string }) {
             opacity: pending ? 0.6 : 1,
           }}
         >
-          {pending ? "…" : "Entrer"}
+          {pending ? "…" : "Sign in"}
         </button>
 
         {error && <div style={{ fontSize: 12, color: "oklch(0.7 0.25 18)" }}>{error}</div>}
@@ -89,7 +89,7 @@ export default function LoginForm({ from }: { from: string }) {
           onClick={() => setPartage((p) => !p)}
           style={{ fontSize: 11.5, color: "oklch(0.6 0.034 250)", cursor: "pointer", textAlign: "center" }}
         >
-          {partage ? "Je suis le propriétaire du journal" : "J'ai un compte partagé"}
+          {partage ? "I own this journal" : "I have a shared account"}
         </div>
       </form>
     </div>

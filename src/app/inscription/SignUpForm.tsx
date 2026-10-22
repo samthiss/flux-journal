@@ -39,17 +39,17 @@ export default function SignUpForm({ code }: { code: string }) {
         <div style={{ fontSize: 12, color: "oklch(0.62 0.034 250)", lineHeight: 1.5 }}>
           {/* Said plainly, because it decides whether the invitation is worth
               accepting: this account reads two pages and writes nothing. */}
-          Un compte pour lire le tableau de bord et les trades. Rien d&apos;autre n&apos;est partagé, et rien ne peut
-          être modifié.
+          An account to read the dashboard and the trades. Nothing else is shared, and nothing can be
+          changed.
         </div>
 
         <input type="hidden" name="code" value={code} />
-        <input name="email" type="email" autoFocus autoComplete="email" placeholder="Adresse e-mail" style={champ} />
+        <input name="email" type="email" autoFocus autoComplete="email" placeholder="Email address" style={champ} />
         <input
           name="password"
           type="password"
           autoComplete="new-password"
-          placeholder="Mot de passe (8 caractères au moins)"
+          placeholder="Password (at least 8 characters)"
           style={champ}
         />
 
@@ -68,7 +68,7 @@ export default function SignUpForm({ code }: { code: string }) {
             opacity: pending ? 0.6 : 1,
           }}
         >
-          {pending ? "…" : "Créer le compte"}
+          {pending ? "…" : "Create account"}
         </button>
 
         {error && <div style={{ fontSize: 12, color: "oklch(0.7 0.25 18)" }}>{error}</div>}

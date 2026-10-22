@@ -40,7 +40,7 @@ export default function TradeCharts({ charts }: { charts: { key: string; label: 
                 loader={chart.src.startsWith("/") ? ({ src, width }) => `${src}?w=${width}` : undefined}
                 sizes="(max-width: 900px) 100vw, 80vw"
                 onClick={() => setLightboxUrl(chart.src)}
-                title="Cliquer pour voir l'image entière"
+                title="Click to view the full image"
                 style={{
                   // Full width always, like the note tiles — see the comment
                   // there on why the native-size cap was dropped.

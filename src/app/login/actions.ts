@@ -22,7 +22,7 @@ const WRONG_PASSWORD_DELAY_MS = 700;
 
 export async function signIn(_prev: string | null, formData: FormData): Promise<string | null> {
   const config = authConfig();
-  if ("error" in config) return `Authentification non configurée. ${config.error}`;
+  if ("error" in config) return `Authentication is not configured. ${config.error}`;
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const typed = String(formData.get("password") ?? "");
@@ -33,7 +33,7 @@ export async function signIn(_prev: string | null, formData: FormData): Promise<
     const compte = await prisma.journalUser.findUnique({ where: { email } });
     if (!compte || compte.revokedAt || !checkHashedPassword(typed, compte.passwordHash)) {
       await new Promise((r) => setTimeout(r, WRONG_PASSWORD_DELAY_MS));
-      return "Adresse ou mot de passe incorrect.";
+      return "Wrong email or password.";
     }
     const store = await cookies();
     store.set(SESSION_COOKIE, createSessionToken(config.secret, "invite"), sessionCookieOptions);
@@ -42,7 +42,7 @@ export async function signIn(_prev: string | null, formData: FormData): Promise<
 
   if (!checkPassword(typed, config.password)) {
     await new Promise((r) => setTimeout(r, WRONG_PASSWORD_DELAY_MS));
-    return "Mot de passe incorrect.";
+    return "Wrong password.";
   }
 
   const store = await cookies();
@@ -70,22 +70,22 @@ export async function signOut() {
  */
 export async function signUp(_prev: string | null, formData: FormData): Promise<string | null> {
   const config = authConfig();
-  if ("error" in config) return `Authentification non configurée. ${config.error}`;
+  if ("error" in config) return `Authentication is not configured. ${config.error}`;
 
   const code = String(formData.get("code") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const motDePasse = String(formData.get("password") ?? "");
 
-  if (!email.includes("@")) return "Il faut une adresse e-mail.";
-  if (motDePasse.length < 8) return "Le mot de passe fait au moins 8 caractères.";
+  if (!email.includes("@")) return "An email address is required.";
+  if (motDePasse.length < 8) return "The password must be at least 8 characters.";
 
   const invitation = await prisma.invitation.findUnique({ where: { code } });
   if (!invitation || invitation.usedAt) {
     await new Promise((r) => setTimeout(r, WRONG_PASSWORD_DELAY_MS));
-    return "Cette invitation n'est plus valable.";
+    return "This invitation is no longer valid.";
   }
   if (await prisma.journalUser.findUnique({ where: { email } })) {
-    return "Un compte existe déjà avec cette adresse.";
+    return "An account already exists with this address.";
   }
 
   await prisma.$transaction([

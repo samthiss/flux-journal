@@ -97,7 +97,7 @@ export default function DashboardClient({
       label: "Risk / Reward",
       value: stats.avgRR,
       format: (n: number) => (stats.rrCount ? `1 : ${n.toFixed(2)}` : "—"),
-      sub: stats.rrCount ? `sur ${stats.rrCount} trade${stats.rrCount > 1 ? "s" : ""} renseigné${stats.rrCount > 1 ? "s" : ""}` : "risque non renseigné",
+      sub: stats.rrCount ? `over ${stats.rrCount} trade${stats.rrCount > 1 ? "s" : ""} with risk set` : "no risk recorded",
       color: "oklch(0.96 0.0068 250)",
     },
     { label: "Best Trade", value: stats.best, format: fmtMoney, sub: "single-trade high", color: winColor },
@@ -352,7 +352,7 @@ export default function DashboardClient({
                 }}
               >
                 <div style={{ color: "oklch(0.6 0.03 250)", fontSize: 10 }}>
-                  {new Date(hovered.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "2-digit" })}
+                  {new Date(hovered.date).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "2-digit" })}
                   {" · "}
                   {hovered.symbol}
                 </div>
@@ -360,7 +360,7 @@ export default function DashboardClient({
                   {fmtMoney(hovered.cum)}
                 </div>
                 <div style={{ color: hovered.pnl >= 0 ? winColor : lossColor, fontSize: 10, opacity: 0.85 }}>
-                  {fmtMoney(hovered.pnl)} sur ce trade
+                  {fmtMoney(hovered.pnl)} on this trade
                 </div>
               </div>
             </>

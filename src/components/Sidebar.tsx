@@ -750,7 +750,7 @@ export default function Sidebar({
         <form action={signOut} className="sidebar-signout-btn">
           <button
             type="submit"
-            title="Se déconnecter"
+            title="Sign out"
             style={{
               ...toggleBtnStyle,
               borderRadius: 9,
@@ -762,7 +762,7 @@ export default function Sidebar({
             }}
           >
             <SignOutIcon color="currentColor" />
-            <span style={{ fontSize: 12.5, fontWeight: 500 }}>Se déconnecter</span>
+            <span style={{ fontSize: 12.5, fontWeight: 500 }}>Sign out</span>
           </button>
         </form>
       </div>

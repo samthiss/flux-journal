@@ -5,8 +5,8 @@ import { estProprietaire } from "@/lib/session";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 import { parseTagArray, tagTone } from "@/lib/tags";
 
-/** The three verdicts, worded as the notes and the form word them. */
-const VERDICTS: Record<string, string> = { valid: "Valide", invalid: "Invalid", risk: "Risque" };
+/** The three verdicts, worded as the trades list words them. */
+const VERDICTS: Record<string, string> = { valid: "Valid", invalid: "Invalid", risk: "Risk" };
 import { deleteTrade } from "@/lib/actions/trades";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import AddTradeToNoteButton from "@/components/AddTradeToNoteButton";
@@ -65,8 +65,8 @@ export default async function TradeDetail({ id }: { id: string }) {
       values: VERDICTS[trade.validity ?? ""] ? [VERDICTS[trade.validity ?? ""]] : [],
     },
     {
-      label: "Ai-je respecté mon plan ?",
-      values: trade.planFollowed === null ? [] : [trade.planFollowed ? "Oui" : "Non"],
+      label: "Did I follow my plan?",
+      values: trade.planFollowed === null ? [] : [trade.planFollowed ? "Yes" : "No"],
     },
     { label: "Risk management", values: parseTagArray(trade.invalidReasons) },
   ].filter((row) => row.values.length > 0);

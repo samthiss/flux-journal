@@ -947,9 +947,12 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
         })}
       </div>
 
-      {/* A cut is only worth proposing where the hours differ: one stretch back
-          is the session reading over again. */}
-      {split.length > 1 && (
+      {/* A cut is only worth proposing where the hours differ — one stretch
+          back is the session reading over again — and only once every stretch
+          of it stands on a full week. Under that, "Par session" withholds its
+          advice on the grounds that a morning is not a cadence, and a finer cut
+          made of the same days is a finer way to chase yesterday. */}
+      {split.length > 1 && split.every((part) => part.days >= ENOUGH_DAYS) && (
         <div style={{ ...glassCard }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>Découpage proposé</div>
@@ -992,17 +995,8 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                   {part.rate.toFixed(1)} alerte{part.rate >= 2 ? "s" : ""} par heure
                 </span>
               )}
-              <span
-                style={{
-                  ...mono,
-                  fontSize: 10,
-                  marginLeft: "auto",
-                  flex: "none",
-                  color: part.days < ENOUGH_DAYS ? "oklch(0.8 0.14 85)" : "oklch(0.45 0.02 250)",
-                }}
-              >
+              <span style={{ ...mono, fontSize: 10, marginLeft: "auto", flex: "none", color: "oklch(0.45 0.02 250)" }}>
                 {part.days} jour{part.days > 1 ? "s" : ""}
-                {part.days < ENOUGH_DAYS ? ` sur ${ENOUGH_DAYS}` : ""}
               </span>
             </div>
           ))}

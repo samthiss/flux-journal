@@ -46,7 +46,7 @@ export default async function TradesPage() {
         box: parseTagArray(t.confirmationsBox),
         reverse: parseTagArray(t.confirmationsReverse),
         risk: parseTagArray(t.invalidReasons),
-        plan: t.planFollowed === null ? [] : [t.planFollowed ? "Oui" : "Non"],
+        plan: t.planFollowed === null ? [] : [t.planFollowed ? "Yes" : "No"],
       },
     ])
   );
