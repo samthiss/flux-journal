@@ -9,9 +9,16 @@ import ChipDropdown from "@/components/ChipDropdown";
 import { motsPourSetup, parseTagArray } from "@/lib/tags";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 
-const SYMBOL_OPTIONS = ["6E", "6B", "6J", "ZS", "ZM"] as const;
+const SYMBOL_OPTIONS = ["6E", "6B", "6J", "6N", "ZS", "ZW"] as const;
 
-const SETUP_OPTIONS = ["Trend run", "Backtest reverse"];
+/**
+ * The reverse first, because it is the one being traded.
+ *
+ * The order is the default: a form opens on the head of this list, and a
+ * default that has to be changed on most trades is a default that gets left
+ * wrong on some of them.
+ */
+const SETUP_OPTIONS = ["Backtest reverse", "Trend run"];
 
 /**
  * The three confirmation lists, named as the notes and the pre-trade form name
@@ -77,26 +84,17 @@ const monoInputStyle: React.CSSProperties = { ...inputStyle, fontFamily: "var(--
 // `image/*` would also offer SVG, which is a document that can carry script.
 const ACCEPTED_CHART_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
-/** The three verdicts, worded as the notes word them. */
-const VERDICTS: [string, string][] = [
-  ["valid", "Valide"],
-  ["invalid", "Invalid"],
-  ["risk", "Risque"],
-];
-
 function fieldLabel(text: string) {
   return <div style={{ fontSize: 12, color: "oklch(0.6 0.034 250)", marginBottom: 6 }}>{text}</div>;
 }
 
 function ChartSlotInput({
   slotKey,
-  label,
   initialSrc,
   prefillUrl,
   tradeId,
 }: {
   slotKey: string;
-  label: string;
   initialSrc?: string;
   /** A chart taken from the trade idea: shown, and posted as a URL, not a file. */
   prefillUrl?: string;
@@ -164,8 +162,12 @@ function ChartSlotInput({
         opacity: isPending ? 0.5 : 1,
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.78 0.034 250)" }}>{label}</div>
-      {!preview && <div style={{ fontSize: 11, color: "oklch(0.5 0.034 250)", marginTop: 4 }}>Drag &amp; drop or click</div>}
+      {/* No heading over the drop zone. The four slots were named after the
+          charts they were meant to hold — cluster, reverse, box, trading — and
+          a name over an empty box is an instruction to find that exact
+          capture. They take whatever is worth keeping, in the order it is
+          dropped. */}
+      {!preview && <div style={{ fontSize: 11, color: "oklch(0.5 0.034 250)" }}>Drag &amp; drop or click</div>}
       {preview && (
         <div style={{ position: "relative", marginTop: 8 }}>
           <div
@@ -207,7 +209,7 @@ function ChartSlotInput({
       )}
       {typeError && (
         <div style={{ marginTop: 6, fontSize: 11, color: "oklch(0.7 0.25 18)" }}>
-          Formats acceptés : PNG, JPEG, WebP, GIF.
+          Accepted formats: PNG, JPEG, WebP, GIF.
         </div>
       )}
       <input
@@ -238,7 +240,6 @@ export default function TradeForm({
   vocabulary,
   planCharts: planChartsInitial = [],
   closedAt,
-  bilanQuestions = [],
 }: {
   action: (formData: FormData) => void;
   deleteAction?: (formData: FormData) => void;
@@ -274,8 +275,6 @@ export default function TradeForm({
    * two is worse than no hour at all.
    */
   closedAt?: string;
-  /** The Bilan questions from the post-market checklist, offered as prompts. */
-  bilanQuestions?: string[];
   title: string;
   subtitle: string;
 }) {
@@ -285,6 +284,7 @@ export default function TradeForm({
   // risk management offered are this setup's own — as they are on a note and
   // on a trade idea. Changing it here changes what is offered below.
   const [setup, setSetup] = useState(initial.setup);
+
   const [planCharts, setPlanCharts] = useState<string[]>(planChartsInitial);
   const [planFollowed, setPlanFollowed] = useState<string | null>(initial.planFollowed || null);
 
@@ -306,47 +306,27 @@ export default function TradeForm({
   const [time, setTime] = useState(
     valide ? `${deuxChiffres(valide.getHours())}:${deuxChiffres(valide.getMinutes())}` : initial.time
   );
-  // Held here so the Bilan questions can be written into it: the post-mortem
-  // was already a checklist, and answering it in the journal beats ticking it
-  // somewhere the answers are not kept.
+  // Held rather than left to the textarea, as the date and the hour are.
   const [postNotes, setPostNotes] = useState(initial.postTradeNotes);
-  const postRef = useRef<HTMLTextAreaElement>(null);
 
-  function ajouterQuestion(question: string) {
-    setPostNotes((texte) => {
-      if (texte.includes(question)) return texte;
-      return `${texte.trimEnd()}${texte.trim() ? "\n\n" : ""}${question}\n`;
-    });
-    // The cursor belongs where the answer goes, which is the end.
-    requestAnimationFrame(() => {
-      const zone = postRef.current;
-      if (!zone) return;
-      zone.focus();
-      zone.setSelectionRange(zone.value.length, zone.value.length);
-    });
-  }
-
-  // The three vocabularies, held here and posted as JSON: a dropdown cannot be
-  // a form field on its own.
   const [tpReached, setTpReached] = useState(initial.tpReached);
-  const [types, setTypes] = useState<string[]>(() => parseTagArray(initial.tradeTypes));
-  const [zone, setZone] = useState<string | null>(initial.zone || null);
+  /**
+   * The annotations this form no longer asks for.
+   *
+   * The type, the zone, the verdict and the risk management are answered
+   * where the trade is planned; they are read off the trade and posted back
+   * unchanged, so editing one does not empty what it already carries.
+   */
+  const types = parseTagArray(initial.tradeTypes);
+  const zone = initial.zone || null;
   const [confirmations, setConfirmations] = useState<Record<ConfirmationKind, string[]>>(() => ({
     confirmations: parseTagArray(initial.confirmations),
     confirmationsBox: parseTagArray(initial.confirmationsBox),
     confirmationsReverse: parseTagArray(initial.confirmationsReverse),
   }));
 
-  /**
-   * The verdict, and why — the notes' two annotations, in the notes' words.
-   *
-   * A trade that wins on a setup that should never have been taken is the one
-   * worth finding again, and no column of figures says so. The reason only
-   * appears once the verdict asks for one: on a clean trade there is nothing
-   * to answer.
-   */
-  const [validity, setValidity] = useState<string>(initial.validity || "");
-  const [invalidReasons, setInvalidReasons] = useState<string[]>(() => parseTagArray(initial.invalidReasons));
+  const validity = initial.validity || "";
+  const invalidReasons = parseTagArray(initial.invalidReasons);
 
   /** A word typed a moment ago is offered too, before the list is read again. */
   const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
@@ -489,7 +469,7 @@ export default function TradeForm({
               />
             </div>
             <div>
-              {fieldLabel("Risque $")}
+              {fieldLabel("Risk $")}
               <input
                 type="text"
                 name="risk"
@@ -509,7 +489,7 @@ export default function TradeForm({
                 }}
               >
                 {computedRR == null ? (
-                  suggestedRisk ? `≈ ${suggestedRisk} $ pour ${sizeValue} lot(s)` : "R:R calculé depuis le risque"
+                  suggestedRisk && sizeValue ? `≈ $${suggestedRisk} for ${sizeValue} lot${sizeValue > 1 ? "s" : ""}` : "R:R computed from the risk"
                 ) : (
                   <>
                     R:R{" "}
@@ -537,7 +517,7 @@ export default function TradeForm({
                   TP2 lights TP1 too, because there is no reaching the second
                   without passing the first; picking the highest one lit again
                   clears the answer. */}
-              {fieldLabel("Take profit atteint")}
+              {fieldLabel("Take profit reached")}
               <input type="hidden" name="tpReached" value={tpReached} />
               <div style={{ display: "flex", gap: 10 }}>
                 {[1, 2, 3].map((level) => (
@@ -553,110 +533,51 @@ export default function TradeForm({
             </div>
 
             <div style={{ gridColumn: "span 2" }}>
-              {/* Three fields of the form rather than a loose row of pills
-                  under one heading: one per line, at the size of every other
-                  field, each named like Setup and Size — so a filled one reads
-                  as an answer to a question and an empty one says which
-                  question it is.
+              {/* What is still filled in here: the CC confirmations. The type,
+                  the zone, the verdict, the risk management and the other two
+                  confirmation lists were asked for on this form and answered
+                  on the plan, so they are written where the trade is planned
+                  and not asked for again once it is over.
 
-                  The words are the trade ideas' own, on purpose — what was
-                  planned this morning and what was taken this afternoon have to
-                  be describable in one vocabulary or they cannot be compared. */}
+                  They keep their hidden fields: a trade recorded before this
+                  carries all of them, and a form that posted nothing for a
+                  field would wipe it on the next edit. Not editable is not the
+                  same as deleted. */}
               <input type="hidden" name="tradeTypes" value={JSON.stringify(types)} />
               <input type="hidden" name="zone" value={zone ?? ""} />
+              <input type="hidden" name="validity" value={validity} />
+              <input type="hidden" name="invalidReasons" value={JSON.stringify(invalidReasons)} />
               {CONFIRMATIONS.map(({ kind }) => (
                 <input key={kind} type="hidden" name={kind} value={JSON.stringify(confirmations[kind])} />
               ))}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
-                  {fieldLabel("Type")}
+                  {fieldLabel(`Confirmation CC · ${setup}`)}
                   <ChipDropdown
                     block
-                    placeholder="Aucun"
-                    options={offer(vocabulary.tradeTypes, types)}
-                    selected={types}
+                    placeholder="None"
+                    options={offer(motsDuSetup("confirmations", vocabulary.confirmations), confirmations.confirmations)}
+                    selected={confirmations.confirmations}
                     multiple
                     visible
                     onToggle={(value) =>
-                      setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
+                      setConfirmations((prev) => ({
+                        ...prev,
+                        confirmations: prev.confirmations.includes(value)
+                          ? prev.confirmations.filter((c) => c !== value)
+                          : [...prev.confirmations, value],
+                      }))
                     }
-                    onAdd={(value) => setTypes((prev) => (prev.includes(value) ? prev : [...prev, value]))}
+                    onAdd={(value) =>
+                      setConfirmations((prev) => ({
+                        ...prev,
+                        confirmations: prev.confirmations.includes(value)
+                          ? prev.confirmations
+                          : [...prev.confirmations, value],
+                      }))
+                    }
                   />
                 </div>
-                <div>
-                  {fieldLabel("Zone")}
-                  <ChipDropdown
-                    block
-                    placeholder="Aucune"
-                    options={offer(vocabulary.zones, zone ? [zone] : [])}
-                    selected={zone ? [zone] : []}
-                    visible
-                    onToggle={(value) => setZone((prev) => (prev === value ? null : value))}
-                    onAdd={(value) => setZone(value)}
-                  />
-                </div>
-                <div>
-                  {fieldLabel("Verdict")}
-                  <input type="hidden" name="validity" value={validity} />
-                  <div style={{ display: "flex", gap: 10 }}>
-                    {VERDICTS.map(([key, text]) => (
-                      <div
-                        key={key}
-                        onClick={() => setValidity((prev) => (prev === key ? "" : key))}
-                        style={toggleBtnStyle(validity === key)}
-                      >
-                        {text}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {/* Shown whatever the verdict. It held the reason a trade was
-                    invalid and only appeared under one, which made it a list of
-                    excuses; it is the risk management — what would have called
-                    the trade off — and a trade that worked had one too. */}
-                <div>
-                    {fieldLabel(`Risk management · ${setup}`)}
-                    <input type="hidden" name="invalidReasons" value={JSON.stringify(invalidReasons)} />
-                    <ChipDropdown
-                      block
-                      placeholder="Aucune"
-                      options={offer(motsDuSetup("cancelIf", vocabulary.invalidReasons), invalidReasons)}
-                      selected={invalidReasons}
-                      multiple
-                      visible
-                      onToggle={(value) =>
-                        setInvalidReasons((prev) =>
-                          prev.includes(value) ? prev.filter((r) => r !== value) : [...prev, value],
-                        )
-                      }
-                      onAdd={(value) => setInvalidReasons((prev) => (prev.includes(value) ? prev : [...prev, value]))}
-                    />
-                </div>
-                {CONFIRMATIONS.map(({ kind, titre }) => (
-                  <div key={kind}>
-                    {fieldLabel(`${titre} · ${setup}`)}
-                    <ChipDropdown
-                      block
-                      placeholder="Aucune"
-                      options={offer(motsDuSetup(kind, vocabulary[kind]), confirmations[kind])}
-                      selected={confirmations[kind]}
-                      multiple
-                      visible
-                      onToggle={(value) =>
-                        setConfirmations((prev) => ({
-                          ...prev,
-                          [kind]: prev[kind].includes(value) ? prev[kind].filter((c) => c !== value) : [...prev[kind], value],
-                        }))
-                      }
-                      onAdd={(value) =>
-                        setConfirmations((prev) => ({
-                          ...prev,
-                          [kind]: prev[kind].includes(value) ? prev[kind] : [...prev[kind], value],
-                        }))
-                      }
-                    />
-                  </div>
-                ))}
               </div>
             </div>
 
@@ -702,12 +623,12 @@ export default function TradeForm({
                   two chips rather than as a prompt to write prose under. A
                   trade that made money against its plan is what a journal
                   exists to surface, and prose cannot be counted. */}
-              {fieldLabel("Ai-je respecté mon plan ?")}
+              {fieldLabel("Did I follow my plan?")}
               <input type="hidden" name="planFollowed" value={planFollowed ?? ""} />
               <div style={{ display: "flex", gap: 10 }}>
                 {[
-                  ["oui", "Oui", accentColor],
-                  ["non", "Non", lossColor],
+                  ["oui", "Yes", accentColor],
+                  ["non", "No", lossColor],
                 ].map(([valeur, texte, couleur]) => (
                   <div
                     key={valeur}
@@ -733,7 +654,6 @@ export default function TradeForm({
             <div style={{ gridColumn: "span 2" }}>
               {fieldLabel("Post trade analysis")}
               <textarea
-                ref={postRef}
                 name="postTradeNotes"
                 value={postNotes}
                 onChange={(e) => setPostNotes(e.target.value)}
@@ -741,29 +661,6 @@ export default function TradeForm({
                 rows={3}
                 style={{ ...inputStyle, resize: "vertical" }}
               />
-              {bilanQuestions.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                  {bilanQuestions.map((question) => (
-                    <button
-                      key={question}
-                      type="button"
-                      onClick={() => ajouterQuestion(question)}
-                      style={{
-                        cursor: "pointer",
-                        fontSize: 11,
-                        padding: "5px 10px",
-                        borderRadius: 999,
-                        border: "1px solid oklch(0.36 0.051 250 / 0.6)",
-                        background: postNotes.includes(question) ? "oklch(0.3 0.051 250)" : "transparent",
-                        color: "oklch(0.72 0.034 250)",
-                        textAlign: "left",
-                      }}
-                    >
-                      {question}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* The plan's own captures, above the ones taken afterwards: they
@@ -790,7 +687,7 @@ export default function TradeForm({
                       />
                       <div
                         onClick={() => setPlanCharts((prev) => prev.filter((u) => u !== url))}
-                        title="Retirer cette capture du trade"
+                        title="Take this screenshot off the trade"
                         style={{
                           position: "absolute",
                           top: 6,
@@ -822,7 +719,6 @@ export default function TradeForm({
                   <ChartSlotInput
                     key={slot.key}
                     slotKey={slot.key}
-                    label={slot.label}
                     initialSrc={existingCharts[slot.key]}
                     tradeId={tradeId}
                   />

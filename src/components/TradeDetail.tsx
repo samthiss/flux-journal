@@ -312,7 +312,14 @@ export default async function TradeDetail({ id }: { id: string }) {
           Post Trade screenshots
         </div>
         <TradeCharts
-          charts={CHART_SLOTS.map((slot) => ({ key: slot.key, label: slot.label, src: chartValues[slot.key] }))}
+          // Numbered rather than named: the slots no longer stand for a
+          // particular chart, so a heading saying "Cluster chart" over
+          // whatever was dropped there would be a caption that lies.
+          charts={CHART_SLOTS.map((slot, i) => ({
+            key: slot.key,
+            label: `Screenshot ${i + 1}`,
+            src: chartValues[slot.key],
+          }))}
         />
       </div>
     </div>

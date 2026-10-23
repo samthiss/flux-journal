@@ -95,29 +95,6 @@ async function ideePrealable(id: string | undefined) {
   };
 }
 
-/**
- * The Bilan questions, read off the post-market checklist rather than copied.
- *
- * They are the reader's own wording and they change there; a second copy in the
- * form would drift away from the list it came from.
- */
-/**
- * "Ai-je respecté mon plan ?", which the form answers with two chips.
- *
- * Matched on the question rather than on its exact wording, which lives in the
- * checklist and can be rewritten there.
- */
-const EST_RESPECT_DU_PLAN = /respect\S*\s+(mon|le)\s+plan/i;
-
-async function questionsBilan() {
-  const rows = await prisma.checklistItem.findMany({
-    where: { group: "Bilan" },
-    orderBy: { order: "asc" },
-    select: { label: true },
-  });
-  return rows.map((row) => row.label).filter((label) => label && !EST_RESPECT_DU_PLAN.test(label));
-}
-
 export default async function NewTradePage({
   searchParams,
 }: {
@@ -125,11 +102,10 @@ export default async function NewTradePage({
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const { idea } = await searchParams;
-  const [riskPerLot, vocabulary, prealable, bilan] = await Promise.all([
+  const [riskPerLot, vocabulary, prealable] = await Promise.all([
     lastRiskPerLot(),
     getTradeVocabularies(),
     ideePrealable(idea),
-    questionsBilan(),
   ]);
 
   return (
@@ -145,13 +121,14 @@ export default async function NewTradePage({
       // The instant, not a formatted hour: this runs on the server, whose
       // clock is UTC, and the journal is kept in the reader's own time.
       closedAt={prealable?.closedAt?.toISOString()}
-      bilanQuestions={bilan}
       initial={{
         date: today,
         time: "",
         symbol: "",
         market: "",
-        setup: prealable?.setup ?? "Trend run",
+        // What the form opens on when the trade did not come from a plan that
+        // named a setup: the one being traded, which is the reverse.
+        setup: prealable?.setup ?? "Backtest reverse",
         side: prealable?.side ?? "Long",
         size: "",
         pnl: "",
