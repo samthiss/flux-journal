@@ -16,8 +16,9 @@ const TICK_VALUES: Record<string, number> = {
   "6E": 6.25,
   "6B": 6.25,
   "6J": 6.25,
+  "6N": 5,
   ZS: 12.5,
-  ZM: 10,
+  ZW: 12.5,
 };
 
 type Settings = {
@@ -29,6 +30,15 @@ type Settings = {
   tickValue: number;
   /** Round-turn cost of one lot: commission plus exchange and clearing fees. */
   feePerLot: number;
+  /**
+   * Where the two targets sit, in ticks from the entry.
+   *
+   * In ticks rather than in R, because a target is read off a chart — a level
+   * the price has to reach — and turning it into money is the arithmetic this
+   * page exists to do. What it is worth in R comes out the other end.
+   */
+  tp1Ticks: number;
+  tp2Ticks: number;
 };
 
 const DEFAULTS: Settings = {
@@ -39,6 +49,8 @@ const DEFAULTS: Settings = {
   stopTicks: 20,
   tickValue: TICK_VALUES["6E"],
   feePerLot: 4,
+  tp1Ticks: 20,
+  tp2Ticks: 40,
 };
 
 /**
@@ -155,6 +167,19 @@ export default function RiskCalculator({ initialSettings }: { initialSettings: P
       // budget — the other lever when the lots are not negotiable.
       maxTicks:
         lots > 0 && settings.tickValue > 0 ? Math.floor((budget / lots - fees) / Math.abs(settings.tickValue)) : 0,
+      /**
+       * What each target pays, for the size being traded.
+       *
+       * Gross is the ticks; net takes the round turn off, since it is paid on
+       * the way out whichever way the trade went. The R is read against the
+       * same per-lot risk the card above works in — fees included on both
+       * sides, or a 1 R target would not come back as 1 R.
+       */
+      cibles: ([settings.tp1Ticks, settings.tp2Ticks] as const).map((ticks) => {
+        const brut = Math.abs(ticks) * Math.abs(settings.tickValue) * lots;
+        const net = brut - fees * lots;
+        return { ticks: Math.abs(ticks), brut, net, r: total > 0 ? net / total : 0 };
+      }),
     };
   }, [settings]);
 
@@ -231,6 +256,46 @@ export default function RiskCalculator({ initialSettings }: { initialSettings: P
             {money(r.stopLossPerLot * 2 * settings.lots - r.feesTotal)}
           </span>{" "}
           net de frais.
+        </div>
+      </div>
+
+      {/* Between the risk and the size it allows: what the trade pays if it
+          goes right, which is the other half of the same arithmetic and the
+          one the risk is being taken for. */}
+      <div style={{ ...glassCard, marginBottom: 20 }}>
+        <div style={label}>Take profit</div>
+        <div
+          className="challenge-fields"
+          style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, margin: "16px 0" }}
+        >
+          <Field title="TP1" value={settings.tp1Ticks} onChange={(n) => set("tp1Ticks", n)} suffix="ticks" />
+          <Field title="TP2" value={settings.tp2Ticks} onChange={(n) => set("tp2Ticks", n)} suffix="ticks" />
+        </div>
+        <div
+          className="profit-grid"
+          style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginTop: 4 }}
+        >
+          {r.cibles.map((cible, i) => (
+            <Figure
+              key={i}
+              title={`PnL TP${i + 1}`}
+              value={money(cible.net)}
+              hint={`${cible.ticks} ticks × ${settings.lots} lot(s) = ${money(cible.brut)} brut · ${cible.r.toFixed(2)} R`}
+              color={cible.net > 0 ? winColor : lossColor}
+            />
+          ))}
+          <Figure
+            title="Si TP1 puis TP2"
+            value={money((r.cibles[0].net + r.cibles[1].net) / 2)}
+            hint="moitié de la position à chaque cible, frais compris"
+          />
+        </div>
+        <div style={{ fontSize: 13, color: "oklch(0.72 0.02 250)", marginTop: 16, lineHeight: 1.6 }}>
+          Pour {settings.lots} lot(s) à {money(settings.tickValue)} le tick, TP1 à {r.cibles[0].ticks} ticks rapporte{" "}
+          <span style={{ color: winColor, fontWeight: 600 }}>{money(r.cibles[0].net)}</span> net et TP2 à{" "}
+          {r.cibles[1].ticks} ticks{" "}
+          <span style={{ color: winColor, fontWeight: 600 }}>{money(r.cibles[1].net)}</span> — contre{" "}
+          <span style={{ color: lossColor, fontWeight: 600 }}>{money(r.total)}</span> si le stop est touché.
         </div>
       </div>
 
