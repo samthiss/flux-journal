@@ -56,7 +56,18 @@ function passeLesColonnes(
 }
 
 /** The figures, then one column per vocabulary. */
-const GRILLE = `100px 90px 70px 120px 70px 110px 90px 90px ${COLONNES.map((c) => c.largeur).join(" ")}`;
+/**
+ * The figures, then one column per vocabulary.
+ *
+ * Through a share link the table is shorter: the setup goes, and of the
+ * annotations only the emotion is kept. What is left is what a trade was and
+ * how it went — the rest is working notes, which is not what a link is sent
+ * for.
+ */
+function grilleEt(colonnes: typeof COLONNES, avecSetup: boolean) {
+  const figures = avecSetup ? "100px 90px 70px 120px 70px 110px 90px 90px" : "100px 90px 70px 70px 110px 90px 90px";
+  return `${figures} ${colonnes.map((c) => c.largeur).join(" ")}`;
+}
 
 const selectStyle: React.CSSProperties = {
   background: "oklch(0.18 0.034 250)",
@@ -76,13 +87,20 @@ export default function TradesClient({
   details = {},
   proprietaire = true,
   lectureSeule = false,
+  lienBase,
 }: {
   proprietaire?: boolean;
   /**
-   * Shown through a share link: there is no trade page behind a row, so the
-   * rows lead nowhere and the switch that chose how they opened is gone.
+   * Shown through a share link.
+   *
+   * The rows still open their trade — that is what a journal is read for —
+   * but under the link's own address, since the journal's own is behind the
+   * password. The switch that chose how a row opened goes: through a link
+   * there is one way in.
    */
-  lectureSeule?: boolean; details?: Record<string, Record<string, string[]>>; trades: Trade[]; initialPeriod: string }) {
+  lectureSeule?: boolean;
+  /** Where a row leads, when it is not the journal's own trade page. */
+  lienBase?: string; details?: Record<string, Record<string, string[]>>; trades: Trade[]; initialPeriod: string }) {
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
@@ -106,6 +124,10 @@ export default function TradesClient({
    * says what it filters without being labelled twice.
    */
   const [filtresColonnes, setFiltresColonnes] = useState<Record<string, string>>({});
+
+  // Shown through a link: the emotion and nothing to the right of it.
+  const colonnes = lectureSeule ? COLONNES.filter((c) => c.cle === "emotion") : COLONNES;
+  const GRILLE = grilleEt(colonnes, !lectureSeule);
 
   const choosePeriod = (next: string) => {
     setPeriod(next);
@@ -210,6 +232,11 @@ export default function TradesClient({
           <option value="win">Wins</option>
           <option value="loss">Losses</option>
         </select>
+        {/* The filters for the columns a share link does not show. A menu
+            that narrows a column nobody is looking at is a question about
+            something that is not on the page. */}
+        {!lectureSeule && (
+          <>
         <select value={filterSetup} onChange={(e) => setFilterSetup(e.target.value)} style={selectStyle}>
           <option value="all">All setups</option>
           {setupOptions.map((s) => (
@@ -291,10 +318,12 @@ export default function TradesClient({
             </option>
           ))}
         </select>
+          </>
+        )}
         {/* The annotation columns that had no filter yet, in the bar with the
             rest rather than under their own headings: a filter is looked for
             in one place, and this is where the others are. */}
-        {COLONNES.filter((c) => FILTRES_EN_PLUS[c.cle]).map((c) => {
+        {colonnes.filter((c) => FILTRES_EN_PLUS[c.cle]).map((c) => {
           const mots = motsDeColonne(c.cle, trades, details);
           return (
             <select
@@ -362,7 +391,7 @@ export default function TradesClient({
       </div>
 
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>
-        <div style={{ minWidth: 1740 }}>
+        <div style={{ minWidth: lectureSeule ? 760 : 1740 }}>
         <div
           style={{
             display: "grid",
@@ -378,12 +407,12 @@ export default function TradesClient({
           <div>Date</div>
           <div>Symbol</div>
           <div>Side</div>
-          <div>Setup</div>
+          {!lectureSeule && <div>Setup</div>}
           <div>Size</div>
           <div>P&amp;L</div>
           <div>R:R</div>
           <div>Outcome</div>
-          {COLONNES.map((c) => (
+          {colonnes.map((c) => (
             <div key={c.cle} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {c.titre}
             </div>
@@ -396,9 +425,6 @@ export default function TradesClient({
           .map((t, i) => {
           const outcome = t.pnl > 0 ? "win" : "loss";
           const pnlColor = t.pnl > 0 ? winColor : lossColor;
-          // A row with nothing behind it is a row, not a link: through a
-          // share link there is no trade page to open, and an anchor that
-          // refuses its own click is a cursor that lies.
           const styleLigne = {
                 // Capped at fifteen rows: past the first screenful the stagger
                 // is only a delay before a row nobody has scrolled to yet, and
@@ -426,7 +452,7 @@ export default function TradesClient({
               </div>
               <div style={{ fontWeight: 600 }}>{t.symbol}</div>
               <div style={{ color: t.side === "Long" ? accentColor : "oklch(0.6 0.034 250)", fontSize: 12 }}>{t.side}</div>
-              <div style={{ fontSize: 12, color: "oklch(0.65 0.017 250)" }}>{t.setup}</div>
+              {!lectureSeule && <div style={{ fontSize: 12, color: "oklch(0.65 0.017 250)" }}>{t.setup}</div>}
               <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.72 0.017 250)" }}>
                 {t.size}
               </div>
@@ -452,7 +478,7 @@ export default function TradesClient({
               </div>
               {/* One cell per vocabulary, so a word always sits under the
                   heading that says what it is — as the figures do. */}
-              {COLONNES.map((c) => {
+              {colonnes.map((c) => {
                 const valeur = (details[t.id]?.[c.cle] ?? []).join(", ");
                 return (
                   <div
@@ -473,17 +499,13 @@ export default function TradesClient({
               })}
             </>
           );
-          return lectureSeule ? (
-            <div key={t.id} className="trade-row" style={styleLigne}>
-              {cellules}
-            </div>
-          ) : (
+          return (
             <Link
               key={t.id}
               className="trade-row"
-              href={`/trades/${t.id}`}
-              target={openInNewTab ? "_blank" : undefined}
-              rel={openInNewTab ? "noopener noreferrer" : undefined}
+              href={lienBase ? `${lienBase}/${t.id}` : `/trades/${t.id}`}
+              target={!lectureSeule && openInNewTab ? "_blank" : undefined}
+              rel={!lectureSeule && openInNewTab ? "noopener noreferrer" : undefined}
               style={styleLigne}
             >
               {cellules}

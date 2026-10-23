@@ -19,7 +19,7 @@ const POUR_INVITE = [/^\/$/, /^\/trades(\/|$)/, /^\/api\/uploads\//];
  * token is still good; what happens here is only that the door does not ask
  * for a password first.
  */
-const PUBLIC = /^\/v\/[A-Za-z0-9_-]+$/;
+const PUBLIC = /^\/v\/[A-Za-z0-9_-]+(\/|$)/;
 
 // Named Proxy rather than Middleware: Next 16 renamed the file and the export,
 // and it now runs on the Node.js runtime by default.

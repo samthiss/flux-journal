@@ -15,7 +15,21 @@ import TradeCharts from "@/components/TradeCharts";
 // Shared between the standalone /trades/[id] page and the @modal-intercepted
 // overlay opened from the trades list, so a trade only has one place its
 // detail markup is written.
-export default async function TradeDetail({ id }: { id: string }) {
+export default async function TradeDetail({
+  id,
+  images = (url) => url,
+}: {
+  id: string;
+  /**
+   * Where the captures are read from.
+   *
+   * The journal serves its own through `/api/uploads`, which asks for a
+   * session; a share link serves the same files through its own address,
+   * which asks for the token instead. The page does not need to know which:
+   * it is handed a way to turn one into the other.
+   */
+  images?: (url: string) => string;
+}) {
   const trade = await prisma.trade.findUnique({ where: { id } });
   if (!trade) notFound();
 
@@ -72,7 +86,7 @@ export default async function TradeDetail({ id }: { id: string }) {
   ].filter((row) => row.values.length > 0);
 
   // Stored as a JSON array of URLs, and read the way every other list here is.
-  const planCharts = parseTagArray(trade.planCharts);
+  const planCharts = parseTagArray(trade.planCharts).map(images);
 
   const chartValues: Record<string, string | null> = {
     cluster: trade.chartCluster,
@@ -318,7 +332,7 @@ export default async function TradeDetail({ id }: { id: string }) {
           charts={CHART_SLOTS.map((slot, i) => ({
             key: slot.key,
             label: `Screenshot ${i + 1}`,
-            src: chartValues[slot.key],
+            src: chartValues[slot.key] ? images(chartValues[slot.key]!) : null,
           }))}
         />
       </div>

@@ -63,7 +63,14 @@ export default async function VuePartagee({ params }: { params: Promise<{ token:
 
   return (
     <div style={{ padding: "40px 48px" }}>
-      <TradesClient trades={trades} initialPeriod="all" details={details} proprietaire={false} lectureSeule />
+      <TradesClient
+        trades={trades}
+        initialPeriod="all"
+        details={details}
+        proprietaire={false}
+        lectureSeule
+        lienBase={`/v/${token}`}
+      />
     </div>
   );
 }
