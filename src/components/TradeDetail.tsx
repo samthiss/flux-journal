@@ -18,6 +18,7 @@ import TradeCharts from "@/components/TradeCharts";
 export default async function TradeDetail({
   id,
   images = (url) => url,
+  retour = "/trades",
 }: {
   id: string;
   /**
@@ -29,6 +30,14 @@ export default async function TradeDetail({
    * it is handed a way to turn one into the other.
    */
   images?: (url: string) => string;
+  /**
+   * Where the arrow goes back to.
+   *
+   * The journal's own list is behind the password, so a visitor sent there
+   * lands on a login screen — which is the one page nobody holding a share
+   * link can do anything with.
+   */
+  retour?: string;
 }) {
   const trade = await prisma.trade.findUnique({ where: { id } });
   if (!trade) notFound();
@@ -99,7 +108,7 @@ export default async function TradeDetail({
     <div style={{ width: "100%" }}>
       <div className="trade-detail-header">
         <Link
-          href="/trades"
+          href={retour}
           style={{
             cursor: "pointer",
             width: 34,
