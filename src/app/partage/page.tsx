@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * cannot post anything from it either.
  */
 export default async function PartagePage() {
-  const { comptes, invitations } = await getPartage();
+  const { comptes, invitations, liens } = await getPartage();
   return (
     <PartageClient
       comptes={comptes.map((c) => ({
@@ -20,6 +20,12 @@ export default async function PartagePage() {
         revoque: c.revokedAt !== null,
       }))}
       invitations={invitations.map((i) => ({ code: i.code, label: i.label, createdAt: i.createdAt.toISOString() }))}
+      liens={liens.map((l) => ({
+        token: l.token,
+        label: l.label,
+        createdAt: l.createdAt.toISOString(),
+        seenAt: l.seenAt?.toISOString() ?? null,
+      }))}
     />
   );
 }

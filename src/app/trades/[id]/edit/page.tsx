@@ -1,4 +1,3 @@
-import { getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { parseTagArray } from "@/lib/tags";
@@ -29,9 +28,8 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
   if (!trade) notFound();
 
   const updateTradeWithId = updateTrade.bind(null, trade.id);
-  const [riskPerLot, vocabulary] = await Promise.all([
+  const [riskPerLot] = await Promise.all([
     lastRiskPerLot(),
-    getTradeVocabularies(),
   ]);
 
   const existingCharts: ExistingCharts = {
@@ -45,7 +43,6 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
     <TradeForm
       action={updateTradeWithId}
       tradeId={trade.id}
-      vocabulary={vocabulary}
       riskPerLot={riskPerLot}
       // Carried through the form, or editing a trade would drop the plan it
       // was written from.

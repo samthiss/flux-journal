@@ -614,3 +614,20 @@ model Invitation {
   usedAt    DateTime?
   usedBy    String?
 }
+
+/**
+ * A link that shows the trades, to anyone holding it.
+ *
+ * Not an account: there is nobody to name, nothing to sign in with and
+ * nothing to remember — the address is the whole of the permission. Which is
+ * why it is long, why it can be withdrawn, and why it opens one page and not
+ * the journal.
+ */
+model ShareLink {
+  token     String   @id
+  label     String?
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  /** When it was last opened, so a link nobody uses can be recognised. */
+  seenAt    DateTime?
+}

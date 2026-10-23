@@ -12,11 +12,32 @@ import { prisma } from "@/lib/prisma";
  * one of these actions is.
  */
 export async function getPartage() {
-  const [comptes, invitations] = await Promise.all([
+  const [comptes, invitations, liens] = await Promise.all([
     prisma.journalUser.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.invitation.findMany({ where: { usedAt: null }, orderBy: { createdAt: "desc" } }),
+    prisma.shareLink.findMany({ where: { revokedAt: null }, orderBy: { createdAt: "desc" } }),
   ]);
-  return { comptes, invitations };
+  return { comptes, invitations, liens };
+}
+
+/**
+ * Makes a link that shows the trades, with no account behind it.
+ *
+ * For showing the record to someone who will look once: a sign-up asked of
+ * them would be a password they keep and a row here for ever. The address is
+ * the whole of the permission, so it is long, and it can be taken back.
+ */
+export async function creerLienDeVue(label: string) {
+  const token = randomBytes(24).toString("base64url");
+  await prisma.shareLink.create({ data: { token, label: label.trim() || null } });
+  revalidatePath("/partage");
+  return token;
+}
+
+/** Closes a link. The address stops working at the next click. */
+export async function revoquerLienDeVue(token: string) {
+  await prisma.shareLink.updateMany({ where: { token, revokedAt: null }, data: { revokedAt: new Date() } });
+  revalidatePath("/partage");
 }
 
 /**

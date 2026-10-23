@@ -70,7 +70,19 @@ const selectStyle: React.CSSProperties = {
 
 const OPEN_NEW_TAB_KEY = "trades-open-new-tab";
 
-export default function TradesClient({ trades, initialPeriod, details = {}, proprietaire = true }: { proprietaire?: boolean; details?: Record<string, Record<string, string[]>>; trades: Trade[]; initialPeriod: string }) {
+export default function TradesClient({
+  trades,
+  initialPeriod,
+  details = {},
+  proprietaire = true,
+  lectureSeule = false,
+}: {
+  proprietaire?: boolean;
+  /**
+   * Shown through a share link: there is no trade page behind a row, so the
+   * rows lead nowhere and the switch that chose how they opened is gone.
+   */
+  lectureSeule?: boolean; details?: Record<string, Record<string, string[]>>; trades: Trade[]; initialPeriod: string }) {
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterOutcome, setFilterOutcome] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
@@ -303,7 +315,9 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
         })}
         <PeriodFilter period={period} onChange={choosePeriod} />
         {/* A two-state preference reads better as a switch than as a list of
-            two sentences that both start with the same word. */}
+            two sentences that both start with the same word. Gone where the
+            rows open nothing. */}
+        {!lectureSeule && (
         <button
           type="button"
           onClick={() => changeOpenInNewTab(!openInNewTab)}
@@ -344,6 +358,7 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
           </span>
           New tab
         </button>
+        )}
       </div>
 
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>
@@ -381,14 +396,10 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
           .map((t, i) => {
           const outcome = t.pnl > 0 ? "win" : "loss";
           const pnlColor = t.pnl > 0 ? winColor : lossColor;
-          return (
-            <Link
-              key={t.id}
-              className="trade-row"
-              href={`/trades/${t.id}`}
-              target={openInNewTab ? "_blank" : undefined}
-              rel={openInNewTab ? "noopener noreferrer" : undefined}
-              style={{
+          // A row with nothing behind it is a row, not a link: through a
+          // share link there is no trade page to open, and an anchor that
+          // refuses its own click is a cursor that lies.
+          const styleLigne = {
                 // Capped at fifteen rows: past the first screenful the stagger
                 // is only a delay before a row nobody has scrolled to yet, and
                 // on 88 trades the last one would wait two seconds.
@@ -401,8 +412,9 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
                 borderBottom: "1px solid oklch(0.24 0.034 250 / 0.5)",
                 textDecoration: "none",
                 color: "inherit",
-              }}
-            >
+          } as const;
+          const cellules = (
+            <>
               {/* The hour under the day rather than beside it: a trade is
                   looked up by its date, and the time is what tells two of the
                   same morning apart once it is found. */}
@@ -459,6 +471,22 @@ export default function TradesClient({ trades, initialPeriod, details = {}, prop
                   </div>
                 );
               })}
+            </>
+          );
+          return lectureSeule ? (
+            <div key={t.id} className="trade-row" style={styleLigne}>
+              {cellules}
+            </div>
+          ) : (
+            <Link
+              key={t.id}
+              className="trade-row"
+              href={`/trades/${t.id}`}
+              target={openInNewTab ? "_blank" : undefined}
+              rel={openInNewTab ? "noopener noreferrer" : undefined}
+              style={styleLigne}
+            >
+              {cellules}
             </Link>
           );
           })}

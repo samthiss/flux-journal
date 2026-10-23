@@ -110,7 +110,12 @@ export default async function RootLayout({
             inherits this layout, and an assistant offered before the password
             is an assistant offered to a stranger. */}
         <AgentProvider>
-          <Sidebar initialTree={await sidebarTree()} proprietaire={await estProprietaire()} />
+          {/* No sidebar for someone holding a share link: they are not signed
+              in, there is nowhere for them to navigate, and the list of notes
+              is not theirs to see the shape of. */}
+          {(await connecte()) && (
+            <Sidebar initialTree={await sidebarTree()} proprietaire={await estProprietaire()} />
+          )}
           <div className="app-main">
             <NewsTicker {...await actualitesDuJour()} />
             {children}

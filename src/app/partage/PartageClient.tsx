@@ -3,10 +3,17 @@
 import { useState, useTransition } from "react";
 import { PageTitle } from "@/components/NeonText";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
-import { creerInvitation, revoquerCompte, supprimerInvitation } from "@/lib/actions/partage";
+import {
+  creerInvitation,
+  creerLienDeVue,
+  revoquerCompte,
+  revoquerLienDeVue,
+  supprimerInvitation,
+} from "@/lib/actions/partage";
 
 type Compte = { id: string; email: string; createdAt: string; revoque: boolean };
 type Invitation = { code: string; label: string | null; createdAt: string };
+type Lien = { token: string; label: string | null; createdAt: string; seenAt: string | null };
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
@@ -17,17 +24,28 @@ const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
  * it is the whole of what is being given away, and it is less than most people
  * assume when they are handed a link to someone's trading journal.
  */
-export default function PartageClient({ comptes, invitations }: { comptes: Compte[]; invitations: Invitation[] }) {
+export default function PartageClient({
+  comptes,
+  invitations,
+  liens,
+}: {
+  comptes: Compte[];
+  invitations: Invitation[];
+  liens: Lien[];
+}) {
   const [, startTransition] = useTransition();
   const [label, setLabel] = useState("");
+  const [labelLien, setLabelLien] = useState("");
   const [copie, setCopie] = useState<string | null>(null);
 
   const lien = (code: string) =>
     typeof window === "undefined" ? `/inscription?code=${code}` : `${window.location.origin}/inscription?code=${code}`;
+  const lienDeVue = (token: string) =>
+    typeof window === "undefined" ? `/v/${token}` : `${window.location.origin}/v/${token}`;
 
-  const copier = async (code: string) => {
+  const copier = async (code: string, adresse?: string) => {
     try {
-      await navigator.clipboard.writeText(lien(code));
+      await navigator.clipboard.writeText(adresse ?? lien(code));
       setCopie(code);
       window.setTimeout(() => setCopie((c) => (c === code ? null : c)), 2000);
     } catch {
@@ -124,6 +142,98 @@ export default function PartageClient({ comptes, invitations }: { comptes: Compt
                     style={{ fontSize: 12, color: "oklch(0.55 0.03 250)", cursor: "pointer" }}
                   >
                     ✕
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={glassCard}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+            Lien de vue
+          </div>
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)", marginBottom: 14 }}>
+            Une adresse qui montre les trades, sans compte ni mot de passe — pour qui ne regardera qu&apos;une fois
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input
+              value={labelLien}
+              onChange={(e) => setLabelLien(e.target.value)}
+              placeholder="Pour qui ? (facultatif)"
+              style={{
+                flex: 1,
+                minWidth: 200,
+                padding: "9px 12px",
+                borderRadius: 8,
+                border: "1px solid oklch(0.34 0.034 250)",
+                background: "oklch(0.16 0.0306 250)",
+                color: "oklch(0.92 0 0)",
+                fontSize: 13,
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={() =>
+                startTransition(async () => {
+                  const token = await creerLienDeVue(labelLien);
+                  setLabelLien("");
+                  await copier(token, lienDeVue(token));
+                })
+              }
+              style={{
+                padding: "9px 16px",
+                borderRadius: 8,
+                border: "none",
+                background: accentColor,
+                color: "oklch(0.15 0.034 250)",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Créer un lien de vue
+            </button>
+          </div>
+
+          {liens.length > 0 && (
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+              {liens.map((l) => (
+                <div
+                  key={l.token}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 12px",
+                    border: "1px solid oklch(0.3 0.034 250)",
+                    background: "oklch(0.17 0.03 250 / 0.6)",
+                    borderRadius: 8,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13 }}>
+                      {l.label || "Lien de vue"}
+                      <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.02 250)", marginLeft: 8 }}>
+                        {l.seenAt ? `ouvert le ${jour(l.seenAt)}` : "jamais ouvert"}
+                      </span>
+                    </div>
+                    <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.02 250)", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {lienDeVue(l.token)}
+                    </div>
+                  </div>
+                  <span
+                    onClick={() => void copier(l.token, lienDeVue(l.token))}
+                    style={{ ...mono, fontSize: 11, padding: "4px 10px", borderRadius: 999, border: `1px solid ${accentColor}`, color: accentColor, cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    {copie === l.token ? "copié" : "copier"}
+                  </span>
+                  <span
+                    onClick={() => startTransition(async () => void (await revoquerLienDeVue(l.token)))}
+                    title="Fermer ce lien"
+                    style={{ ...mono, fontSize: 11, padding: "4px 10px", borderRadius: 999, border: `1px solid ${lossColor}`, color: lossColor, cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    fermer
                   </span>
                 </div>
               ))}

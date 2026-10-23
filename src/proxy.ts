@@ -11,6 +11,16 @@ import { SESSION_COOKIE, authConfig, sessionRole } from "@/lib/auth";
  */
 const POUR_INVITE = [/^\/$/, /^\/trades(\/|$)/, /^\/api\/uploads\//];
 
+/**
+ * The share links, which carry their own permission.
+ *
+ * `/v/<token>` shows the trades to whoever holds the address — no session, no
+ * account, nothing to sign in with. The page itself decides whether that
+ * token is still good; what happens here is only that the door does not ask
+ * for a password first.
+ */
+const PUBLIC = /^\/v\/[A-Za-z0-9_-]+$/;
+
 // Named Proxy rather than Middleware: Next 16 renamed the file and the export,
 // and it now runs on the Node.js runtime by default.
 //
@@ -33,6 +43,14 @@ export function proxy(request: NextRequest) {
 
   const role = sessionRole(request.cookies.get(SESSION_COOKIE)?.value, config.secret);
   const signedIn = role !== null;
+
+  // A share link is readable without signing in, and only ever read.
+  if (PUBLIC.test(pathname)) {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new NextResponse("Lecture seule.", { status: 403 });
+    }
+    return NextResponse.next();
+  }
 
   if (pathname === "/login" || pathname === "/inscription") {
     if (signedIn) return NextResponse.redirect(new URL("/", request.url));

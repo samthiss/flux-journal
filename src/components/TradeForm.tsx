@@ -5,20 +5,19 @@ import Link from "next/link";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import { removeChartSlot } from "@/lib/actions/trades";
-import ChipDropdown from "@/components/ChipDropdown";
-import { motsPourSetup, parseTagArray } from "@/lib/tags";
+import { parseTagArray } from "@/lib/tags";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 
 const SYMBOL_OPTIONS = ["6E", "6B", "6J", "6N", "ZS", "ZW"] as const;
 
 /**
- * The reverse first, because it is the one being traded.
+ * What a trade is filed under when nothing said otherwise.
  *
- * The order is the default: a form opens on the head of this list, and a
- * default that has to be changed on most trades is a default that gets left
- * wrong on some of them.
+ * The form does not ask any more — the setup is decided on the plan — so this
+ * is only for a trade written straight into the journal, and it is the one
+ * being traded.
  */
-const SETUP_OPTIONS = ["Backtest reverse", "Trend run"];
+const SETUP_DEFAUT = "Backtest reverse";
 
 /**
  * The three confirmation lists, named as the notes and the pre-trade form name
@@ -237,7 +236,6 @@ export default function TradeForm({
   title,
   subtitle,
   riskPerLot,
-  vocabulary,
   planCharts: planChartsInitial = [],
   closedAt,
 }: {
@@ -248,17 +246,6 @@ export default function TradeForm({
   /** What one lot risked on the last trade that recorded it, if any. */
   riskPerLot?: number | null;
   /** The words the examples and the trade ideas are already annotated with. */
-  vocabulary: {
-    tradeTypes: string[];
-    zones: string[];
-    confirmations: string[];
-    confirmationsBox: string[];
-    confirmationsReverse: string[];
-    invalidReasons: string[];
-    cancelIfs: string[];
-    /** The same lists setup by setup, keyed "list@setup". */
-    parSetup: Record<string, string[]>;
-  };
   existingCharts?: ExistingCharts;
   /**
    * The charts written with the plan, kept as their own section.
@@ -280,10 +267,7 @@ export default function TradeForm({
 }) {
   const [side, setSide] = useState(initial.side);
   const [emotion, setEmotion] = useState(initial.emotion);
-  // Held rather than left to the select, because the confirmations and the
-  // risk management offered are this setup's own — as they are on a note and
-  // on a trade idea. Changing it here changes what is offered below.
-  const [setup, setSetup] = useState(initial.setup);
+  const setup = initial.setup || SETUP_DEFAUT;
 
   const [planCharts, setPlanCharts] = useState<string[]>(planChartsInitial);
   const [planFollowed, setPlanFollowed] = useState<string | null>(initial.planFollowed || null);
@@ -319,24 +303,14 @@ export default function TradeForm({
    */
   const types = parseTagArray(initial.tradeTypes);
   const zone = initial.zone || null;
-  const [confirmations, setConfirmations] = useState<Record<ConfirmationKind, string[]>>(() => ({
+  const confirmations: Record<ConfirmationKind, string[]> = {
     confirmations: parseTagArray(initial.confirmations),
     confirmationsBox: parseTagArray(initial.confirmationsBox),
     confirmationsReverse: parseTagArray(initial.confirmationsReverse),
-  }));
+  };
 
   const validity = initial.validity || "";
   const invalidReasons = parseTagArray(initial.invalidReasons);
-
-  /** A word typed a moment ago is offered too, before the list is read again. */
-  const offer = (known: string[], picked: string[]) => [...known, ...picked.filter((v) => !known.includes(v))];
-
-  /**
-   * What this setup offers in one list: the words given to it, then the ones
-   * given to no setup at all.
-   */
-  const motsDuSetup = (liste: string, complet: string[]) =>
-    motsPourSetup(liste, setup, complet, vocabulary.parSetup);
 
   // P&L, size and risk are held here rather than left uncontrolled, because the
   // R:R is computed from them as they are typed.
@@ -447,16 +421,10 @@ export default function TradeForm({
                 ))}
               </select>
             </div>
-            <div>
-              {fieldLabel("Setup")}
-              <select name="setup" value={setup} onChange={(e) => setSetup(e.target.value)} style={inputStyle}>
-                {SETUP_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* The setup is not asked for either: it is decided on the plan,
+                and carried here on the trade that came from it. The column is
+                required, so the field stays — hidden, holding what was read. */}
+            <input type="hidden" name="setup" value={setup} />
             <div>
               {fieldLabel("Size")}
               <input
@@ -532,54 +500,22 @@ export default function TradeForm({
               </div>
             </div>
 
-            <div style={{ gridColumn: "span 2" }}>
-              {/* What is still filled in here: the CC confirmations. The type,
-                  the zone, the verdict, the risk management and the other two
-                  confirmation lists were asked for on this form and answered
-                  on the plan, so they are written where the trade is planned
-                  and not asked for again once it is over.
+            {/* The annotations this form no longer asks for: the type, the
+                zone, the verdict, the risk management and the three
+                confirmation lists. All of them are answered where the trade is
+                planned, and asking again once the position is closed gets the
+                same answer twice or a different one.
 
-                  They keep their hidden fields: a trade recorded before this
-                  carries all of them, and a form that posted nothing for a
-                  field would wipe it on the next edit. Not editable is not the
-                  same as deleted. */}
-              <input type="hidden" name="tradeTypes" value={JSON.stringify(types)} />
-              <input type="hidden" name="zone" value={zone ?? ""} />
-              <input type="hidden" name="validity" value={validity} />
-              <input type="hidden" name="invalidReasons" value={JSON.stringify(invalidReasons)} />
-              {CONFIRMATIONS.map(({ kind }) => (
-                <input key={kind} type="hidden" name={kind} value={JSON.stringify(confirmations[kind])} />
-              ))}
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div>
-                  {fieldLabel(`Confirmation CC · ${setup}`)}
-                  <ChipDropdown
-                    block
-                    placeholder="None"
-                    options={offer(motsDuSetup("confirmations", vocabulary.confirmations), confirmations.confirmations)}
-                    selected={confirmations.confirmations}
-                    multiple
-                    visible
-                    onToggle={(value) =>
-                      setConfirmations((prev) => ({
-                        ...prev,
-                        confirmations: prev.confirmations.includes(value)
-                          ? prev.confirmations.filter((c) => c !== value)
-                          : [...prev.confirmations, value],
-                      }))
-                    }
-                    onAdd={(value) =>
-                      setConfirmations((prev) => ({
-                        ...prev,
-                        confirmations: prev.confirmations.includes(value)
-                          ? prev.confirmations
-                          : [...prev.confirmations, value],
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
+                They keep their fields, hidden, holding what was read off the
+                trade: a form that posted nothing for a column would empty it
+                on the next edit. Not asked for is not deleted. */}
+            <input type="hidden" name="tradeTypes" value={JSON.stringify(types)} />
+            <input type="hidden" name="zone" value={zone ?? ""} />
+            <input type="hidden" name="validity" value={validity} />
+            <input type="hidden" name="invalidReasons" value={JSON.stringify(invalidReasons)} />
+            {CONFIRMATIONS.map(({ kind }) => (
+              <input key={kind} type="hidden" name={kind} value={JSON.stringify(confirmations[kind])} />
+            ))}
 
             <div style={{ gridColumn: "span 2" }}>
               {fieldLabel("Side")}

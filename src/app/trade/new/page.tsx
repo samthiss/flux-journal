@@ -1,4 +1,3 @@
-import { getTradeVocabularies } from "@/lib/actions/tradeIdeas";
 import { prisma } from "@/lib/prisma";
 import TradeForm from "@/components/TradeForm";
 import { createTrade } from "@/lib/actions/trades";
@@ -102,9 +101,8 @@ export default async function NewTradePage({
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const { idea } = await searchParams;
-  const [riskPerLot, vocabulary, prealable] = await Promise.all([
+  const [riskPerLot, prealable] = await Promise.all([
     lastRiskPerLot(),
-    getTradeVocabularies(),
     ideePrealable(idea),
   ]);
 
@@ -113,7 +111,6 @@ export default async function NewTradePage({
       action={createTrade}
       title="Add Trade"
       subtitle="Log a new entry to your journal"
-      vocabulary={vocabulary}
       riskPerLot={riskPerLot}
       // The plan's captures, kept as their own section rather than laid into
       // the trade's four slots: those are for the charts taken afterwards.
