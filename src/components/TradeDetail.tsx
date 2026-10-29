@@ -114,6 +114,21 @@ export default async function TradeDetail({
     trading: trade.chartTrading,
   };
 
+  /**
+   * The captures this trade actually has, in slot order and numbered as they
+   * come out.
+   *
+   * Numbered after the empty slots are dropped, so a trade whose only capture
+   * sits in the third slot shows "Screenshot 1" rather than "Screenshot 3" —
+   * the number says where it is in what there is to look at, which is all it
+   * can honestly say now that the slots stand for nothing.
+   */
+  const captures = CHART_SLOTS.filter((slot) => chartValues[slot.key]).map((slot, i) => ({
+    key: slot.key,
+    label: `Screenshot ${i + 1}`,
+    src: images(chartValues[slot.key]!),
+  }));
+
   return (
     <div style={{ width: "100%" }}>
       <div className="trade-detail-header">
@@ -350,21 +365,20 @@ export default async function TradeDetail({
         </div>
       )}
 
-      <div style={glassCard}>
-        <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
-          Post Trade screenshots
+      {/* Only what was actually dropped in. Four empty frames saying "No
+          image" described the form's slots rather than the trade, and on a
+          trade with one capture they buried it. */}
+      {captures.length > 0 && (
+        <div style={glassCard}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+            Post Trade screenshots
+          </div>
+          {/* Numbered rather than named: the slots no longer stand for a
+              particular chart, so a heading saying "Cluster chart" over
+              whatever was dropped there would be a caption that lies. */}
+          <TradeCharts charts={captures} />
         </div>
-        <TradeCharts
-          // Numbered rather than named: the slots no longer stand for a
-          // particular chart, so a heading saying "Cluster chart" over
-          // whatever was dropped there would be a caption that lies.
-          charts={CHART_SLOTS.map((slot, i) => ({
-            key: slot.key,
-            label: `Screenshot ${i + 1}`,
-            src: chartValues[slot.key] ? images(chartValues[slot.key]!) : null,
-          }))}
-        />
-      </div>
+      )}
 
     </div>
   );

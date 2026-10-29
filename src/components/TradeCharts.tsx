@@ -17,8 +17,12 @@ import ImageLightbox from "@/components/ImageLightbox";
  * forwards no headers and only ever gets a 401 from behind the session proxy.
  * Charts imported from the old external host know nothing of `?w=`, so those
  * are served untouched.
+ *
+ * Every tile has a capture: an empty one used to be drawn as a dashed frame
+ * saying "No image", which described the form's four slots rather than the
+ * trade. What was not taken is not shown.
  */
-export default function TradeCharts({ charts }: { charts: { key: string; label: string; src: string | null }[] }) {
+export default function TradeCharts({ charts }: { charts: { key: string; label: string; src: string }[] }) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   return (
@@ -27,50 +31,32 @@ export default function TradeCharts({ charts }: { charts: { key: string; label: 
         {charts.map((chart) => (
           <div key={chart.key}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.78 0.034 250)", marginBottom: 8 }}>{chart.label}</div>
-            {chart.src ? (
-              <Image
-                src={chart.src}
-                alt={chart.label}
-                // The zeroes the responsive recipe uses when the dimensions are
-                // not known ahead of time — nothing stores them. The style below
-                // overrides both.
-                width={0}
-                height={0}
-                unoptimized={!chart.src.startsWith("/")}
-                loader={chart.src.startsWith("/") ? ({ src, width }) => `${src}?w=${width}` : undefined}
-                sizes="(max-width: 900px) 100vw, 80vw"
-                onClick={() => setLightboxUrl(chart.src)}
-                title="Click to view the full image"
-                style={{
-                  // Full width always, like the note tiles — see the comment
-                  // there on why the native-size cap was dropped.
-                  width: "100%",
-                  height: "auto",
-                  // Without this the img sits on the text baseline and leaves a
-                  // few stray pixels under every tile.
-                  display: "block",
-                  borderRadius: 10,
-                  border: "1px solid oklch(0.32 0.051 250 / 0.5)",
-                  cursor: "zoom-in",
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: "100%",
-                  aspectRatio: "16/10",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: "1px dashed oklch(0.36 0.051 250 / 0.6)",
-                  borderRadius: 10,
-                  color: "oklch(0.5 0.034 250)",
-                  fontSize: 12,
-                }}
-              >
-                No image
-              </div>
-            )}
+            <Image
+              src={chart.src}
+              alt={chart.label}
+              // The zeroes the responsive recipe uses when the dimensions are
+              // not known ahead of time — nothing stores them. The style below
+              // overrides both.
+              width={0}
+              height={0}
+              unoptimized={!chart.src.startsWith("/")}
+              loader={chart.src.startsWith("/") ? ({ src, width }) => `${src}?w=${width}` : undefined}
+              sizes="(max-width: 900px) 100vw, 80vw"
+              onClick={() => setLightboxUrl(chart.src)}
+              title="Click to view the full image"
+              style={{
+                // Full width always, like the note tiles — see the comment
+                // there on why the native-size cap was dropped.
+                width: "100%",
+                height: "auto",
+                // Without this the img sits on the text baseline and leaves a
+                // few stray pixels under every tile.
+                display: "block",
+                borderRadius: 10,
+                border: "1px solid oklch(0.32 0.051 250 / 0.5)",
+                cursor: "zoom-in",
+              }}
+            />
           </div>
         ))}
       </div>
