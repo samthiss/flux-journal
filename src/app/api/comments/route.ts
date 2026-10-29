@@ -57,6 +57,46 @@ export async function POST(req: Request) {
   });
 }
 
+/**
+ * Rewriting one.
+ *
+ * Second thoughts about a trade are the normal case, so a remark can be
+ * reopened and said better rather than corrected in a second remark
+ * underneath the first. Who may: the owner, and whoever reads through a
+ * working link.
+ *
+ * It cannot be narrower than that. Nobody signs in here and nobody is asked
+ * for a name, so there is nothing to check a writer against — the page only
+ * offers the box to the browser that wrote it. Whoever holds the link could
+ * rewrite another reader's remark through this address, which is the same
+ * trust the link already carries: it lets its holder write at all.
+ */
+export async function PATCH(req: Request) {
+  let corps: { id?: unknown; body?: unknown; token?: unknown };
+  try {
+    corps = await req.json();
+  } catch {
+    return Response.json({ error: "Unreadable request." }, { status: 400 });
+  }
+
+  const id = typeof corps.id === "string" ? corps.id : "";
+  const texte = typeof corps.body === "string" ? corps.body.trim().slice(0, 2000) : "";
+  const token = typeof corps.token === "string" ? corps.token : "";
+  if (!id || !texte) return Response.json({ error: "Nothing to say." }, { status: 400 });
+
+  const role = await roleActuel();
+  let permis = role === "owner" || role === "invite";
+  if (!permis && token) {
+    const lien = await prisma.shareLink.findUnique({ where: { token } });
+    permis = Boolean(lien && !lien.revokedAt);
+  }
+  if (!permis) return Response.json({ error: "Not allowed." }, { status: 403 });
+
+  const modifie = await prisma.tradeComment.updateMany({ where: { id }, data: { body: texte } });
+  if (modifie.count === 0) return Response.json({ error: "Not found." }, { status: 404 });
+  return Response.json({ ok: true });
+}
+
 /** Removing one: the owner's alone, on their own page. */
 export async function DELETE(req: Request) {
   if ((await roleActuel()) !== "owner") return Response.json({ error: "Not allowed." }, { status: 403 });
