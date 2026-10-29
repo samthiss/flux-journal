@@ -25,6 +25,7 @@ export default async function TradePartage({ params }: { params: Promise<{ token
       <TradeDetail
         id={trade}
         retour={`/v/${token}`}
+        token={token}
         images={(url) =>
           url.startsWith("/api/uploads/") ? `/v/${token}/img/${url.slice("/api/uploads/".length)}` : url
         }

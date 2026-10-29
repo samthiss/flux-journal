@@ -44,6 +44,16 @@ export function proxy(request: NextRequest) {
   const role = sessionRole(request.cookies.get(SESSION_COOKIE)?.value, config.secret);
   const signedIn = role !== null;
 
+  /**
+   * The one thing a reader may write.
+   *
+   * Its own address, checked by its own route: the blanket refusal of POSTs
+   * is what keeps every other write out, and relaxing it for a page would
+   * relax it for every action in that page's bundle — deleting a trade
+   * included. Who may comment is decided there, not here.
+   */
+  if (pathname === "/api/comments") return NextResponse.next();
+
   // A share link is readable without signing in, and only ever read.
   if (PUBLIC.test(pathname)) {
     if (request.method !== "GET" && request.method !== "HEAD") {

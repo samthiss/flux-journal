@@ -11,6 +11,7 @@ import { deleteTrade } from "@/lib/actions/trades";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import AddTradeToNoteButton from "@/components/AddTradeToNoteButton";
 import TradeCharts from "@/components/TradeCharts";
+import TradeComments from "@/components/TradeComments";
 
 // Shared between the standalone /trades/[id] page and the @modal-intercepted
 // overlay opened from the trades list, so a trade only has one place its
@@ -19,6 +20,7 @@ export default async function TradeDetail({
   id,
   images = (url) => url,
   retour = "/trades",
+  token,
 }: {
   id: string;
   /**
@@ -38,8 +40,14 @@ export default async function TradeDetail({
    * link can do anything with.
    */
   retour?: string;
+  /** The share link this page was opened through, when it was: a comment
+      written here is signed by whoever holds it. */
+  token?: string;
 }) {
-  const trade = await prisma.trade.findUnique({ where: { id } });
+  const trade = await prisma.trade.findUnique({
+    where: { id },
+    include: { comments: { orderBy: { createdAt: "asc" } } },
+  });
   if (!trade) notFound();
 
   // A shared account reads the trade. The door already refuses the writes; the
@@ -345,6 +353,21 @@ export default async function TradeDetail({
           }))}
         />
       </div>
+
+      {/* Under the trade, because that is the order it is read in: what was
+          done, then what is said about it. */}
+      <TradeComments
+        tradeId={trade.id}
+        token={token}
+        proprietaire={proprietaire}
+        initiaux={trade.comments.map((c) => ({
+          id: c.id,
+          author: c.author,
+          body: c.body,
+          createdAt: c.createdAt.toISOString(),
+          source: c.source,
+        }))}
+      />
     </div>
   );
 }

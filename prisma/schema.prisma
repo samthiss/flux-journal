@@ -73,6 +73,9 @@ model Trade {
    */
   planCharts     String?
 
+  /** Remarks left by whoever the journal was shared with. */
+  comments       TradeComment[]
+
   /**
    * Whether the plan was followed, answered rather than written.
    *
@@ -630,4 +633,41 @@ model ShareLink {
   revokedAt DateTime?
   /** When it was last opened, so a link nobody uses can be recognised. */
   seenAt    DateTime?
+}
+
+/**
+ * A remark left on a trade by someone the journal is shared with.
+ *
+ * The one thing a reader can write here. It is filed against the trade rather
+ * than against a person: an account has an address to sign with, a link has
+ * only whatever name its holder types, and both are worth the same amount —
+ * which is to say, they are a signature, not an identity.
+ */
+model TradeComment {
+  id        String   @id @default(cuid())
+  tradeId   String
+  /** What the writer called themselves, or the address they signed in with. */
+  author    String
+  body      String
+  createdAt DateTime @default(now())
+  /** "owner", "account" or "link": how they were reading when they wrote. */
+  source    String
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId, createdAt])
+}
+
+/**
+ * The trades list as the owner last left it.
+ *
+ * One row: the filters and the period are a way of looking at the journal, and
+ * sharing it means sharing the look as well — otherwise a link sent to make a
+ * point opens on everything, and the point has to be made again in the
+ * covering message.
+ */
+model SharedView {
+  id        String   @id @default("default")
+  filters   String
+  updatedAt DateTime @updatedAt
 }
