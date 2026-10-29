@@ -6,7 +6,7 @@ import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } fro
 import { PageTitle } from "@/components/NeonText";
 import PeriodFilter from "@/components/PeriodFilter";
 import { filterByPeriod, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
-import { parseTagArray, tagTone } from "@/lib/tags";
+import { tagTone } from "@/lib/tags";
 import { enregistrerVue } from "@/lib/actions/vue";
 
 /**
@@ -49,6 +49,16 @@ const COLONNE_POST: (typeof COLONNES)[number] = { cle: "post", titre: "Post trad
 const COLONNE_COMMENTAIRES: (typeof COLONNES)[number] = { cle: "comments", titre: "Comments", largeur: "260px" };
 
 /**
+ * What the table does not show any more.
+ *
+ * The vocabularies are still written on a trade and still read on its own
+ * page; it is the list they left. Seven columns of words beside the figures
+ * made a table to be scrolled sideways rather than read, and the one of them
+ * that is looked at while scanning is the emotion.
+ */
+const CACHEES = new Set(["type", "zone", "cc", "box", "reverse", "risk", "plan"]);
+
+/**
  * The columns whose words are not already asked about in the bar.
  *
  * Type, zone and the CC list have had a filter there since before they had a
@@ -71,10 +81,11 @@ function motsDeColonne(cle: string, trades: { id: string }[], details: Record<st
 /** Whether a trade answers every column filter that is set. */
 function passeLesColonnes(
   id: string,
+  colonnes: typeof COLONNES,
   filtres: Record<string, string>,
   details: Record<string, Record<string, string[]>>
 ) {
-  return COLONNES.every((c) => !filtres[c.cle] || (details[id]?.[c.cle] ?? []).includes(filtres[c.cle]));
+  return colonnes.every((c) => !filtres[c.cle] || (details[id]?.[c.cle] ?? []).includes(filtres[c.cle]));
 }
 
 /** The figures, then one column per vocabulary. */
@@ -140,15 +151,19 @@ export default function TradesClient({
   trades: Trade[];
   initialPeriod: string;
 }) {
+  /**
+   * Shown through a link: the emotion, then what was written afterwards and
+   * what has been said back. On the owner's own page: whatever is not hidden.
+   */
+  const colonnes = lectureSeule
+    ? [...COLONNES.filter((c) => c.cle === "emotion"), COLONNE_POST, COLONNE_COMMENTAIRES]
+    : COLONNES.filter((c) => !CACHEES.has(c.cle));
+
   const [filterSymbol, setFilterSymbol] = useState(vue.symbol ?? "all");
   const [filterOutcome, setFilterOutcome] = useState(vue.outcome ?? "all");
   const [filterSetup, setFilterSetup] = useState(vue.setup ?? "all");
   const [filterTp, setFilterTp] = useState(vue.tp ?? "all");
-  const [filterType, setFilterType] = useState(vue.type ?? "all");
-  const [filterZone, setFilterZone] = useState(vue.zone ?? "all");
-  const [filterConfirmation, setFilterConfirmation] = useState(vue.confirmation ?? "all");
   const [filterValidity, setFilterValidity] = useState(vue.validity ?? "all");
-  const [filterReason, setFilterReason] = useState(vue.reason ?? "all");
   const [openInNewTab, setOpenInNewTab] = useState(false);
 
   // The same period as the dashboard and the report, through the same cookie:
@@ -163,8 +178,10 @@ export default function TradesClient({
    * says what it filters without being labelled twice.
    */
   const [filtresColonnes, setFiltresColonnes] = useState<Record<string, string>>(() =>
+    // Only the columns on the page: a saved filter on a column that has since
+    // been hidden would go on narrowing the list with nothing to say so.
     Object.fromEntries(
-      COLONNES.map((c) => [c.cle, vue[`col.${c.cle}`] ?? ""]).filter(([, valeur]) => valeur)
+      colonnes.map((c) => [c.cle, vue[`col.${c.cle}`] ?? ""]).filter(([, valeur]) => valeur)
     )
   );
 
@@ -182,21 +199,13 @@ export default function TradesClient({
       outcome: filterOutcome,
       setup: filterSetup,
       tp: filterTp,
-      type: filterType,
-      zone: filterZone,
-      confirmation: filterConfirmation,
       validity: filterValidity,
-      reason: filterReason,
       period,
-      ...Object.fromEntries(COLONNES.map((c) => [`col.${c.cle}`, filtresColonnes[c.cle] ?? ""])),
+      ...Object.fromEntries(colonnes.map((c) => [`col.${c.cle}`, filtresColonnes[c.cle] ?? ""])),
       ...modif,
     });
   };
 
-  // Shown through a link: the emotion, then what was written afterwards.
-  const colonnes = lectureSeule
-    ? [...COLONNES.filter((c) => c.cle === "emotion"), COLONNE_POST, COLONNE_COMMENTAIRES]
-    : COLONNES;
   const GRILLE = grilleEt(colonnes, !lectureSeule);
 
   const choosePeriod = (next: string) => {
@@ -221,24 +230,6 @@ export default function TradesClient({
   const symbolOptions = useMemo(() => [...new Set(trades.map((t) => t.symbol))], [trades]);
   const setupOptions = useMemo(() => [...new Set(trades.map((t) => t.setup))], [trades]);
 
-  // Only the words actually written on a trade: offering a whole vocabulary
-  // here would be offering filters that return nothing.
-  const typeOptions = useMemo(
-    () => [...new Set(trades.flatMap((t) => parseTagArray(t.tradeTypes)))].sort(),
-    [trades],
-  );
-  const zoneOptions = useMemo(
-    () => [...new Set(trades.map((t) => t.zone).filter((z): z is string => Boolean(z)))].sort(),
-    [trades],
-  );
-  const confirmationOptions = useMemo(
-    () => [...new Set(trades.flatMap((t) => parseTagArray(t.confirmations)))].sort(),
-    [trades],
-  );
-  const reasonOptions = useMemo(
-    () => [...new Set(trades.flatMap((t) => parseTagArray(t.invalidReasons)))].sort(),
-    [trades],
-  );
   const filteredTrades = useMemo(() => {
     return filterByPeriod(withOutcome(trades), period, now)
       .filter((t) => filterSymbol === "all" || t.symbol === filterSymbol)
@@ -253,9 +244,6 @@ export default function TradesClient({
             ? t.tpReached == null
             : (t.tpReached ?? 0) >= Number(filterTp),
       )
-      .filter((t) => filterType === "all" || parseTagArray(t.tradeTypes).includes(filterType))
-      .filter((t) => filterZone === "all" || t.zone === filterZone)
-      .filter((t) => filterConfirmation === "all" || parseTagArray(t.confirmations).includes(filterConfirmation))
       // "No verdict" is a filter in its own right: it finds the trades
       // still waiting to be judged, which is the list worth clearing.
       .filter((t) =>
@@ -265,17 +253,16 @@ export default function TradesClient({
             ? !t.validity
             : t.validity === filterValidity,
       )
-      .filter((t) => filterReason === "all" || parseTagArray(t.invalidReasons).includes(filterReason))
       .slice()
       .reverse();
-  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterTp, filterType, filterZone, filterConfirmation, filterValidity, filterReason]);
+  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterTp, filterValidity]);
 
   return (
     <div>
       <div className="trades-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <PageTitle>Trades</PageTitle>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{filteredTrades.filter((t) => passeLesColonnes(t.id, filtresColonnes, details)).length} trades</div>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{filteredTrades.filter((t) => passeLesColonnes(t.id, colonnes, filtresColonnes, details)).length} trades</div>
         </div>
         {/* Not offered to a shared account, which may read these rows and
             write none of them. */}
@@ -323,71 +310,14 @@ export default function TradesClient({
           <option value="3">TP3</option>
           <option value="none">No TP</option>
         </select>
-        {/* Always drawn, even before anything is tagged. They were hidden
-            until a word existed, which made a filter nobody could discover:
-            a dropdown holding only "All types" at least says the question can
-            be asked, and dims itself to say not yet. */}
-        <select
-          value={filterType}
-          onChange={(e) => { setFilterType(e.target.value); noter({ type: e.target.value }); }}
-          disabled={typeOptions.length === 0}
-          style={{ ...selectStyle, opacity: typeOptions.length === 0 ? 0.45 : 1 }}
-        >
-          <option value="all">All types</option>
-          {typeOptions.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filterZone}
-          onChange={(e) => { setFilterZone(e.target.value); noter({ zone: e.target.value }); }}
-          disabled={zoneOptions.length === 0}
-          style={{ ...selectStyle, opacity: zoneOptions.length === 0 ? 0.45 : 1 }}
-        >
-          <option value="all">All zones</option>
-          {zoneOptions.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-        {/* The verdict, and why — the two annotations that say whether a trade
-            should have been taken at all. A winner on a forbidden setup is
-            findable here and nowhere else. */}
+        {/* The verdict: whether a trade should have been taken at all. A
+            winner on a forbidden setup is findable here and nowhere else. */}
         <select value={filterValidity} onChange={(e) => { setFilterValidity(e.target.value); noter({ validity: e.target.value }); }} style={selectStyle}>
           <option value="all">All verdicts</option>
           <option value="valid">Valid</option>
           <option value="invalid">Invalid</option>
           <option value="risk">Risk</option>
           <option value="none">No verdict</option>
-        </select>
-        <select
-          value={filterReason}
-          onChange={(e) => { setFilterReason(e.target.value); noter({ reason: e.target.value }); }}
-          disabled={reasonOptions.length === 0}
-          style={{ ...selectStyle, opacity: reasonOptions.length === 0 ? 0.45 : 1 }}
-        >
-          <option value="all">All risk management</option>
-          {reasonOptions.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filterConfirmation}
-          onChange={(e) => { setFilterConfirmation(e.target.value); noter({ confirmation: e.target.value }); }}
-          disabled={confirmationOptions.length === 0}
-          style={{ ...selectStyle, opacity: confirmationOptions.length === 0 ? 0.45 : 1 }}
-        >
-          <option value="all">All confirmations</option>
-          {confirmationOptions.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
         </select>
           </>
         )}
@@ -465,7 +395,10 @@ export default function TradesClient({
       </div>
 
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>
-        <div style={{ minWidth: lectureSeule ? 1320 : 1740 }}>
+        {/* Wide enough for the figures and what is left beside them, and no
+            wider: the table used to be scrolled sideways past seven columns of
+            words. */}
+        <div style={{ minWidth: lectureSeule ? 1320 : 840 }}>
         <div
           style={{
             display: "grid",
@@ -495,7 +428,7 @@ export default function TradesClient({
         {/* The column filters are applied here rather than in the query
             above: each belongs to the heading it sits under. */}
         {filteredTrades
-          .filter((t) => passeLesColonnes(t.id, filtresColonnes, details))
+          .filter((t) => passeLesColonnes(t.id, colonnes, filtresColonnes, details))
           .map((t, i) => {
           const outcome = t.pnl > 0 ? "win" : "loss";
           const pnlColor = t.pnl > 0 ? winColor : lossColor;
