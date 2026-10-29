@@ -41,7 +41,7 @@ export default async function VuePartagee({ params }: { params: Promise<{ token:
         emotion: true,
         planFollowed: true,
         postTradeNotes: true,
-        comments: { orderBy: { createdAt: "asc" }, select: { author: true, body: true } },
+        comments: { orderBy: { createdAt: "asc" }, take: 1, select: { body: true } },
       },
     }),
     // Recorded so a link nobody opens can be told from one that is being read.
@@ -66,9 +66,7 @@ export default async function VuePartagee({ params }: { params: Promise<{ token:
         // What was written after the trade, which is what the row is read for
         // by someone who was not there.
         post: t.postTradeNotes ? [t.postTradeNotes] : [],
-        // Signed in the cell, as they are on the trade's page: on a row the
-        // body alone would read as the journal's own words.
-        comments: t.comments.map((c) => `${c.author}: ${c.body}`),
+        comments: t.comments.map((c) => c.body),
       },
     ])
   );

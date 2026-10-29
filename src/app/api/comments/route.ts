@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { roleActuel } from "@/lib/session";
 
 /**
- * Leaving a remark on a trade.
+ * What the readers say about a trade: one text per trade, written here.
  *
  * A route rather than a server action, and the only way in: every write in
  * this journal is an action, and actions are POSTs the door turns away for
@@ -11,10 +11,13 @@ import { roleActuel } from "@/lib/session";
  * is its own address, and it does one thing.
  *
  * Who may write: the owner, an account the journal was shared with, or
- * whoever holds a share link, which they prove by sending its token.
+ * whoever holds a share link, which they prove by sending its token. Nobody
+ * signs in and nobody is asked for a name, so there is nothing finer to check
+ * a writer against; a link that can write can also rewrite, which is the
+ * trust it already carried.
  */
 export async function POST(req: Request) {
-  let corps: { tradeId?: unknown; body?: unknown; author?: unknown; token?: unknown };
+  let corps: { tradeId?: unknown; body?: unknown; token?: unknown };
   try {
     corps = await req.json();
   } catch {
@@ -22,11 +25,10 @@ export async function POST(req: Request) {
   }
 
   const tradeId = typeof corps.tradeId === "string" ? corps.tradeId : "";
-  const texte = typeof corps.body === "string" ? corps.body.trim().slice(0, 2000) : "";
-  const nom = typeof corps.author === "string" ? corps.author.trim().slice(0, 60) : "";
+  const texte = typeof corps.body === "string" ? corps.body.trim().slice(0, 4000) : "";
   const token = typeof corps.token === "string" ? corps.token : "";
 
-  if (!tradeId || !texte) return Response.json({ error: "Nothing to say." }, { status: 400 });
+  if (!tradeId) return Response.json({ error: "Which trade?" }, { status: 400 });
 
   const role = await roleActuel();
   let source: string | null = role === "owner" ? "owner" : role === "invite" ? "account" : null;
@@ -42,66 +44,43 @@ export async function POST(req: Request) {
   const trade = await prisma.trade.findUnique({ where: { id: tradeId }, select: { id: true } });
   if (!trade) return Response.json({ error: "Not found." }, { status: 404 });
 
-  const comment = await prisma.tradeComment.create({
-    data: { tradeId, body: texte, author: nom || (source === "owner" ? "Me" : "Guest"), source },
-  });
-
-  return Response.json({
-    comment: {
-      id: comment.id,
-      author: comment.author,
-      body: comment.body,
-      createdAt: comment.createdAt.toISOString(),
-      source: comment.source,
-    },
-  });
-}
-
-/**
- * Rewriting one.
- *
- * Second thoughts about a trade are the normal case, so a remark can be
- * reopened and said better rather than corrected in a second remark
- * underneath the first. Who may: the owner, and whoever reads through a
- * working link.
- *
- * It cannot be narrower than that. Nobody signs in here and nobody is asked
- * for a name, so there is nothing to check a writer against — the page only
- * offers the box to the browser that wrote it. Whoever holds the link could
- * rewrite another reader's remark through this address, which is the same
- * trust the link already carries: it lets its holder write at all.
- */
-export async function PATCH(req: Request) {
-  let corps: { id?: unknown; body?: unknown; token?: unknown };
-  try {
-    corps = await req.json();
-  } catch {
-    return Response.json({ error: "Unreadable request." }, { status: 400 });
+  // Emptied means withdrawn: one text per trade, and a blank one is no text.
+  if (!texte) {
+    await prisma.tradeComment.deleteMany({ where: { tradeId } });
+    return Response.json({ body: "" });
   }
 
-  const id = typeof corps.id === "string" ? corps.id : "";
-  const texte = typeof corps.body === "string" ? corps.body.trim().slice(0, 2000) : "";
-  const token = typeof corps.token === "string" ? corps.token : "";
-  if (!id || !texte) return Response.json({ error: "Nothing to say." }, { status: 400 });
+  /**
+   * One row per trade, rewritten in place.
+   *
+   * The table can hold more than one — it was built for a thread — and the
+   * oldest row is the one kept so that the identity of the comment does not
+   * move under a reader who is editing it. Any extras from before are swept
+   * up here rather than left to accumulate.
+   */
+  const existants = await prisma.tradeComment.findMany({
+    where: { tradeId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
 
-  const role = await roleActuel();
-  let permis = role === "owner" || role === "invite";
-  if (!permis && token) {
-    const lien = await prisma.shareLink.findUnique({ where: { token } });
-    permis = Boolean(lien && !lien.revokedAt);
+  if (existants.length === 0) {
+    await prisma.tradeComment.create({ data: { tradeId, body: texte, author: "", source } });
+  } else {
+    await prisma.tradeComment.update({ where: { id: existants[0].id }, data: { body: texte, source } });
+    if (existants.length > 1) {
+      await prisma.tradeComment.deleteMany({ where: { id: { in: existants.slice(1).map((c) => c.id) } } });
+    }
   }
-  if (!permis) return Response.json({ error: "Not allowed." }, { status: 403 });
 
-  const modifie = await prisma.tradeComment.updateMany({ where: { id }, data: { body: texte } });
-  if (modifie.count === 0) return Response.json({ error: "Not found." }, { status: 404 });
-  return Response.json({ ok: true });
+  return Response.json({ body: texte });
 }
 
-/** Removing one: the owner's alone, on their own page. */
+/** Clearing it: the owner's alone, on their own page. */
 export async function DELETE(req: Request) {
   if ((await roleActuel()) !== "owner") return Response.json({ error: "Not allowed." }, { status: 403 });
-  const id = new URL(req.url).searchParams.get("id") ?? "";
-  if (!id) return Response.json({ error: "Which one?" }, { status: 400 });
-  await prisma.tradeComment.deleteMany({ where: { id } });
+  const tradeId = new URL(req.url).searchParams.get("tradeId") ?? "";
+  if (!tradeId) return Response.json({ error: "Which trade?" }, { status: 400 });
+  await prisma.tradeComment.deleteMany({ where: { tradeId } });
   return Response.json({ ok: true });
 }
