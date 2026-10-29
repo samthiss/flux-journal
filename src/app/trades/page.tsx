@@ -21,6 +21,8 @@ export default async function TradesPage() {
       invalidReasons: true,
       emotion: true,
       planFollowed: true,
+      // One per trade, the oldest being the one the page keeps.
+      comments: { orderBy: { createdAt: "asc" }, take: 1, select: { body: true } },
     },
   });
 
@@ -53,6 +55,10 @@ export default async function TradesPage() {
         reverse: parseTagArray(t.confirmationsReverse),
         risk: parseTagArray(t.invalidReasons),
         plan: t.planFollowed === null ? [] : [t.planFollowed ? "Yes" : "No"],
+        // What the people the journal is shared with have written back. Worth
+        // a column here too: a remark the owner never notices is a remark
+        // that was not made.
+        comments: t.comments.map((c) => c.body),
       },
     ])
   );

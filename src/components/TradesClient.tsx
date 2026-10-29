@@ -157,7 +157,7 @@ export default function TradesClient({
    */
   const colonnes = lectureSeule
     ? [...COLONNES.filter((c) => c.cle === "emotion"), COLONNE_POST, COLONNE_COMMENTAIRES]
-    : COLONNES.filter((c) => !CACHEES.has(c.cle));
+    : [...COLONNES.filter((c) => !CACHEES.has(c.cle)), COLONNE_COMMENTAIRES];
 
   const [filterSymbol, setFilterSymbol] = useState(vue.symbol ?? "all");
   const [filterOutcome, setFilterOutcome] = useState(vue.outcome ?? "all");
@@ -431,7 +431,7 @@ export default function TradesClient({
         {/* Wide enough for the figures and what is left beside them, and no
             wider: the table used to be scrolled sideways past seven columns of
             words. */}
-        <div style={{ minWidth: lectureSeule ? 1320 : 840 }}>
+        <div style={{ minWidth: lectureSeule ? 1320 : 1100 }}>
         <div
           style={{
             display: "grid",
