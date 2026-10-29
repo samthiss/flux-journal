@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { isValidPeriod, TRADE_FOR_STATS_SELECT } from "@/lib/stats";
 import TradesClient from "@/components/TradesClient";
 import { parseTagArray } from "@/lib/tags";
+import { lireVue } from "@/lib/actions/vue";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,11 @@ export default async function TradesPage() {
       planFollowed: true,
     },
   });
+
+  const proprietaire = await estProprietaire();
+  // The owner's own choices are the shared view; a guest account reading this
+  // page narrows it for itself and writes nothing.
+  const vue = await lireVue();
 
   const stored = (await cookies()).get("dash-period")?.value;
   const initialPeriod = isValidPeriod(stored) ? stored : "week";
@@ -56,7 +62,9 @@ export default async function TradesPage() {
       trades={trades}
       initialPeriod={initialPeriod}
       details={details}
-      proprietaire={await estProprietaire()}
+      proprietaire={proprietaire}
+      vue={vue}
+      enregistre={proprietaire}
     />
   );
 }

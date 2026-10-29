@@ -7,6 +7,7 @@ import { PageTitle } from "@/components/NeonText";
 import PeriodFilter from "@/components/PeriodFilter";
 import { filterByPeriod, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
 import { parseTagArray, tagTone } from "@/lib/tags";
+import { enregistrerVue } from "@/lib/actions/vue";
 
 /**
  * The annotation columns, after the figures.
@@ -25,6 +26,16 @@ const COLONNES: { cle: string; titre: string; largeur: string }[] = [
   { cle: "risk", titre: "Risk management", largeur: "150px" },
   { cle: "plan", titre: "Plan", largeur: "60px" },
 ];
+
+/**
+ * What was written after the trade, shown beside it where the journal is
+ * shared.
+ *
+ * It is the one column that is prose rather than a word, and the one a reader
+ * who was not there needs: the figures say what happened, this says why. Kept
+ * out of the owner's own table, where it would be read on the trade's page.
+ */
+const COLONNE_POST: (typeof COLONNES)[number] = { cle: "post", titre: "Post trade analysis", largeur: "320px" };
 
 /**
  * The columns whose words are not already asked about in the bar.
@@ -88,6 +99,8 @@ export default function TradesClient({
   proprietaire = true,
   lectureSeule = false,
   lienBase,
+  vue = {},
+  enregistre = false,
 }: {
   proprietaire?: boolean;
   /**
@@ -100,22 +113,37 @@ export default function TradesClient({
    */
   lectureSeule?: boolean;
   /** Where a row leads, when it is not the journal's own trade page. */
-  lienBase?: string; details?: Record<string, Record<string, string[]>>; trades: Trade[]; initialPeriod: string }) {
-  const [filterSymbol, setFilterSymbol] = useState("all");
-  const [filterOutcome, setFilterOutcome] = useState("all");
-  const [filterSetup, setFilterSetup] = useState("all");
-  const [filterTp, setFilterTp] = useState("all");
-  const [filterType, setFilterType] = useState("all");
-  const [filterZone, setFilterZone] = useState("all");
-  const [filterConfirmation, setFilterConfirmation] = useState("all");
-  const [filterValidity, setFilterValidity] = useState("all");
-  const [filterReason, setFilterReason] = useState("all");
+  lienBase?: string;
+  /**
+   * The list as the owner last left it.
+   *
+   * The owner's own choices are written down and handed to everyone the
+   * journal is shared with, so a link opens on the same view it was sent
+   * from. Here they are only the starting point: a reader is free to narrow
+   * it further, and nothing they do is saved.
+   */
+  vue?: Record<string, string>;
+  /** Whether choosing a filter here records it for everyone else. */
+  enregistre?: boolean;
+  details?: Record<string, Record<string, string[]>>;
+  trades: Trade[];
+  initialPeriod: string;
+}) {
+  const [filterSymbol, setFilterSymbol] = useState(vue.symbol ?? "all");
+  const [filterOutcome, setFilterOutcome] = useState(vue.outcome ?? "all");
+  const [filterSetup, setFilterSetup] = useState(vue.setup ?? "all");
+  const [filterTp, setFilterTp] = useState(vue.tp ?? "all");
+  const [filterType, setFilterType] = useState(vue.type ?? "all");
+  const [filterZone, setFilterZone] = useState(vue.zone ?? "all");
+  const [filterConfirmation, setFilterConfirmation] = useState(vue.confirmation ?? "all");
+  const [filterValidity, setFilterValidity] = useState(vue.validity ?? "all");
+  const [filterReason, setFilterReason] = useState(vue.reason ?? "all");
   const [openInNewTab, setOpenInNewTab] = useState(false);
 
   // The same period as the dashboard and the report, through the same cookie:
   // three pages reading one journal should not disagree about which weeks are
   // being counted.
-  const [period, setPeriod] = useState(initialPeriod);
+  const [period, setPeriod] = useState(vue.period ?? initialPeriod);
   /**
    * One filter per annotation column, chosen in its own heading.
    *
@@ -123,14 +151,44 @@ export default function TradesClient({
    * dropdowns up there would be a wall, and a filter placed on the column
    * says what it filters without being labelled twice.
    */
-  const [filtresColonnes, setFiltresColonnes] = useState<Record<string, string>>({});
+  const [filtresColonnes, setFiltresColonnes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      COLONNES.map((c) => [c.cle, vue[`col.${c.cle}`] ?? ""]).filter(([, valeur]) => valeur)
+    )
+  );
 
-  // Shown through a link: the emotion and nothing to the right of it.
-  const colonnes = lectureSeule ? COLONNES.filter((c) => c.cle === "emotion") : COLONNES;
+  /**
+   * Writes the view down, for whoever the journal is shared with.
+   *
+   * Only from the owner's own page, and fire-and-forget: a filter that paints
+   * instantly and is recorded a moment later is right, and one that waits for
+   * the network to answer before moving is not.
+   */
+  const noter = (modif: Record<string, string>) => {
+    if (!enregistre) return;
+    void enregistrerVue({
+      symbol: filterSymbol,
+      outcome: filterOutcome,
+      setup: filterSetup,
+      tp: filterTp,
+      type: filterType,
+      zone: filterZone,
+      confirmation: filterConfirmation,
+      validity: filterValidity,
+      reason: filterReason,
+      period,
+      ...Object.fromEntries(COLONNES.map((c) => [`col.${c.cle}`, filtresColonnes[c.cle] ?? ""])),
+      ...modif,
+    });
+  };
+
+  // Shown through a link: the emotion, then what was written afterwards.
+  const colonnes = lectureSeule ? [...COLONNES.filter((c) => c.cle === "emotion"), COLONNE_POST] : COLONNES;
   const GRILLE = grilleEt(colonnes, !lectureSeule);
 
   const choosePeriod = (next: string) => {
     setPeriod(next);
+    noter({ period: next });
     try {
       document.cookie = `dash-period=${next}; path=/; max-age=${60 * 60 * 24 * 365}`;
     } catch {}
@@ -219,7 +277,7 @@ export default function TradesClient({
       </div>
 
       <div className="trades-filters" style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-        <select value={filterSymbol} onChange={(e) => setFilterSymbol(e.target.value)} style={selectStyle}>
+        <select value={filterSymbol} onChange={(e) => { setFilterSymbol(e.target.value); noter({ symbol: e.target.value }); }} style={selectStyle}>
           <option value="all">All symbols</option>
           {symbolOptions.map((s) => (
             <option key={s} value={s}>
@@ -227,7 +285,7 @@ export default function TradesClient({
             </option>
           ))}
         </select>
-        <select value={filterOutcome} onChange={(e) => setFilterOutcome(e.target.value)} style={selectStyle}>
+        <select value={filterOutcome} onChange={(e) => { setFilterOutcome(e.target.value); noter({ outcome: e.target.value }); }} style={selectStyle}>
           <option value="all">All outcomes</option>
           <option value="win">Wins</option>
           <option value="loss">Losses</option>
@@ -237,7 +295,7 @@ export default function TradesClient({
             something that is not on the page. */}
         {!lectureSeule && (
           <>
-        <select value={filterSetup} onChange={(e) => setFilterSetup(e.target.value)} style={selectStyle}>
+        <select value={filterSetup} onChange={(e) => { setFilterSetup(e.target.value); noter({ setup: e.target.value }); }} style={selectStyle}>
           <option value="all">All setups</option>
           {setupOptions.map((s) => (
             <option key={s} value={s}>
@@ -245,7 +303,7 @@ export default function TradesClient({
             </option>
           ))}
         </select>
-        <select value={filterTp} onChange={(e) => setFilterTp(e.target.value)} style={selectStyle}>
+        <select value={filterTp} onChange={(e) => { setFilterTp(e.target.value); noter({ tp: e.target.value }); }} style={selectStyle}>
           <option value="all">All TP</option>
           <option value="1">TP1+</option>
           <option value="2">TP2+</option>
@@ -258,7 +316,7 @@ export default function TradesClient({
             be asked, and dims itself to say not yet. */}
         <select
           value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
+          onChange={(e) => { setFilterType(e.target.value); noter({ type: e.target.value }); }}
           disabled={typeOptions.length === 0}
           style={{ ...selectStyle, opacity: typeOptions.length === 0 ? 0.45 : 1 }}
         >
@@ -271,7 +329,7 @@ export default function TradesClient({
         </select>
         <select
           value={filterZone}
-          onChange={(e) => setFilterZone(e.target.value)}
+          onChange={(e) => { setFilterZone(e.target.value); noter({ zone: e.target.value }); }}
           disabled={zoneOptions.length === 0}
           style={{ ...selectStyle, opacity: zoneOptions.length === 0 ? 0.45 : 1 }}
         >
@@ -285,7 +343,7 @@ export default function TradesClient({
         {/* The verdict, and why — the two annotations that say whether a trade
             should have been taken at all. A winner on a forbidden setup is
             findable here and nowhere else. */}
-        <select value={filterValidity} onChange={(e) => setFilterValidity(e.target.value)} style={selectStyle}>
+        <select value={filterValidity} onChange={(e) => { setFilterValidity(e.target.value); noter({ validity: e.target.value }); }} style={selectStyle}>
           <option value="all">All verdicts</option>
           <option value="valid">Valid</option>
           <option value="invalid">Invalid</option>
@@ -294,7 +352,7 @@ export default function TradesClient({
         </select>
         <select
           value={filterReason}
-          onChange={(e) => setFilterReason(e.target.value)}
+          onChange={(e) => { setFilterReason(e.target.value); noter({ reason: e.target.value }); }}
           disabled={reasonOptions.length === 0}
           style={{ ...selectStyle, opacity: reasonOptions.length === 0 ? 0.45 : 1 }}
         >
@@ -307,7 +365,7 @@ export default function TradesClient({
         </select>
         <select
           value={filterConfirmation}
-          onChange={(e) => setFilterConfirmation(e.target.value)}
+          onChange={(e) => { setFilterConfirmation(e.target.value); noter({ confirmation: e.target.value }); }}
           disabled={confirmationOptions.length === 0}
           style={{ ...selectStyle, opacity: confirmationOptions.length === 0 ? 0.45 : 1 }}
         >
@@ -329,7 +387,10 @@ export default function TradesClient({
             <select
               key={c.cle}
               value={filtresColonnes[c.cle] ?? ""}
-              onChange={(e) => setFiltresColonnes((prev) => ({ ...prev, [c.cle]: e.target.value }))}
+              onChange={(e) => {
+                setFiltresColonnes((prev) => ({ ...prev, [c.cle]: e.target.value }));
+                noter({ [`col.${c.cle}`]: e.target.value });
+              }}
               disabled={mots.length === 0}
               style={{ ...selectStyle, opacity: mots.length === 0 ? 0.45 : 1 }}
             >
@@ -391,7 +452,7 @@ export default function TradesClient({
       </div>
 
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>
-        <div style={{ minWidth: lectureSeule ? 760 : 1740 }}>
+        <div style={{ minWidth: lectureSeule ? 1080 : 1740 }}>
         <div
           style={{
             display: "grid",
@@ -490,7 +551,14 @@ export default function TradesClient({
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       paddingRight: 10,
-                      color: valeur ? tagTone(valeur).fg : "oklch(0.4 0.02 250)",
+                      // Prose is not a tag: the post-trade note keeps the
+                      // body colour rather than being tinted by whichever
+                      // word it happens to start with.
+                      color: !valeur
+                        ? "oklch(0.4 0.02 250)"
+                        : c.cle === "post"
+                          ? "oklch(0.72 0.017 250)"
+                          : tagTone(valeur).fg,
                     }}
                   >
                     {valeur || "—"}

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { TRADE_FOR_STATS_SELECT } from "@/lib/stats";
 import { parseTagArray } from "@/lib/tags";
 import TradesClient from "@/components/TradesClient";
+import { lireVue } from "@/lib/actions/vue";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function VuePartagee({ params }: { params: Promise<{ token:
   // A withdrawn link is a link that does not exist: the two answer the same.
   if (!lien || lien.revokedAt) notFound();
 
-  const [trades] = await Promise.all([
+  const [trades, , vue] = await Promise.all([
     prisma.trade.findMany({
       orderBy: { date: "asc" },
       select: {
@@ -39,10 +40,14 @@ export default async function VuePartagee({ params }: { params: Promise<{ token:
         invalidReasons: true,
         emotion: true,
         planFollowed: true,
+        postTradeNotes: true,
       },
     }),
     // Recorded so a link nobody opens can be told from one that is being read.
     prisma.shareLink.update({ where: { token }, data: { seenAt: new Date() } }),
+    // The list opens on the view the owner left it in, filters and period
+    // both: a link is sent to show something in particular.
+    lireVue(),
   ]);
 
   const details = Object.fromEntries(
@@ -57,6 +62,9 @@ export default async function VuePartagee({ params }: { params: Promise<{ token:
         reverse: parseTagArray(t.confirmationsReverse),
         risk: parseTagArray(t.invalidReasons),
         plan: t.planFollowed === null ? [] : [t.planFollowed ? "Yes" : "No"],
+        // What was written after the trade, which is what the row is read for
+        // by someone who was not there.
+        post: t.postTradeNotes ? [t.postTradeNotes] : [],
       },
     ])
   );
@@ -70,6 +78,7 @@ export default async function VuePartagee({ params }: { params: Promise<{ token:
         proprietaire={false}
         lectureSeule
         lienBase={`/v/${token}`}
+        vue={vue}
       />
     </div>
   );
