@@ -162,6 +162,7 @@ export default function TradesClient({
   const [filterSymbol, setFilterSymbol] = useState(vue.symbol ?? "all");
   const [filterOutcome, setFilterOutcome] = useState(vue.outcome ?? "all");
   const [filterSetup, setFilterSetup] = useState(vue.setup ?? "all");
+  const [filterStrategy, setFilterStrategy] = useState(vue.strategy ?? "all");
   const [filterTp, setFilterTp] = useState(vue.tp ?? "all");
   const [filterValidity, setFilterValidity] = useState(vue.validity ?? "all");
   const [openInNewTab, setOpenInNewTab] = useState(false);
@@ -198,6 +199,7 @@ export default function TradesClient({
       symbol: filterSymbol,
       outcome: filterOutcome,
       setup: filterSetup,
+      strategy: filterStrategy,
       tp: filterTp,
       validity: filterValidity,
       period,
@@ -229,12 +231,29 @@ export default function TradesClient({
 
   const symbolOptions = useMemo(() => [...new Set(trades.map((t) => t.symbol))], [trades]);
   const setupOptions = useMemo(() => [...new Set(trades.map((t) => t.setup))], [trades]);
+  /**
+   * The schools actually written on a trade.
+   *
+   * Derived rather than fixed, like the setups above: the field was added
+   * after the journal had 88 trades in it, and a menu offering a school none
+   * of them names is a filter that empties the table. "No strategy" earns its
+   * place for as long as some of them are the ones taken before the question
+   * was asked.
+   */
+  const strategyOptions = useMemo(
+    () => [...new Set(trades.map((t) => t.strategy).filter((s): s is string => Boolean(s)))].sort(),
+    [trades],
+  );
+  const sansStrategie = useMemo(() => trades.some((t) => !t.strategy), [trades]);
 
   const filteredTrades = useMemo(() => {
     return filterByPeriod(withOutcome(trades), period, now)
       .filter((t) => filterSymbol === "all" || t.symbol === filterSymbol)
       .filter((t) => filterOutcome === "all" || (t.pnl > 0 ? "win" : "loss") === filterOutcome)
       .filter((t) => filterSetup === "all" || t.setup === filterSetup)
+      .filter((t) =>
+        filterStrategy === "all" ? true : filterStrategy === "none" ? !t.strategy : t.strategy === filterStrategy,
+      )
       // "TP2" means the market went at least that far, which is the question
       // worth asking of a setup — not how many stopped exactly there.
       .filter((t) =>
@@ -255,7 +274,7 @@ export default function TradesClient({
       )
       .slice()
       .reverse();
-  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterTp, filterValidity]);
+  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterStrategy, filterTp, filterValidity]);
 
   return (
     <div>
@@ -302,6 +321,20 @@ export default function TradesClient({
               {s}
             </option>
           ))}
+        </select>
+        <select
+          value={filterStrategy}
+          onChange={(e) => { setFilterStrategy(e.target.value); noter({ strategy: e.target.value }); }}
+          disabled={strategyOptions.length === 0}
+          style={{ ...selectStyle, opacity: strategyOptions.length === 0 ? 0.45 : 1 }}
+        >
+          <option value="all">All strategies</option>
+          {strategyOptions.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+          {sansStrategie && strategyOptions.length > 0 && <option value="none">No strategy</option>}
         </select>
         <select value={filterTp} onChange={(e) => { setFilterTp(e.target.value); noter({ tp: e.target.value }); }} style={selectStyle}>
           <option value="all">All TP</option>
