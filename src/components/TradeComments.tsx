@@ -12,7 +12,6 @@ export type Commentaire = {
 };
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
-const NOM = "flux.commentaire.nom";
 
 /**
  * What the people a journal is shared with can say back.
@@ -21,10 +20,10 @@ const NOM = "flux.commentaire.nom";
  * "that stop was early" — and an answer that lands in a chat somewhere is an
  * answer nobody finds again beside the trade it was about.
  *
- * Whoever holds a share link signs with a name they type once, kept in their
- * own browser; an account signs with the address it was made with, and the
- * owner signs as themselves. None of it is proof of anything, and none of it
- * is meant to be: it is a signature on a remark.
+ * Nobody is asked who they are. The owner's remarks are the owner's and the
+ * rest are a guest's, which is all a name could have said here anyway: a
+ * typed name is not proof of anything, and asking for one is one more field
+ * between having something to say and saying it.
  */
 export default function TradeComments({
   tradeId,
@@ -40,19 +39,8 @@ export default function TradeComments({
 }) {
   const [commentaires, setCommentaires] = useState(initiaux);
   const [texte, setTexte] = useState("");
-  const [nom, setNom] = useState(() => {
-    try {
-      return window.localStorage.getItem(NOM) ?? "";
-    } catch {
-      return "";
-    }
-  });
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
-
-  // The owner signs as themselves and an account by its address; only a link
-  // has nobody to ask but the person holding it.
-  const demandeNom = !proprietaire && !!token;
 
   async function envoyer() {
     const corps = texte.trim();
@@ -63,7 +51,7 @@ export default function TradeComments({
       const reponse = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tradeId, body: corps, author: nom, token }),
+        body: JSON.stringify({ tradeId, body: corps, token }),
       });
       if (!reponse.ok) {
         // What the server said, rather than a shrug: a comment that will not
@@ -81,13 +69,6 @@ export default function TradeComments({
       const { comment } = await reponse.json();
       setCommentaires((prev) => [...prev, comment]);
       setTexte("");
-      if (demandeNom && nom) {
-        try {
-          window.localStorage.setItem(NOM, nom);
-        } catch {
-          // A name that cannot be remembered is typed again; nothing is lost.
-        }
-      }
     } catch (e) {
       setErreur(`The comment did not go through: ${e instanceof Error ? e.message : "no answer"}`);
     } finally {
@@ -117,7 +98,7 @@ export default function TradeComments({
   };
 
   return (
-    <div style={{ ...glassCard, marginTop: 18 }}>
+    <div style={{ ...glassCard, marginBottom: 18 }}>
       <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
         Comments
       </div>
@@ -169,14 +150,6 @@ export default function TradeComments({
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {demandeNom && (
-          <input
-            value={nom}
-            onChange={(e) => setNom(e.target.value)}
-            placeholder="Your name"
-            style={{ ...champ, maxWidth: 260 }}
-          />
-        )}
         <textarea
           value={texte}
           onChange={(e) => setTexte(e.target.value)}

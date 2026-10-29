@@ -326,6 +326,21 @@ export default async function TradeDetail({
         </div>
       </div>
 
+      {/* Right under what was written about the trade, because that is what a
+          reader answers — not the screenshots underneath it. */}
+      <TradeComments
+        tradeId={trade.id}
+        token={token}
+        proprietaire={proprietaire}
+        initiaux={trade.comments.map((c) => ({
+          id: c.id,
+          author: c.author,
+          body: c.body,
+          createdAt: c.createdAt.toISOString(),
+          source: c.source,
+        }))}
+      />
+
       {/* The plan's captures first, then the trade's own: written before and
           written after, and the point of keeping both is reading one against
           the other. */}
@@ -354,20 +369,6 @@ export default async function TradeDetail({
         />
       </div>
 
-      {/* Under the trade, because that is the order it is read in: what was
-          done, then what is said about it. */}
-      <TradeComments
-        tradeId={trade.id}
-        token={token}
-        proprietaire={proprietaire}
-        initiaux={trade.comments.map((c) => ({
-          id: c.id,
-          author: c.author,
-          body: c.body,
-          createdAt: c.createdAt.toISOString(),
-          source: c.source,
-        }))}
-      />
     </div>
   );
 }
