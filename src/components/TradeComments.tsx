@@ -65,7 +65,19 @@ export default function TradeComments({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tradeId, body: corps, author: nom, token }),
       });
-      if (!reponse.ok) throw new Error(String(reponse.status));
+      if (!reponse.ok) {
+        // What the server said, rather than a shrug: a comment that will not
+        // go through is either a link that has been closed or a journal that
+        // is broken, and those two are not fixed the same way.
+        const dit = await reponse.text();
+        let message = dit.slice(0, 200);
+        try {
+          message = (JSON.parse(dit) as { error?: string }).error ?? message;
+        } catch {
+          // Not JSON: whatever came back is shown as it is.
+        }
+        throw new Error(`${reponse.status} — ${message}`);
+      }
       const { comment } = await reponse.json();
       setCommentaires((prev) => [...prev, comment]);
       setTexte("");
@@ -76,8 +88,8 @@ export default function TradeComments({
           // A name that cannot be remembered is typed again; nothing is lost.
         }
       }
-    } catch {
-      setErreur("The comment did not go through. Try again.");
+    } catch (e) {
+      setErreur(`The comment did not go through: ${e instanceof Error ? e.message : "no answer"}`);
     } finally {
       setEnvoi(false);
     }
