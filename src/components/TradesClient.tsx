@@ -35,7 +35,18 @@ const COLONNES: { cle: string; titre: string; largeur: string }[] = [
  * who was not there needs: the figures say what happened, this says why. Kept
  * out of the owner's own table, where it would be read on the trade's page.
  */
-const COLONNE_POST: (typeof COLONNES)[number] = { cle: "post", titre: "Post trade analysis", largeur: "320px" };
+const COLONNE_POST: (typeof COLONNES)[number] = { cle: "post", titre: "Post trade analysis", largeur: "300px" };
+
+/**
+ * What has been said back, beside what was said.
+ *
+ * In the list as well as on the trade's page, because a remark nobody notices
+ * is a remark that was not made: a reader scrolling the table can see which
+ * trades have been talked about without opening each one. Writing still
+ * happens on the trade's page — a row is a link, and a text box inside a link
+ * is a fight between the two.
+ */
+const COLONNE_COMMENTAIRES: (typeof COLONNES)[number] = { cle: "comments", titre: "Comments", largeur: "260px" };
 
 /**
  * The columns whose words are not already asked about in the bar.
@@ -183,7 +194,9 @@ export default function TradesClient({
   };
 
   // Shown through a link: the emotion, then what was written afterwards.
-  const colonnes = lectureSeule ? [...COLONNES.filter((c) => c.cle === "emotion"), COLONNE_POST] : COLONNES;
+  const colonnes = lectureSeule
+    ? [...COLONNES.filter((c) => c.cle === "emotion"), COLONNE_POST, COLONNE_COMMENTAIRES]
+    : COLONNES;
   const GRILLE = grilleEt(colonnes, !lectureSeule);
 
   const choosePeriod = (next: string) => {
@@ -452,7 +465,7 @@ export default function TradesClient({
       </div>
 
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>
-        <div style={{ minWidth: lectureSeule ? 1080 : 1740 }}>
+        <div style={{ minWidth: lectureSeule ? 1320 : 1740 }}>
         <div
           style={{
             display: "grid",
@@ -556,7 +569,7 @@ export default function TradesClient({
                       // word it happens to start with.
                       color: !valeur
                         ? "oklch(0.4 0.02 250)"
-                        : c.cle === "post"
+                        : c.cle === "post" || c.cle === "comments"
                           ? "oklch(0.72 0.017 250)"
                           : tagTone(valeur).fg,
                     }}
