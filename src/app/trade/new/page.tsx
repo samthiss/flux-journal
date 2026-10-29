@@ -126,6 +126,8 @@ export default async function NewTradePage({
         // What the form opens on when the trade did not come from a plan that
         // named a setup: the one being traded, which is the reverse.
         setup: prealable?.setup ?? "Backtest reverse",
+        // Nothing to carry over: the plan does not name a school.
+        strategy: "",
         side: prealable?.side ?? "Long",
         size: "",
         pnl: "",

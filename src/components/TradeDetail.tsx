@@ -236,6 +236,12 @@ export default async function TradeDetail({
               <span style={{ color: "oklch(0.6 0.034 250)" }}>Setup</span>
               <span style={{ fontWeight: 600 }}>{trade.setup}</span>
             </div>
+            {/* Under the setup, because it is the other half of the same
+                question: which pattern, and whose rules for taking it. */}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+              <span style={{ color: "oklch(0.6 0.034 250)" }}>Strategy</span>
+              <span style={{ fontWeight: 600 }}>{trade.strategy ?? "—"}</span>
+            </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
               <span style={{ color: "oklch(0.6 0.034 250)" }}>Market</span>
               <span style={{ fontWeight: 600 }}>{trade.market ?? "—"}</span>

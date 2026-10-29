@@ -107,6 +107,7 @@ function parseTradeForm(formData: FormData) {
   const repondu = String(formData.get("planFollowed") ?? "");
   const planFollowed = repondu === "oui" ? true : repondu === "non" ? false : null;
   const setup = String(formData.get("setup") ?? "");
+  const strategy = String(formData.get("strategy") ?? "") || null;
   const emotion = String(formData.get("emotion") ?? "") || null;
   const preTradeNotes = String(formData.get("preTradeNotes") ?? "") || null;
   const postTradeNotes = String(formData.get("postTradeNotes") ?? "") || null;
@@ -114,7 +115,7 @@ function parseTradeForm(formData: FormData) {
   return {
     date, time, symbol, market, side, size, pnl, risk, rr,
     tpReached, tradeTypes, zone, confirmations, confirmationsBox, confirmationsReverse, validity, invalidReasons, planCharts, planFollowed,
-    setup, emotion, preTradeNotes, postTradeNotes,
+    setup, strategy, emotion, preTradeNotes, postTradeNotes,
   };
 }
 

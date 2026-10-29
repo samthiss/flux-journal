@@ -10,14 +10,20 @@ import { CHART_SLOTS } from "@/lib/chartSlots";
 
 const SYMBOL_OPTIONS = ["6E", "6B", "6J", "6N", "ZS", "ZW"] as const;
 
+/** What a trade can be filed under. */
+const SETUP_OPTIONS = ["Backtest reverse", "Trend run"] as const;
+
+/** And whose rules it was taken under. */
+const STRATEGY_OPTIONS = ["Volume academy", "Jahreswiderstand"] as const;
+
 /**
- * What a trade is filed under when nothing said otherwise.
+ * What it opens on when nothing said otherwise.
  *
- * The form does not ask any more — the setup is decided on the plan — so this
- * is only for a trade written straight into the journal, and it is the one
- * being traded.
+ * A trade that came from a closed position arrives with the setup its plan was
+ * written under; one written straight into the journal starts on the reverse,
+ * which is most of them.
  */
-const SETUP_DEFAUT = "Backtest reverse";
+const SETUP_DEFAUT = SETUP_OPTIONS[0];
 
 /**
  * The three confirmation lists, named as the notes and the pre-trade form name
@@ -39,6 +45,7 @@ export type TradeFormValues = {
   symbol: string;
   market: string;
   setup: string;
+  strategy: string;
   side: string;
   size: string;
   pnl: string;
@@ -267,7 +274,12 @@ export default function TradeForm({
 }) {
   const [side, setSide] = useState(initial.side);
   const [emotion, setEmotion] = useState(initial.emotion);
-  const setup = initial.setup || SETUP_DEFAUT;
+  const [setup, setSetup] = useState(initial.setup || SETUP_DEFAUT);
+  // Empty rather than the first school, and empty stays empty: the 88 trades
+  // already in the journal were taken before the question was asked, and a
+  // field that answers it for them would file them all under one on the next
+  // edit of something else.
+  const [strategy, setStrategy] = useState(initial.strategy || "");
 
   const [planCharts, setPlanCharts] = useState<string[]>(planChartsInitial);
   const [planFollowed, setPlanFollowed] = useState<string | null>(initial.planFollowed || null);
@@ -421,10 +433,36 @@ export default function TradeForm({
                 ))}
               </select>
             </div>
-            {/* The setup is not asked for either: it is decided on the plan,
-                and carried here on the trade that came from it. The column is
-                required, so the field stays — hidden, holding what was read. */}
-            <input type="hidden" name="setup" value={setup} />
+            <div>
+              {fieldLabel("Setup")}
+              <select name="setup" value={setup} onChange={(e) => setSetup(e.target.value)} style={inputStyle}>
+                {/* A trade recorded under a setup that is no longer offered
+                    keeps it, rather than being quietly refiled under another
+                    one by the act of editing something else. */}
+                {(SETUP_OPTIONS as readonly string[]).includes(setup) ? null : <option value={setup}>{setup}</option>}
+                {SETUP_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              {fieldLabel("Strategy")}
+              <select name="strategy" value={strategy} onChange={(e) => setStrategy(e.target.value)} style={inputStyle}>
+                <option value="">—</option>
+                {/* As with the setup: a trade filed under something else keeps
+                    it rather than being refiled by the act of editing. */}
+                {!strategy || (STRATEGY_OPTIONS as readonly string[]).includes(strategy) ? null : (
+                  <option value={strategy}>{strategy}</option>
+                )}
+                {STRATEGY_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               {fieldLabel("Size")}
               <input

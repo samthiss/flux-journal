@@ -107,6 +107,17 @@ model Trade {
   invalidReasons String?
 
   setup          String
+
+  /**
+   * Which body of rules the trade was taken under.
+   *
+   * Beside the setup rather than inside it: the same setup is traded under
+   * either school, and what a losing run means depends on which — one of them
+   * being wrong about this market is a different problem from both of them
+   * being traded badly.
+   */
+  strategy       String?
+
   emotion        String?
   preTradeNotes  String?
   postTradeNotes String?
