@@ -26,7 +26,7 @@ export function authConfig(): { password: string; secret: string } | { error: st
   const password = process.env.APP_PASSWORD;
   const secret = process.env.SESSION_SECRET;
   const missing = [!password && "APP_PASSWORD", !secret && "SESSION_SECRET"].filter(Boolean);
-  if (missing.length) return { error: `Variables manquantes : ${missing.join(", ")}.` };
+  if (missing.length) return { error: `Missing variables: ${missing.join(", ")}.` };
   return { password: password!, secret: secret! };
 }
 

@@ -32,7 +32,7 @@ const NAV_ITEMS = [
   { href: "/volume-alert", label: "Volume Alert", match: (p: string) => p.startsWith("/volume-alert") },
   { href: "/notes", label: "Notes", match: (p: string) => p.startsWith("/notes") },
   { href: "/agent", label: "Agent journal", match: (p: string) => p.startsWith("/agent") },
-  { href: "/partage", label: "Partage", match: (p: string) => p.startsWith("/partage") },
+  { href: "/partage", label: "Sharing", match: (p: string) => p.startsWith("/partage") },
 ];
 
 function DashboardIcon({ color }: { color: string }) {

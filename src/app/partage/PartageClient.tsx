@@ -66,7 +66,7 @@ export default function PartageClient({
     }
   };
 
-  const jour = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
+  const jour = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
   // The journal's link is the oldest one still open; anything after it was
   // made by the button before it learned to hand back the same address.
@@ -75,9 +75,12 @@ export default function PartageClient({
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <PageTitle>Partage</PageTitle>
+        <PageTitle>Sharing</PageTitle>
         <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
-          Une invitation ouvre un journal vide, qui est le sien ; un lien de vue montre le tien
+          {/* An account cannot invite, so it is not told about invitations. */}
+          {proprietaire
+            ? "An invitation opens an empty journal, theirs to keep; a view link shows yours"
+            : "A view link shows your trades to whoever you send it to"}
         </div>
       </div>
 
@@ -85,13 +88,13 @@ export default function PartageClient({
         {proprietaire && (
         <div style={glassCard}>
           <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
-            Inviter
+            Invite
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Pour qui ? (facultatif)"
+              placeholder="Who for? (optional)"
               style={{
                 flex: 1,
                 minWidth: 200,
@@ -123,7 +126,7 @@ export default function PartageClient({
                 cursor: "pointer",
               }}
             >
-              Créer un lien
+              Create a link
             </button>
           </div>
 
@@ -152,11 +155,11 @@ export default function PartageClient({
                     onClick={() => void copier(invitation.code)}
                     style={{ ...mono, fontSize: 11, padding: "4px 10px", borderRadius: 999, border: `1px solid ${accentColor}`, color: accentColor, cursor: "pointer", whiteSpace: "nowrap" }}
                   >
-                    {copie === invitation.code ? "copié" : "copier"}
+                    {copie === invitation.code ? "copied" : "copy"}
                   </span>
                   <span
                     onClick={() => startTransition(async () => void (await supprimerInvitation(invitation.code)))}
-                    title="Annuler cette invitation"
+                    title="Cancel this invitation"
                     style={{ fontSize: 12, color: "oklch(0.55 0.03 250)", cursor: "pointer" }}
                   >
                     ✕
@@ -170,11 +173,11 @@ export default function PartageClient({
 
         <div style={glassCard}>
           <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-            Lien de vue
+            View link
           </div>
           <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)", marginBottom: 14 }}>
-            Une adresse qui montre tes trades, sans compte ni mot de passe. Une seule : le bouton
-            redonne la même, il n&apos;en fabrique pas une deuxième
+            One address that shows your trades, with no account and no password. Just the one: the
+            button hands back the same link rather than making another
           </div>
 
           {/* One link, shown rather than listed. The button used to mint a row
@@ -197,21 +200,21 @@ export default function PartageClient({
                   {adresseDeVue(premier.token)}
                 </div>
                 <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.02 250)", marginTop: 3 }}>
-                  {premier.seenAt ? `ouvert le ${jour(premier.seenAt)}` : "jamais ouvert"}
+                  {premier.seenAt ? `opened on ${jour(premier.seenAt)}` : "never opened"}
                 </div>
               </div>
               <span
                 onClick={() => void copier(premier.token, adresseDeVue(premier.token))}
                 style={{ ...mono, fontSize: 11, padding: "4px 10px", borderRadius: 999, border: `1px solid ${accentColor}`, color: accentColor, cursor: "pointer", whiteSpace: "nowrap" }}
               >
-                {copie === premier.token ? "copié" : "copier"}
+                {copie === premier.token ? "copied" : "copy"}
               </span>
               <span
                 onClick={() => startTransition(async () => void (await revoquerLienDeVue(premier.token)))}
-                title="Fermer ce lien — l'adresse cesse de fonctionner"
+                title="Close this link — the address stops working"
                 style={{ ...mono, fontSize: 11, padding: "4px 10px", borderRadius: 999, border: `1px solid ${lossColor}`, color: lossColor, cursor: "pointer", whiteSpace: "nowrap" }}
               >
-                fermer
+                close
               </span>
             </div>
           ) : (
@@ -233,7 +236,7 @@ export default function PartageClient({
                 cursor: "pointer",
               }}
             >
-              Créer le lien de vue
+              Create the view link
             </button>
           )}
 
@@ -244,18 +247,18 @@ export default function PartageClient({
             <div style={{ marginTop: 14 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
                 <div style={{ fontSize: 12, color: "oklch(0.6 0.03 250)" }}>
-                  {autres.length} autre{autres.length > 1 ? "s" : ""} adresse{autres.length > 1 ? "s" : ""} encore
-                  ouverte{autres.length > 1 ? "s" : ""}, d&apos;avant — elles fonctionnent toujours
+                  {autres.length} older address{autres.length > 1 ? "es" : ""} still open —{" "}
+                  {autres.length > 1 ? "they still work" : "it still works"}
                 </div>
                 {/* One press rather than eleven. Kept as a deliberate button,
                     because any of these may be the address somebody was
                     handed: closing them is a decision, not housekeeping. */}
                 <span
                   onClick={() => startTransition(async () => void (await fermerLesAutresLiens()))}
-                  title="Ferme les anciennes adresses et garde celle du dessus"
+                  title="Closes the older addresses and keeps the one above"
                   style={{ ...mono, fontSize: 11, padding: "3px 10px", borderRadius: 999, border: `1px solid ${lossColor}`, color: lossColor, cursor: "pointer", whiteSpace: "nowrap" }}
                 >
-                  fermer les {autres.length} autres
+                  close the {autres.length} others
                 </span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -268,13 +271,13 @@ export default function PartageClient({
                       onClick={() => void copier(l.token, adresseDeVue(l.token))}
                       style={{ ...mono, fontSize: 10.5, color: accentColor, cursor: "pointer", whiteSpace: "nowrap" }}
                     >
-                      {copie === l.token ? "copié" : "copier"}
+                      {copie === l.token ? "copied" : "copy"}
                     </span>
                     <span
                       onClick={() => startTransition(async () => void (await revoquerLienDeVue(l.token)))}
                       style={{ ...mono, fontSize: 10.5, color: lossColor, cursor: "pointer", whiteSpace: "nowrap" }}
                     >
-                      fermer
+                      close
                     </span>
                   </div>
                 ))}
@@ -286,11 +289,11 @@ export default function PartageClient({
         {proprietaire && (
         <div style={glassCard}>
           <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
-            Comptes partagés
+            Accounts
           </div>
           {comptes.length === 0 ? (
             <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
-              Personne pour l&apos;instant. Une invitation ouvre un compte, et un compte tient son propre journal — ses trades, son tableau de bord, ses liens de partage. Pas le tien : pour montrer le tien, c&apos;est un lien de vue.
+              Nobody yet. An invitation opens an account, and an account keeps a journal of its own — its trades, its dashboard, its own sharing. Not yours: to show yours, that is what a view link is for.
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -311,8 +314,8 @@ export default function PartageClient({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13 }}>{compte.email}</div>
                     <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.02 250)" }}>
-                      depuis le {jour(compte.createdAt)}
-                      {compte.revoque ? " · accès retiré" : ""}
+                      since {jour(compte.createdAt)}
+                      {compte.revoque ? " · access withdrawn" : ""}
                     </div>
                   </div>
                   <span
@@ -328,7 +331,7 @@ export default function PartageClient({
                       color: compte.revoque ? accentColor : lossColor,
                     }}
                   >
-                    {compte.revoque ? "rendre l'accès" : "retirer l'accès"}
+                    {compte.revoque ? "give access back" : "withdraw access"}
                   </span>
                 </div>
               ))}

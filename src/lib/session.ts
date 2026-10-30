@@ -38,7 +38,7 @@ export async function estProprietaire() {
  */
 export async function monJournal(): Promise<string> {
   const qui = await identite();
-  if (!qui) throw new Error("Pas de session : cette page ne devait pas s'ouvrir.");
+  if (!qui) throw new Error("No session: this page should not have opened.");
   return qui.ownerId;
 }
 
@@ -53,5 +53,5 @@ export async function monJournal(): Promise<string> {
  * no business in at all, this is.
  */
 export async function exigeProprietaire() {
-  if (!(await estProprietaire())) throw new Error("Réservé au propriétaire du journal.");
+  if (!(await estProprietaire())) throw new Error("The owner of the journal only.");
 }

@@ -47,7 +47,7 @@ export function proxy(request: NextRequest) {
     // Unconfigured means closed. An app that fell open here would serve the
     // whole journal to anyone, and nothing would look wrong from the outside.
     return new NextResponse(
-      `Authentification non configurée. ${config.error}`,
+      `Authentication is not configured. ${config.error}`,
       { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }
     );
   }
@@ -68,7 +68,7 @@ export function proxy(request: NextRequest) {
   // A share link is readable without signing in, and only ever read.
   if (PUBLIC.test(pathname)) {
     if (request.method !== "GET" && request.method !== "HEAD") {
-      return new NextResponse("Lecture seule.", { status: 403 });
+      return new NextResponse("Read only.", { status: 403 });
     }
     return NextResponse.next();
   }
@@ -93,7 +93,7 @@ export function proxy(request: NextRequest) {
      */
     if (POUR_INVITE.some((motif) => motif.test(pathname))) return NextResponse.next();
     if (request.method !== "GET" && request.method !== "HEAD") {
-      return new NextResponse("Pas dans ce journal.", { status: 403 });
+      return new NextResponse("Not in this journal.", { status: 403 });
     }
     // Not an error: a page they cannot open is simply not theirs to open, and
     // the dashboard is where they came to look.
@@ -104,7 +104,7 @@ export function proxy(request: NextRequest) {
   // would hand back a login page where JSON was expected, which reads as a
   // corrupt response rather than an expired session.
   if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Session expirée." }, { status: 401 });
+    return NextResponse.json({ error: "Session expired." }, { status: 401 });
   }
 
   const target = new URL("/login", request.url);
