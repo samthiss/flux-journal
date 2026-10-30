@@ -3,13 +3,24 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, authConfig, sessionRole } from "@/lib/auth";
 
 /**
- * What an account the journal is shared with may open.
+ * What an account may open.
  *
- * The dashboard and the trades, and the chart images those two draw. Not the
- * notes, the checklist, the risk page or the agent — a journal shared is a
- * record shown, not a desk handed over.
+ * Its own dashboard, its own trades, the form that writes one, its own sharing
+ * page, and the chart images those draw. Not the notes, the checklist, the
+ * report, the risk page, the volume alert or the agent: those are the owner's
+ * working desk and were never part of what an account is for.
+ *
+ * Within these, an account writes — the rows it reaches are its own, which is
+ * what the queries behind them enforce.
  */
-const POUR_INVITE = [/^\/$/, /^\/trades(\/|$)/, /^\/api\/uploads\//];
+const POUR_INVITE = [
+  /^\/$/,
+  /^\/trades(\/|$)/,
+  /^\/trade\/new$/,
+  /^\/partage(\/|$)/,
+  // The images, to look at. Posting one is the owner's, and the route says so.
+  /^\/api\/uploads\//,
+];
 
 /**
  * The share links, which carry their own permission.
@@ -71,15 +82,19 @@ export function proxy(request: NextRequest) {
 
   if (role === "invite") {
     /**
-     * A guest reads. Everything that writes in this app is a server action,
-     * and every server action is a POST to the page it was called from — so
-     * one rule at the door covers them all, including the ones whose buttons
-     * are hidden anyway. Hiding a button is tidiness; this is the boundary.
+     * An account keeps a journal of its own, so it writes as well as reads —
+     * but only on its three pages, and only its own rows.
+     *
+     * Everything that writes here is a server action, and an action is a POST
+     * to whichever page imported it; the sidebar is imported into every page,
+     * so the notes and the checklist are reachable from these three. The door
+     * cannot tell those apart, which is why the owner-only actions check for
+     * themselves — see exigeProprietaire in src/lib/session.ts.
      */
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      return new NextResponse("Lecture seule.", { status: 403 });
-    }
     if (POUR_INVITE.some((motif) => motif.test(pathname))) return NextResponse.next();
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new NextResponse("Pas dans ce journal.", { status: 403 });
+    }
     // Not an error: a page they cannot open is simply not theirs to open, and
     // the dashboard is where they came to look.
     return NextResponse.redirect(new URL("/", request.url));

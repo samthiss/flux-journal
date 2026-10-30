@@ -582,7 +582,9 @@ export default function Sidebar({
             by the entry's own place in the list, which filtering would
             otherwise shift under it. */}
         {NAV_ITEMS.map((item, i) => [item, i] as const)
-          .filter(([item]) => proprietaire || item.href === "/" || item.href === "/trades")
+          // An account has three pages: its dashboard, its trades, and the
+          // sharing of its own journal.
+          .filter(([item]) => proprietaire || ["/", "/trades", "/partage"].includes(item.href))
           .map(([item, i]) => {
           const active = item.match(pathname);
           const Icon = ICONS[i];

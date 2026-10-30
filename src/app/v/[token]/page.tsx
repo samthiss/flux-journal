@@ -32,6 +32,8 @@ export default async function VuePartagee({ params }: { params: Promise<{ token:
 
   const [trades, , vue] = await Promise.all([
     prisma.trade.findMany({
+      // The trades of the journal that made the link, and of no other.
+      where: { ownerId: lien.ownerId },
       orderBy: { date: "asc" },
       select: {
         ...TRADE_FOR_STATS_SELECT,
@@ -48,7 +50,7 @@ export default async function VuePartagee({ params }: { params: Promise<{ token:
     prisma.shareLink.update({ where: { token }, data: { seenAt: new Date() } }),
     // The list opens on the view the owner left it in, filters and period
     // both: a link is sent to show something in particular.
-    lireVue(),
+    lireVue(lien.ownerId),
   ]);
 
   const details = Object.fromEntries(

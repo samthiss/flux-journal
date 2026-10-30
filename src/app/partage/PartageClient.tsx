@@ -18,11 +18,15 @@ type Lien = { token: string; label: string | null; createdAt: string; seenAt: st
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
 /**
- * Sharing the journal: an invitation to hand out, and the accounts it made.
+ * The two ways to hand this journal out, which are not the same thing.
  *
- * What an account can do is said on the page rather than left to be guessed —
- * it is the whole of what is being given away, and it is less than most people
- * assume when they are handed a link to someone's trading journal.
+ * An invitation makes somebody an account with a journal of their own — empty,
+ * three pages wide, nothing of this one in it. A view link shows this journal
+ * to whoever holds the address, and asks them for nothing.
+ *
+ * Which is which is written on the page rather than left to be guessed: the
+ * two were confused before, when signing up put the reader straight into
+ * somebody else's trades.
  */
 export default function PartageClient({
   comptes,
@@ -60,7 +64,7 @@ export default function PartageClient({
       <div style={{ marginBottom: 24 }}>
         <PageTitle>Partage</PageTitle>
         <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
-          Un compte partagé lit le tableau de bord et les trades — rien d&apos;autre, et rien en écriture
+          Une invitation ouvre un journal vide, qui est le sien ; un lien de vue montre le tien
         </div>
       </div>
 
@@ -247,7 +251,7 @@ export default function PartageClient({
           </div>
           {comptes.length === 0 ? (
             <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
-              Personne pour l&apos;instant. Un lien d&apos;invitation ouvre un compte, et un compte ouvre deux pages.
+              Personne pour l&apos;instant. Une invitation ouvre un compte, et un compte tient son propre journal — ses trades, son tableau de bord, ses liens de partage. Pas le tien : pour montrer le tien, c&apos;est un lien de vue.
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

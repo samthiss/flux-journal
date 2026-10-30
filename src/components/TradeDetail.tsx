@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { estProprietaire } from "@/lib/session";
+import { monJournal } from "@/lib/session";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 import { parseTagArray, tagTone } from "@/lib/tags";
 
@@ -21,8 +21,17 @@ export default async function TradeDetail({
   images = (url) => url,
   retour = "/trades",
   token,
+  ownerId,
 }: {
   id: string;
+  /**
+   * Whose journal to look in.
+   *
+   * Given by a share link, which knows the journal it shows; left out on the
+   * journal's own pages, where it is the reader's own. Either way the trade is
+   * found in one journal, so an id borrowed from another is simply not there.
+   */
+  ownerId?: string;
   /**
    * Where the captures are read from.
    *
@@ -44,17 +53,18 @@ export default async function TradeDetail({
       written here is signed by whoever holds it. */
   token?: string;
 }) {
-  const trade = await prisma.trade.findUnique({
-    where: { id },
+  const trade = await prisma.trade.findFirst({
+    where: { id, ownerId: ownerId ?? (await monJournal()) },
     // One comment per trade; the oldest row is the one that counts, as the
     // route that writes it keeps.
     include: { comments: { orderBy: { createdAt: "asc" }, take: 1 } },
   });
   if (!trade) notFound();
 
-  // A shared account reads the trade. The door already refuses the writes; the
-  // buttons go so nothing is offered that would be refused.
-  const proprietaire = await estProprietaire();
+  // Through a share link nobody is signed in, so the page is read-only and the
+  // edit and delete buttons go. Otherwise the trade was found in the reader's
+  // own journal — nothing else is reachable — so it is theirs to change.
+  const proprietaire = !token;
 
   const deleteTradeWithId = deleteTrade.bind(null, trade.id);
 

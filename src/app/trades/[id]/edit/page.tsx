@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { monJournal } from "@/lib/session";
 import { parseTagArray } from "@/lib/tags";
 import TradeForm, { type ExistingCharts } from "@/components/TradeForm";
 import { updateTrade } from "@/lib/actions/trades";
@@ -12,9 +13,9 @@ export const dynamic = "force-dynamic";
  * The risk scales with the number of lots, so this is what lets the form fill
  * the field in from a size instead of asking for the same figure every time.
  */
-async function lastRiskPerLot() {
+async function lastRiskPerLot(ownerId: string) {
   const last = await prisma.trade.findFirst({
-    where: { risk: { not: null }, size: { not: 0 } },
+    where: { ownerId, risk: { not: null }, size: { not: 0 } },
     orderBy: { date: "desc" },
     select: { risk: true, size: true },
   });
@@ -24,12 +25,15 @@ async function lastRiskPerLot() {
 
 export default async function EditTradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const trade = await prisma.trade.findUnique({ where: { id } });
+  const ownerId = await monJournal();
+  // Looked for in the reader's own journal: somebody else's trade is not
+  // editable here because it is not here.
+  const trade = await prisma.trade.findFirst({ where: { id, ownerId } });
   if (!trade) notFound();
 
   const updateTradeWithId = updateTrade.bind(null, trade.id);
   const [riskPerLot] = await Promise.all([
-    lastRiskPerLot(),
+    lastRiskPerLot(ownerId),
   ]);
 
   const existingCharts: ExistingCharts = {

@@ -27,7 +27,7 @@ export async function signIn(_prev: string | null, formData: FormData): Promise<
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const typed = String(formData.get("password") ?? "");
 
-  // An address means an account the journal was shared with; none means the
+  // An address means an account, whose journal is its own; none means the
   // owner, who has no account and never needed one.
   if (email) {
     const compte = await prisma.journalUser.findUnique({ where: { email } });
@@ -36,7 +36,7 @@ export async function signIn(_prev: string | null, formData: FormData): Promise<
       return "Wrong email or password.";
     }
     const store = await cookies();
-    store.set(SESSION_COOKIE, createSessionToken(config.secret, "invite"), sessionCookieOptions);
+    store.set(SESSION_COOKIE, createSessionToken(config.secret, "invite", compte.id), sessionCookieOptions);
     redirect("/");
   }
 
@@ -61,12 +61,15 @@ export async function signOut() {
 }
 
 /**
- * Makes an account from an invitation.
+ * Makes an account from an invitation, with a journal of its own.
  *
  * The code is the whole of the right to be here: it is spent on use, so a link
  * passed around twice makes one account. Nothing about the person is asked for
- * beyond an address to sign in with — this is a journal being shown, not a
- * service being joined.
+ * beyond an address to sign in with.
+ *
+ * What they get is an empty journal — their own trades, their own dashboard,
+ * their own links to share it with. Not a window onto the journal that invited
+ * them: that is what a view link is for.
  */
 export async function signUp(_prev: string | null, formData: FormData): Promise<string | null> {
   const config = authConfig();
@@ -88,12 +91,14 @@ export async function signUp(_prev: string | null, formData: FormData): Promise<
     return "An account already exists with this address.";
   }
 
-  await prisma.$transaction([
-    prisma.journalUser.create({ data: { email, passwordHash: hashPassword(motDePasse) } }),
+  const [compte] = await prisma.$transaction([
+    prisma.journalUser.create({
+      data: { email, passwordHash: hashPassword(motDePasse), invitedBy: invitation.ownerId },
+    }),
     prisma.invitation.update({ where: { code }, data: { usedAt: new Date(), usedBy: email } }),
   ]);
 
   const store = await cookies();
-  store.set(SESSION_COOKIE, createSessionToken(config.secret, "invite"), sessionCookieOptions);
+  store.set(SESSION_COOKIE, createSessionToken(config.secret, "invite", compte.id), sessionCookieOptions);
   redirect("/");
 }

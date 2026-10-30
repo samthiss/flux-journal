@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { estProprietaire } from "@/lib/session";
+import { monJournal } from "@/lib/session";
 import { cookies } from "next/headers";
 import { isValidPeriod, TRADE_FOR_STATS_SELECT } from "@/lib/stats";
 import TradesClient from "@/components/TradesClient";
@@ -9,7 +9,9 @@ import { lireVue } from "@/lib/actions/vue";
 export const dynamic = "force-dynamic";
 
 export default async function TradesPage() {
+  const ownerId = await monJournal();
   const trades = await prisma.trade.findMany({
+    where: { ownerId },
     orderBy: { date: "asc" },
     // The two newer confirmation lists are read here rather than through the
     // shared select, which the dashboard and the report use as well and have
@@ -26,10 +28,9 @@ export default async function TradesPage() {
     },
   });
 
-  const proprietaire = await estProprietaire();
-  // The owner's own choices are the shared view; a guest account reading this
-  // page narrows it for itself and writes nothing.
-  const vue = await lireVue();
+  // Whoever opens this page owns what is on it: the rows were read from their
+  // own journal, so the Add button and the saved view are theirs.
+  const vue = await lireVue(ownerId);
 
   const stored = (await cookies()).get("dash-period")?.value;
   const initialPeriod = isValidPeriod(stored) ? stored : "week";
@@ -68,9 +69,8 @@ export default async function TradesPage() {
       trades={trades}
       initialPeriod={initialPeriod}
       details={details}
-      proprietaire={proprietaire}
       vue={vue}
-      enregistre={proprietaire}
+      enregistre
     />
   );
 }

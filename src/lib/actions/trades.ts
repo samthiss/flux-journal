@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { monJournal } from "@/lib/session";
 import { parseTagArray } from "@/lib/tags";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -120,11 +121,15 @@ function parseTradeForm(formData: FormData) {
 }
 
 export async function createTrade(formData: FormData) {
+  // Whose journal it lands in is never read from the form: the only thing that
+  // says so is the cookie.
+  const ownerId = await monJournal();
   const data = parseTradeForm(formData);
   const chartFields = await parseChartFields(formData);
 
   const trade = await prisma.trade.create({
     data: {
+      ownerId,
       ...data,
       date: new Date(data.date),
       ...chartFields,
@@ -137,6 +142,11 @@ export async function createTrade(formData: FormData) {
 }
 
 export async function updateTrade(tradeId: string, formData: FormData) {
+  const ownerId = await monJournal();
+  // Nothing of someone else's is editable, and an id that is not theirs reads
+  // as an id that does not exist.
+  const aMoi = await prisma.trade.findFirst({ where: { id: tradeId, ownerId }, select: { id: true } });
+  if (!aMoi) return;
   const data = parseTradeForm(formData);
   const chartFields = await parseChartFields(formData);
 
@@ -145,7 +155,7 @@ export async function updateTrade(tradeId: string, formData: FormData) {
   // URLs before they are overwritten, and sweep them once the row is saved.
   const replacedSlots = Object.keys(chartFields);
   const previous = replacedSlots.length
-    ? await prisma.trade.findUnique({ where: { id: tradeId } })
+    ? await prisma.trade.findFirst({ where: { id: tradeId, ownerId } })
     : null;
 
   await prisma.trade.update({
@@ -172,7 +182,8 @@ export async function removeChartSlot(tradeId: string, slotKey: string) {
   const slot = CHART_SLOTS.find((s) => s.key === slotKey);
   if (!slot) return;
 
-  const trade = await prisma.trade.findUnique({ where: { id: tradeId } });
+  const ownerId = await monJournal();
+  const trade = await prisma.trade.findFirst({ where: { id: tradeId, ownerId } });
   if (!trade) return;
 
   const current = (trade as unknown as Record<string, string | null>)[slot.field];
@@ -186,7 +197,8 @@ export async function removeChartSlot(tradeId: string, slotKey: string) {
 }
 
 export async function deleteTrade(tradeId: string) {
-  const trade = await prisma.trade.findUnique({ where: { id: tradeId } });
+  const ownerId = await monJournal();
+  const trade = await prisma.trade.findFirst({ where: { id: tradeId, ownerId } });
   if (trade) {
     const charts = CHART_SLOTS.map((slot) => (trade as unknown as Record<string, string | null>)[slot.field]);
     // The trade goes first, so that a chart a note imported is still spoken for

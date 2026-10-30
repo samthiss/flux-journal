@@ -24,6 +24,9 @@ export default async function TradePartage({ params }: { params: Promise<{ token
     <div style={{ padding: "40px 48px" }}>
       <TradeDetail
         id={trade}
+        // The link opens one journal: an id from another is an id that is not
+        // there, which is what a withdrawn link says too.
+        ownerId={lien.ownerId}
         retour={`/v/${token}`}
         token={token}
         images={(url) =>

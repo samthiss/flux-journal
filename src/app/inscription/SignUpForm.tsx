@@ -37,10 +37,11 @@ export default function SignUpForm({ code }: { code: string }) {
           TRADING <span style={{ color: accentColor }}>JOURNAL</span>
         </div>
         <div style={{ fontSize: 12, color: "oklch(0.62 0.034 250)", lineHeight: 1.5 }}>
-          {/* Said plainly, because it decides whether the invitation is worth
-              accepting: this account reads two pages and writes nothing. */}
-          An account to read the dashboard and the trades. Nothing else is shared, and nothing can be
-          changed.
+          {/* Said plainly, because it decides what the person expects to find
+              on the other side of the button: their own empty journal, not
+              the journal of whoever invited them. */}
+          Your own journal: your trades, your dashboard, and your own links to share it. It starts
+          empty — nobody else&apos;s trades are in it.
         </div>
 
         <input type="hidden" name="code" value={code} />

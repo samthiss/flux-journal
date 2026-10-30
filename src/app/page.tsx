@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { estProprietaire } from "@/lib/session";
+import { monJournal } from "@/lib/session";
 import { isValidPeriod, TRADE_FOR_STATS_SELECT } from "@/lib/stats";
 import DashboardClient from "@/components/DashboardClient";
 
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const trades = await prisma.trade.findMany({
+    where: { ownerId: await monJournal() },
     orderBy: { date: "asc" },
     select: TRADE_FOR_STATS_SELECT,
   });
@@ -18,5 +19,7 @@ export default async function DashboardPage() {
   const stored = (await cookies()).get("dash-period")?.value;
   const initialPeriod = isValidPeriod(stored) ? stored : "week";
 
-  return <DashboardClient trades={trades} initialPeriod={initialPeriod} proprietaire={await estProprietaire()} />;
+  // The figures are the reader's own, so the dashboard is whole for everyone
+  // who can open it.
+  return <DashboardClient trades={trades} initialPeriod={initialPeriod} proprietaire />;
 }

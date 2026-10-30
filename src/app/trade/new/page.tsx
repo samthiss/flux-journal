@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { monJournal } from "@/lib/session";
 import TradeForm from "@/components/TradeForm";
 import { createTrade } from "@/lib/actions/trades";
 
@@ -16,9 +17,9 @@ export const dynamic = "force-dynamic";
  * The risk scales with the number of lots, so this is what lets the form fill
  * the field in from a size instead of asking for the same figure every time.
  */
-async function lastRiskPerLot() {
+async function lastRiskPerLot(ownerId: string) {
   const last = await prisma.trade.findFirst({
-    where: { risk: { not: null }, size: { not: 0 } },
+    where: { ownerId, risk: { not: null }, size: { not: 0 } },
     orderBy: { date: "desc" },
     select: { risk: true, size: true },
   });
@@ -32,10 +33,12 @@ async function lastRiskPerLot() {
  * everything was already written before the entry, and asking for it a second
  * time afterwards is how a journal stops being kept.
  */
-async function ideePrealable(id: string | undefined) {
+async function ideePrealable(id: string | undefined, ownerId: string) {
   if (!id) return null;
-  const idea = await prisma.tradeIdea.findUnique({
-    where: { id },
+  const idea = await prisma.tradeIdea.findFirst({
+    // Read inside the reader's own journal: an id from another one is an id
+    // that is not there, and the form opens blank.
+    where: { id, ownerId },
     select: {
       zone: true,
       side: true,
@@ -101,9 +104,10 @@ export default async function NewTradePage({
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const { idea } = await searchParams;
+  const ownerId = await monJournal();
   const [riskPerLot, prealable] = await Promise.all([
-    lastRiskPerLot(),
-    ideePrealable(idea),
+    lastRiskPerLot(ownerId),
+    ideePrealable(idea, ownerId),
   ]);
 
   return (

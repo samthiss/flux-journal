@@ -1,20 +1,24 @@
 import { prisma } from "@/lib/prisma";
-import { roleActuel } from "@/lib/session";
+import { identite } from "@/lib/session";
 
 /**
  * What the readers say about a trade: one text per trade, written here.
  *
- * A route rather than a server action, and the only way in: every write in
- * this journal is an action, and actions are POSTs the door turns away for
- * anyone but the owner. Opening that door for comments would open it for
- * every other action in the same bundle — deleting a trade included. So this
- * is its own address, and it does one thing.
+ * A route rather than a server action, and the only way in for a reader: a
+ * share link holds no session at all, and the door refuses it every POST.
+ * Opening that door for a page would open it for every action in the page's
+ * bundle — deleting a trade included. So this is its own address, and it does
+ * one thing.
  *
- * Who may write: the owner, an account the journal was shared with, or
- * whoever holds a share link, which they prove by sending its token. Nobody
- * signs in and nobody is asked for a name, so there is nothing finer to check
- * a writer against; a link that can write can also rewrite, which is the
- * trust it already carried.
+ * Who may write: whoever keeps the journal the trade is in, or whoever holds
+ * one of that journal's share links, which they prove by sending its token. A
+ * session or a link for another journal is no permission here — the trade is
+ * looked up inside the journal the writer turns out to belong to, so an id
+ * from somewhere else is simply not found.
+ *
+ * Nobody is asked for a name, so there is nothing finer to check a writer
+ * against; a link that can write can also rewrite, which is the trust it
+ * already carried.
  */
 export async function POST(req: Request) {
   let corps: { tradeId?: unknown; body?: unknown; token?: unknown };
@@ -30,18 +34,23 @@ export async function POST(req: Request) {
 
   if (!tradeId) return Response.json({ error: "Which trade?" }, { status: 400 });
 
-  const role = await roleActuel();
-  let source: string | null = role === "owner" ? "owner" : role === "invite" ? "account" : null;
+  const qui = await identite();
+  let source: string | null = qui ? "owner" : null;
+  let journal = qui?.ownerId ?? null;
 
-  if (!source && token) {
+  if (!journal && token) {
     const lien = await prisma.shareLink.findUnique({ where: { token } });
-    if (lien && !lien.revokedAt) source = "link";
+    if (lien && !lien.revokedAt) {
+      source = "link";
+      journal = lien.ownerId;
+    }
   }
-  if (!source) return Response.json({ error: "Not allowed." }, { status: 403 });
+  if (!journal || !source) return Response.json({ error: "Not allowed." }, { status: 403 });
 
   // A comment on a trade that does not exist is a comment on nothing, and the
-  // id came from the page rather than from the database.
-  const trade = await prisma.trade.findUnique({ where: { id: tradeId }, select: { id: true } });
+  // id came from the page rather than from the database — so it is looked for
+  // in the one journal this writer has anything to do with.
+  const trade = await prisma.trade.findFirst({ where: { id: tradeId, ownerId: journal }, select: { id: true } });
   if (!trade) return Response.json({ error: "Not found." }, { status: 404 });
 
   // Emptied means withdrawn: one text per trade, and a blank one is no text.
@@ -76,11 +85,17 @@ export async function POST(req: Request) {
   return Response.json({ body: texte });
 }
 
-/** Clearing it: the owner's alone, on their own page. */
+/** Clearing it: for whoever keeps the journal the trade is in. */
 export async function DELETE(req: Request) {
-  if ((await roleActuel()) !== "owner") return Response.json({ error: "Not allowed." }, { status: 403 });
+  const qui = await identite();
+  if (!qui) return Response.json({ error: "Not allowed." }, { status: 403 });
   const tradeId = new URL(req.url).searchParams.get("tradeId") ?? "";
   if (!tradeId) return Response.json({ error: "Which trade?" }, { status: 400 });
+  const trade = await prisma.trade.findFirst({
+    where: { id: tradeId, ownerId: qui.ownerId },
+    select: { id: true },
+  });
+  if (!trade) return Response.json({ error: "Not found." }, { status: 404 });
   await prisma.tradeComment.deleteMany({ where: { tradeId } });
   return Response.json({ ok: true });
 }
