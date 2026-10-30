@@ -21,6 +21,16 @@ datasource db {
 // is queried directly — `where exampleId = ?` runs on every note view.
 
 model Trade {
+  /**
+   * Whose journal this trade is in.
+   *
+   * "owner" is the journal behind the one password; an account made from an
+   * invitation keeps its own, under its own id. Every read of this table is
+   * scoped by it — a query that forgot it would not show too little, it would
+   * show somebody else's trades.
+   */
+  ownerId        String   @default("owner")
+
   id             String   @id @default(cuid())
   date           DateTime
   time           String?
@@ -126,6 +136,8 @@ model Trade {
   chartBox       String?
   chartTrading   String?
   createdAt      DateTime @default(now())
+
+  @@index([ownerId, date])
 
   noteImages NoteExampleImage[]
 }
@@ -380,6 +392,9 @@ model NoteExampleImage {
  * against the trade that followed.
  */
 model TradeIdea {
+  /** Whose journal it was written in. */
+  ownerId String @default("owner")
+
   id     String @id @default(cuid())
   itemId String
   market String
@@ -607,6 +622,15 @@ model AgentAddition {
  * else, able to write nothing at all.
  */
 model JournalUser {
+  /**
+   * Who invited this account.
+   *
+   * Not who it reads: an account reads its own journal, whose id is its own.
+   * This is the journal whose invitation it was made from, so that page can
+   * list the accounts it handed out and take them back.
+   */
+  invitedBy    String   @default("owner")
+
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
@@ -622,6 +646,9 @@ model JournalUser {
  * address, and a form anybody can fill is a door anybody can try.
  */
 model Invitation {
+  /** The journal that issued it, and the one its account is invited to keep. */
+  ownerId   String   @default("owner")
+
   code      String   @id
   label     String?
   createdAt DateTime @default(now())
@@ -638,6 +665,9 @@ model Invitation {
  * the journal.
  */
 model ShareLink {
+  /** The journal it shows. */
+  ownerId   String   @default("owner")
+
   token     String   @id
   label     String?
   createdAt DateTime @default(now())
@@ -678,7 +708,8 @@ model TradeComment {
  * covering message.
  */
 model SharedView {
-  id        String   @id @default("default")
+  /** One row per journal, which is also its key. */
+  ownerId   String   @id
   filters   String
   updatedAt DateTime @updatedAt
 }
