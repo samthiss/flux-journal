@@ -56,6 +56,31 @@ export async function lienDeVue() {
   return token;
 }
 
+/**
+ * Closes every address but the journal's own one.
+ *
+ * The button that made these used to mint a row on each press, so a journal
+ * can hold a dozen identical links. Sweeping them is a decision rather than
+ * tidying — any of them may be the address somebody was handed — so it is a
+ * button of its own, pressed on purpose, and it keeps the oldest: the one the
+ * page calls the link and the one lienDeVue hands back.
+ */
+export async function fermerLesAutresLiens() {
+  const ownerId = await monJournal();
+  const garde = await prisma.shareLink.findFirst({
+    where: { ownerId, revokedAt: null },
+    orderBy: { createdAt: "asc" },
+    select: { token: true },
+  });
+  if (!garde) return 0;
+  const { count } = await prisma.shareLink.updateMany({
+    where: { ownerId, revokedAt: null, token: { not: garde.token } },
+    data: { revokedAt: new Date() },
+  });
+  revalidatePath("/partage");
+  return count;
+}
+
 /** Closes a link. The address stops working at the next click. */
 export async function revoquerLienDeVue(token: string) {
   const ownerId = await monJournal();

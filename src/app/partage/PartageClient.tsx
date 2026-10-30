@@ -5,6 +5,7 @@ import { PageTitle } from "@/components/NeonText";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import {
   creerInvitation,
+  fermerLesAutresLiens,
   lienDeVue,
   revoquerCompte,
   revoquerLienDeVue,
@@ -241,9 +242,21 @@ export default function PartageClient({
               address somebody was actually given. */}
           {autres.length > 0 && (
             <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 12, color: "oklch(0.6 0.03 250)", marginBottom: 8 }}>
-                {autres.length} autre{autres.length > 1 ? "s" : ""} adresse{autres.length > 1 ? "s" : ""} encore
-                ouverte{autres.length > 1 ? "s" : ""}, d&apos;avant — elles fonctionnent toujours
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: "oklch(0.6 0.03 250)" }}>
+                  {autres.length} autre{autres.length > 1 ? "s" : ""} adresse{autres.length > 1 ? "s" : ""} encore
+                  ouverte{autres.length > 1 ? "s" : ""}, d&apos;avant — elles fonctionnent toujours
+                </div>
+                {/* One press rather than eleven. Kept as a deliberate button,
+                    because any of these may be the address somebody was
+                    handed: closing them is a decision, not housekeeping. */}
+                <span
+                  onClick={() => startTransition(async () => void (await fermerLesAutresLiens()))}
+                  title="Ferme les anciennes adresses et garde celle du dessus"
+                  style={{ ...mono, fontSize: 11, padding: "3px 10px", borderRadius: 999, border: `1px solid ${lossColor}`, color: lossColor, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  fermer les {autres.length} autres
+                </span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {autres.map((l) => (
