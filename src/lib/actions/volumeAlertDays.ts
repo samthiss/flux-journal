@@ -1,11 +1,13 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { exigeProprietaire } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import type { AlertDay } from "@/lib/volumeAlerts";
 
 /** Everything recorded, newest day first. */
 export async function getAlertDays(): Promise<AlertDay[]> {
+  await exigeProprietaire();
   const rows = await prisma.volumeAlertDay.findMany({ orderBy: { day: "desc" } });
 
   return rows.map((row) => ({
@@ -34,6 +36,7 @@ function parseValues(raw: string): number[] {
  * entry is someone remembering the day better, not a second day.
  */
 export async function saveAlertDay(input: { day: string; threshold: number; values: number[]; market: string }) {
+  await exigeProprietaire();
   const { day, threshold, market } = input;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
   if (!Number.isFinite(threshold) || threshold <= 0) return;
@@ -49,6 +52,7 @@ export async function saveAlertDay(input: { day: string; threshold: number; valu
 }
 
 export async function deleteAlertDay(market: string, day: string) {
+  await exigeProprietaire();
   await prisma.volumeAlertDay.deleteMany({ where: { market, day } });
   revalidatePath("/volume-alert");
 }

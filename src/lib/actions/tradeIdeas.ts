@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { exigeProprietaire, monJournal } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { TRADE_TYPES, ZONES, parseTagArray, kindDeBase, kindPourSetup } from "@/lib/tags";
 
@@ -12,6 +13,7 @@ import { TRADE_TYPES, ZONES, parseTagArray, kindDeBase, kindPourSetup } from "@/
  * not today's — which is what makes them worth keeping.
  */
 export async function getTradeIdeas(market: string, day: string) {
+  await exigeProprietaire();
   return prisma.tradeIdea.findMany({
     where: { market, day },
     orderBy: { createdAt: "asc" },
@@ -26,6 +28,7 @@ export async function getTradeIdeas(market: string, day: string) {
  * and then finished.
  */
 export async function setTradeIdeaStatus(id: string, status: "plan" | "position" | "closed") {
+  await exigeProprietaire();
   // The moment the position ended, kept because the journal will ask for it:
   // written up an hour later, the time of the trade is a guess, and this click
   // knew. Only ever set going into "closed", so re-opening and closing again
@@ -50,6 +53,7 @@ export async function setTradeIdeaStatus(id: string, status: "plan" | "position"
  * exactly one heading and moving it is a delete and a create.
  */
 export async function definirSetupDuMot(kind: string, value: string, setup: string | null) {
+  await exigeProprietaire();
   const base = kindDeBase(kind);
   const mot = value.trim();
   if (!mot) return;
@@ -84,6 +88,7 @@ export async function createTradeIdea(input: {
   /** Charts picked in the form, uploaded once this row exists. */
   withImages?: boolean;
 }) {
+  await exigeProprietaire();
   const reason = input.reason.trim();
   const cancelIf = input.cancelIf.map((line) => line.trim()).filter(Boolean);
 
@@ -142,6 +147,7 @@ export async function updateTradeIdea(
     cancelIf: string[];
   }
 ) {
+  await exigeProprietaire();
   const cancelIf = input.cancelIf.map((line) => line.trim()).filter(Boolean);
   await prisma.tradeIdea.update({
     where: { id },
@@ -162,6 +168,7 @@ export async function updateTradeIdea(
 
 /** Takes one chart off an idea. The file itself is left where it is. */
 export async function removeTradeIdeaImage(id: string, url: string) {
+  await exigeProprietaire();
   const idea = await prisma.tradeIdea.findUnique({ where: { id } });
   if (!idea) return;
   let images: { url: string }[] = [];
@@ -180,6 +187,7 @@ export async function removeTradeIdeaImage(id: string, url: string) {
 }
 
 export async function deleteTradeIdea(id: string) {
+  await exigeProprietaire();
   await prisma.tradeIdea.delete({ where: { id } });
   revalidatePath("/checklist");
 }
@@ -202,6 +210,7 @@ export async function deleteTradeIdea(id: string) {
  * cannot be counted together afterwards.
  */
 export async function ajouterMot(kind: string, value: string) {
+  await exigeProprietaire();
   const mot = value.trim();
   if (!mot) return;
   await prisma.tagOption.upsert({
@@ -219,6 +228,7 @@ export async function ajouterMot(kind: string, value: string) {
  * the same word can also be written on an example there.
  */
 export async function supprimerMot(kind: string, value: string) {
+  await exigeProprietaire();
   const base = kindDeBase(kind);
   await prisma.tagOption.deleteMany({
     where: { value, OR: [{ kind: base }, { kind: { startsWith: `${base}@` } }] },
@@ -241,6 +251,7 @@ export async function supprimerMot(kind: string, value: string) {
  * exists to prevent.
  */
 export async function renommerMot(kind: string, from: string, to: string) {
+  await exigeProprietaire();
   const nouveau = to.trim();
   if (!nouveau || nouveau === from) return;
 
@@ -276,6 +287,7 @@ export async function renommerMot(kind: string, from: string, to: string) {
 }
 
 export async function getTradeVocabularies() {
+  await exigeProprietaire();
   const [examples, ideas, hidden, ajoutes, trades] = await Promise.all([
     prisma.noteExample.findMany({
       select: {
@@ -291,7 +303,8 @@ export async function getTradeVocabularies() {
     prisma.tradeIdea.findMany({ select: { tradeTypes: true, zone: true, confirmations: true, cancelIf: true } }),
     prisma.hiddenTagOption.findMany({ select: { kind: true, value: true } }),
     prisma.tagOption.findMany({ orderBy: { createdAt: "asc" }, select: { kind: true, value: true } }),
-    prisma.trade.findMany({ select: { invalidReasons: true } }),
+    // The owner's trades: this is the vocabulary their own journal has used.
+    prisma.trade.findMany({ where: { ownerId: await monJournal() }, select: { invalidReasons: true } }),
   ]);
 
   const removed = (kind: string) =>

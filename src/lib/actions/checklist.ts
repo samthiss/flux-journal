@@ -1,16 +1,19 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { exigeProprietaire } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
 // Only the item definitions live in the database. Which items are ticked is
 // per-device state held in localStorage by the checklist components, so there
 // is deliberately no server-side "checked" concept here.
 export async function getChecklistItems() {
+  await exigeProprietaire();
   return prisma.checklistItem.findMany({ orderBy: { order: "asc" } });
 }
 
 export async function createChecklistItem(group: string, label: string, category?: string, tab?: string) {
+  await exigeProprietaire();
   const trimmedGroup = group.trim();
   const trimmedLabel = label.trim();
   if (!trimmedGroup || !trimmedLabel) return;
@@ -61,6 +64,7 @@ export async function reorderChecklistItems(
   ids: string[],
   moved?: { id: string; group: string; category: string | null },
 ) {
+  await exigeProprietaire();
   if (ids.length === 0) return;
 
   if (moved) {
@@ -83,6 +87,7 @@ export async function reorderChecklistItems(
 }
 
 export async function renameChecklistCategory(group: string, from: string, to: string) {
+  await exigeProprietaire();
   const trimmed = to.trim();
   if (!trimmed || trimmed === from) return;
 
@@ -94,6 +99,7 @@ export async function renameChecklistCategory(group: string, from: string, to: s
 }
 
 export async function renameChecklistItem(itemId: string, label: string) {
+  await exigeProprietaire();
   const trimmedLabel = label.trim();
   if (!trimmedLabel) return;
   await prisma.checklistItem.update({ where: { id: itemId }, data: { label: trimmedLabel } });
@@ -107,6 +113,7 @@ export async function renameChecklistItem(itemId: string, label: string) {
  * it is stored as null rather than "[]" so the two cannot drift apart.
  */
 export async function setChecklistItemOptions(itemId: string, options: string[]) {
+  await exigeProprietaire();
   const cleaned = options.map((o) => o.trim()).filter(Boolean);
   await prisma.checklistItem.update({
     where: { id: itemId },
@@ -122,6 +129,7 @@ export async function setChecklistItemOptions(itemId: string, options: string[])
  * one is a rewrite of them all, and a name already in use simply merges the two.
  */
 export async function renameChecklistGroup(group: string, name: string) {
+  await exigeProprietaire();
   const trimmed = name.trim();
   if (!trimmed || trimmed === group) return;
   await prisma.checklistItem.updateMany({ where: { group }, data: { group: trimmed } });
@@ -142,6 +150,7 @@ export async function renameChecklistGroup(group: string, name: string) {
  * id, and an id is what the button actually knows.
  */
 export async function deleteChecklistItems(ids: string[]) {
+  await exigeProprietaire();
   if (!ids.length) return;
   await prisma.checklistItem.deleteMany({ where: { id: { in: ids } } });
   revalidatePath("/checklist");
@@ -154,17 +163,20 @@ export async function deleteChecklistItems(ids: string[]) {
  * otherwise: during a trend run, the rules of a reverse are noise.
  */
 export async function setChecklistItemSetup(itemId: string, setup: string | null) {
+  await exigeProprietaire();
   await prisma.checklistItem.update({ where: { id: itemId }, data: { setup } });
   revalidatePath("/checklist");
 }
 
 /** Whether trade ideas can be written under this item. */
 export async function setChecklistItemAllowsIdeas(itemId: string, allowsIdeas: boolean) {
+  await exigeProprietaire();
   await prisma.checklistItem.update({ where: { id: itemId }, data: { allowsIdeas } });
   revalidatePath("/checklist");
 }
 
 export async function deleteChecklistItem(itemId: string) {
+  await exigeProprietaire();
   await prisma.checklistItem.delete({ where: { id: itemId } });
   revalidatePath("/checklist");
 }

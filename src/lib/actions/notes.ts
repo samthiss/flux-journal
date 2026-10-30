@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { exigeProprietaire, monJournal } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { deleteImageFileIfUnused, deleteImageFilesIfUnused } from "@/lib/imageFiles";
 import { measureStoredImage } from "@/lib/imageSize";
@@ -55,6 +56,7 @@ async function ensureNotesSeeded() {
 }
 
 export async function getNoteTree() {
+  await exigeProprietaire();
   await ensureNotesSeeded();
   return prisma.note.findMany({
     orderBy: { order: "asc" },
@@ -72,24 +74,29 @@ export async function getNoteTree() {
 // of a chevron. The next render reads the new value anyway, the page being
 // dynamic.
 export async function setNoteCollapsed(id: string, collapsed: boolean) {
+  await exigeProprietaire();
   await prisma.note.update({ where: { id }, data: { collapsed } });
 }
 
 export async function setCategoryCollapsed(id: string, collapsed: boolean) {
+  await exigeProprietaire();
   await prisma.noteCategory.update({ where: { id }, data: { collapsed } });
 }
 
 export async function setExampleCollapsed(id: string, collapsed: boolean) {
+  await exigeProprietaire();
   await prisma.noteExample.update({ where: { id }, data: { collapsed } });
 }
 
 // The "Sans catégorie" bucket has no row of its own, so its fold lives on the
 // note instead. See the comment on Note.uncategorizedCollapsed in schema.prisma.
 export async function setUncategorizedCollapsed(noteId: string, collapsed: boolean) {
+  await exigeProprietaire();
   await prisma.note.update({ where: { id: noteId }, data: { uncategorizedCollapsed: collapsed } });
 }
 
 export async function getNotesPageData() {
+  await exigeProprietaire();
   await ensureNotesSeeded();
   const [notes, blocks, categories, examples] = await Promise.all([
     prisma.note.findMany({ orderBy: { order: "asc" } }),
@@ -118,12 +125,14 @@ export async function getNotesPageData() {
 }
 
 export async function createNote(parentId: string | null) {
+  await exigeProprietaire();
   const siblingCount = await prisma.note.count({ where: { parentId } });
   await prisma.note.create({ data: { parentId, title: "Nouvelle note", order: siblingCount } });
   revalidatePath("/notes");
 }
 
 export async function renameNote(id: string, title: string) {
+  await exigeProprietaire();
   await prisma.note.update({ where: { id }, data: { title: title.trim() || "Sans titre" } });
   revalidatePath("/notes");
 }
@@ -139,6 +148,7 @@ const BLOCK_DEFAULT_CONTENT: Record<string, string | null> = {
 };
 
 export async function createNoteBlock(noteId: string, type: string, categoryId: string | null = null, exampleId: string | null = null) {
+  await exigeProprietaire();
   const count = await prisma.noteBlock.count({ where: exampleId ? { exampleId } : { noteId, categoryId } });
   const block = await prisma.noteBlock.create({
     data: { noteId, categoryId, exampleId, type, content: BLOCK_DEFAULT_CONTENT[type] ?? null, order: count },
@@ -148,6 +158,7 @@ export async function createNoteBlock(noteId: string, type: string, categoryId: 
 }
 
 export async function createExemplesBlock(noteId: string) {
+  await exigeProprietaire();
   const count = await prisma.noteBlock.count({ where: { noteId } });
   const block = await prisma.noteBlock.create({ data: { noteId, type: "exemples", content: null, order: count } });
   const category = await prisma.noteCategory.create({ data: { noteId, name: "Nouvelle catégorie", order: 0 } });
@@ -159,11 +170,13 @@ export async function createExemplesBlock(noteId: string) {
 }
 
 export async function updateNoteBlockContent(blockId: string, content: string | null) {
+  await exigeProprietaire();
   await prisma.noteBlock.update({ where: { id: blockId }, data: { content } });
   revalidatePath("/notes");
 }
 
 export async function deleteNoteBlock(blockId: string) {
+  await exigeProprietaire();
   const block = await prisma.noteBlock.findUnique({ where: { id: blockId } });
   if (!block) return;
   await prisma.noteBlock.delete({ where: { id: blockId } });
@@ -178,6 +191,7 @@ export async function deleteNoteBlock(blockId: string) {
  * clicked, and the write is only there so the next load opens the same way.
  */
 export async function setNoteBlockCollapsed(blockId: string, collapsed: boolean) {
+  await exigeProprietaire();
   await prisma.noteBlock.update({ where: { id: blockId }, data: { collapsed } });
 }
 
@@ -195,6 +209,7 @@ export async function setNoteBlockCollapsed(blockId: string, collapsed: boolean)
  * the categories are drawn in, and a note has at most one.
  */
 export async function moveNoteBlock(blockId: string, noteId: string, categoryId: string | null) {
+  await exigeProprietaire();
   const block = await prisma.noteBlock.findUnique({ where: { id: blockId } });
   if (!block || block.type === "exemples") return;
 
@@ -217,6 +232,7 @@ export async function moveNoteBlock(blockId: string, noteId: string, categoryId:
 }
 
 export async function reorderNoteBlocks(orderedIds: string[]) {
+  await exigeProprietaire();
   await prisma.$transaction(orderedIds.map((id, i) => prisma.noteBlock.update({ where: { id }, data: { order: i } })));
   revalidatePath("/notes");
 }
@@ -225,6 +241,7 @@ export async function reorderNoteBlocks(orderedIds: string[]) {
 // under targetId's parent (which may differ from dragId's current parent).
 // Refuses to drop a note onto one of its own descendants.
 export async function reorderNote(dragId: string, targetId: string) {
+  await exigeProprietaire();
   if (dragId === targetId) return;
 
   async function isDescendant(ancestorId: string, id: string): Promise<boolean> {
@@ -272,6 +289,7 @@ async function collectDescendantIds(id: string): Promise<string[]> {
 }
 
 export async function deleteNote(id: string) {
+  await exigeProprietaire();
   const ids = [id, ...(await collectDescendantIds(id))];
   const examples = await prisma.noteExample.findMany({ where: { noteId: { in: ids } } });
   const exampleIds = examples.map((e) => e.id);
@@ -291,6 +309,7 @@ export async function deleteNote(id: string) {
 }
 
 export async function createCategoryNamed(noteId: string, name: string) {
+  await exigeProprietaire();
   const category = await prisma.$transaction(async (tx) => {
     const count = await tx.noteCategory.count({ where: { noteId } });
     return tx.noteCategory.create({ data: { noteId, name: name.trim() || "Nouvelle catégorie", order: count } });
@@ -300,11 +319,13 @@ export async function createCategoryNamed(noteId: string, name: string) {
 }
 
 export async function renameCategory(id: string, name: string) {
+  await exigeProprietaire();
   await prisma.noteCategory.update({ where: { id }, data: { name: name.trim() || "Sans titre" } });
   revalidatePath("/notes");
 }
 
 export async function deleteCategory(id: string) {
+  await exigeProprietaire();
   const examples = await prisma.noteExample.findMany({ where: { categoryId: id } });
   const exampleIds = examples.map((e) => e.id);
   let urls: string[] = [];
@@ -322,6 +343,7 @@ export async function deleteCategory(id: string) {
 }
 
 export async function clearNoteExamples(noteId: string) {
+  await exigeProprietaire();
   const examples = await prisma.noteExample.findMany({ where: { noteId } });
   const exampleIds = examples.map((e) => e.id);
   let urls: string[] = [];
@@ -339,6 +361,7 @@ export async function clearNoteExamples(noteId: string) {
 }
 
 export async function createExample(noteId: string, categoryId: string | null) {
+  await exigeProprietaire();
   await prisma.$transaction(async (tx) => {
     // One past the last rank, not the number of examples. The two are the same
     // only while the ranks run 0..n-1, and they stop doing that the first time
@@ -377,6 +400,7 @@ export async function createExample(noteId: string, categoryId: string | null) {
  * a duplicate is made to be compared with what it came from.
  */
 export async function duplicateExample(id: string) {
+  await exigeProprietaire();
   await prisma.$transaction(async (tx) => {
     const source = await tx.noteExample.findUnique({
       where: { id },
@@ -467,6 +491,7 @@ const KIND_PRE_TRADE: Record<string, string> = {
 };
 
 export async function deleteTagValue(field: TagField, value: string) {
+  await exigeProprietaire();
   // Remembered as removed, so the ones the app ships with do not come straight
   // back from the code on the next render.
   await prisma.hiddenTagOption.upsert({
@@ -528,6 +553,7 @@ export async function deleteTagValue(field: TagField, value: string) {
  * un-hidden; and an example already carrying both ends up with it once.
  */
 export async function renameTagValue(field: TagField, from: string, to: string) {
+  await exigeProprietaire();
   const next = to.trim();
   if (!next || next === from) return;
 
@@ -577,6 +603,7 @@ export async function applyTagToExamples(
   field: TagField | "validity",
   value: string
 ) {
+  await exigeProprietaire();
   if (!exampleIds.length) return;
 
   if (field === "zone" || field === "setup" || field === "validity") {
@@ -613,16 +640,19 @@ export async function applyTagToExamples(
  * preference, not a ban, and nothing else would let the reader undo it.
  */
 export async function restoreTagValue(field: TagField, value: string) {
+  await exigeProprietaire();
   await prisma.hiddenTagOption.deleteMany({ where: { kind: field, value } });
   revalidatePath("/notes");
 }
 
 export async function reorderExamples(orderedIds: string[]) {
+  await exigeProprietaire();
   await prisma.$transaction(orderedIds.map((id, i) => prisma.noteExample.update({ where: { id }, data: { order: i } })));
   revalidatePath("/notes");
 }
 
 export async function reorderCategories(orderedIds: string[]) {
+  await exigeProprietaire();
   await prisma.$transaction(orderedIds.map((id, i) => prisma.noteCategory.update({ where: { id }, data: { order: i } })));
   revalidatePath("/notes");
 }
@@ -640,6 +670,7 @@ export async function reorderCategories(orderedIds: string[]) {
  * stayed behind, visible in neither note.
  */
 export async function moveCategory(categoryId: string, noteId: string) {
+  await exigeProprietaire();
   const category = await prisma.noteCategory.findUnique({ where: { id: categoryId } });
   if (!category || category.noteId === noteId) return;
   const note = await prisma.note.findUnique({ where: { id: noteId } });
@@ -679,6 +710,7 @@ export async function moveCategory(categoryId: string, noteId: string) {
 }
 
 export async function moveExamples(exampleIds: string[], noteId: string, categoryId: string | null) {
+  await exigeProprietaire();
   const examples = await prisma.noteExample.findMany({ where: { id: { in: exampleIds } } });
   const moving = examples.filter((e) => !(e.noteId === noteId && e.categoryId === categoryId));
   if (!moving.length) return;
@@ -746,6 +778,7 @@ export async function updateExample(
     tradeTypes?: string[];
   }
 ) {
+  await exigeProprietaire();
   const payload: Record<string, string | boolean | number | null> = {};
   if (data.title !== undefined) payload.title = data.title;
   if (data.caption !== undefined) payload.caption = data.caption;
@@ -765,6 +798,7 @@ export async function updateExample(
 }
 
 export async function deleteExample(id: string) {
+  await exigeProprietaire();
   const images = await prisma.noteExampleImage.findMany({ where: { exampleId: id } });
   await prisma.noteExampleImage.deleteMany({ where: { exampleId: id } });
   await prisma.noteBlock.deleteMany({ where: { exampleId: id } });
@@ -774,11 +808,13 @@ export async function deleteExample(id: string) {
 }
 
 export async function updateExampleImageCaption(imageId: string, caption: string) {
+  await exigeProprietaire();
   await prisma.noteExampleImage.update({ where: { id: imageId }, data: { caption } });
   revalidatePath("/notes");
 }
 
 export async function removeExampleImage(imageId: string) {
+  await exigeProprietaire();
   const img = await prisma.noteExampleImage.findUnique({ where: { id: imageId } });
   if (!img) return;
   await prisma.noteExampleImage.delete({ where: { id: imageId } });
@@ -787,9 +823,13 @@ export async function removeExampleImage(imageId: string) {
 }
 
 export async function searchTrades(query: string) {
+  await exigeProprietaire();
   const q = query.trim();
+  // The owner's own trades. The table holds the accounts' as well now, and a
+  // search that found one of those would put a stranger's trade into a note.
+  const ownerId = await monJournal();
   const trades = await prisma.trade.findMany({
-    where: q ? { symbol: { contains: q } } : undefined,
+    where: q ? { ownerId, symbol: { contains: q } } : { ownerId },
     orderBy: { date: "desc" },
     take: 20,
     select: { id: true, symbol: true, date: true, setup: true, side: true, pnl: true, chartCluster: true, chartReverse: true, chartBox: true, chartTrading: true },
@@ -806,7 +846,7 @@ export async function searchTrades(query: string) {
 }
 
 async function importTradeImagesInto(exampleId: string, tradeId: string) {
-  const trade = await prisma.trade.findUnique({ where: { id: tradeId } });
+  const trade = await prisma.trade.findFirst({ where: { id: tradeId, ownerId: await monJournal() } });
   if (!trade) return;
   const urls = [trade.chartCluster, trade.chartReverse, trade.chartBox, trade.chartTrading].filter((u): u is string => !!u);
   if (!urls.length) return;
@@ -824,11 +864,13 @@ async function importTradeImagesInto(exampleId: string, tradeId: string) {
 }
 
 export async function importTradeImages(exampleId: string, tradeId: string) {
+  await exigeProprietaire();
   await importTradeImagesInto(exampleId, tradeId);
   revalidatePath("/notes");
 }
 
 export async function getNoteTreeWithCategories() {
+  await exigeProprietaire();
   await ensureNotesSeeded();
   const [notes, categories] = await Promise.all([
     prisma.note.findMany({ orderBy: { order: "asc" }, select: { id: true, title: true, parentId: true, order: true } }),
@@ -838,7 +880,8 @@ export async function getNoteTreeWithCategories() {
 }
 
 export async function addTradeExampleToNote(tradeId: string, noteId: string, categoryId: string | null, tags: string[]) {
-  const trade = await prisma.trade.findUnique({ where: { id: tradeId } });
+  await exigeProprietaire();
+  const trade = await prisma.trade.findFirst({ where: { id: tradeId, ownerId: await monJournal() } });
   if (!trade) return;
   const count = await prisma.noteExample.count({ where: { noteId, categoryId } });
   const example = await prisma.noteExample.create({

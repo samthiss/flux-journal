@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { monJournal } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isValidPeriod, TRADE_FOR_STATS_SELECT } from "@/lib/stats";
 import RapportClient from "@/components/RapportClient";
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function RapportPage() {
   const trades = await prisma.trade.findMany({
+    where: { ownerId: await monJournal() },
     orderBy: { date: "asc" },
     select: TRADE_FOR_STATS_SELECT,
   });

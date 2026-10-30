@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { exigeProprietaire } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -11,11 +12,13 @@ import { revalidatePath } from "next/cache";
  * as unimportant however hard it moves the tape. These rows say otherwise.
  */
 export async function getEventRatings(): Promise<Record<string, string>> {
+  await exigeProprietaire();
   const rows = await prisma.eventRating.findMany();
   return Object.fromEntries(rows.map((r) => [`${r.currency}|${r.title}`, r.impact]));
 }
 
 export async function setEventRating(currency: string, title: string, impact: string) {
+  await exigeProprietaire();
   if (!["high", "medium", "low"].includes(impact)) return;
 
   await prisma.eventRating.upsert({

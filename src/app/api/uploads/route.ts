@@ -5,6 +5,7 @@ import path from "node:path";
 import { measureImage } from "@/lib/imageSize";
 import { sniffImageType } from "@/lib/imageType";
 import { prisma } from "@/lib/prisma";
+import { exigeProprietaire } from "@/lib/session";
 import { UPLOAD_DIR } from "@/lib/uploadDir";
 
 // Image uploads go through this route rather than a Server Action on purpose.
@@ -14,6 +15,11 @@ import { UPLOAD_DIR } from "@/lib/uploadDir";
 // serverActions.bodySizeLimit and return normally at the same sizes.
 
 export async function POST(request: Request) {
+  // This route attaches a file to a note example or a trade idea, and both are
+  // the owner's pages. A trade's own captures go up with the form that writes
+  // the trade, not through here.
+  await exigeProprietaire();
+
   let formData: FormData;
   try {
     formData = await request.formData();

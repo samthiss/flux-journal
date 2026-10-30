@@ -14,6 +14,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { monJournal } from "@/lib/session";
 
 /**
  * Words compared without their accents or case.
@@ -432,6 +433,10 @@ export async function interrogerTrades(filtres: TradeFilters): Promise<string> {
       ...(filtres.jusqua ? { lte: new Date(`${filtres.jusqua}T23:59:59`) } : {}),
     };
   }
+
+  // The agent reads the journal of whoever is asking it, which is the owner's:
+  // it is not offered anywhere else.
+  where.ownerId = await monJournal();
 
   let trades = await prisma.trade.findMany({
     where,

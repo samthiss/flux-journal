@@ -58,7 +58,13 @@ async function actualitesDuJour(): Promise<{ events: EconomicEvent[]; notees: st
     // Rated as the calendar rates them — a star clicked there is the reader's
     // own opinion of a release, and the band that announces it should hold the
     // same one.
-    const [calendrier, notes] = await Promise.all([getEconomicEvents(), getEventRatings()]);
+    // The stars are the owner's own opinion of a release, kept in the owner's
+    // journal: an account reads the calendar as the source rates it rather
+    // than through somebody else's judgement.
+    const [calendrier, notes] = await Promise.all([
+      getEconomicEvents(),
+      (await estProprietaire()) ? getEventRatings() : Promise.resolve({} as Record<string, string>),
+    ]);
     const events = applyRatings(calendrier.events, notes);
     // Which releases the reader has judged themselves, so the band can tell a
     // star they clicked from one the source gave.

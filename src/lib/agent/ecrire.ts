@@ -13,6 +13,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { exigeProprietaire } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
 type RuleItem = { title?: string; details?: string[] };
@@ -21,6 +22,7 @@ const fold = (text: string) =>
   text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 export async function ajouterLigne(input: { note: string; section: string; ligne: string }): Promise<string> {
+  await exigeProprietaire();
   const ligne = input.ligne.trim();
   const section = input.section.trim() || "Règles";
   if (!ligne) return "Rien à ajouter.";

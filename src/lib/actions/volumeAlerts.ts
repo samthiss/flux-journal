@@ -1,11 +1,13 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { exigeProprietaire } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import type { AlertHour } from "@/lib/volumeAlerts";
 
 /** Everything recorded, newest day first. */
 export async function getAlertHours(): Promise<AlertHour[]> {
+  await exigeProprietaire();
   const rows = await prisma.volumeAlertHour.findMany({
     orderBy: [{ day: "desc" }, { hour: "asc" }],
   });
@@ -43,6 +45,7 @@ export async function saveAlertHour(input: {
   values: number[];
   market: string;
 }) {
+  await exigeProprietaire();
   const { day, hour, threshold, market } = input;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) return;
@@ -59,6 +62,7 @@ export async function saveAlertHour(input: {
 }
 
 export async function deleteAlertHour(market: string, day: string, hour: number) {
+  await exigeProprietaire();
   await prisma.volumeAlertHour.deleteMany({ where: { market, day, hour } });
   revalidatePath("/volume-alert");
 }
