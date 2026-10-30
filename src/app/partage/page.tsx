@@ -4,15 +4,17 @@ import PartageClient from "./PartageClient";
 export const dynamic = "force-dynamic";
 
 /**
- * Who the journal is shared with.
+ * How this journal is handed out.
  *
- * The owner's page: the proxy lets nobody else near it, and a guest's session
- * cannot post anything from it either.
+ * Everyone who keeps a journal here opens it, and sees their own links. The
+ * invitations are the owner's half of the page and are not drawn for anyone
+ * else — nor would the actions behind them answer.
  */
 export default async function PartagePage() {
-  const { comptes, invitations, liens } = await getPartage();
+  const { comptes, invitations, liens, proprietaire } = await getPartage();
   return (
     <PartageClient
+      proprietaire={proprietaire}
       comptes={comptes.map((c) => ({
         id: c.id,
         email: c.email,
