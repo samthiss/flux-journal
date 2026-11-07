@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import { CountUp, PageTitle } from "@/components/NeonText";
 import PeriodFilter from "@/components/PeriodFilter";
@@ -37,6 +38,37 @@ export default function DashboardClient({
       document.cookie = `dash-period=${next}; path=/; max-age=${60 * 60 * 24 * 365}`;
     } catch {}
   };
+  /**
+   * Counts again whenever this page is looked at afresh.
+   *
+   * The figures are read from the journal on every request, so they are right
+   * when the page is drawn — but a dashboard left open in another tab goes on
+   * showing what it drew. Delete a handful of trades in the list, come back to
+   * it, and the trades that are gone are still in the total. Nothing says so on
+   * screen, which makes it the worst kind of wrong figure.
+   *
+   * Both events, and not the same one twice: switching tabs fires the
+   * visibility change, switching away from the browser altogether only fires
+   * the focus, and a few seconds' grace keeps a window being clicked around
+   * from asking the server on each pass.
+   */
+  const router = useRouter();
+  const dernierCompte = useRef(0);
+  useEffect(() => {
+    const relire = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - dernierCompte.current < 4000) return;
+      dernierCompte.current = Date.now();
+      router.refresh();
+    };
+    document.addEventListener("visibilitychange", relire);
+    window.addEventListener("focus", relire);
+    return () => {
+      document.removeEventListener("visibilitychange", relire);
+      window.removeEventListener("focus", relire);
+    };
+  }, [router]);
+
   const [filterSymbol, setFilterSymbol] = useState("all");
   const [filterSetup, setFilterSetup] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);

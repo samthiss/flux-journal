@@ -360,6 +360,31 @@ export default function TradesClient({
     [filteredTrades, colonnes, filtresColonnes, details]
   );
 
+  /**
+   * What the rows on screen add up to.
+   *
+   * Of `visibles` rather than of the journal: the bar above is used to ask a
+   * question — this symbol, this strategy, this month — and the answer to that
+   * question is a total, which until now had to be read off the dashboard with
+   * the same filters set a second time. Narrow the list and these follow it.
+   */
+  const totaux = useMemo(() => {
+    const pnl = visibles.reduce((somme, t) => somme + t.pnl, 0);
+    const gagnants = visibles.filter((t) => t.pnl > 0).length;
+    const perdants = visibles.length - gagnants;
+    // Averaged over the trades that recorded a risk, like the dashboard's:
+    // counting a missing one as zero drags the figure towards nothing.
+    const avecRR = visibles.filter((t) => t.rr != null);
+    return {
+      pnl,
+      gagnants,
+      perdants,
+      tauxDeReussite: visibles.length ? gagnants / visibles.length : 0,
+      moyenne: visibles.length ? pnl / visibles.length : 0,
+      rr: avecRR.length ? avecRR.reduce((somme, t) => somme + (t.rr ?? 0), 0) / avecRR.length : null,
+    };
+  }, [visibles]);
+
   /** The ticks a filter has since hidden do not count, and are not deleted. */
   const selection = useMemo(() => visibles.filter((t) => coches.has(t.id)).map((t) => t.id), [visibles, coches]);
   const toutCoche = visibles.length > 0 && selection.length === visibles.length;
@@ -566,6 +591,62 @@ export default function TradesClient({
           New tab
         </button>
         )}
+      </div>
+
+      {/* What is on screen, added up: above the table rather than at its foot,
+          where on 88 rows it would be read by scrolling past all of them. */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 10,
+          marginBottom: 18,
+        }}
+      >
+        {[
+          {
+            label: "Total P&L",
+            valeur: fmtMoney(totaux.pnl),
+            sous: `${visibles.length} trade${visibles.length === 1 ? "" : "s"} shown`,
+            couleur: totaux.pnl >= 0 ? winColor : lossColor,
+          },
+          {
+            label: "Win rate",
+            valeur: visibles.length ? `${Math.round(totaux.tauxDeReussite * 100)}%` : "—",
+            sous: `${totaux.gagnants}W / ${totaux.perdants}L`,
+            couleur: "oklch(0.96 0.0068 250)",
+          },
+          {
+            label: "Average",
+            valeur: visibles.length ? fmtMoney(totaux.moyenne) : "—",
+            sous: "per trade",
+            couleur: totaux.moyenne >= 0 ? winColor : lossColor,
+          },
+          {
+            label: "Risk / Reward",
+            valeur: totaux.rr != null ? `1 : ${totaux.rr.toFixed(2)}` : "—",
+            sous: totaux.rr != null ? "average, where risk is set" : "no risk recorded",
+            couleur: "oklch(0.96 0.0068 250)",
+          },
+        ].map((carte) => (
+          <div key={carte.label} style={{ ...glassCard, padding: "12px 14px" }}>
+            <div style={{ fontSize: 11, color: "oklch(0.6 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {carte.label}
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-jetbrains-mono), monospace",
+                fontSize: 19,
+                fontWeight: 600,
+                marginTop: 6,
+                color: carte.couleur,
+              }}
+            >
+              {carte.valeur}
+            </div>
+            <div style={{ fontSize: 11, color: "oklch(0.55 0.034 250)", marginTop: 3 }}>{carte.sous}</div>
+          </div>
+        ))}
       </div>
 
       {/* Only while something is ticked. A delete button standing there with
