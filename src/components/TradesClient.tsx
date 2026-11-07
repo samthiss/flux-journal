@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import PeriodFilter from "@/components/PeriodFilter";
 import { filterByPeriod, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
 import { tagTone } from "@/lib/tags";
 import { enregistrerVue } from "@/lib/actions/vue";
+import { deleteTrades } from "@/lib/actions/trades";
 
 /**
  * The annotation columns, after the figures.
@@ -97,9 +99,9 @@ function passeLesColonnes(
  * how it went — the rest is working notes, which is not what a link is sent
  * for.
  */
-function grilleEt(colonnes: typeof COLONNES, avecSetup: boolean) {
+function grilleEt(colonnes: typeof COLONNES, avecSetup: boolean, avecCases: boolean) {
   const figures = avecSetup ? "100px 90px 70px 120px 70px 110px 90px 90px" : "100px 90px 70px 70px 110px 90px 90px";
-  return `${figures} ${colonnes.map((c) => c.largeur).join(" ")}`;
+  return `${avecCases ? "30px " : ""}${figures} ${colonnes.map((c) => c.largeur).join(" ")}`;
 }
 
 const selectStyle: React.CSSProperties = {
@@ -113,6 +115,57 @@ const selectStyle: React.CSSProperties = {
 };
 
 const OPEN_NEW_TAB_KEY = "trades-open-new-tab";
+
+/**
+ * A tick box, drawn rather than native.
+ *
+ * A browser checkbox would arrive with its own blue and its own size in the
+ * middle of a table that sets both; the dash is for the heading when some but
+ * not all of the rows are ticked.
+ */
+function Case({ cochee, partielle = false }: { cochee: boolean; partielle?: boolean }) {
+  const actif = cochee || partielle;
+  return (
+    <span
+      style={{
+        display: "block",
+        width: 14,
+        height: 14,
+        borderRadius: 4,
+        border: `1px solid ${actif ? accentColor : "oklch(0.42 0.04 250)"}`,
+        background: actif ? accentColor : "transparent",
+        position: "relative",
+      }}
+    >
+      {cochee && (
+        <span
+          style={{
+            position: "absolute",
+            left: 4,
+            top: 1,
+            width: 4,
+            height: 8,
+            border: "solid oklch(0.15 0.034 250)",
+            borderWidth: "0 1.6px 1.6px 0",
+            transform: "rotate(45deg)",
+          }}
+        />
+      )}
+      {partielle && !cochee && (
+        <span
+          style={{
+            position: "absolute",
+            left: 2.5,
+            top: 5.5,
+            width: 7,
+            height: 1.6,
+            background: "oklch(0.15 0.034 250)",
+          }}
+        />
+      )}
+    </span>
+  );
+}
 
 export default function TradesClient({
   trades,
@@ -155,9 +208,13 @@ export default function TradesClient({
    * Shown through a link: the emotion, then what was written afterwards and
    * what has been said back. On the owner's own page: whatever is not hidden.
    */
-  const colonnes = lectureSeule
-    ? [...COLONNES.filter((c) => c.cle === "emotion"), COLONNE_POST, COLONNE_COMMENTAIRES]
-    : [...COLONNES.filter((c) => !CACHEES.has(c.cle)), COLONNE_COMMENTAIRES];
+  const colonnes = useMemo(
+    () =>
+      lectureSeule
+        ? [...COLONNES.filter((c) => c.cle === "emotion"), COLONNE_POST, COLONNE_COMMENTAIRES]
+        : [...COLONNES.filter((c) => !CACHEES.has(c.cle)), COLONNE_COMMENTAIRES],
+    [lectureSeule]
+  );
 
   const [filterSymbol, setFilterSymbol] = useState(vue.symbol ?? "all");
   const [filterOutcome, setFilterOutcome] = useState(vue.outcome ?? "all");
@@ -166,6 +223,21 @@ export default function TradesClient({
   const [filterTp, setFilterTp] = useState(vue.tp ?? "all");
   const [filterValidity, setFilterValidity] = useState(vue.validity ?? "all");
   const [openInNewTab, setOpenInNewTab] = useState(false);
+
+  /**
+   * The rows ticked, for deleting a batch of them.
+   *
+   * A journal is corrected in batches — a bad import, a morning entered twice
+   * — and one trade at a time is a page load and a confirmation per row.
+   */
+  const [coches, setCoches] = useState<Set<string>>(new Set());
+  // Where the last tick was, so shift-clicking takes everything between.
+  const [dernier, setDernier] = useState<number | null>(null);
+  // Two presses rather than a dialog: Chrome lets a page stop showing them,
+  // and a blocked confirm() reads as a delete button that does nothing.
+  const [confirme, setConfirme] = useState(false);
+  const [suppression, enSuppression] = useTransition();
+  const router = useRouter();
 
   // The same period as the dashboard and the report, through the same cookie:
   // three pages reading one journal should not disagree about which weeks are
@@ -208,7 +280,7 @@ export default function TradesClient({
     });
   };
 
-  const GRILLE = grilleEt(colonnes, !lectureSeule);
+  const GRILLE = grilleEt(colonnes, !lectureSeule, !lectureSeule);
 
   const choosePeriod = (next: string) => {
     setPeriod(next);
@@ -276,12 +348,81 @@ export default function TradesClient({
       .reverse();
   }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterStrategy, filterTp, filterValidity]);
 
+  /**
+   * The rows actually on the page.
+   *
+   * Named once because three things read it: the count in the header, the rows
+   * themselves, and the tick-all box — which must tick what is on screen and
+   * nothing a filter is hiding.
+   */
+  const visibles = useMemo(
+    () => filteredTrades.filter((t) => passeLesColonnes(t.id, colonnes, filtresColonnes, details)),
+    [filteredTrades, colonnes, filtresColonnes, details]
+  );
+
+  /** The ticks a filter has since hidden do not count, and are not deleted. */
+  const selection = useMemo(() => visibles.filter((t) => coches.has(t.id)).map((t) => t.id), [visibles, coches]);
+  const toutCoche = visibles.length > 0 && selection.length === visibles.length;
+
+  /**
+   * Ticking one row, a range of them, or all of them.
+   *
+   * Shift takes everything between this row and the last one ticked, which is
+   * how a table behaves everywhere else and the difference between correcting
+   * an import in one gesture and in forty.
+   */
+  const cocher = (index: number, etendre: boolean) => {
+    setConfirme(false);
+    setCoches((avant) => {
+      const apres = new Set(avant);
+      const id = visibles[index].id;
+      if (etendre && dernier !== null) {
+        const [de, a] = dernier < index ? [dernier, index] : [index, dernier];
+        // The row shift-clicked decides: ticking if it was unticked, clearing
+        // the span otherwise.
+        const ajoute = !avant.has(id);
+        for (let n = de; n <= a; n++) {
+          if (ajoute) apres.add(visibles[n].id);
+          else apres.delete(visibles[n].id);
+        }
+      } else if (apres.has(id)) {
+        apres.delete(id);
+      } else {
+        apres.add(id);
+      }
+      return apres;
+    });
+    setDernier(index);
+  };
+
+  const cocherTout = () => {
+    setConfirme(false);
+    setDernier(null);
+    setCoches(toutCoche ? new Set() : new Set(visibles.map((t) => t.id)));
+  };
+
+  const supprimerLaSelection = () => {
+    if (!selection.length || suppression) return;
+    if (!confirme) {
+      setConfirme(true);
+      return;
+    }
+    const partent = selection;
+    enSuppression(async () => {
+      await deleteTrades(partent);
+      setCoches(new Set());
+      setDernier(null);
+      setConfirme(false);
+      router.refresh();
+    });
+  };
+
   return (
     <div>
       <div className="trades-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <PageTitle>Trades</PageTitle>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{filteredTrades.filter((t) => passeLesColonnes(t.id, colonnes, filtresColonnes, details)).length} trades</div>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>{visibles.length} trades</div>
         </div>
         {/* Not offered to a shared account, which may read these rows and
             write none of them. */}
@@ -427,6 +568,65 @@ export default function TradesClient({
         )}
       </div>
 
+      {/* Only while something is ticked. A delete button standing there with
+          nothing selected is a button that spends its life disabled. */}
+      {!lectureSeule && selection.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 12,
+            padding: "10px 14px",
+            borderRadius: 9,
+            border: "1px solid oklch(0.84 0.17 196 / 0.35)",
+            background: "oklch(0.84 0.17 196 / 0.08)",
+          }}
+        >
+          <span style={{ fontSize: 13 }}>
+            {selection.length} trade{selection.length > 1 ? "s" : ""} selected
+          </span>
+          <button
+            type="button"
+            onClick={supprimerLaSelection}
+            disabled={suppression}
+            style={{
+              padding: "7px 14px",
+              borderRadius: 8,
+              border: `1px solid ${lossColor}`,
+              background: confirme ? lossColor : "transparent",
+              color: confirme ? "oklch(0.15 0.034 250)" : lossColor,
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: suppression ? "default" : "pointer",
+              opacity: suppression ? 0.6 : 1,
+            }}
+          >
+            {suppression
+              ? "…"
+              : confirme
+                ? `Delete ${selection.length} — press again`
+                : `Delete ${selection.length}`}
+          </button>
+          <span
+            onClick={() => {
+              setCoches(new Set());
+              setDernier(null);
+              setConfirme(false);
+            }}
+            style={{ fontSize: 12.5, color: "oklch(0.62 0.034 250)", cursor: "pointer" }}
+          >
+            Clear
+          </span>
+          {confirme && (
+            <span style={{ fontSize: 12, color: "oklch(0.62 0.034 250)" }}>
+              This cannot be undone.
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="table-scroll" style={{ ...glassCard, padding: 0 }}>
         {/* Wide enough for the figures and what is left beside them, and no
             wider: the table used to be scrolled sideways past seven columns of
@@ -444,6 +644,13 @@ export default function TradesClient({
             borderBottom: "1px solid oklch(0.3 0.034 250 / 0.6)",
           }}
         >
+          {/* Ticking the heading takes what is on screen, not what a filter
+              is hiding: the box is drawn where the rows' own boxes are. */}
+          {!lectureSeule && (
+            <div onClick={cocherTout} title={toutCoche ? "Untick every row" : "Tick every row shown"} style={{ cursor: "pointer" }}>
+              <Case cochee={toutCoche} partielle={selection.length > 0 && !toutCoche} />
+            </div>
+          )}
           <div>Date</div>
           <div>Symbol</div>
           <div>Side</div>
@@ -460,9 +667,7 @@ export default function TradesClient({
         </div>
         {/* The column filters are applied here rather than in the query
             above: each belongs to the heading it sits under. */}
-        {filteredTrades
-          .filter((t) => passeLesColonnes(t.id, colonnes, filtresColonnes, details))
-          .map((t, i) => {
+        {visibles.map((t, i) => {
           const outcome = t.pnl > 0 ? "win" : "loss";
           const pnlColor = t.pnl > 0 ? winColor : lossColor;
           const styleLigne = {
@@ -478,9 +683,26 @@ export default function TradesClient({
                 borderBottom: "1px solid oklch(0.24 0.034 250 / 0.5)",
                 textDecoration: "none",
                 color: "inherit",
+                background: coches.has(t.id) ? "oklch(0.84 0.17 196 / 0.08)" : undefined,
           } as const;
+          const cochee = coches.has(t.id);
           const cellules = (
             <>
+              {/* Inside the row, which is a link: the click is caught here so
+                  ticking a trade does not open it. */}
+              {!lectureSeule && (
+                <div
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    cocher(i, e.shiftKey);
+                  }}
+                  title="Tick this trade — shift-click for a range"
+                  style={{ cursor: "pointer" }}
+                >
+                  <Case cochee={cochee} />
+                </div>
+              )}
               {/* The hour under the day rather than beside it: a trade is
                   looked up by its date, and the time is what tells two of the
                   same morning apart once it is found. */}

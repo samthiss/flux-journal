@@ -196,6 +196,42 @@ export async function removeChartSlot(tradeId: string, slotKey: string) {
   revalidatePath(`/trades/${tradeId}`);
 }
 
+/**
+ * Deletes several trades at once.
+ *
+ * A journal is corrected in batches — a bad import, a morning entered twice —
+ * and doing that one trade at a time means a page load and a confirmation per
+ * row. One statement rather than a loop, so the list cannot be left half
+ * cleared by a connection that drops in the middle.
+ *
+ * The ids come from the page, so the journal is what decides: only the rows
+ * this reader owns are read, and only those are deleted. Ids belonging to
+ * anybody else are not refused, they are simply not found — and the count that
+ * comes back says how many actually went, which is what the page reports.
+ */
+export async function deleteTrades(ids: string[]) {
+  const ownerId = await monJournal();
+  // A page cannot hold more than this many rows to tick, and a list longer
+  // than that did not come from a person clicking.
+  const demandes = [...new Set(ids.filter((id) => typeof id === "string" && id))].slice(0, 500);
+  if (!demandes.length) return 0;
+
+  const trades = await prisma.trade.findMany({ where: { id: { in: demandes }, ownerId } });
+  if (!trades.length) return 0;
+
+  const charts = trades.flatMap((trade) =>
+    CHART_SLOTS.map((slot) => (trade as unknown as Record<string, string | null>)[slot.field])
+  );
+  // The rows go first, so that a chart a note imported is still spoken for
+  // when the files are swept: the note keeps the image it was shown.
+  await prisma.trade.deleteMany({ where: { id: { in: trades.map((t) => t.id) }, ownerId } });
+  await deleteImageFilesIfUnused(charts);
+
+  revalidatePath("/");
+  revalidatePath("/trades");
+  return trades.length;
+}
+
 export async function deleteTrade(tradeId: string) {
   const ownerId = await monJournal();
   const trade = await prisma.trade.findFirst({ where: { id: tradeId, ownerId } });
