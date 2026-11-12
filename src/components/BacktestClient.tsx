@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { accentColor, glassCard, winColor, lossColor } from "@/lib/theme";
-import { addBacktestTrade, deleteBacktestTrades, type BacktestInput } from "@/lib/actions/backtest";
+import { addBacktestTrade, deleteBacktestTest, deleteBacktestTrades, removeBacktestTag, type BacktestInput } from "@/lib/actions/backtest";
 
 export type BacktestRow = {
   id: string;
@@ -315,6 +315,29 @@ export default function BacktestClient({
       setSelected((s) => new Set([...s].filter((id) => !partis.has(id))));
     });
   };
+  /** A test's name, taken off its rows or taken away with them. */
+  const retirerTag = (name: string, avecTests: boolean) => {
+    const n = rows.filter((r) => r.testName === name).length;
+    const question = avecTests
+      ? `Supprimer le test « ${name} » et ses ${n} tests ? C'est définitif.`
+      : `Retirer le tag « ${name} » ? Les ${n} tests restent, sans nom de test.`;
+    if (!confirm(question)) return;
+    startTransition(async () => {
+      if (avecTests) {
+        await deleteBacktestTest(name);
+        const partis = new Set(rows.filter((r) => r.testName === name).map((r) => r.id));
+        setRows((rs) => rs.filter((r) => r.testName !== name));
+        setSelected((s) => new Set([...s].filter((id) => !partis.has(id))));
+      } else {
+        await removeBacktestTag(name);
+        setRows((rs) => rs.map((r) => (r.testName === name ? { ...r, testName: null } : r)));
+      }
+      setFTest("");
+      // The form would otherwise file the next setup under the name just removed.
+      setForm((f) => (f.testName === name ? { ...f, testName: "" } : f));
+    });
+  };
+
   // "All" is what the filters show, so a whole test or symbol can go at once.
   const tousCoches = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
 
@@ -408,6 +431,26 @@ export default function BacktestClient({
       {/* ---- Filters ---- */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
         <Select value={fTest} onChange={setFTest} options={testNames} all="Tous les tests" />
+        {fTest && (
+          <>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => retirerTag(fTest, false)}
+              style={{ ...mono, fontSize: 12, padding: "6px 12px", borderRadius: 5, border: "1px solid oklch(0.34 0.04 250)", background: "transparent", color: "oklch(0.8 0.02 250)", cursor: "pointer" }}
+            >
+              Retirer le tag
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => retirerTag(fTest, true)}
+              style={{ ...mono, fontSize: 12, padding: "6px 12px", borderRadius: 5, border: `1px solid ${lossColor}`, background: "transparent", color: lossColor, cursor: "pointer" }}
+            >
+              Supprimer le tag et ses {rows.filter((r) => r.testName === fTest).length} tests
+            </button>
+          </>
+        )}
         <Select value={fSymbol} onChange={setFSymbol} options={usedSymbols} all="Tous les symboles" />
       </div>
 

@@ -76,3 +76,19 @@ export async function deleteBacktestTrades(ids: string[]) {
   await prisma.backtestTrade.deleteMany({ where: { ownerId, id: { in: ids } } });
   revalidatePath("/backtesting");
 }
+
+/** Takes a test's name off its rows; the rows themselves stay, untagged. */
+export async function removeBacktestTag(testName: string) {
+  await exigeProprietaire();
+  const ownerId = await monJournal();
+  await prisma.backtestTrade.updateMany({ where: { ownerId, testName }, data: { testName: null } });
+  revalidatePath("/backtesting");
+}
+
+/** Deletes every row filed under a test's name. */
+export async function deleteBacktestTest(testName: string) {
+  await exigeProprietaire();
+  const ownerId = await monJournal();
+  await prisma.backtestTrade.deleteMany({ where: { ownerId, testName } });
+  revalidatePath("/backtesting");
+}
