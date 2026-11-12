@@ -420,12 +420,12 @@ export default function BacktestClient({
           {/* ---- Totals ---- */}
           <div style={{ ...glassCard, marginBottom: 20 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 20 }}>
+              <Figure title="PnL total" value={fmtUsd(total.money)} color={total.money === null ? undefined : tone(total.money)} hint={total.money === null ? "valeur du tick inconnue pour un symbole" : `${total.n} tests, lots compris`} />
               <Figure title="Tests" value={String(total.n)} hint={`${total.tp2} TP2 · ${total.wins - total.tp2} TP1 · ${total.losses} SL · ${total.be} à 0`} />
               <Figure title="TP1 atteint" value={`${(winRate(total) * 100).toFixed(1)} %`} hint={`TP2 : ${(tp2Rate(total) * 100).toFixed(1)} %`} />
               <Figure title="Résultat" value={fmtR(total.netR)} color={tone(total.netR)} hint={fmtTicks(total.netTicks)} />
               <Figure title="Espérance" value={total.n ? fmtR(total.netR / total.n) : "—"} color={tone(total.netR)} hint="par trade" />
               <Figure title="Profit factor" value={fmtPf(total.pf)} />
-              <Figure title="En $" value={fmtUsd(total.money)} color={total.money === null ? undefined : tone(total.money)} hint={total.money === null ? "valeur du tick inconnue pour un symbole" : undefined} />
             </div>
           </div>
 
@@ -451,7 +451,7 @@ export default function BacktestClient({
                     {sortHeader("netR", "Résultat")}
                     {sortHeader("exp", "Espérance")}
                     {sortHeader("pf", "PF")}
-                    <th style={th}>En $</th>
+                    <th style={th}>PnL</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -516,6 +516,7 @@ export default function BacktestClient({
                           return (
                             <td key={c} style={td}>
                               <div style={{ color: tone(s.netR), fontWeight: 700 }}>{fmtR(s.netR)}</div>
+                              {s.money !== null && <div style={{ color: tone(s.money), fontSize: 12 }}>{fmtUsd(s.money)}</div>}
                               <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>
                                 {s.n} tests · TP1 {(winRate(s) * 100).toFixed(0)} %
                               </div>
@@ -524,6 +525,7 @@ export default function BacktestClient({
                         })}
                         <td style={td}>
                           <div style={{ color: tone(tot.netR), fontWeight: 700 }}>{fmtR(tot.netR)}</div>
+                          {tot.money !== null && <div style={{ color: tone(tot.money), fontSize: 12 }}>{fmtUsd(tot.money)}</div>}
                           <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>
                             {tot.n} tests · TP1 {(winRate(tot) * 100).toFixed(0)} %
                           </div>
@@ -570,6 +572,7 @@ export default function BacktestClient({
                     <th style={th}>Lots</th>
                     <th style={th}>Entrée</th>
                     <th style={th}>Résultat</th>
+                    <th style={th}>PnL</th>
                     <th style={th}>Note</th>
                     <th style={th}></th>
                   </tr>
@@ -604,6 +607,7 @@ export default function BacktestClient({
                         <td style={{ ...td, color: tone(v), fontWeight: 700 }}>
                           {r.result} {fmtR(v)}
                         </td>
+                        <td style={{ ...td, color: tone(v) }}>{fmtUsd(stats([r]).money)}</td>
                         <td style={{ ...td, fontFamily: "inherit", whiteSpace: "normal", color: "oklch(0.7 0.02 250)" }}>{r.note}</td>
                         <td style={td}>
                           <button
