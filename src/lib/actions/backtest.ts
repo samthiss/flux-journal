@@ -8,11 +8,10 @@ export type BacktestInput = {
   date: string;
   testName: string;
   symbol: string;
-  strategy: string;
-  side: string;
   slTicks: number;
   tp1Ticks: number;
   tp2Ticks: number;
+  lots: number;
   entryOffset: number;
   result: string;
   note: string;
@@ -36,9 +35,7 @@ export async function addBacktestTrade(input: BacktestInput) {
   const ownerId = await monJournal();
 
   const symbol = input.symbol.trim().toUpperCase();
-  const strategy = input.strategy.trim();
   if (!symbol) throw new Error("Symbole manquant.");
-  if (!strategy) throw new Error("Stratégie manquante.");
   if (!RESULTS.includes(input.result)) throw new Error("Résultat invalide.");
   const sl = Math.abs(Number(input.slTicks));
   const tp1 = Math.abs(Number(input.tp1Ticks));
@@ -46,6 +43,8 @@ export async function addBacktestTrade(input: BacktestInput) {
   if (!Number.isFinite(sl) || sl <= 0) throw new Error("Le SL doit être un nombre de ticks positif.");
   if (!Number.isFinite(tp1) || tp1 <= 0) throw new Error("TP1 doit être un nombre de ticks positif.");
   if (!Number.isFinite(tp2) || tp2 < tp1) throw new Error("TP2 doit être au moins aussi loin que TP1.");
+  const lots = Number(input.lots);
+  if (!Number.isFinite(lots) || lots <= 0) throw new Error("Le nombre de lots doit être positif.");
   const offset = Number(input.entryOffset) || 0;
 
   const row = await prisma.backtestTrade.create({
@@ -54,11 +53,13 @@ export async function addBacktestTrade(input: BacktestInput) {
       date: jour(input.date),
       testName: input.testName.trim() || null,
       symbol,
-      strategy,
-      side: input.side === "long" || input.side === "short" ? input.side : null,
+      // One strategy is tested, and in both directions alike: neither is asked.
+      strategy: "",
+      side: null,
       slTicks: sl,
       tp1Ticks: tp1,
       tp2Ticks: tp2,
+      lots,
       entryOffset: offset,
       result: input.result,
       note: input.note.trim() || null,

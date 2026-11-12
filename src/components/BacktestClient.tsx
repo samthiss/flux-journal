@@ -14,6 +14,7 @@ export type BacktestRow = {
   slTicks: number;
   tp1Ticks: number;
   tp2Ticks: number;
+  lots: number;
   entryOffset: number;
   result: string;
   note: string | null;
@@ -21,7 +22,7 @@ export type BacktestRow = {
 };
 
 /**
- * Dollars per tick for one contract, to turn ticks into money.
+ * Dollars per tick for one contract, to turn ticks into money — times the lots of each test.
  *
  * CME figures at the time of writing. A symbol missing here is still tested in
  * ticks and R; only the money column stays empty for it.
@@ -70,7 +71,7 @@ function stats(rows: BacktestRow[]): Stats {
     const tick = ticksOf(t);
     netTicks += tick;
     const tv = TICK_VALUES[t.symbol];
-    money = money === null || tv === undefined ? null : money + tick * tv;
+    money = money === null || tv === undefined ? null : money + tick * tv * t.lots;
   }
   return { n: rows.length, wins, tp2, losses, be, netR, netTicks, money, pf: perte > 0 ? gain / perte : gain > 0 ? Infinity : null };
 }
@@ -116,11 +117,10 @@ const EMPTY_FORM: BacktestInput = {
   date: "",
   testName: "",
   symbol: "6E",
-  strategy: "",
-  side: "",
   slTicks: 10,
   tp1Ticks: 10,
   tp2Ticks: 20,
+  lots: 2,
   entryOffset: 0,
   result: "TP2",
   note: "",
@@ -182,7 +182,6 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
 
 type ConfigRow = {
   key: string;
-  strategy: string;
   symbol: string;
   sl: number;
   tp1: number;
@@ -195,11 +194,9 @@ type SortKey = "netR" | "exp" | "win" | "n" | "pf";
 
 export default function BacktestClient({
   initialRows,
-  strategies,
   symbols,
 }: {
   initialRows: BacktestRow[];
-  strategies: string[];
   symbols: string[];
 }) {
   const [rows, setRows] = useState(initialRows);
@@ -208,7 +205,7 @@ export default function BacktestClient({
   const [pending, startTransition] = useTransition();
 
   // The form keeps its last values between visits: a replay session logs the
-  // same strategy, symbol and stop dozens of times, and only the outcome moves.
+  // same symbol and stop dozens of times, and only the outcome moves.
   useEffect(() => {
     let saved: Partial<BacktestInput> = {};
     try {
@@ -247,12 +244,9 @@ export default function BacktestClient({
 
   // ---- Filters -----------------------------------------------------------
   const [fTest, setFTest] = useState("");
-  const [fStrategy, setFStrategy] = useState("");
   const [fSymbol, setFSymbol] = useState("");
-  const [fSide, setFSide] = useState("");
 
   const testNames = useMemo(() => [...new Set(rows.map((r) => r.testName).filter((x): x is string => !!x))].sort(), [rows]);
-  const usedStrategies = useMemo(() => [...new Set(rows.map((r) => r.strategy))].sort(), [rows]);
   const usedSymbols = useMemo(() => [...new Set(rows.map((r) => r.symbol))].sort(), [rows]);
 
   const filtered = useMemo(
@@ -260,11 +254,9 @@ export default function BacktestClient({
       rows.filter(
         (r) =>
           (!fTest || r.testName === fTest) &&
-          (!fStrategy || r.strategy === fStrategy) &&
-          (!fSymbol || r.symbol === fSymbol) &&
-          (!fSide || r.side === fSide)
+          (!fSymbol || r.symbol === fSymbol)
       ),
-    [rows, fTest, fStrategy, fSymbol, fSide]
+    [rows, fTest, fSymbol]
   );
   const total = useMemo(() => stats(filtered), [filtered]);
 
@@ -273,14 +265,13 @@ export default function BacktestClient({
   const configs = useMemo(() => {
     const groups = new Map<string, BacktestRow[]>();
     for (const r of filtered) {
-      const key = [r.strategy, r.symbol, r.slTicks, r.tp1Ticks, r.tp2Ticks, r.entryOffset].join("|");
+      const key = [r.symbol, r.slTicks, r.tp1Ticks, r.tp2Ticks, r.entryOffset].join("|");
       const list = groups.get(key);
       if (list) list.push(r);
       else groups.set(key, [r]);
     }
     const out: ConfigRow[] = [...groups.entries()].map(([key, list]) => ({
       key,
-      strategy: list[0].strategy,
       symbol: list[0].symbol,
       sl: list[0].slTicks,
       tp1: list[0].tp1Ticks,
@@ -295,9 +286,9 @@ export default function BacktestClient({
   const best = configs.length > 1 ? configs.reduce((a, b) => (b.s.netR / b.s.n > a.s.netR / a.s.n ? b : a)) : null;
 
   // ---- By month --------------------------------------------------------------
-  const [colBy, setColBy] = useState<"strategy" | "symbol" | "config">("strategy");
+  const [colBy, setColBy] = useState<"symbol" | "config">("symbol");
   const colOf = (r: BacktestRow) =>
-    colBy === "strategy" ? r.strategy : colBy === "symbol" ? r.symbol : `${r.strategy} · ${r.symbol} · ${r.slTicks}/${r.tp1Ticks}/${r.tp2Ticks}${r.entryOffset ? ` · e${fmtOffset(r.entryOffset)}` : ""}`;
+    colBy === "symbol" ? r.symbol : `${r.symbol} · ${r.slTicks}/${r.tp1Ticks}/${r.tp2Ticks}${r.entryOffset ? ` · e${fmtOffset(r.entryOffset)}` : ""}`;
   const monthly = useMemo(() => {
     const cols = [...new Set(filtered.map(colOf))].sort();
     const months = [...new Set(filtered.map((r) => monthKey(r.date)))].sort().reverse();
@@ -315,15 +306,17 @@ export default function BacktestClient({
   // ---- List ------------------------------------------------------------------
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [shown, setShown] = useState(50);
-  const supprimer = () => {
-    const ids = [...selected];
-    if (!ids.length || !confirm(`Supprimer ${ids.length} test(s) ?`)) return;
+  const supprimer = (ids: string[]) => {
+    if (!ids.length || !confirm(ids.length === 1 ? "Supprimer ce test ?" : `Supprimer ${ids.length} tests ?`)) return;
+    const partis = new Set(ids);
     startTransition(async () => {
       await deleteBacktestTrades(ids);
-      setRows((rs) => rs.filter((r) => !selected.has(r.id)));
-      setSelected(new Set());
+      setRows((rs) => rs.filter((r) => !partis.has(r.id)));
+      setSelected((s) => new Set([...s].filter((id) => !partis.has(id))));
     });
   };
+  // "All" is what the filters show, so a whole test or symbol can go at once.
+  const tousCoches = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
 
   const rr = form.slTicks > 0 ? fullR(form.slTicks, form.tp1Ticks, form.tp2Ticks) : 0;
   const tv = TICK_VALUES[form.symbol.trim().toUpperCase()];
@@ -347,18 +340,8 @@ export default function BacktestClient({
           <Field title="Test" hint="ex. « 6E Q3 », facultatif">
             <input list="bt-tests" value={form.testName} onChange={(e) => set("testName", e.target.value)} style={fieldStyle} />
           </Field>
-          <Field title="Stratégie">
-            <input list="bt-strategies" value={form.strategy} onChange={(e) => set("strategy", e.target.value)} style={fieldStyle} />
-          </Field>
           <Field title="Symbole">
             <input list="bt-symbols" value={form.symbol} onChange={(e) => set("symbol", e.target.value)} style={fieldStyle} />
-          </Field>
-          <Field title="Sens">
-            <select value={form.side} onChange={(e) => set("side", e.target.value)} style={fieldStyle}>
-              <option value="">—</option>
-              <option value="long">Long</option>
-              <option value="short">Short</option>
-            </select>
           </Field>
           <Field title="SL (ticks)">
             <input type="number" min={0} value={form.slTicks} onChange={(e) => set("slTicks", Number(e.target.value))} style={fieldStyle} />
@@ -368,6 +351,9 @@ export default function BacktestClient({
           </Field>
           <Field title="TP2 (ticks)" hint="½ position">
             <input type="number" min={0} value={form.tp2Ticks} onChange={(e) => set("tp2Ticks", Number(e.target.value))} style={fieldStyle} />
+          </Field>
+          <Field title="Lots" hint="moitié à TP1, moitié à TP2">
+            <input type="number" min={1} value={form.lots} onChange={(e) => set("lots", Number(e.target.value))} style={fieldStyle} />
           </Field>
           <Field title="Entrée (± ticks)" hint="+ plus haute, − plus basse">
             <input type="number" value={form.entryOffset} onChange={(e) => set("entryOffset", Number(e.target.value))} style={fieldStyle} />
@@ -379,7 +365,6 @@ export default function BacktestClient({
           </Field>
         </div>
         <datalist id="bt-tests">{testNames.map((t) => <option key={t} value={t} />)}</datalist>
-        <datalist id="bt-strategies">{strategies.map((t) => <option key={t} value={t} />)}</datalist>
         <datalist id="bt-symbols">{symbols.map((t) => <option key={t} value={t} />)}</datalist>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 20, flexWrap: "wrap" }}>
@@ -413,7 +398,8 @@ export default function BacktestClient({
           ))}
           <span style={{ ...mono, fontSize: 12, color: "oklch(0.6 0.03 250)" }}>
             jusqu&apos;à TP2 : {rr.toFixed(2)} R · TP1 puis BE : {form.slTicks > 0 ? (form.tp1Ticks / 2 / form.slTicks).toFixed(2) : "0.00"} R
-            {tv !== undefined && ` · risque ${(form.slTicks * tv).toFixed(0)} $ par contrat`}
+            {tv !== undefined &&
+              ` · ${form.lots} lot(s) : risque ${(form.slTicks * tv * form.lots).toFixed(0)} $ · TP1 puis BE +${((form.tp1Ticks / 2) * tv * form.lots).toFixed(0)} $ · TP2 +${(((form.tp1Ticks + form.tp2Ticks) / 2) * tv * form.lots).toFixed(0)} $`}
           </span>
           {error && <span style={{ fontSize: 12.5, color: lossColor }}>{error}</span>}
         </div>
@@ -422,18 +408,12 @@ export default function BacktestClient({
       {/* ---- Filters ---- */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
         <Select value={fTest} onChange={setFTest} options={testNames} all="Tous les tests" />
-        <Select value={fStrategy} onChange={setFStrategy} options={usedStrategies} all="Toutes les stratégies" />
         <Select value={fSymbol} onChange={setFSymbol} options={usedSymbols} all="Tous les symboles" />
-        <select value={fSide} onChange={(e) => setFSide(e.target.value)} style={{ ...fieldStyle, width: "auto" }}>
-          <option value="">Long et short</option>
-          <option value="long">Long</option>
-          <option value="short">Short</option>
-        </select>
       </div>
 
       {rows.length === 0 ? (
         <div style={{ ...glassCard, color: "oklch(0.62 0.034 250)", fontSize: 14 }}>
-          Aucun test pour l&apos;instant. Règle stratégie, symbole, SL et TP, puis appuie sur « TP2 touché », « TP1 puis BE » ou « SL touché » à chaque setup du replay.
+          Aucun test pour l&apos;instant. Règle symbole, SL, TP1 et TP2, puis appuie sur « TP2 touché », « TP1 puis BE » ou « SL touché » à chaque setup du replay.
         </div>
       ) : (
         <>
@@ -445,7 +425,7 @@ export default function BacktestClient({
               <Figure title="Résultat" value={fmtR(total.netR)} color={tone(total.netR)} hint={fmtTicks(total.netTicks)} />
               <Figure title="Espérance" value={total.n ? fmtR(total.netR / total.n) : "—"} color={tone(total.netR)} hint="par trade" />
               <Figure title="Profit factor" value={fmtPf(total.pf)} />
-              <Figure title="1 contrat" value={fmtUsd(total.money)} color={total.money === null ? undefined : tone(total.money)} hint={total.money === null ? "valeur du tick inconnue pour un symbole" : undefined} />
+              <Figure title="En $" value={fmtUsd(total.money)} color={total.money === null ? undefined : tone(total.money)} hint={total.money === null ? "valeur du tick inconnue pour un symbole" : undefined} />
             </div>
           </div>
 
@@ -453,13 +433,12 @@ export default function BacktestClient({
           <div style={{ ...glassCard, marginBottom: 20 }}>
             <div style={label}>Comparaison des configurations</div>
             <div style={{ fontSize: 12.5, color: "oklch(0.55 0.03 250)", marginTop: 4 }}>
-              Une ligne par stratégie · symbole · SL · TP1 · TP2 · entrée. ½ position à TP1 avec SL au BE, ½ à TP2. Clique un en-tête pour trier.
+              Une ligne par symbole · SL · TP1 · TP2 · entrée. ½ position à TP1 avec SL au BE, ½ à TP2. Clique un en-tête pour trier.
             </div>
             <div style={{ overflowX: "auto", marginTop: 14 }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}>
                 <thead>
                   <tr>
-                    <th style={th}>Stratégie</th>
                     <th style={th}>Symbole</th>
                     <th style={th}>SL</th>
                     <th style={th}>TP1</th>
@@ -472,17 +451,16 @@ export default function BacktestClient({
                     {sortHeader("netR", "Résultat")}
                     {sortHeader("exp", "Espérance")}
                     {sortHeader("pf", "PF")}
-                    <th style={th}>1 contrat</th>
+                    <th style={th}>En $</th>
                   </tr>
                 </thead>
                 <tbody>
                   {configs.map((c) => (
                     <tr key={c.key} style={{ background: best?.key === c.key ? "oklch(0.84 0.17 196 / 0.07)" : undefined }}>
-                      <td style={{ ...td, fontFamily: "inherit" }}>
-                        {c.strategy}
-                        {best?.key === c.key && <span style={{ color: accentColor, marginLeft: 6, fontSize: 11 }}>★ meilleure espérance</span>}
+                      <td style={td}>
+                        {c.symbol}
+                        {best?.key === c.key && <span style={{ color: accentColor, marginLeft: 6, fontSize: 11, fontFamily: "var(--font-space-grotesk), sans-serif" }}>★ meilleure espérance</span>}
                       </td>
-                      <td style={td}>{c.symbol}</td>
                       <td style={td}>{c.sl}</td>
                       <td style={td}>{c.tp1}</td>
                       <td style={td}>{c.tp2}</td>
@@ -507,7 +485,6 @@ export default function BacktestClient({
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={label}>Par mois</div>
               <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
-                <Pill active={colBy === "strategy"} onClick={() => setColBy("strategy")}>par stratégie</Pill>
                 <Pill active={colBy === "symbol"} onClick={() => setColBy("symbol")}>par symbole</Pill>
                 <Pill active={colBy === "config"} onClick={() => setColBy("config")}>par config</Pill>
               </div>
@@ -566,7 +543,7 @@ export default function BacktestClient({
               {selected.size > 0 && (
                 <button
                   type="button"
-                  onClick={supprimer}
+                  onClick={() => supprimer([...selected])}
                   disabled={pending}
                   style={{ ...mono, fontSize: 12, marginLeft: "auto", padding: "6px 12px", borderRadius: 5, border: `1px solid ${lossColor}`, background: "transparent", color: lossColor, cursor: "pointer" }}
                 >
@@ -578,16 +555,23 @@ export default function BacktestClient({
               <table style={{ borderCollapse: "collapse", width: "100%" }}>
                 <thead>
                   <tr>
-                    <th style={th}></th>
+                    <th style={th}>
+                      <input
+                        type="checkbox"
+                        title="Tout cocher (tests filtrés)"
+                        checked={tousCoches}
+                        onChange={(e) => setSelected(e.target.checked ? new Set(filtered.map((r) => r.id)) : new Set())}
+                      />
+                    </th>
                     <th style={th}>Date</th>
                     <th style={th}>Test</th>
-                    <th style={th}>Stratégie</th>
                     <th style={th}>Symbole</th>
-                    <th style={th}>Sens</th>
                     <th style={th}>SL / TP1 / TP2</th>
+                    <th style={th}>Lots</th>
                     <th style={th}>Entrée</th>
                     <th style={th}>Résultat</th>
                     <th style={th}>Note</th>
+                    <th style={th}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -611,17 +595,27 @@ export default function BacktestClient({
                         </td>
                         <td style={td}>{r.date.slice(0, 10)}</td>
                         <td style={{ ...td, fontFamily: "inherit" }}>{r.testName ?? "—"}</td>
-                        <td style={{ ...td, fontFamily: "inherit" }}>{r.strategy}</td>
                         <td style={td}>{r.symbol}</td>
-                        <td style={td}>{r.side ?? "—"}</td>
                         <td style={td}>
                           {r.slTicks} / {r.tp1Ticks} / {r.tp2Ticks}
                         </td>
+                        <td style={td}>{r.lots}</td>
                         <td style={td}>{fmtOffset(r.entryOffset)}</td>
                         <td style={{ ...td, color: tone(v), fontWeight: 700 }}>
                           {r.result} {fmtR(v)}
                         </td>
                         <td style={{ ...td, fontFamily: "inherit", whiteSpace: "normal", color: "oklch(0.7 0.02 250)" }}>{r.note}</td>
+                        <td style={td}>
+                          <button
+                            type="button"
+                            title="Supprimer ce test"
+                            disabled={pending}
+                            onClick={() => supprimer([r.id])}
+                            style={{ border: "none", background: "transparent", color: lossColor, cursor: "pointer", fontSize: 14, padding: "0 4px" }}
+                          >
+                            ✕
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}

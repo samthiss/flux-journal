@@ -738,6 +738,8 @@ model BacktestTrade {
   tp1Ticks    Float
   /** Second exit, the other half. */
   tp2Ticks    Float
+  /** Contracts taken, half of them closed at each target. Money only: R does not depend on it. */
+  lots        Float    @default(2)
   /** How far the entry was moved from the reference, in ticks: + higher, − lower. */
   entryOffset Float    @default(0)
   /**

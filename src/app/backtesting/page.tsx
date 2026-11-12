@@ -10,20 +10,13 @@ export default async function BacktestingPage() {
   const ownerId = await monJournal();
   const [rows, trades] = await Promise.all([
     prisma.backtestTrade.findMany({ where: { ownerId }, orderBy: [{ date: "desc" }, { createdAt: "desc" }] }),
-    // The names the journal already trades under, offered as suggestions so a
-    // test and a real trade are described in the same words.
-    prisma.trade.findMany({ where: { ownerId }, select: { strategy: true, setup: true, symbol: true } }),
+    // The symbols the journal already trades, offered as suggestions.
+    prisma.trade.findMany({ where: { ownerId }, select: { symbol: true } }),
   ]);
 
   const uniques = (xs: (string | null | undefined)[]) =>
     [...new Set(xs.map((x) => x?.trim()).filter((x): x is string => !!x && x !== "UNKNOWN"))].sort();
 
-  const strategies = uniques([
-    "Volume academy",
-    "Jahreswiderstand",
-    ...trades.flatMap((t) => [t.strategy, t.setup]),
-    ...rows.map((r) => r.strategy),
-  ]);
   const symbols = uniques([...DEFAULT_MARKETS, ...trades.map((t) => t.symbol), ...rows.map((r) => r.symbol)]);
 
   return (
@@ -36,7 +29,6 @@ export default async function BacktestingPage() {
       </div>
       <BacktestClient
         initialRows={rows.map((r) => ({ ...r, date: r.date.toISOString(), createdAt: r.createdAt.toISOString() }))}
-        strategies={strategies}
         symbols={symbols}
       />
     </div>
