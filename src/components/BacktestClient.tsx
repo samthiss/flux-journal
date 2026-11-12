@@ -283,6 +283,48 @@ export default function BacktestClient({
       sort === "netR" ? c.s.netR : sort === "exp" ? c.s.netR / c.s.n : sort === "win" ? winRate(c.s) : sort === "n" ? c.s.n : c.s.pf === Infinity ? 1e9 : c.s.pf ?? -1;
     return out.sort((a, b) => val(b) - val(a));
   }, [filtered, sort]);
+  // ---- Combination ---------------------------------------------------------
+  /**
+   * One config per symbol, added up month by month.
+   *
+   * Each symbol starts on the config that made the most money; the reader can
+   * pick another or leave the symbol out. A symbol whose choice is "" is out.
+   */
+  const keyOf = (r: BacktestRow) => [r.symbol, r.slTicks, r.tp1Ticks, r.tp2Ticks, r.entryOffset].join("|");
+  const parSymbole = useMemo(() => {
+    const out = new Map<string, ConfigRow[]>();
+    for (const c of configs) {
+      const list = out.get(c.symbol);
+      if (list) list.push(c);
+      else out.set(c.symbol, [c]);
+    }
+    const money = (c: ConfigRow) => c.s.money ?? c.s.netR;
+    for (const list of out.values()) list.sort((a, b) => money(b) - money(a));
+    return [...out.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [configs]);
+  const [choix, setChoix] = useState<Record<string, string>>({});
+  const retenue = (symbol: string, list: ConfigRow[]) => {
+    const c = choix[symbol];
+    if (c === "") return null;
+    return list.find((x) => x.key === c) ?? list[0];
+  };
+  const combinaison = useMemo(() => {
+    const garde = new Map<string, string>();
+    for (const [symbol, list] of parSymbole) {
+      const c = retenue(symbol, list);
+      if (c) garde.set(symbol, c.key);
+    }
+    const rowsGardes = filtered.filter((r) => garde.get(r.symbol) === keyOf(r));
+    const months = [...new Set(rowsGardes.map((r) => monthKey(r.date)))].sort().reverse();
+    const symbols = [...garde.keys()];
+    const cell = (m: string | null, sym: string | null) =>
+      stats(rowsGardes.filter((r) => (m === null || monthKey(r.date) === m) && (sym === null || r.symbol === sym)));
+    return { months, symbols, cell };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- retenue and keyOf only read choix
+  }, [parSymbole, filtered, choix]);
+  const configLabel = (c: ConfigRow) =>
+    `SL ${c.sl} · TP1 ${c.tp1} · TP2 ${c.tp2}${c.offset ? ` · entrée ${fmtOffset(c.offset)}` : ""} — ${c.s.n} tests · ${fmtUsd(c.s.money)}`;
+
   const best = configs.length > 1 ? configs.reduce((a, b) => (b.s.netR / b.s.n > a.s.netR / a.s.n ? b : a)) : null;
 
   // ---- By month --------------------------------------------------------------
@@ -521,6 +563,92 @@ export default function BacktestClient({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* ---- Combination ---- */}
+          <div style={{ ...glassCard, marginBottom: 20 }}>
+            <div style={label}>Combinaison</div>
+            <div style={{ fontSize: 12.5, color: "oklch(0.55 0.03 250)", marginTop: 4 }}>
+              Une config par symbole (la plus rentable par défaut), additionnées mois par mois.
+            </div>
+            <div style={{ display: "grid", gap: 8, marginTop: 14 }}>
+              {parSymbole.map(([symbol, list]) => {
+                const c = retenue(symbol, list);
+                return (
+                  <div key={symbol} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <label style={{ ...mono, fontSize: 13, display: "flex", alignItems: "center", gap: 8, minWidth: 80 }}>
+                      <input
+                        type="checkbox"
+                        checked={c !== null}
+                        onChange={(e) => setChoix((ch) => ({ ...ch, [symbol]: e.target.checked ? list[0].key : "" }))}
+                      />
+                      {symbol}
+                    </label>
+                    <select
+                      value={c?.key ?? ""}
+                      disabled={c === null}
+                      onChange={(e) => setChoix((ch) => ({ ...ch, [symbol]: e.target.value }))}
+                      style={{ ...fieldStyle, width: "auto", minWidth: 320, opacity: c === null ? 0.5 : 1 }}
+                    >
+                      {c === null && <option value="">— exclu —</option>}
+                      {list.map((x, i) => (
+                        <option key={x.key} value={x.key}>
+                          {i === 0 ? "★ " : ""}
+                          {configLabel(x)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+            {combinaison.symbols.length > 0 && (
+              <div style={{ overflowX: "auto", marginTop: 18 }}>
+                <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Mois</th>
+                      {combinaison.symbols.map((sym) => (
+                        <th key={sym} style={th}>
+                          {sym}
+                        </th>
+                      ))}
+                      <th style={{ ...th, color: accentColor }}>Combiné</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...combinaison.months, null].map((m) => {
+                      const tot = combinaison.cell(m, null);
+                      const ligneTotal = m === null;
+                      const fond = ligneTotal ? { background: "oklch(0.84 0.17 196 / 0.07)" } : {};
+                      return (
+                        <tr key={m ?? "total"} style={fond}>
+                          <td style={{ ...td, fontFamily: "inherit", fontWeight: ligneTotal ? 700 : undefined }}>{m ? monthLabel(m) : "Total"}</td>
+                          {combinaison.symbols.map((sym) => {
+                            const s = combinaison.cell(m, sym);
+                            if (!s.n) return <td key={sym} style={{ ...td, color: "oklch(0.4 0.02 250)" }}>—</td>;
+                            return (
+                              <td key={sym} style={td}>
+                                <div style={{ color: tone(s.money ?? s.netR), fontWeight: 700 }}>{fmtUsd(s.money)}</div>
+                                <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>
+                                  {fmtR(s.netR)} · {s.n} tests
+                                </div>
+                              </td>
+                            );
+                          })}
+                          <td style={td}>
+                            <div style={{ color: tone(tot.money ?? tot.netR), fontWeight: 700, fontSize: 14 }}>{fmtUsd(tot.money)}</div>
+                            <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>
+                              {fmtR(tot.netR)} · {tot.n} tests
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* ---- By month ---- */}
