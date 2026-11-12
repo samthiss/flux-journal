@@ -713,3 +713,40 @@ model SharedView {
   filters   String
   updatedAt DateTime @updatedAt
 }
+
+/**
+ * One setup taken in replay, with the stop and the target it was tested under.
+ *
+ * In ticks rather than prices, because that is how a test is written down: the
+ * same setup is tried with a 10-tick stop, then a 15-tick one, and the question
+ * is which pays. The outcome is told, not computed — there is no price history
+ * here, only what the replay showed. Every combination of strategy, symbol,
+ * stop, two targets and entry shift is a configuration the page compares.
+ */
+model BacktestTrade {
+  ownerId     String   @default("owner")
+  id          String   @id @default(cuid())
+  date        DateTime
+  /** Which campaign the test belongs to, so two runs of tests can be read apart. */
+  testName    String?
+  symbol      String
+  strategy    String
+  /** "long", "short", or null when it does not matter to the test. */
+  side        String?
+  slTicks     Float
+  /** First exit, half the position; the stop goes to break-even once it is paid. */
+  tp1Ticks    Float
+  /** Second exit, the other half. */
+  tp2Ticks    Float
+  /** How far the entry was moved from the reference, in ticks: + higher, − lower. */
+  entryOffset Float    @default(0)
+  /**
+   * How far the trade went: "SL" before TP1, "TP1" then back to break-even,
+   * "TP2" for both halves paid, "BE" for a trade closed flat before TP1.
+   */
+  result      String
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([ownerId, date])
+}

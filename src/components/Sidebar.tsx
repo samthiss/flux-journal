@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { href: "/trades", label: "Trades", match: (p: string) => p.startsWith("/trades") },
   { href: "/rapport", label: "Rapport", match: (p: string) => p.startsWith("/rapport") },
   { href: "/risque", label: "Risque", match: (p: string) => p.startsWith("/risque") },
+  { href: "/backtesting", label: "Backtesting", match: (p: string) => p.startsWith("/backtesting") },
   { href: "/checklist", label: "Checklist & News", match: (p: string) => p.startsWith("/checklist") },
   { href: "/volume-alert", label: "Volume Alert", match: (p: string) => p.startsWith("/volume-alert") },
   { href: "/notes", label: "Notes", match: (p: string) => p.startsWith("/notes") },
@@ -170,6 +171,17 @@ function RiskIcon({ color }: { color: string }) {
   );
 }
 
+/** A curve climbing past a dashed line run back in time: a strategy replayed. */
+function BacktestIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M1.5 9.5h15" stroke={color} strokeWidth="1.2" strokeDasharray="2 2" opacity="0.55" />
+      <path d="M1.5 14 5.5 10l3 2.5L16.5 4" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12.5 4h4v4" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** Three bars under a line: a box of volume tripping its threshold. */
 function VolumeAlertIcon({ color }: { color: string }) {
   return (
@@ -205,6 +217,7 @@ const ICONS = [
   TradesIcon,
   ReportIcon,
   RiskIcon,
+  BacktestIcon,
   ChecklistIcon,
   VolumeAlertIcon,
   NotesIcon,
