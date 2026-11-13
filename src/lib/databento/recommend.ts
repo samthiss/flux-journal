@@ -121,14 +121,26 @@ export function recommend(r: SymbolResult, c: ConfigStats): Reco[] {
   const impact = r.rulesImpact ?? [];
   if (impact.length && c.key === r.top[0]?.key) {
     const withAll = impact[0];
+    const byRatio = (r.objective ?? "ratio") === "ratio";
+    const ratio = (x: { pnl: number; propDD?: number; maxDD: number }) => x.pnl / Math.max(x.propDD ?? x.maxDD, 1);
     for (const x of impact.slice(1, -1)) {
       const delta = withAll.pnl - x.pnl;
       const rule = x.label.replace(/^sans /, "");
-      const dd = x.maxDD - withAll.maxDD;
-      const ddText = Math.abs(dd) >= 1 ? `, drawdown ${dd > 0 ? "réduit" : "augmenté"} de ${Math.abs(dd).toFixed(0)} $` : "";
+      const dd = (x.propDD ?? x.maxDD) - (withAll.propDD ?? withAll.maxDD);
+      const ddText = Math.abs(dd) >= 1 ? `drawdown ${dd > 0 ? "réduit" : "augmenté"} de ${Math.abs(dd).toFixed(0)} $` : "drawdown inchangé";
+      const facts = `${usd(delta)} de PnL, ${ddText} (${x.n} → ${withAll.n} trades)`;
+      // Judged the way the configurations are ranked: per dollar of drawdown when that is the aim.
+      const good = byRatio ? ratio(withAll) >= ratio(x) : delta >= 0;
+      const close = byRatio && Math.abs(ratio(withAll) - ratio(x)) <= 0.03 * Math.abs(ratio(withAll));
       if (Math.abs(delta) < 1 && Math.abs(dd) < 1) out.push({ tone: "ok", text: `Règle ${rule} : sans effet sur cette période.` });
-      else if (delta >= 0) out.push({ tone: "ok", text: `Règle ${rule} : utile, ${usd(delta)}${ddText} (${x.n} → ${withAll.n} trades).` });
-      else out.push({ tone: "warn", text: `Règle ${rule} : coûte ${usd(delta)}${ddText} (${x.n} → ${withAll.n} trades). À reconsidérer.` });
+      else if (close) out.push({ tone: "ok", text: `Règle ${rule} : neutre — ${facts}, ratio quasi identique.` });
+      else if (good)
+        out.push({ tone: "ok", text: `Règle ${rule} : à garder — ${facts}${byRatio ? `, ratio ${ratio(x).toFixed(1)} → ${ratio(withAll).toFixed(1)}` : ""}.` });
+      else
+        out.push({
+          tone: "warn",
+          text: `Règle ${rule} : à reconsidérer — ${facts}${byRatio ? `, ratio ${ratio(x).toFixed(1)} → ${ratio(withAll).toFixed(1)}` : ""}.`,
+        });
     }
   }
   if (r.rules?.blackout && !r.majorReleases) out.push({ tone: "warn", text: "Blackout news non appliqué : le calendrier n'a pas pu être lu pendant l'analyse." });
