@@ -468,7 +468,7 @@ function GeneralRules({ r }: { r: SymbolResult }) {
         ? ruleRow("Approche", `le prix doit avoir fait au moins ${r.rules.minApproach} ticks vers la zone depuis l'ouverture de 17h (Chicago) — sinon pas d'ordre`)
         : null}
       {ruleRow("Durée", `${r.settings.maxHours} h au plus en position${r.rules?.flatAt ? `, tout clôturé à ${r.rules.flatAt}h` : ""}`)}
-      {ruleRow("News", bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après CPI, NFP, Fed et la banque centrale de la paire` : "pas de blackout")}
+      {ruleRow("News", bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après ${bo.all ? "chaque news 3 étoiles des devises de la paire" : "CPI, NFP, Fed et la banque centrale de la paire"}` : "pas de blackout")}
       {r.settings.maxLossPerTrade ? ruleRow("Risque", `jamais plus de ${r.settings.maxLossPerTrade} $ perdus sur un trade`) : null}
     </div>
   );

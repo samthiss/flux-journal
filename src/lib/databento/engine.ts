@@ -78,7 +78,11 @@ export type Rules = {
   /** Everything closed at this hour, Chicago time. */
   flatAt: number | null;
   /** No fill from `before` minutes ahead of a major release to `after` minutes past it. */
-  blackout: { before: number; after: number } | null;
+  /**
+   * Off for every high-impact release of the pair's currencies with `all` —
+   * the calendar's three stars — and otherwise for the major ones only.
+   */
+  blackout: { before: number; after: number; all?: boolean } | null;
   /** Hours (Chicago) this pair is not traded in: the ones its own history says lose. */
   excludeHours?: number[] | null;
   /**
@@ -787,7 +791,7 @@ export async function analyse(
   const windowMin = settings.newsWindow ?? 30;
   const ddMode: DDMode = settings.ddMode ?? "intraday";
   const rules: Rules = settings.rules ?? { maxPerDay: null, hours: null, flatAt: null, blackout: null };
-  const major = (news?.events ?? []).filter((e) => isMajorRelease(e, symbol)).map((e) => e.at);
+  const major = (news?.events ?? []).filter((e) => rules.blackout?.all || isMajorRelease(e, symbol)).map((e) => e.at);
   /** Whether a fill is one the rules let through, before the daily cap. */
   // What the session-based rules need, worked out once: each session's
   // opening price, and the minutes a level was crossed by a close.
