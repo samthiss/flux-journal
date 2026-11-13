@@ -298,6 +298,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           {view === "general" || !sel || !selCfg ? (
             <div style={glassCard}>
               <div style={label}>Rapport général — par compte, {general.per.length} paires à {general.per[0]?.e.result!.settings.lots ?? 2} lots</div>
+              {general.per[0] && <GeneralRules r={general.per[0].e.result!} />}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 20, marginTop: 16 }}>
                 <Figure
                   title="PnL par mois"
@@ -432,23 +433,52 @@ function exitInLots(c: ConfigStats["cfg"], lots: number): string {
 }
 
 /** What to do on this pair, and nothing else: the rule card. */
+function ruleRow(k: string, v: React.ReactNode) {
+  return (
+    <div key={k} style={{ display: "flex", gap: 12, fontSize: 13.5, lineHeight: 1.5 }}>
+      <span style={{ color: "oklch(0.6 0.03 250)", width: 110, flex: "none" }}>{k}</span>
+      <span>{v}</span>
+    </div>
+  );
+}
+
+const ruleBox: React.CSSProperties = {
+  marginTop: 16,
+  padding: "14px 16px",
+  border: `1px solid ${accentColor}`,
+  borderRadius: 8,
+  background: "oklch(0.84 0.17 196 / 0.05)",
+  display: "grid",
+  gap: 6,
+};
+
+/** What every pair is traded under, read off the reports. */
+function GeneralRules({ r }: { r: SymbolResult }) {
+  const bo = r.rules?.blackout;
+  const h = r.rules?.hours;
+  const lots = r.settings.lots;
+  return (
+    <div style={ruleBox}>
+      <div style={{ ...label, fontSize: 11, marginBottom: 2 }}>Règles générales — les mêmes pour toutes les paires</div>
+      {ruleRow("Entrée", `ordre limite sur la zone, ${lots} lots`)}
+      {ruleRow("Sortie", `${lots / 2} lot à TP1 (stop au BE), l'autre en trailing dès TP1, à la distance du TP1`)}
+      {h && ruleRow("Horaires", `ordres de ${h[0]}h à ${h[1]}h (Chicago) · ${r.rules?.maxPerDay ?? 1} trade par jour et par marché`)}
+      {ruleRow("Durée", `${r.settings.maxHours} h au plus en position${r.rules?.flatAt ? `, tout clôturé à ${r.rules.flatAt}h` : ""}`)}
+      {ruleRow("News", bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après CPI, NFP, Fed et la banque centrale de la paire` : "pas de blackout")}
+      {r.settings.maxLossPerTrade ? ruleRow("Risque", `jamais plus de ${r.settings.maxLossPerTrade} $ perdus sur un trade`) : null}
+    </div>
+  );
+}
+
+/** What is this pair's own: its levels, stop, TP1 and the hours it skips. */
 function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
   const c = cfg.cfg;
   const lots = r.settings.lots;
   const levels = Object.entries(cfg.zones).sort(([a], [b]) => Number(a) - Number(b));
   const hours = r.rules?.excludeHours ?? [];
-  const bo = r.rules?.blackout;
-  const blackout = bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après CPI, NFP, Fed et la banque centrale de la paire` : "pas de blackout";
-  const news = c.news === "window" ? `${blackout} ; et ±${r.newsInfo?.window ?? 30} min autour des autres news ${r.newsInfo?.currencies.join("/") ?? ""}` : c.news === "day" ? "pas de trade les jours de news" : blackout;
-  const row = (k: string, v: React.ReactNode) => (
-    <div style={{ display: "flex", gap: 12, fontSize: 13.5, lineHeight: 1.5 }}>
-      <span style={{ color: "oklch(0.6 0.03 250)", width: 110, flex: "none" }}>{k}</span>
-      <span>{v}</span>
-    </div>
-  );
   return (
-    <div style={{ marginTop: 16, padding: "14px 16px", border: `1px solid ${accentColor}`, borderRadius: 8, background: "oklch(0.84 0.17 196 / 0.05)", display: "grid", gap: 6 }}>
-      {row(
+    <div style={ruleBox}>
+      {ruleRow(
         "Niveaux",
         <span style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           {levels.map(([z, b]) => (
@@ -459,13 +489,10 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
           ))}
         </span>
       )}
-      {row("Entrée", `ordre limite ${c.offset === 0 ? "sur le niveau" : c.offset > 0 ? `${c.offset} ticks avant le niveau` : `${-c.offset} ticks au-delà du niveau`}`)}
-      {row("Stop", `${c.sl} ticks (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
-      {row("Sortie", exitInLots(c, lots))}
-      {row("News", news)}
-      {r.rules?.hours && row("Horaires", `ordres de ${r.rules.hours[0]}h à ${r.rules.hours[1]}h (Chicago)${hours.length ? `, sauf ${hours.map((h) => `${h}h–${h + 1}h`).join(", ")}` : ""}`)}
-      {!r.rules?.hours && hours.length > 0 && row("Éviter", hours.map((h) => `${h}h–${h + 1}h`).join(", ") + " (Chicago)")}
-      {r.settings.maxHours < 24 && row("Durée max", `${r.settings.maxHours} h, puis clôture au marché`)}
+      {c.offset !== 0 && ruleRow("Entrée", c.offset > 0 ? `${c.offset} ticks avant le niveau` : `${-c.offset} ticks au-delà du niveau`)}
+      {ruleRow("Stop", `${c.sl} ticks (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
+      {ruleRow("TP1", kindOf(c) === "tp1trail" ? `${c.tp1} ticks, puis trailing à ${c.dist} ticks` : exitInLots(c, lots))}
+      {hours.length > 0 && ruleRow("Pas d'ordre", `${hours.map((x) => `${x}h–${x + 1}h`).join(", ")} (Chicago)`)}
     </div>
   );
 }
