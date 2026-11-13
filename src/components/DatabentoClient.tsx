@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, td, th, tone } from "@/components/BacktestUi";
-import { ratioOf, type NewsMode, kindOf, monthOf, type Bucket, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
+import { ratioOf, kindOf, monthOf, type Bucket, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
 
@@ -46,8 +46,6 @@ const exitShort = (c: ConfigStats["cfg"]) => {
   const trail = `trail +${c.act} à ${c.dist}`;
   return k === "trail" ? trail : `TP1 ${c.tp1} + ${trail}`;
 };
-const NEWS_SHORT: Record<NewsMode, string> = { all: "", window: " · hors news", day: " · hors jours de news" };
-const cfgText = (c: ConfigStats["cfg"]) => `Entrée ${fmtOffset(c.offset)} · SL ${c.sl} · ${exitShort(c)}${NEWS_SHORT[c.news ?? "all"]}`;
 
 function parseResult(raw: string | null): SymbolResult | null {
   if (!raw) return null;
@@ -367,40 +365,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
 
               {detail && (
               <>
-              <div style={{ overflowX: "auto", marginTop: 18 }}>
-                <table style={{ borderCollapse: "collapse", width: "100%" }}>
-                  <thead>
-                    <tr>
-                      <th style={th}>Symbole</th>
-                      <th style={th}>Config retenue</th>
-                      <th style={th}>Trades</th>
-                      <th style={th}>Win</th>
-                      <th style={th}>TP2</th>
-                      <th style={th}>PnL</th>
-                      <th style={th}>PF</th>
-                      <th style={th}>DD prop</th>
-                      <th style={th}>Période</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {general.per.map(({ e, c }) => (
-                      <tr key={e.symbol} style={{ cursor: "pointer" }} onClick={() => setView(e.symbol)}>
-                        <td style={{ ...td, fontWeight: 700 }}>{e.symbol}</td>
-                        <td style={td}>{cfgText(c.cfg)}</td>
-                        <td style={td}>{c.n}</td>
-                        <td style={td}>{pct(c.winRate)}</td>
-                        <td style={td}>{c.n && kindOf(c.cfg) === "fixed" ? pct(c.tp2 / c.n) : "—"}</td>
-                        <td style={{ ...td, color: tone(c.pnl), fontWeight: 700 }}>{fmtUsd(c.pnl)}</td>
-                        <td style={td}>{fmtPfOrInf(c.pf)}</td>
-                        <td style={{ ...td, color: lossColor }}>{fmtUsd(-(c.propDD ?? c.maxDD))}</td>
-                        <td style={td}>{fmtDay(e.result!.from)} → {fmtDay(e.result!.to)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style={{ ...label, fontSize: 11, marginTop: 22 }}>Mois par mois</div>
+              <div style={{ ...label, fontSize: 11, marginTop: 22 }}>Mois par mois · la règle de chaque paire est sur sa fiche</div>
               <div style={{ overflowX: "auto", marginTop: 8 }}>
                 <table style={{ borderCollapse: "collapse", width: "100%" }}>
                   <thead>
