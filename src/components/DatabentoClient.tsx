@@ -299,6 +299,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
             <div style={glassCard}>
               <div style={label}>Rapport général — par compte, {general.per.length} paires à {general.per[0]?.e.result!.settings.lots ?? 2} lots</div>
               {general.per[0] && <GeneralRules r={general.per[0].e.result!} />}
+              {general.per.length > 0 && <PairRules per={general.per} />}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 20, marginTop: 16 }}>
                 <Figure
                   title="PnL par mois"
@@ -466,6 +467,52 @@ function GeneralRules({ r }: { r: SymbolResult }) {
       {ruleRow("Durée", `${r.settings.maxHours} h au plus en position${r.rules?.flatAt ? `, tout clôturé à ${r.rules.flatAt}h` : ""}`)}
       {ruleRow("News", bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après CPI, NFP, Fed et la banque centrale de la paire` : "pas de blackout")}
       {r.settings.maxLossPerTrade ? ruleRow("Risque", `jamais plus de ${r.settings.maxLossPerTrade} $ perdus sur un trade`) : null}
+    </div>
+  );
+}
+
+/** Every pair's own settings on one table, for the general report. */
+function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
+  return (
+    <div style={{ ...ruleBox, overflowX: "auto" }}>
+      <div style={{ ...label, fontSize: 11, marginBottom: 2 }}>Règles par paire</div>
+      <table style={{ borderCollapse: "collapse", width: "100%" }}>
+        <thead>
+          <tr>
+            <th style={th}>Paire</th>
+            <th style={th}>Niveaux</th>
+            <th style={th}>Stop</th>
+            <th style={th}>TP1 = trailing</th>
+            <th style={th}>Pas d&apos;ordre</th>
+          </tr>
+        </thead>
+        <tbody>
+          {per.map(({ e, c }) => {
+            const r = e.result!;
+            const hours = r.rules?.excludeHours ?? [];
+            const levels = Object.entries(c.zones).sort(([a], [b]) => Number(a) - Number(b));
+            return (
+              <tr key={e.symbol}>
+                <td style={{ ...td, fontWeight: 700 }}>{e.symbol}</td>
+                <td style={{ ...td, whiteSpace: "normal" }}>
+                  {levels.map(([z, b], i) => (
+                    <span key={z} style={{ color: b.pnl > 0 ? undefined : lossColor }}>
+                      {i ? " · " : ""}
+                      {fmtZone(Number(z))}
+                      {b.pnl > 0 ? "" : " ✗"}
+                    </span>
+                  ))}
+                </td>
+                <td style={td}>
+                  {c.cfg.sl} ticks ({(c.cfg.sl * r.tickValue * r.settings.lots).toFixed(0)} $)
+                </td>
+                <td style={td}>{c.cfg.tp1} ticks</td>
+                <td style={td}>{hours.length ? hours.map((h) => `${h}h–${h + 1}h`).join(", ") : "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
