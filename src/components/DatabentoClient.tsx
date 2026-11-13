@@ -30,7 +30,17 @@ type ListKey = "offsets" | "sls" | "tp1s" | "tp2s" | "acts" | "dists";
 const LIST_KEYS: ListKey[] = ["offsets", "sls", "tp1s", "tp2s", "acts", "dists"];
 const textOf = (g: Grid) => Object.fromEntries(LIST_KEYS.map((k) => [k, fmtList(g[k])])) as Record<ListKey, string>;
 const DEFAULT_SETTINGS: Settings = { lots: 2, rearm: 30, maxHours: 24, minTrades: 10, newsWindow: 30, rules: DEFAULT_RULES, objective: "ratio" };
-const DEFAULT_ACCOUNT: AccountRules = { tiers: DEFAULT_TIERS, dailyStop: 500, ddLimit: 2000, pairs: 5, safety: 30 };
+const DEFAULT_ACCOUNT: AccountRules = {
+  tiers: DEFAULT_TIERS,
+  dailyStop: 500,
+  ddLimit: 2000,
+  pairs: 5,
+  safety: 30,
+  ddMode: "eod",
+  target: null,
+  maxContracts: 5,
+};
+const DD_MODE_TEXT = { eod: "suiveur fin de journée", intraday: "suiveur intraday" } as const;
 
 /** "1,3186 / 1,3552" → [1.3186, 1.3552]: a comma is a decimal point here, never a separator. */
 function parseZones(text: string): number[] {
@@ -147,9 +157,14 @@ function PlanCard({ plan, per, budget }: { plan: Plan | null; per: { e: Entry }[
               PnL <b style={{ color: tone(plan.run.pnl) }}>{fmtUsd(plan.run.pnl)}</b>
             </span>
             <span>
-              DD intraday <b style={{ color: lossColor }}>{fmtUsd(-plan.run.propDD)}</b> / {total.toFixed(0)} $
+              DD prop <b style={{ color: lossColor }}>{fmtUsd(-plan.run.propDD)}</b> / {total.toFixed(0)} $
             </span>
             <span>{plan.run.n} trades · {pct(plan.run.winRate)}</span>
+            <span>
+              pire journée <b style={{ color: lossColor }}>{fmtUsd(plan.run.worstDay)}</b>
+            </span>
+            <span>{plan.run.maxOpen} contrats ouverts au plus</span>
+            {plan.run.targetAt && <span style={{ color: accentColor }}>objectif atteint le {fmtDay(plan.run.targetAt)} ({plan.run.targetSessions} séances)</span>}
             <span style={{ color: "oklch(0.55 0.03 250)" }}>{plan.searched.toLocaleString("fr-FR")} combinaisons testées</span>
           </div>
         </>
@@ -165,21 +180,21 @@ function accountRecos(runs: { label: string; run: ReturnType<typeof runAccount> 
   if (!base) return out;
   const usd = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(0)} $`;
   if (account.tiers) {
-    const t = runs.find((r) => r.label.startsWith("Paliers ") && !r.label.includes("coupe"))?.run;
+    const t = runs.find((r) => r.label.startsWith("Paliers ") && !r.label.includes("limite jour"))?.run;
     if (t)
       out.push({
         tone: "ok",
-        text: `Paliers : ${usd(t.pnl)} (DD intraday ${usd(-t.propDD)}) contre ${usd(base.pnl)} (DD intraday ${usd(-base.propDD)}) à ${lots} lots fixes. Dernier palier atteint : ${t.lastLots} lot(s).`,
+        text: `Paliers : ${usd(t.pnl)} (DD ${usd(-t.propDD)}) contre ${usd(base.pnl)} (DD ${usd(-base.propDD)}) à ${lots} lots fixes. Dernier palier atteint : ${t.lastLots} lot(s).`,
       });
   }
   if (account.dailyStop !== null) {
-    const d = runs.find((r) => r.label.includes("coupe-circuit") && !r.label.startsWith("Paliers"))?.run;
+    const d = runs.find((r) => r.label.includes("limite jour") && !r.label.startsWith("Paliers"))?.run;
     if (d && d.stopDays === 0)
-      out.push({ tone: "ok", text: `Coupe-circuit −${account.dailyStop} $ : jamais déclenché sur la période — aucune journée n'a perdu autant. Il ne coûte rien, mais n'a rien protégé non plus.` });
+      out.push({ tone: "ok", text: `Limite de −${account.dailyStop} $ par jour (latente comprise) : jamais touchée sur la période.` });
     else if (d)
       out.push({
         tone: d.pnl >= base.pnl ? "ok" : "warn",
-        text: `Coupe-circuit −${account.dailyStop} $ : ${d.stopDays} journée(s) coupée(s), ${d.skipped} trade(s) évité(s), ${usd(d.pnl - base.pnl)} sur le résultat.`,
+        text: `Limite de −${account.dailyStop} $ par jour (latente comprise) : touchée ${d.stopDays} jour(s), positions coupées par la prop firm et ${d.skipped} trade(s) non pris ensuite — ${usd(d.pnl - base.pnl)} sur le résultat.`,
       });
   }
   return out;
@@ -499,7 +514,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           spec.tickSize,
           spec.tickValue,
           grid,
-          { ...settings, ddLimit: pairBudget(account) },
+          { ...settings, ddLimit: pairBudget(account), ddMode: account.ddMode ?? "eod" },
           (done, total) => setProgress(`${s} : ${done} / ${total} configurations`),
           news
         );
@@ -557,12 +572,12 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
     const lots = per[0]?.e.result!.settings.lots ?? 2;
     const dd = account.ddLimit ?? null;
     const accountRuns = [
-      { label: `${lots} lots fixes`, run: runAccount(raw, lots, { tiers: null, dailyStop: null, ddLimit: dd }) },
-      ...(account.tiers ? [{ label: `Paliers ${tiersText(account.tiers)}`, run: runAccount(raw, lots, { tiers: account.tiers, dailyStop: null, ddLimit: dd }) }] : []),
+      { label: `${lots} lots fixes`, run: runAccount(raw, lots, { ...account, tiers: null, dailyStop: null, ddLimit: dd }) },
+      ...(account.tiers ? [{ label: `Paliers ${tiersText(account.tiers)}`, run: runAccount(raw, lots, { ...account, dailyStop: null, ddLimit: dd }) }] : []),
       ...(account.dailyStop !== null
-        ? [{ label: `${lots} lots fixes + coupe-circuit −${account.dailyStop} $`, run: runAccount(raw, lots, { tiers: null, dailyStop: account.dailyStop, ddLimit: dd }) }]
+        ? [{ label: `${lots} lots fixes + limite jour −${account.dailyStop} $`, run: runAccount(raw, lots, { ...account, tiers: null, ddLimit: dd }) }]
         : []),
-      ...(account.tiers && account.dailyStop !== null ? [{ label: "Paliers + coupe-circuit (tes règles)", run: runAccount(raw, lots, account) }] : []),
+      ...(account.tiers && account.dailyStop !== null ? [{ label: "Paliers + limite jour (tes règles)", run: runAccount(raw, lots, account) }] : []),
     ];
     // The plan: one configuration and one size per pair, inside the share of
     // the drawdown that the analysed pairs are owed.
@@ -576,7 +591,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           configs: e.result!.top.map((c) => ({ key: c.key, trades: c.trades.map((row) => fromRow(row, e.result!.tickValue)) })),
         })),
         budget * per.length,
-        account.dailyStop
+        account
       );
     return { per, trades, pnl: eq, maxDD, pf: loss > 0 ? win / loss : win > 0 ? null : 0, winRate: trades.length ? wins / trades.length : 0, months, cell, accountRuns, plan, budget };
   }, [analysed, account]);
@@ -714,8 +729,16 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               style={{ ...smallField, width: 170 }}
             />
           </RuleRow>
-          <RuleRow on={!!account.ddLimit} onToggle={(v) => updateAccount({ ...account, ddLimit: v ? 2000 : null })} label="Prop firm : drawdown max, suiveur intraday ($)">
+          <RuleRow on={!!account.ddLimit} onToggle={(v) => updateAccount({ ...account, ddLimit: v ? 2000 : null })} label="Prop firm : drawdown qui fait sauter le compte ($)">
             <input type="number" min={1} value={account.ddLimit ?? 2000} disabled={!account.ddLimit} onChange={(e) => updateAccount({ ...account, ddLimit: Number(e.target.value) })} style={{ ...smallField, width: 80 }} />
+            <select value={account.ddMode ?? "eod"} disabled={!account.ddLimit} onChange={(e) => updateAccount({ ...account, ddMode: e.target.value as "eod" | "intraday" })} style={{ ...smallField, width: 150 }}>
+              <option value="eod">suiveur fin de journée</option>
+              <option value="intraday">suiveur intraday</option>
+            </select>
+          </RuleRow>
+          <RuleRow on={!!account.target} onToggle={(v) => updateAccount({ ...account, target: v ? 3000 : null })} label="Prop firm : objectif de profit ($) / contrats max ouverts">
+            <input type="number" min={1} value={account.target ?? 3000} disabled={!account.target} onChange={(e) => updateAccount({ ...account, target: Number(e.target.value) })} style={{ ...smallField, width: 80 }} />
+            <input type="number" min={1} value={account.maxContracts ?? 5} onChange={(e) => updateAccount({ ...account, maxContracts: Math.max(1, Number(e.target.value)) })} style={smallField} />
           </RuleRow>
           <RuleRow on={!!account.ddLimit} onToggle={() => {}} label="Paires sur le compte / réserve (%)">
             <input type="number" min={1} value={account.pairs ?? 5} disabled={!account.ddLimit} onChange={(e) => updateAccount({ ...account, pairs: Math.max(1, Number(e.target.value)) })} style={smallField} />
@@ -738,12 +761,12 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               <option value="pnl">PnL max sous le budget</option>
             </select>
           </RuleRow>
-          <RuleRow on={account.dailyStop !== null} onToggle={(v) => updateAccount({ ...account, dailyStop: v ? 500 : null })} label="Coupe-circuit journalier ($)">
+          <RuleRow on={account.dailyStop !== null} onToggle={(v) => updateAccount({ ...account, dailyStop: v ? 500 : null })} label="Prop firm : perte max par jour, latente comprise ($)">
             <input type="number" min={1} value={account.dailyStop ?? 500} disabled={account.dailyStop === null} onChange={(e) => updateAccount({ ...account, dailyStop: Number(e.target.value) })} style={smallField} />
           </RuleRow>
         </div>
         <div style={{ fontSize: 11.5, color: "oklch(0.5 0.03 250)", marginTop: 10 }}>
-          Paliers et coupe-circuit sont des règles de compte : elles s&apos;appliquent dans le rapport général, sur les trades de tous les symboles
+          Paliers, limite par jour et drawdown du compte sont des règles de compte : elles s&apos;appliquent dans le rapport général, sur les trades de tous les symboles
           ensemble, sans relancer l&apos;analyse.
         </div>
       </div>
@@ -839,7 +862,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                 <Figure title="Winrate" value={pct(general.winRate)} hint="trades gagnants" />
                 <Figure title="Profit factor" value={fmtPfOrInf(general.pf)} />
                 <Figure
-                  title="DD suiveur intraday"
+                  title={`DD ${DD_MODE_TEXT[account.ddMode ?? "eod"]}`}
                   value={fmtUsd(-(general.accountRuns[0]?.run.propDD ?? 0))}
                   color={lossColor}
                   hint={`clôturé : ${fmtUsd(-general.maxDD)}${general.budget ? ` · budget ${(general.budget * general.per.length).toFixed(0)} $` : ""}`}
@@ -882,8 +905,11 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                         <th style={th}>PnL</th>
                         <th style={th}>PF</th>
                         <th style={th}>DD clôturé</th>
-                        <th style={th}>DD intraday</th>
-                        <th style={th}>Jours coupés</th>
+                        <th style={th}>DD prop</th>
+                        <th style={th}>Pire journée</th>
+                        <th style={th}>Jours à −{account.dailyStop ?? "—"} $</th>
+                        <th style={th}>Objectif {account.target ? `${account.target} $` : ""}</th>
+                        <th style={th}>Contrats ouverts max</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -902,7 +928,10 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                             {fmtUsd(-run.propDD)}
                             {run.breachAt ? <span style={{ fontSize: 11 }}> · compte sauté le {fmtDay(run.breachAt)}</span> : null}
                           </td>
+                          <td style={{ ...td, color: lossColor }}>{fmtUsd(run.worstDay)}</td>
                           <td style={td}>{run.stopDays || "—"}</td>
+                          <td style={td}>{run.targetAt ? `${fmtDay(run.targetAt)} (${run.targetSessions} séances)` : "—"}</td>
+                          <td style={{ ...td, color: account.maxContracts && run.maxOpen > account.maxContracts ? lossColor : undefined }}>{run.maxOpen}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -924,7 +953,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                       <th style={th}>TP2</th>
                       <th style={th}>PnL</th>
                       <th style={th}>PF</th>
-                      <th style={th}>DD intraday</th>
+                      <th style={th}>DD prop</th>
                       <th style={th}>Période</th>
                     </tr>
                   </thead>
@@ -1021,7 +1050,7 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
         />
         <Figure title="Winrate" value={pct(cfg.winRate)} />
         <Figure title="Profit factor" value={fmtPfOrInf(cfg.pf)} />
-        <Figure title="DD suiveur intraday" value={fmtUsd(-(cfg.propDD ?? cfg.maxDD))} color={lossColor} hint={`clôturé : ${fmtUsd(-cfg.maxDD)} · ${r.settings.lots} lots`} />
+        <Figure title={r.ddMode === "eod" ? "DD suiveur fin de journée" : "DD suiveur intraday"} value={fmtUsd(-(cfg.propDD ?? cfg.maxDD))} color={lossColor} hint={`clôturé : ${fmtUsd(-cfg.maxDD)} · ${r.settings.lots} lots`} />
         <Figure title="PnL ÷ DD" value={ratioOf(cfg).toFixed(2)} hint="ce que rapporte 1 $ de drawdown" />
         {(() => {
           const size = sizeFor(r, cfg);
@@ -1051,7 +1080,7 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
                 <th style={th}>Win</th>
                 <th style={th}>PnL</th>
                 <th style={th}>Écart</th>
-                <th style={th}>DD intraday</th>
+                <th style={th}>DD prop</th>
               </tr>
             </thead>
             <tbody>
@@ -1118,7 +1147,7 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
               <th style={th}>Win</th>
               <th style={th}>PnL</th>
               <th style={th}>PF</th>
-              <th style={th}>DD intraday</th>
+              <th style={th}>DD prop</th>
               <th style={th}>PnL ÷ DD</th>
               <th style={th}>Mois +</th>
             </tr>

@@ -63,14 +63,14 @@ export function recommend(r: SymbolResult, c: ConfigStats): Reco[] {
     else
       out.push({
         tone: "rule",
-        text: `Taille : ${size.maxLots >= 1 ? `${size.maxLots} lot(s)` : `${Math.round(size.maxLots * 10)} micros`} au maximum — ${size.perLot.toFixed(0)} $ de drawdown intraday par lot, budget ${size.budget.toFixed(0)} $ pour cette paire. À cette taille : ${usd((c.pnl / r.settings.lots) * size.maxLots)} sur la période.`,
+        text: `Taille : ${size.maxLots >= 1 ? `${size.maxLots} lot(s)` : `${Math.round(size.maxLots * 10)} micros`} au maximum — ${size.perLot.toFixed(0)} $ de drawdown prop par lot, budget ${size.budget.toFixed(0)} $ pour cette paire. À cette taille : ${usd((c.pnl / r.settings.lots) * size.maxLots)} sur la période.`,
       });
   }
   const u = r.unconstrained;
   if (u && u.key !== c.key && (r.objective ?? "ratio") === "ratio")
     out.push({
       tone: "ok",
-      text: `La config la plus rentable ferait ${usd(u.pnl)} mais avec ${u.propDD.toFixed(0)} $ de drawdown intraday (ratio ${ratioOf(u).toFixed(1)}) ; celle-ci : ${usd(c.pnl)} pour ${(c.propDD ?? 0).toFixed(0)} $ (ratio ${ratioOf(c).toFixed(1)}).`,
+      text: `La config la plus rentable ferait ${usd(u.pnl)} mais avec ${u.propDD.toFixed(0)} $ de drawdown prop (ratio ${ratioOf(u).toFixed(1)}) ; celle-ci : ${usd(c.pnl)} pour ${(c.propDD ?? 0).toFixed(0)} $ (ratio ${ratioOf(c).toFixed(1)}).`,
     });
   if (r.ddBreached) out.push({ tone: "warn", text: "Aucune config ne reste sous ton budget de drawdown à cette taille : réduis les lots ou passe en micros." });
 

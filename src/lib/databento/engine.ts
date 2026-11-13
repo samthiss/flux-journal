@@ -77,6 +77,8 @@ export type Settings = {
    * the most made, among those under the budget.
    */
   objective?: "ratio" | "pnl";
+  /** How the prop firm trails its drawdown. Intraday when not said. */
+  ddMode?: DDMode;
 };
 
 /** Made per dollar of intraday drawdown: the measure of a configuration that will be sized to a budget. */
@@ -355,19 +357,40 @@ function excursion(
   return { mfe, mae, give };
 }
 
+/**
+ * The CME session a moment belongs to, as a day number.
+ *
+ * A session opens at 17:00 Chicago and closes at 16:00 the next afternoon;
+ * the hour between is a halt, 22:00 to 23:00 UTC in either season. Cutting
+ * the days at 22:00 UTC therefore never splits a session — and is plain
+ * arithmetic, where a time-zone conversion done millions of times is not.
+ */
+export const sessionDay = (t: number) => Math.floor((t + 2 * 3600000) / 86400000);
+
+/** How a prop firm trails its drawdown: from every high, open profit included, or from each session's closing balance. */
+export type DDMode = "intraday" | "eod";
+
 /** One position for the drawdown: when it was open, and its path, in money. */
 export type PathTrade = { start: number; end: number; final: number; mfe: number; mae: number; give: number };
 
 /**
- * An intraday trailing drawdown, the way a prop firm counts it: from the
- * highest the account was ever worth, open profit included, to the lowest it
- * fell after. Positions open at the same time — 6B and 6E both long against
+ * A trailing drawdown, the way a prop firm counts it.
+ *
+ * "intraday": from the highest the account was ever worth, open profit
+ * included, to the lowest it fell after. "eod": the floor rises only with the
+ * balance at each session's close, but open losses still count against it at
+ * any moment. Positions open at the same time — 6B and 6E both long against
  * the dollar — are taken together, their worst moments as if they came at
  * once: the figure is an upper bound, which is the side to be wrong on.
  */
-export function trailingDrawdown(trades: PathTrade[], limit: number | null = null): { dd: number; breachAt: number | null } {
+export function trailingDrawdown(
+  trades: PathTrade[],
+  limit: number | null = null,
+  mode: DDMode = "intraday"
+): { dd: number; breachAt: number | null } {
   const sorted = [...trades].sort((a, b) => a.start - b.start);
   let eq = 0, peak = 0, dd = 0;
+  let day: number | null = null;
   let breachAt: number | null = null;
   for (let i = 0; i < sorted.length; ) {
     // The positions that overlap this one, as one.
@@ -382,12 +405,21 @@ export function trailingDrawdown(trades: PathTrade[], limit: number | null = nul
       c.give += x.give;
       k++;
     }
-    dd = Math.max(dd, peak - (eq + c.mae));
-    const top = eq + c.mfe;
-    const peak2 = Math.max(peak, top);
-    dd = Math.max(dd, peak2 - (top - c.give));
-    eq += c.final;
-    peak = Math.max(peak2, eq);
+    if (mode === "eod") {
+      // A new session: the last one's closing balance may raise the floor.
+      const d = sessionDay(c.start);
+      if (day !== null && d !== day) peak = Math.max(peak, eq);
+      day = d;
+      dd = Math.max(dd, peak - (eq + c.mae));
+      eq += c.final;
+    } else {
+      dd = Math.max(dd, peak - (eq + c.mae));
+      const top = eq + c.mfe;
+      const peak2 = Math.max(peak, top);
+      dd = Math.max(dd, peak2 - (top - c.give));
+      eq += c.final;
+      peak = Math.max(peak2, eq);
+    }
     if (limit !== null && breachAt === null && dd >= limit) breachAt = c.start;
     i = k;
   }
@@ -485,6 +517,7 @@ export type SymbolResult = {
   /** The prop limit the ranking kept to, and what the best configuration would have been without it. */
   ddLimit?: number | null;
   objective?: "ratio" | "pnl";
+  ddMode?: DDMode;
   /** True when no configuration stayed under the limit: the ranking then ignores it. */
   ddBreached?: boolean;
   unconstrained?: { key: string; cfg: Config; pnl: number; propDD: number } | null;
@@ -521,7 +554,8 @@ function statsOf(
   tickValue: number,
   lots: number,
   keepDetail: boolean,
-  news: ((t: number) => NewsContext) | null = null
+  news: ((t: number) => NewsContext) | null = null,
+  ddMode: DDMode = "intraday"
 ): ConfigStats {
   trades.sort((a, b) => a.t - b.t);
   let tp2 = 0, tp1 = 0, sl = 0, tr = 0, to = 0, netTicks = 0, win = 0, loss = 0, peak = 0, eq = 0, maxDD = 0, wins = 0;
@@ -560,7 +594,9 @@ function statsOf(
     }
   }
   const propDD = trailingDrawdown(
-    trades.map((t) => ({ start: t.t, end: t.end, final: t.ticks * money, mfe: t.mfe * money, mae: t.mae * money, give: t.give * money }))
+    trades.map((t) => ({ start: t.t, end: t.end, final: t.ticks * money, mfe: t.mfe * money, mae: t.mae * money, give: t.give * money })),
+    null,
+    ddMode
   ).dd;
   return {
     key: configKey(cfg),
@@ -642,6 +678,7 @@ export async function analyse(
   news: { events: NewsEvent[]; currencies: string[] } | null = null
 ): Promise<SymbolResult> {
   const windowMin = settings.newsWindow ?? 30;
+  const ddMode: DDMode = settings.ddMode ?? "intraday";
   const rules: Rules = settings.rules ?? { maxPerDay: null, hours: null, flatAt: null, blackout: null };
   const major = (news?.events ?? []).filter((e) => isMajorRelease(e, symbol)).map((e) => e.at);
   /** Whether a fill is one the rules let through, before the daily cap. */
@@ -703,7 +740,7 @@ export async function analyse(
         rules
       );
       const c = { ...cfg, news: mode };
-      all.push({ cfg: c, trades: kept, s: statsOf(c, [...kept], tickValue, settings.lots, false) });
+      all.push({ cfg: c, trades: kept, s: statsOf(c, [...kept], tickValue, settings.lots, false, null, ddMode) });
     }
     if (i % 20 === 19) {
       onProgress(i + 1, configs.length);
@@ -787,7 +824,9 @@ export async function analyse(
         }
         const inTrades = sc.x.trades.filter((t) => t.t < split);
         const dd = trailingDrawdown(
-          inTrades.map((t) => ({ start: t.t, end: t.end, final: t.ticks * money, mfe: t.mfe * money, mae: t.mae * money, give: t.give * money }))
+          inTrades.map((t) => ({ start: t.t, end: t.end, final: t.ticks * money, mfe: t.mfe * money, mae: t.mae * money, give: t.give * money })),
+          null,
+          ddMode
         ).dd;
         sc.inScore = (sc.inT * money) / Math.max(dd, floor);
       }
@@ -830,7 +869,7 @@ export async function analyse(
           const ctx = lookup(t.t);
           return mode === "window" ? !ctx.window : !ctx.day;
         });
-      const st = statsOf(cfg, capped(trades, r), tickValue, settings.lots, false);
+      const st = statsOf(cfg, capped(trades, r), tickValue, settings.lots, false, null, ddMode);
       return { label, n: st.n, pnl: st.pnl, winRate: st.winRate, maxDD: st.maxDD, propDD: st.propDD, pf: st.pf };
     };
     const off: [keyof Rules, string][] = [
@@ -863,7 +902,7 @@ export async function analyse(
     settings,
     zones,
     tested: configs.length,
-    top: pool.slice(0, 20).map((x) => statsOf(x.cfg, x.trades, tickValue, settings.lots, true, lookup)),
+    top: pool.slice(0, 20).map((x) => statsOf(x.cfg, x.trades, tickValue, settings.lots, true, lookup, ddMode)),
     byOffset: best(pool, (c) => String(c.offset)).sort(num),
     bySl: best(pool, (c) => String(c.sl)).sort(num),
     byTp: best(fixed, (c) => `${c.tp1}/${c.tp2}`).sort(pair),
@@ -876,6 +915,7 @@ export async function analyse(
     rules,
     rulesImpact,
     ddLimit: limitDD,
+    ddMode,
     objective,
     ddBreached: objective === "pnl" && limitDD !== null && !safe.length,
     unconstrained: unconstrained ? { key: unconstrained.s.key, cfg: unconstrained.cfg, pnl: unconstrained.s.pnl, propDD: unconstrained.s.propDD ?? 0 } : null,
