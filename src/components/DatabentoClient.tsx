@@ -464,6 +464,9 @@ function GeneralRules({ r }: { r: SymbolResult }) {
       {ruleRow("Entrée", `ordre limite sur la zone, ${lots} lots`)}
       {ruleRow("Sortie", `${lots / 2} lot à TP1 (stop au BE), l'autre en trailing dès TP1, à la distance du TP1`)}
       {h && ruleRow("Horaires", `ordres de ${h[0]}h à ${h[1]}h (Chicago) · ${r.rules?.maxPerDay ?? 1} trade par jour et par marché`)}
+      {r.rules?.minApproach
+        ? ruleRow("Approche", `le prix doit avoir fait au moins ${r.rules.minApproach} ticks vers la zone depuis l'ouverture de 17h (Chicago) — sinon pas d'ordre`)
+        : null}
       {ruleRow("Durée", `${r.settings.maxHours} h au plus en position${r.rules?.flatAt ? `, tout clôturé à ${r.rules.flatAt}h` : ""}`)}
       {ruleRow("News", bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après CPI, NFP, Fed et la banque centrale de la paire` : "pas de blackout")}
       {r.settings.maxLossPerTrade ? ruleRow("Risque", `jamais plus de ${r.settings.maxLossPerTrade} $ perdus sur un trade`) : null}

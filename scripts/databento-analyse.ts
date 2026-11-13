@@ -113,7 +113,10 @@ function bars(symbol: string, source: string): Dataset {
       newsWindow: 30,
       // Ten minutes either side of the major releases: as safe as two hours
       // after, and the trades just past them are kept.
-      rules: { ...DEFAULT_RULES, hours: [2, 14], excludeHours: pair.excludeHours, blackout: { before: 10, after: 10 } },
+      // Price must have come 15 ticks toward the level since the 17:00 open:
+      // a session that opened by the level, or beyond it, is passed — a
+      // quarter fewer trades, for a lower drawdown and nearly the same profit.
+      rules: { ...DEFAULT_RULES, hours: [2, 14], excludeHours: pair.excludeHours, blackout: { before: 10, after: 10 }, minApproach: 15 },
       // Two lots, always: each pair's drawdown at that size is capped, so six
       // of them together stay well inside the account's 2,000.
       ddLimit: PAIR_DD_CAP,

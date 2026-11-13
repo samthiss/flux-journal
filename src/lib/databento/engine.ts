@@ -93,6 +93,12 @@ export type Rules = {
    * is not then sold as resistance.
    */
   noReverseAfterCross?: boolean;
+  /**
+   * Price must have come at least this many ticks toward the level since the
+   * session opened (17:00 Chicago, the evening before): a session that opened
+   * next to the level, or on its far side, is not traded on it.
+   */
+  minApproach?: number | null;
 };
 export type Settings = {
   lots: number;
@@ -807,6 +813,10 @@ export async function analyse(
       const open = sessionOpen.get(sessionDay(t));
       if (open !== undefined && Math.abs(open - tr.zone) <= r.openNear * tick + tick * 1e-3) return false;
     }
+    if (r.minApproach) {
+      const open = sessionOpen.get(sessionDay(t));
+      if (open !== undefined && ((open - tr.zone) * tr.dir) / tick < r.minApproach - 1e-6) return false;
+    }
     if (r.noReverseAfterCross) {
       const day = sessionDay(t);
       // Broken downward, the level is not sold from below; broken upward, not bought from above.
@@ -1031,13 +1041,14 @@ export async function analyse(
       ["excludeHours", `sans « pas de trade à ${(rules.excludeHours ?? []).map((h) => `${h}h`).join(", ")} »`],
       ["openNear", `sans « pas de niveau à moins de ${rules.openNear} ticks de l'ouverture »`],
       ["noReverseAfterCross", "sans « pas de trade inverse après un niveau traversé »"],
+      ["minApproach", `sans « au moins ${rules.minApproach} ticks vers le niveau depuis l'ouverture »`],
     ];
     const active = off.filter(([k]) => rules[k] !== null && rules[k] !== undefined && rules[k] !== false && !(Array.isArray(rules[k]) && !(rules[k] as unknown[]).length));
     if (active.length) {
       rulesImpact = [
         measure("Toutes tes règles", rules),
         ...active.map(([k, label]) => measure(label, { ...rules, [k]: null })),
-        measure("Aucune règle", { maxPerDay: null, hours: null, flatAt: null, blackout: null, excludeHours: null, openNear: null, noReverseAfterCross: false }),
+        measure("Aucune règle", { maxPerDay: null, hours: null, flatAt: null, blackout: null, excludeHours: null, openNear: null, noReverseAfterCross: false, minApproach: null }),
       ];
     }
   }
