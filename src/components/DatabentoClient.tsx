@@ -266,6 +266,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
   // ---- The account rules, kept in the browser --------------------------------
   const [account, setAccount] = useState<AccountRules>(DEFAULT_ACCOUNT);
   const [tiersDraft, setTiersDraft] = useState(tiersText(DEFAULT_TIERS));
+  const [rulesOpen, setRulesOpen] = useState(false);
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "null");
@@ -298,6 +299,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
   // ---- Reports ------------------------------------------------------------------
   const analysed = entries.filter((e) => retained(e)).sort((a, b) => a.symbol.localeCompare(b.symbol));
   const [view, setView] = useState<string>("general");
+  const [detail, setDetail] = useState(false);
 
   const general = useMemo(() => {
     const per = analysed.map((e) => {
@@ -360,7 +362,22 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
     <div>
       {/* ---- Rules ---- */}
       <div style={{ ...glassCard, marginBottom: 20 }}>
-        <div style={label}>Tes règles</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={label}>Ton compte</div>
+          <span style={{ ...mono, fontSize: 12, color: "oklch(0.75 0.02 250)" }}>
+            {account.copies ?? 1} compte(s) · drawdown {account.ddLimit ?? "—"} $ · {account.dailyStop ?? "—"} $ par jour · {account.maxContracts ?? "—"} contrats ·{" "}
+            {account.maxLossPerTrade ?? "—"} $ max par trade
+          </span>
+          <button
+            type="button"
+            onClick={() => setRulesOpen((o) => !o)}
+            style={{ ...mono, fontSize: 11.5, marginLeft: "auto", padding: "4px 10px", borderRadius: 5, border: "1px solid oklch(0.34 0.04 250)", background: "transparent", color: "oklch(0.75 0.02 250)", cursor: "pointer" }}
+          >
+            {rulesOpen ? "Fermer" : "Modifier"}
+          </button>
+        </div>
+        {rulesOpen && (
+        <>
         <div style={{ fontSize: 12.5, color: "oklch(0.62 0.03 250)", marginTop: 8 }}>
           Les règles de ton compte prop firm, appliquées aux rapports ci-dessous sur les trades de toutes les paires ensemble. Les règles de séance
           (1 trade par jour, ordres 1h–15h, clôture 16h, blackout news, heures exclues) ont été appliquées pendant l&apos;analyse.
@@ -417,6 +434,8 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
             <input type="number" min={1} value={account.dailyStop ?? 500} disabled={account.dailyStop === null} onChange={(e) => updateAccount({ ...account, dailyStop: Number(e.target.value) })} style={smallField} />
           </RuleRow>
         </div>
+        </>
+        )}
       </div>
 
       {/* ---- Reports ---- */}
@@ -439,40 +458,74 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
 
           {view === "general" || !sel || !selCfg ? (
             <div style={glassCard}>
-              <div style={label}>Rapport général — config retenue de chaque symbole</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 20, marginTop: 16 }}>
-                <Figure title="PnL total" value={fmtUsd(general.pnl)} color={tone(general.pnl)} hint={`${general.trades.length} trades`} />
-                <Figure title="Winrate" value={pct(general.winRate)} hint="trades gagnants" />
-                <Figure title="Profit factor" value={fmtPfOrInf(general.pf)} />
+              <div style={label}>Rapport général — par compte, {general.per.length} paires à {general.per[0]?.e.result!.settings.lots ?? 2} lots</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 20, marginTop: 16 }}>
                 <Figure
-                  title={`DD ${DD_MODE_TEXT[account.ddMode ?? "eod"]}`}
-                  value={fmtUsd(-(general.accountRuns[0]?.run.propDD ?? 0))}
-                  color={lossColor}
-                  hint={`clôturé : ${fmtUsd(-general.maxDD)}${general.budget ? ` · budget ${(general.budget * general.per.length).toFixed(0)} $` : ""}`}
-                />
-                <Figure
-                  title="Par mois"
+                  title="PnL par mois"
                   value={general.months.length ? fmtUsd(general.pnl / general.months.length) : "—"}
-                  hint={`${general.months.filter((m) => general.cell(m, null).pnl > 0).length} / ${general.months.length} mois positifs`}
+                  color={tone(general.pnl)}
+                  hint={`par compte · ${general.months.filter((m) => general.cell(m, null).pnl > 0).length} / ${general.months.length} mois positifs`}
                 />
                 {(account.copies ?? 1) > 1 && general.months.length > 0 && (
-                  <>
-                    <Figure
-                      title={`Sur ${account.copies} comptes`}
-                      value={fmtUsd((general.pnl / general.months.length) * account.copies!)}
-                      color={tone(general.pnl)}
-                      hint={`par mois · ${fmtUsd(general.pnl * account.copies!)} sur la période`}
-                    />
-                    {/* A backtest picks its settings on the months it is judged on:
-                        what follows has, every time it has been checked, been less. */}
-                    <Figure
-                      title="Réaliste"
-                      value={`${fmtUsd((general.pnl / general.months.length) * account.copies! * 0.5)} à ${fmtUsd((general.pnl / general.months.length) * account.copies! * 0.65)}`}
-                      hint="par mois, 50 à 65 % du backtest, avant frais"
-                    />
-                  </>
+                  <Figure
+                    title={`Sur ${account.copies} comptes`}
+                    value={fmtUsd((general.pnl / general.months.length) * account.copies!)}
+                    color={tone(general.pnl)}
+                    hint={`réaliste : ${fmtUsd((general.pnl / general.months.length) * account.copies! * 0.5)} à ${fmtUsd((general.pnl / general.months.length) * account.copies! * 0.65)}`}
+                  />
                 )}
+                <Figure title="Gagnants" value={pct(general.winRate)} hint={`${(general.trades.length / Math.max(1, general.months.length)).toFixed(0)} trades par mois`} />
+                <Figure
+                  title="Drawdown max"
+                  value={fmtUsd(-(general.accountRuns[0]?.run.propDD ?? 0))}
+                  color={lossColor}
+                  hint={`${DD_MODE_TEXT[account.ddMode ?? "eod"]} · limite ${account.ddLimit ?? "—"} $`}
+                />
+                <Figure
+                  title="Pire journée"
+                  value={fmtUsd(general.accountRuns[0]?.run.worstDay ?? 0)}
+                  color={lossColor}
+                  hint={`limite ${account.dailyStop ?? "—"} $`}
+                />
               </div>
+
+              <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 18 }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Paire</th>
+                    <th style={th}>PnL par mois</th>
+                    <th style={th}>Trades par mois</th>
+                    <th style={th}>Gagnants</th>
+                    <th style={th}>Drawdown</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {general.per.map(({ e, c }) => {
+                    const n = Math.max(1, Object.keys(c.months).length);
+                    return (
+                      <tr key={e.symbol} style={{ cursor: "pointer" }} onClick={() => setView(e.symbol)}>
+                        <td style={{ ...td, fontWeight: 700 }}>{e.symbol}</td>
+                        <td style={{ ...td, color: tone(c.pnl), fontWeight: 700 }}>{fmtUsd(c.pnl / n)}</td>
+                        <td style={td}>{(c.n / n).toFixed(1)}</td>
+                        <td style={td}>{pct(c.winRate)}</td>
+                        <td style={{ ...td, color: lossColor }}>{fmtUsd(-(c.propDD ?? c.maxDD))}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div style={{ fontSize: 11.5, color: "oklch(0.5 0.03 250)", marginTop: 6 }}>Clique une paire pour voir sa règle.</div>
+
+              <button
+                type="button"
+                onClick={() => setDetail((o) => !o)}
+                style={{ ...mono, fontSize: 12, marginTop: 18, padding: "6px 12px", borderRadius: 5, border: "1px solid oklch(0.34 0.04 250)", background: "transparent", color: "oklch(0.75 0.02 250)", cursor: "pointer" }}
+              >
+                {detail ? "Masquer le détail" : "Voir le détail"}
+              </button>
+
+              {detail && (
+              <>
               <Equity trades={general.trades.map((t) => [0, t.pnl])} money={1} />
               <Recommendations
                 title="Règles par symbole"
@@ -618,6 +671,8 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                   </tbody>
                 </table>
               </div>
+              </>
+              )}
             </div>
           ) : (
             <SymbolReport entry={sel} cfg={selCfg} onChoose={(k) => choisir(sel.symbol, k)} />
@@ -628,19 +683,87 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
   );
 }
 
+/** The way out at two lots, in the words of the desk: one lot here, the other there. */
+function exitInLots(c: ConfigStats["cfg"], lots: number): string {
+  const k = kindOf(c);
+  const trail = `en trailing : à +${c.act} ticks, stop à ${c.dist} ticks du meilleur prix`;
+  if (k === "trail") return `les ${lots} lots ${trail}`;
+  if (k === "fixed" && c.tp1 === c.tp2) return `les ${lots} lots à +${c.tp1} ticks`;
+  const half = lots >= 2 ? `${lots / 2} lot${lots / 2 > 1 ? "s" : ""}` : "½ position";
+  if (k === "fixed") return `${half} à +${c.tp1} ticks (stop au BE), ${half} à +${c.tp2} ticks`;
+  return `${half} à +${c.tp1} ticks (stop au BE), ${half} ${trail}`;
+}
+
+/** What to do on this pair, and nothing else: the rule card. */
+function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
+  const c = cfg.cfg;
+  const lots = r.settings.lots;
+  const levels = Object.entries(cfg.zones).sort(([a], [b]) => Number(a) - Number(b));
+  const hours = r.rules?.excludeHours ?? [];
+  const news = c.news === "window" ? `pas de trade ±${r.newsInfo?.window ?? 30} min autour d'une news ${r.newsInfo?.currencies.join("/") ?? ""}` : c.news === "day" ? "pas de trade les jours de news" : "ton blackout CPI/NFP/Fed/banque centrale suffit";
+  const row = (k: string, v: React.ReactNode) => (
+    <div style={{ display: "flex", gap: 12, fontSize: 13.5, lineHeight: 1.5 }}>
+      <span style={{ color: "oklch(0.6 0.03 250)", width: 110, flex: "none" }}>{k}</span>
+      <span>{v}</span>
+    </div>
+  );
+  return (
+    <div style={{ marginTop: 16, padding: "14px 16px", border: `1px solid ${accentColor}`, borderRadius: 8, background: "oklch(0.84 0.17 196 / 0.05)", display: "grid", gap: 6 }}>
+      {row(
+        "Niveaux",
+        <span style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {levels.map(([z, b]) => (
+            <span key={z} style={{ ...mono, color: b.pnl > 0 ? undefined : lossColor }} title={`${fmtUsd(b.pnl)} sur ${b.n} trades`}>
+              {fmtZone(Number(z))}
+              {b.pnl > 0 ? "" : " ✗"}
+            </span>
+          ))}
+        </span>
+      )}
+      {row("Entrée", `ordre limite ${c.offset === 0 ? "sur le niveau" : c.offset > 0 ? `${c.offset} ticks avant le niveau` : `${-c.offset} ticks au-delà du niveau`}`)}
+      {row("Stop", `${c.sl} ticks (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
+      {row("Sortie", exitInLots(c, lots))}
+      {row("News", news)}
+      {hours.length > 0 && row("Éviter", hours.map((h) => `${h}h–${h + 1}h`).join(", ") + " (Chicago)")}
+    </div>
+  );
+}
+
 function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats; onChoose: (key: string) => void }) {
   const r = entry.result!;
   const money = r.tickValue * r.settings.lots;
   const months = Object.keys(cfg.months).sort().reverse();
   const zones = Object.entries(cfg.zones).sort(([a], [b]) => Number(a) - Number(b));
+  const [open, setOpen] = useState(false);
+  const nMonths = Math.max(1, Object.keys(cfg.months).length);
   return (
     <div style={glassCard}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <div style={label}>{r.symbol} — {cfgText(cfg.cfg)}</div>
+        <div style={label}>{r.symbol}</div>
         <div style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)" }}>
-          {fmtDay(r.from)} → {fmtDay(r.to)} · {r.touches} touches de niveau · {r.tested} configs testées · {r.settings.lots} lots
+          backtest du {fmtDay(r.from)} au {fmtDay(r.to)} · {r.settings.lots} lots
         </div>
       </div>
+
+      <Fiche r={r} cfg={cfg} />
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 20, marginTop: 18 }}>
+        <Figure title="PnL par mois" value={fmtUsd(cfg.pnl / nMonths)} color={tone(cfg.pnl)} hint={`${fmtUsd(cfg.pnl)} sur la période`} />
+        <Figure title="Trades par mois" value={(cfg.n / nMonths).toFixed(1)} />
+        <Figure title="Gagnants" value={pct(cfg.winRate)} />
+        <Figure title="Drawdown max" value={fmtUsd(-(cfg.propDD ?? cfg.maxDD))} color={lossColor} hint="fin de journée" />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{ ...mono, fontSize: 12, marginTop: 18, padding: "6px 12px", borderRadius: 5, border: "1px solid oklch(0.34 0.04 250)", background: "transparent", color: "oklch(0.75 0.02 250)", cursor: "pointer" }}
+      >
+        {open ? "Masquer le détail" : "Voir le détail"}
+      </button>
+
+      {open && (
+      <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 20, marginTop: 16 }}>
         <Figure title="PnL" value={fmtUsd(cfg.pnl)} color={tone(cfg.pnl)} hint={`${cfg.netTicks} ticks / contrat`} />
         <Figure
@@ -812,6 +935,8 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
           />
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
