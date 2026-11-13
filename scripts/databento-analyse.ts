@@ -46,7 +46,10 @@ const GRID: Grid = {
   acts: [10, 15, 20, 30],
   dists: [5, 10, 15, 20],
   kinds: ["fixed", "trail", "tp1trail"],
-  newsModes: ["all", "window", "day"],
+  // Not "day": staying out of every session with a high-impact release is
+  // half the year, and it only ever won by trading less. The trader's own
+  // blackout around the major releases is applied to every configuration.
+  newsModes: ["all", "window"],
 };
 
 /** How many configurations each report keeps: the file goes to the server, over a slow connection. */
@@ -90,7 +93,8 @@ function bars(symbol: string, source: string): Dataset {
       lots: 2,
       rearm: 30,
       maxHours: 24,
-      minTrades: 10,
+      // Enough trades that a configuration cannot rank on trading little.
+      minTrades: 20,
       newsWindow: 30,
       rules: { ...DEFAULT_RULES, excludeHours: pair.excludeHours },
       ddLimit: pairBudget(ACCOUNT),
