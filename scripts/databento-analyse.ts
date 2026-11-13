@@ -26,8 +26,8 @@ const DOWNLOADS = path.join(homedir(), "Downloads");
 const CACHE = path.join(tmpdir(), "flux-databento");
 
 /**
- * The plan, the same for every pair: the order on the level (6N four ticks
- * before it), the stop and TP1 found pair by pair, one lot out at TP1 with the stop to the entry, the
+ * The plan, the same for every pair: the order on the level, the stop and
+ * TP1 found pair by pair, one lot out at TP1 with the stop to the entry, the
  * other trailed from TP1 at TP1's distance; nothing traded outside 2h–14h
  * Chicago, nothing held more than four hours.
  */
@@ -39,9 +39,7 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [5], tp1s: FX_TP1 },
   "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [5, 6, 9, 11], tp1s: FX_TP1 },
   "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2, 9, 11], tp1s: FX_TP1 },
-  // The only pair whose order is better off the level: four ticks before it,
-  // for a third more at the same drawdown, and it held on the last months.
-  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 3, 7, 8], tp1s: FX_TP1, offset: 4 },
+  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 3, 7, 8], tp1s: FX_TP1 },
   // ZS (1153.75 / 1174.75 / 1227.75 / 1293.5) is left out: price overshoots
   // its levels by about as much as it rebounds, and the only configuration
   // under the drawdown cap — eight ticks beyond — lost 2,250 on the last months.
@@ -98,7 +96,9 @@ function bars(symbol: string, source: string): Dataset {
       // Enough trades that a configuration cannot rank on trading little.
       minTrades: 20,
       newsWindow: 30,
-      rules: { ...DEFAULT_RULES, hours: [2, 14], excludeHours: pair.excludeHours },
+      // Ten minutes either side of the major releases: as safe as two hours
+      // after, and the trades just past them are kept.
+      rules: { ...DEFAULT_RULES, hours: [2, 14], excludeHours: pair.excludeHours, blackout: { before: 10, after: 10 } },
       // Two lots, always: each pair's drawdown at that size is capped, so six
       // of them together stay well inside the account's 2,000.
       ddLimit: PAIR_DD_CAP,

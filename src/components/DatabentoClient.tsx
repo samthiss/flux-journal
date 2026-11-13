@@ -707,7 +707,9 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
   const lots = r.settings.lots;
   const levels = Object.entries(cfg.zones).sort(([a], [b]) => Number(a) - Number(b));
   const hours = r.rules?.excludeHours ?? [];
-  const news = c.news === "window" ? `pas de trade ±${r.newsInfo?.window ?? 30} min autour d'une news ${r.newsInfo?.currencies.join("/") ?? ""}` : c.news === "day" ? "pas de trade les jours de news" : "ton blackout CPI/NFP/Fed/banque centrale suffit";
+  const bo = r.rules?.blackout;
+  const blackout = bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après CPI, NFP, Fed et la banque centrale de la paire` : "pas de blackout";
+  const news = c.news === "window" ? `${blackout} ; et ±${r.newsInfo?.window ?? 30} min autour des autres news ${r.newsInfo?.currencies.join("/") ?? ""}` : c.news === "day" ? "pas de trade les jours de news" : blackout;
   const row = (k: string, v: React.ReactNode) => (
     <div style={{ display: "flex", gap: 12, fontSize: 13.5, lineHeight: 1.5 }}>
       <span style={{ color: "oklch(0.6 0.03 250)", width: 110, flex: "none" }}>{k}</span>

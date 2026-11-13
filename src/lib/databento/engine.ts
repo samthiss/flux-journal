@@ -29,7 +29,14 @@ export type ExitKind = "fixed" | "trail" | "tp1trail";
  * Filtered on the fill: a trade the rule would not have taken is not taken.
  */
 export type NewsMode = "all" | "window" | "day";
-export type Config = { kind: ExitKind; offset: number; sl: number; tp1: number; tp2: number; act: number; dist: number; news?: NewsMode };
+/**
+ * The trader's confirmation: price touches the level, then stays within
+ * `band` ticks of it for `min` minutes, and the trade is taken at market at
+ * the close of that last minute. A touch that leaves the band before — broken
+ * through, or gone without waiting — is not traded.
+ */
+export type Confirm = { min: number; band: number };
+export type Config = { kind: ExitKind; offset: number; sl: number; tp1: number; tp2: number; act: number; dist: number; news?: NewsMode; confirm?: Confirm };
 export type NewsEvent = { at: number; currency: string; title: string };
 export type Grid = {
   offsets: number[];
@@ -52,6 +59,8 @@ export type Grid = {
    * acts and dists lists are then not used for the runner.
    */
   trailFromTp1?: number;
+  /** Entries on confirmation instead of a limit order: every configuration is tried with each. */
+  confirms?: Confirm[];
 };
 /**
  * The trader's own session rules, applied to every configuration.
@@ -160,7 +169,8 @@ export const NEWS_LABELS: Record<NewsMode, string> = {
 /** Results saved before the trailing stop existed carry no kind: they were fixed targets. */
 export const kindOf = (c: Partial<Config>): ExitKind => c.kind ?? "fixed";
 
-export const configKey = (c: Config) => `${c.kind}|${c.offset}|${c.sl}|${c.tp1}|${c.tp2}|${c.act}|${c.dist}|${c.news ?? "all"}`;
+export const configKey = (c: Config) =>
+  `${c.kind}|${c.offset}|${c.sl}|${c.tp1}|${c.tp2}|${c.act}|${c.dist}|${c.news ?? "all"}${c.confirm ? `|c${c.confirm.min}/${c.confirm.band}` : ""}`;
 
 // ---------------------------------------------------------------------------
 // Releases
@@ -257,12 +267,37 @@ export function findTouches(b: Bars, level: number, tick: number, rearmTicks: nu
 export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHours: number, flatAt: number | null = null): Trade | null {
   const eps = tick * 1e-3;
   const d = touch.dir;
-  const entry = touch.zone + d * cfg.offset * tick;
+  let entry = touch.zone + d * cfg.offset * tick;
   let fill = -1;
-  for (let i = touch.start; i < touch.end; i++) {
-    if (d === 1 ? b.l[i] <= entry + eps : b.h[i] >= entry - eps) {
-      fill = i;
-      break;
+  const confirmed = !!cfg.confirm;
+  if (cfg.confirm) {
+    // The first minute that reaches the level, then the minutes that must stay around it.
+    const lv = touch.zone;
+    const band = cfg.confirm.band * tick;
+    for (let i = touch.start; i < touch.end; i++) {
+      if (d === 1 ? b.l[i] <= lv + eps : b.h[i] >= lv - eps) {
+        // The minute of the touch is the arrival, from wherever price came:
+        // the waiting is the minutes after it.
+        const last = i + cfg.confirm.min;
+        let ok = last < b.t.length;
+        for (let k = i + 1; ok && k <= last; k++) {
+          if (b.h[k] > lv + band + eps || b.l[k] < lv - band - eps) ok = false;
+          // A gap in the minutes is not time spent at the level.
+          else if (b.t[k] - b.t[k - 1] > 5 * 60000) ok = false;
+        }
+        if (ok) {
+          fill = last;
+          entry = b.c[last];
+        }
+        break;
+      }
+    }
+  } else {
+    for (let i = touch.start; i < touch.end; i++) {
+      if (d === 1 ? b.l[i] <= entry + eps : b.h[i] >= entry - eps) {
+        fill = i;
+        break;
+      }
     }
   }
   if (fill < 0) return null;
@@ -276,12 +311,13 @@ export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHo
   const kind = kindOf(cfg);
   /** The trade, with the path it took to get there. */
   const done = (ticks: number, out: Outcome, exit: number, tp1At: number): Trade => {
-    const x = excursion(b, fill, exit, tp1At, d, entry, tick, cfg, kind, ticks, out);
+    // Taken at a minute's close, the trade did not live through that minute.
+    const x = excursion(b, confirmed ? Math.min(fill + 1, exit) : fill, exit, tp1At, d, entry, tick, cfg, kind, ticks, out);
     const r = (v: number) => Math.round(v * 10) / 10;
     return { t: b.t[fill], end: b.t[exit], zone: touch.zone, dir: d, ticks: r(ticks), out, mfe: r(x.mfe), mae: r(x.mae), give: r(x.give) };
   };
 
-  if (against(fill, sl)) return done(-cfg.sl, "SL", fill, -1);
+  if (!confirmed && against(fill, sl)) return done(-cfg.sl, "SL", fill, -1);
 
   let limit = b.t[fill] + maxHours * 3600000;
   // Closed on the bar before the hour, at its close.
@@ -651,6 +687,24 @@ function statsOf(
 }
 
 export function configsOf(g: Grid): Config[] {
+  const base = baseConfigs(g);
+  if (!g.confirms?.length) return base;
+  // On confirmation the order is not placed: where it would sit does not apply.
+  const seen = new Set<string>();
+  const out: Config[] = [];
+  for (const c of base)
+    for (const confirm of g.confirms) {
+      const x = { ...c, offset: 0, confirm };
+      const k = configKey(x);
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push(x);
+      }
+    }
+  return out;
+}
+
+function baseConfigs(g: Grid): Config[] {
   const out: Config[] = [];
   const kinds = g.kinds?.length ? g.kinds : (["fixed"] as ExitKind[]);
   if (g.trailFromTp1 !== undefined && kinds.includes("tp1trail") && !g.singleExit)
