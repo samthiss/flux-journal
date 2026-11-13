@@ -26,8 +26,8 @@ const DOWNLOADS = path.join(homedir(), "Downloads");
 const CACHE = path.join(tmpdir(), "flux-databento");
 
 /**
- * The plan, the same for every pair: the order on the level, the stop and
- * TP1 found pair by pair, one lot out at TP1 with the stop to the entry, the
+ * The plan, the same for every pair: the order on the level (6N four ticks
+ * before it), the stop and TP1 found pair by pair, one lot out at TP1 with the stop to the entry, the
  * other trailed from TP1 at TP1's distance; nothing traded outside 2h–14h
  * Chicago, nothing held more than four hours.
  */
@@ -35,13 +35,16 @@ const FX_TP1 = [5, 10, 15, 20, 30];
 const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
 
 /** Where each pair's history is, its levels, the hours (Chicago) it is not traded in, its TP1s to try. */
-const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[] }> = {
+const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; offset?: number }> = {
   "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [5], tp1s: FX_TP1 },
   "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [5, 6, 9, 11], tp1s: FX_TP1 },
   "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2, 9, 11], tp1s: FX_TP1 },
-  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 3, 7, 8], tp1s: FX_TP1 },
-  // ZS (1153.75 / 1174.75 / 1227.75 / 1293.5) has no configuration with the
-  // order on the level that stays under the drawdown cap: left out.
+  // The only pair whose order is better off the level: four ticks before it,
+  // for a third more at the same drawdown, and it held on the last months.
+  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 3, 7, 8], tp1s: FX_TP1, offset: 4 },
+  // ZS (1153.75 / 1174.75 / 1227.75 / 1293.5) is left out: price overshoots
+  // its levels by about as much as it rebounds, and the only configuration
+  // under the drawdown cap — eight ticks beyond — lost 2,250 on the last months.
   ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 608.5, 634.5, 685, 710.5], excludeHours: [8], tp1s: GRAIN_TP1 },
 };
 
@@ -104,7 +107,8 @@ function bars(symbol: string, source: string): Dataset {
       maxLossPerTrade: ACCOUNT.maxLossPerTrade,
     };
     const grid: Grid = {
-      offsets: [0],
+      // On the level, unless the pair is known to do better off it.
+      offsets: [pair.offset ?? 0],
       // 500 at most on a stop at two lots.
       sls: [6, 8, 10, 12, 15, 20, 25, 30].filter((sl) => sl * spec.tickValue * 2 <= 500),
       tp1s: pair.tp1s,
