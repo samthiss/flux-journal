@@ -26,7 +26,12 @@ export type AccountRules = {
   target?: number | null;
   /** The most contracts the firm allows open at once, all pairs together. */
   maxContracts?: number | null;
+  /** The most one trade may lose, stop hit: sizes that would risk more are not offered. */
+  maxLossPerTrade?: number | null;
 };
+
+/** The stop of a configuration, in ticks, read off its key ("kind|offset|sl|…"). */
+export const stopOfKey = (key: string) => Number(key.split("|")[2]);
 
 /** One pair's share of the drawdown: the limit, less the reserve, split between the pairs. */
 export const pairBudget = (a: AccountRules) => (a.ddLimit ? (a.ddLimit * (1 - (a.safety ?? 0) / 100)) / Math.max(1, a.pairs ?? 1) : null);
@@ -220,7 +225,13 @@ export function bestPlan(symbols: PlanSymbol[], ddLimit: number, rules: AccountR
   type Opt = { key: string | null; lots: number; trades: AccountTrade[] };
   const options: Opt[][] = symbols.map((s) => [
     { key: null, lots: 0, trades: [] },
-    ...s.configs.slice(0, perSymbol).flatMap((c) => PLAN_LOTS.map((lots) => ({ key: c.key, lots, trades: c.trades }))),
+    ...s.configs.slice(0, perSymbol).flatMap((c) =>
+      PLAN_LOTS.filter((lots) => !rules.maxLossPerTrade || stopOfKey(c.key) * s.tickValue * lots <= rules.maxLossPerTrade + 1e-9).map((lots) => ({
+        key: c.key,
+        lots,
+        trades: c.trades,
+      }))
+    ),
   ]);
   const evaluate = (pick: number[]) => {
     const trades: AccountTrade[] = [];

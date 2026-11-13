@@ -66,6 +66,14 @@ export function recommend(r: SymbolResult, c: ConfigStats): Reco[] {
         text: `Taille : ${size.maxLots >= 1 ? `${size.maxLots} lot(s)` : `${Math.round(size.maxLots * 10)} micros`} au maximum — ${size.perLot.toFixed(0)} $ de drawdown prop par lot, budget ${size.budget.toFixed(0)} $ pour cette paire. À cette taille : ${usd((c.pnl / r.settings.lots) * size.maxLots)} sur la période.`,
       });
   }
+  // And the size the loss of one trade allows, stop hit.
+  const perTrade = c.cfg.sl * r.tickValue;
+  const cap = r.settings.maxLossPerTrade;
+  if (cap)
+    out.push({
+      tone: "ok",
+      text: `Un stop touché coûte ${perTrade.toFixed(0)} $ par lot : ${Math.floor((cap / perTrade) * 10) / 10} lot(s) au plus pour ne jamais perdre plus de ${cap} $ sur un trade.`,
+    });
   const u = r.unconstrained;
   if (u && u.key !== c.key && (r.objective ?? "ratio") === "ratio")
     out.push({

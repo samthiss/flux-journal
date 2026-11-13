@@ -79,6 +79,8 @@ export type Settings = {
   objective?: "ratio" | "pnl";
   /** How the prop firm trails its drawdown. Intraday when not said. */
   ddMode?: DDMode;
+  /** The most one trade may lose, stop hit: the report says what size that allows. */
+  maxLossPerTrade?: number | null;
 };
 
 /** Made per dollar of intraday drawdown: the measure of a configuration that will be sized to a budget. */

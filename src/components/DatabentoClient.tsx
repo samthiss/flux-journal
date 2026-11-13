@@ -39,6 +39,7 @@ const DEFAULT_ACCOUNT: AccountRules = {
   ddMode: "eod",
   target: null,
   maxContracts: 5,
+  maxLossPerTrade: 500,
 };
 const DD_MODE_TEXT = { eod: "suiveur fin de journée", intraday: "suiveur intraday" } as const;
 
@@ -514,7 +515,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           spec.tickSize,
           spec.tickValue,
           grid,
-          { ...settings, ddLimit: pairBudget(account), ddMode: account.ddMode ?? "eod" },
+          { ...settings, ddLimit: pairBudget(account), ddMode: account.ddMode ?? "eod", maxLossPerTrade: account.maxLossPerTrade ?? null },
           (done, total) => setProgress(`${s} : ${done} / ${total} configurations`),
           news
         );
@@ -760,6 +761,9 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               <option value="ratio">Risque minimal (PnL ÷ drawdown)</option>
               <option value="pnl">PnL max sous le budget</option>
             </select>
+          </RuleRow>
+          <RuleRow on={!!account.maxLossPerTrade} onToggle={(v) => updateAccount({ ...account, maxLossPerTrade: v ? 500 : null })} label="Perte max par trade, stop touché ($)">
+            <input type="number" min={1} value={account.maxLossPerTrade ?? 500} disabled={!account.maxLossPerTrade} onChange={(e) => updateAccount({ ...account, maxLossPerTrade: Number(e.target.value) })} style={{ ...smallField, width: 80 }} />
           </RuleRow>
           <RuleRow on={account.dailyStop !== null} onToggle={(v) => updateAccount({ ...account, dailyStop: v ? 500 : null })} label="Prop firm : perte max par jour, latente comprise ($)">
             <input type="number" min={1} value={account.dailyStop ?? 500} disabled={account.dailyStop === null} onChange={(e) => updateAccount({ ...account, dailyStop: Number(e.target.value) })} style={smallField} />
