@@ -759,3 +759,27 @@ model BacktestTrade {
 
   @@index([ownerId, date])
 }
+
+/**
+ * A symbol tested against Databento history: the levels it is traded at, and
+ * the last analysis run on it.
+ *
+ * The price history itself never comes here. A year of one-minute bars is tens
+ * of megabytes, read in the browser that picked the file and kept there; what
+ * the journal keeps is what was asked of it and what it answered, a few dozen
+ * kilobytes, so the reports read the same from any device.
+ */
+model DatabentoSymbol {
+  ownerId   String   @default("owner")
+  id        String   @id @default(cuid())
+  symbol    String
+  /** The levels, as a JSON array of prices. */
+  zones     String   @default("[]")
+  /** The last analysis, as JSON: the best configurations and their trades. */
+  result    String?
+  /** The configuration kept for the general report; the best one when null. */
+  chosenKey String?
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId, symbol])
+}

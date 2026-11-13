@@ -28,7 +28,8 @@ const NAV_ITEMS = [
   { href: "/trades", label: "Trades", match: (p: string) => p.startsWith("/trades") },
   { href: "/rapport", label: "Rapport", match: (p: string) => p.startsWith("/rapport") },
   { href: "/risque", label: "Risque", match: (p: string) => p.startsWith("/risque") },
-  { href: "/backtesting", label: "Backtesting", match: (p: string) => p.startsWith("/backtesting") },
+  { href: "/backtesting", label: "Backtesting", match: (p: string) => p === "/backtesting" || p.startsWith("/backtesting/") },
+  { href: "/backtesting-databento", label: "Backtesting Databento", match: (p: string) => p.startsWith("/backtesting-databento") },
   { href: "/checklist", label: "Checklist & News", match: (p: string) => p.startsWith("/checklist") },
   { href: "/volume-alert", label: "Volume Alert", match: (p: string) => p.startsWith("/volume-alert") },
   { href: "/notes", label: "Notes", match: (p: string) => p.startsWith("/notes") },
@@ -182,6 +183,19 @@ function BacktestIcon({ color }: { color: string }) {
   );
 }
 
+/** Candles against a level: a price history replayed on a line. */
+function DatabentoIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M1 8.5h16" stroke={color} strokeWidth="1.2" strokeDasharray="2 2" opacity="0.55" />
+      <path d="M4 3v12M9 1.5v10M14 6v10.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      <rect x="2.6" y="5" width="2.8" height="6" rx="0.6" fill={color} />
+      <rect x="7.6" y="3.5" width="2.8" height="5" rx="0.6" fill={color} opacity="0.55" />
+      <rect x="12.6" y="8" width="2.8" height="6" rx="0.6" fill={color} />
+    </svg>
+  );
+}
+
 /** Three bars under a line: a box of volume tripping its threshold. */
 function VolumeAlertIcon({ color }: { color: string }) {
   return (
@@ -218,6 +232,7 @@ const ICONS = [
   ReportIcon,
   RiskIcon,
   BacktestIcon,
+  DatabentoIcon,
   ChecklistIcon,
   VolumeAlertIcon,
   NotesIcon,

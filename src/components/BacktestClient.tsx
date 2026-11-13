@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { accentColor, glassCard, winColor, lossColor } from "@/lib/theme";
+import { TICK_VALUES } from "@/lib/contracts";
+import { Field, Figure, Pill, fieldStyle, fmtOffset, fmtPf, fmtUsd, label, mono, monthLabel, td, th, tone } from "@/components/BacktestUi";
 import { addBacktestTrade, deleteBacktestTest, deleteBacktestTrades, removeBacktestTag, type BacktestInput } from "@/lib/actions/backtest";
 
 export type BacktestRow = {
@@ -21,18 +23,6 @@ export type BacktestRow = {
   createdAt: string;
 };
 
-/**
- * Dollars per tick for one contract, to turn ticks into money — times the lots of each test.
- *
- * CME figures at the time of writing. A symbol missing here is still tested in
- * ticks and R; only the money column stays empty for it.
- */
-const TICK_VALUES: Record<string, number> = {
-  ES: 12.5, MES: 1.25, NQ: 5, MNQ: 0.5, YM: 5, MYM: 0.5, RTY: 5, M2K: 0.5,
-  GC: 10, MGC: 1, SI: 25, CL: 10, MCL: 1, NG: 10,
-  "6E": 6.25, "6B": 6.25, "6J": 6.25, "6A": 10, "6C": 10, "6S": 12.5, "6N": 5,
-  ZS: 12.5, ZW: 12.5, ZC: 12.5, ZM: 10, ZL: 6, ZB: 31.25, ZN: 15.625, FGBL: 10,
-};
 
 const STORE_KEY = "backtest-form";
 
@@ -82,31 +72,9 @@ const winRate = (s: Stats) => (s.n ? s.wins / s.n : 0);
 const tp2Rate = (s: Stats) => (s.n ? s.tp2 / s.n : 0);
 const fmtR = (r: number) => `${r > 0 ? "+" : r < 0 ? "−" : ""}${Math.abs(r).toFixed(2)} R`;
 const fmtTicks = (t: number) => `${t > 0 ? "+" : t < 0 ? "−" : ""}${Math.abs(t)} t`;
-const fmtUsd = (v: number | null) => (v === null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : ""}$${Math.abs(v).toFixed(0)}`);
-const fmtPf = (pf: number | null) => (pf === null ? "—" : pf === Infinity ? "∞" : pf.toFixed(2));
-const fmtOffset = (o: number) => (o === 0 ? "0" : `${o > 0 ? "+" : "−"}${Math.abs(o)}`);
-const tone = (v: number) => (v > 0 ? winColor : v < 0 ? lossColor : "oklch(0.75 0.02 250)");
 
-const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 const monthKey = (iso: string) => iso.slice(0, 7);
-const monthLabel = (key: string) => `${MOIS[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`;
 
-const label = { fontSize: 12, color: "oklch(0.6 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" } as const;
-const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
-const fieldStyle: React.CSSProperties = {
-  ...mono,
-  fontSize: 13,
-  padding: "9px 11px",
-  width: "100%",
-  boxSizing: "border-box",
-  borderRadius: 6,
-  border: "1px solid oklch(0.34 0.04 250)",
-  background: "oklch(0.16 0.03 250)",
-  color: "oklch(0.9 0.017 250)",
-  outline: "none",
-};
-const th: React.CSSProperties = { ...label, fontSize: 11, textAlign: "left", padding: "8px 10px", borderBottom: "1px solid oklch(0.3 0.03 250)", whiteSpace: "nowrap" };
-const td: React.CSSProperties = { ...mono, fontSize: 12.5, padding: "8px 10px", borderBottom: "1px solid oklch(0.24 0.03 250)", whiteSpace: "nowrap" };
 
 const today = () => {
   const d = new Date();
@@ -126,25 +94,7 @@ const EMPTY_FORM: BacktestInput = {
   note: "",
 };
 
-function Field({ title, children, hint }: { title: string; children: React.ReactNode; hint?: string }) {
-  return (
-    <label style={{ display: "block", minWidth: 0 }}>
-      <div style={{ ...label, fontSize: 11, marginBottom: 6 }}>{title}</div>
-      {children}
-      {hint && <div style={{ fontSize: 11, color: "oklch(0.5 0.03 250)", marginTop: 5 }}>{hint}</div>}
-    </label>
-  );
-}
 
-function Figure({ title, value, hint, color }: { title: string; value: string; hint?: string; color?: string }) {
-  return (
-    <div>
-      <div style={{ ...label, fontSize: 11 }}>{title}</div>
-      <div style={{ ...mono, fontSize: 22, fontWeight: 700, marginTop: 6, color: color ?? "oklch(0.96 0.0068 250)" }}>{value}</div>
-      {hint && <div style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)", marginTop: 4 }}>{hint}</div>}
-    </div>
-  );
-}
 
 function Select({ value, onChange, options, all }: { value: string; onChange: (v: string) => void; options: string[]; all: string }) {
   return (
@@ -159,26 +109,6 @@ function Select({ value, onChange, options, all }: { value: string; onChange: (v
   );
 }
 
-function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        ...mono,
-        fontSize: 11.5,
-        padding: "5px 10px",
-        borderRadius: 5,
-        cursor: "pointer",
-        border: `1px solid ${active ? accentColor : "oklch(0.34 0.04 250)"}`,
-        background: active ? "oklch(0.84 0.17 196 / 0.14)" : "transparent",
-        color: active ? accentColor : "oklch(0.7 0.02 250)",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
 
 type ConfigRow = {
   key: string;
