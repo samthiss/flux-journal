@@ -64,6 +64,8 @@ export type Rules = {
   flatAt: number | null;
   /** No fill from `before` minutes ahead of a major release to `after` minutes past it. */
   blackout: { before: number; after: number } | null;
+  /** Hours (Chicago) this pair is not traded in: the ones its own history says lose. */
+  excludeHours?: number[] | null;
 };
 export type Settings = {
   lots: number;
@@ -695,9 +697,10 @@ export async function analyse(
   const major = (news?.events ?? []).filter((e) => isMajorRelease(e, symbol)).map((e) => e.at);
   /** Whether a fill is one the rules let through, before the daily cap. */
   const allowed = (t: number, r: Rules) => {
-    if (r.hours) {
+    if (r.hours || r.excludeHours?.length) {
       const h = exchangeHour(t);
-      if (h < r.hours[0] || h >= r.hours[1]) return false;
+      if (r.hours && (h < r.hours[0] || h >= r.hours[1])) return false;
+      if (r.excludeHours?.includes(h)) return false;
     }
     if (r.blackout) {
       const before = r.blackout.before * 60000;
@@ -889,13 +892,14 @@ export async function analyse(
       ["hours", `sans « ordres ${rules.hours?.[0]}h–${rules.hours?.[1]}h »`],
       ["flatAt", `sans « clôture à ${rules.flatAt}h »`],
       ["blackout", `sans « blackout news −${rules.blackout?.before} min / +${rules.blackout?.after} min »`],
+      ["excludeHours", `sans « pas de trade à ${(rules.excludeHours ?? []).map((h) => `${h}h`).join(", ")} »`],
     ];
-    const active = off.filter(([k]) => rules[k] !== null);
+    const active = off.filter(([k]) => rules[k] !== null && rules[k] !== undefined && !(Array.isArray(rules[k]) && !(rules[k] as unknown[]).length));
     if (active.length) {
       rulesImpact = [
         measure("Toutes tes règles", rules),
         ...active.map(([k, label]) => measure(label, { ...rules, [k]: null })),
-        measure("Aucune règle", { maxPerDay: null, hours: null, flatAt: null, blackout: null }),
+        measure("Aucune règle", { maxPerDay: null, hours: null, flatAt: null, blackout: null, excludeHours: null }),
       ];
     }
   }
