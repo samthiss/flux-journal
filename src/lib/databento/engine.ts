@@ -46,6 +46,12 @@ export type Grid = {
    * half the position does not exist.
    */
   singleExit?: boolean;
+  /**
+   * The runner's trail tied to TP1: it starts at TP1 and keeps this many TP1s
+   * behind the best price. One rule for every pair, whatever its tick; the
+   * acts and dists lists are then not used for the runner.
+   */
+  trailFromTp1?: number;
 };
 /**
  * The trader's own session rules, applied to every configuration.
@@ -66,6 +72,18 @@ export type Rules = {
   blackout: { before: number; after: number } | null;
   /** Hours (Chicago) this pair is not traded in: the ones its own history says lose. */
   excludeHours?: number[] | null;
+  /**
+   * A level the CME session opened within this many ticks of (17:00 Chicago,
+   * the evening before) is not traded that session: price is already on it,
+   * there is no return to wait for.
+   */
+  openNear?: number | null;
+  /**
+   * Once a session has closed a minute on the far side of a level, that level
+   * is not traded the other way for the rest of the session: a support broken
+   * is not then sold as resistance.
+   */
+  noReverseAfterCross?: boolean;
 };
 export type Settings = {
   lots: number;
@@ -635,6 +653,10 @@ function statsOf(
 export function configsOf(g: Grid): Config[] {
   const out: Config[] = [];
   const kinds = g.kinds?.length ? g.kinds : (["fixed"] as ExitKind[]);
+  if (g.trailFromTp1 !== undefined && kinds.includes("tp1trail") && !g.singleExit)
+    for (const offset of g.offsets)
+      for (const sl of g.sls)
+        for (const tp1 of g.tp1s) out.push({ kind: "tp1trail", offset, sl, tp1, tp2: 0, act: tp1, dist: Math.max(1, Math.round(tp1 * g.trailFromTp1)) });
   // A single target can be any of the target distances, TP1's or TP2's.
   const singles = [...new Set([...g.tp1s, ...g.tp2s])].sort((a, b) => a - b);
   for (const offset of g.offsets)
@@ -647,9 +669,12 @@ export function configsOf(g: Grid): Config[] {
       // entry the moment it starts: those are left out.
       for (const act of g.acts ?? [])
         for (const dist of g.dists ?? []) {
-          if (dist > act || dist <= 0) continue;
-          if (kinds.includes("trail")) out.push({ kind: "trail", offset, sl, tp1: 0, tp2: 0, act, dist });
-          if (kinds.includes("tp1trail") && !g.singleExit) for (const tp1 of g.tp1s) out.push({ kind: "tp1trail", offset, sl, tp1, tp2: 0, act, dist });
+          if (dist <= 0) continue;
+          // On the whole position, a trail wider than its trigger would put the
+          // stop back under the entry; after TP1 the stop is at the entry already.
+          if (kinds.includes("trail") && dist <= act) out.push({ kind: "trail", offset, sl, tp1: 0, tp2: 0, act, dist });
+          if (kinds.includes("tp1trail") && !g.singleExit && g.trailFromTp1 === undefined)
+            for (const tp1 of g.tp1s) out.push({ kind: "tp1trail", offset, sl, tp1, tp2: 0, act, dist });
         }
     }
   return out;
@@ -696,7 +721,48 @@ export async function analyse(
   const rules: Rules = settings.rules ?? { maxPerDay: null, hours: null, flatAt: null, blackout: null };
   const major = (news?.events ?? []).filter((e) => isMajorRelease(e, symbol)).map((e) => e.at);
   /** Whether a fill is one the rules let through, before the daily cap. */
-  const allowed = (t: number, r: Rules) => {
+  // What the session-based rules need, worked out once: each session's
+  // opening price, and the minutes a level was crossed by a close.
+  const sessionOpen = new Map<number, number>();
+  for (let i = 0; i < b.t.length; i++) {
+    const d = sessionDay(b.t[i]);
+    if (!sessionOpen.has(d)) sessionOpen.set(d, b.o[i]);
+  }
+  const crosses = new Map<number, { t: number; down: boolean }[]>();
+  for (const z of zones) {
+    const list: { t: number; down: boolean }[] = [];
+    for (let i = 1; i < b.t.length; i++) {
+      const prev = b.c[i - 1];
+      const cur = b.c[i];
+      if (prev > z && cur < z) list.push({ t: b.t[i], down: true });
+      else if (prev < z && cur > z) list.push({ t: b.t[i], down: false });
+    }
+    crosses.set(z, list);
+  }
+  const allowed = (tr: Trade, r: Rules) => {
+    const t = tr.t;
+    if (r.openNear) {
+      const open = sessionOpen.get(sessionDay(t));
+      if (open !== undefined && Math.abs(open - tr.zone) <= r.openNear * tick + tick * 1e-3) return false;
+    }
+    if (r.noReverseAfterCross) {
+      const day = sessionDay(t);
+      // Broken downward, the level is not sold from below; broken upward, not bought from above.
+      const list = crosses.get(tr.zone) ?? [];
+      // From the first cross of this session (sessions start at 22:00 UTC), up to the fill.
+      const start = day * 86400000 - 2 * 3600000;
+      let lo = 0;
+      let hi = list.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (list[mid].t < start) lo = mid + 1;
+        else hi = mid;
+      }
+      for (let i = lo; i < list.length && list[i].t < t; i++) {
+        const x = list[i];
+        if ((x.down && tr.dir === -1) || (!x.down && tr.dir === 1)) return false;
+      }
+    }
     if (r.hours || r.excludeHours?.length) {
       const h = exchangeHour(t);
       if (r.hours && (h < r.hours[0] || h >= r.hours[1])) return false;
@@ -726,7 +792,7 @@ export async function analyse(
     const trades: Trade[] = [];
     for (const touch of touches) {
       const tr = simulate(b, touch, cfg, tick, settings.maxHours, r.flatAt);
-      if (tr && allowed(tr.t, r)) trades.push(tr);
+      if (tr && allowed(tr, r)) trades.push(tr);
     }
     return trades;
   };
@@ -894,13 +960,15 @@ export async function analyse(
       ["flatAt", `sans « clôture à ${rules.flatAt}h »`],
       ["blackout", `sans « blackout news −${rules.blackout?.before} min / +${rules.blackout?.after} min »`],
       ["excludeHours", `sans « pas de trade à ${(rules.excludeHours ?? []).map((h) => `${h}h`).join(", ")} »`],
+      ["openNear", `sans « pas de niveau à moins de ${rules.openNear} ticks de l'ouverture »`],
+      ["noReverseAfterCross", "sans « pas de trade inverse après un niveau traversé »"],
     ];
-    const active = off.filter(([k]) => rules[k] !== null && rules[k] !== undefined && !(Array.isArray(rules[k]) && !(rules[k] as unknown[]).length));
+    const active = off.filter(([k]) => rules[k] !== null && rules[k] !== undefined && rules[k] !== false && !(Array.isArray(rules[k]) && !(rules[k] as unknown[]).length));
     if (active.length) {
       rulesImpact = [
         measure("Toutes tes règles", rules),
         ...active.map(([k, label]) => measure(label, { ...rules, [k]: null })),
-        measure("Aucune règle", { maxPerDay: null, hours: null, flatAt: null, blackout: null, excludeHours: null }),
+        measure("Aucune règle", { maxPerDay: null, hours: null, flatAt: null, blackout: null, excludeHours: null, openNear: null, noReverseAfterCross: false }),
       ];
     }
   }

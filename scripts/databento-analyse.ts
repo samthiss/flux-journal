@@ -26,43 +26,27 @@ const DOWNLOADS = path.join(homedir(), "Downloads");
 const CACHE = path.join(tmpdir(), "flux-databento");
 
 /**
- * Grains move in bigger steps than currencies: a soybean tick is a quarter of
- * a cent and a day is sixty to eighty of them. Their targets and trails are
- * tried wider; the stop is not, since 500 at two lots is twenty ticks.
+ * The plan, the same for every pair: the order on the level, the stop and
+ * TP1 found pair by pair, one lot out at TP1 with the stop to the entry, the
+ * other trailed from TP1 at TP1's distance; nothing traded outside 2h–14h
+ * Chicago, nothing held more than four hours.
  */
-const GRAINS: Partial<Grid> = {
-  tp1s: [5, 10, 15, 20, 30, 40],
-  tp2s: [10, 20, 30, 40, 60, 80],
-  acts: [10, 15, 20, 30, 40, 60],
-  dists: [5, 10, 15, 20, 30],
-};
+const FX_TP1 = [5, 10, 15, 20, 30];
+const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
 
-/** Where each pair's history is, its levels, and the hours (Chicago) it is not traded in. */
-const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; grid?: Partial<Grid> }> = {
-  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [5] },
-  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [5, 6, 9, 11] },
-  "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2, 9, 11] },
-  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 3, 7, 8] },
-  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1153.75, 1174.75, 1227.75, 1293.5], excludeHours: [], grid: GRAINS },
-  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 608.5, 634.5, 685, 710.5], excludeHours: [8], grid: GRAINS },
+/** Where each pair's history is, its levels, the hours (Chicago) it is not traded in, its TP1s to try. */
+const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[] }> = {
+  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [5], tp1s: FX_TP1 },
+  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [5, 6, 9, 11], tp1s: FX_TP1 },
+  "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2, 9, 11], tp1s: FX_TP1 },
+  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 3, 7, 8], tp1s: FX_TP1 },
+  // ZS (1153.75 / 1174.75 / 1227.75 / 1293.5) has no configuration with the
+  // order on the level that stays under the drawdown cap: left out.
+  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 608.5, 634.5, 685, 710.5], excludeHours: [8], tp1s: GRAIN_TP1 },
 };
 
 /** The prop firm's account, MEDIUM: 2,000 trailed at the session's close, 1,000 a day, five contracts. */
-const ACCOUNT: AccountRules = { tiers: null, dailyStop: 1000, ddLimit: 2000, ddMode: "eod", pairs: 6, safety: 30, maxContracts: 5, maxLossPerTrade: 500 };
-
-const GRID: Grid = {
-  offsets: [-4, -2, 0, 2, 4],
-  sls: [6, 8, 10, 12, 15, 20],
-  tp1s: [5, 10, 15, 20],
-  tp2s: [10, 20, 30, 40],
-  acts: [10, 15, 20, 30],
-  dists: [5, 10, 15, 20],
-  kinds: ["fixed", "trail", "tp1trail"],
-  // Not "day": staying out of every session with a high-impact release is
-  // half the year, and it only ever won by trading less. The trader's own
-  // blackout around the major releases is applied to every configuration.
-  newsModes: ["all", "window"],
-};
+const ACCOUNT: AccountRules = { tiers: null, dailyStop: 1000, ddLimit: 2000, ddMode: "eod", pairs: 5, safety: 30, maxContracts: 5, maxLossPerTrade: 500 };
 
 /** The most one pair may draw down at two lots. */
 const PAIR_DD_CAP = Number(process.env.PAIR_DD_CAP ?? 850);
@@ -107,19 +91,31 @@ function bars(symbol: string, source: string): Dataset {
     const settings: Settings = {
       lots: 2,
       rearm: 30,
-      maxHours: 24,
+      maxHours: 4,
       // Enough trades that a configuration cannot rank on trading little.
       minTrades: 20,
       newsWindow: 30,
-      rules: { ...DEFAULT_RULES, excludeHours: pair.excludeHours },
+      rules: { ...DEFAULT_RULES, hours: [2, 14], excludeHours: pair.excludeHours },
       // Two lots, always: each pair's drawdown at that size is capped, so six
       // of them together stay well inside the account's 2,000.
       ddLimit: PAIR_DD_CAP,
       ddMode: ACCOUNT.ddMode,
-      objective: "ratio",
+      objective: "pnl",
       maxLossPerTrade: ACCOUNT.maxLossPerTrade,
     };
-    const r = await analyse(symbol, d, pair.levels, spec.tickSize, spec.tickValue, { ...GRID, ...pair.grid }, settings, () => {}, { events, currencies });
+    const grid: Grid = {
+      offsets: [0],
+      // 500 at most on a stop at two lots.
+      sls: [6, 8, 10, 12, 15, 20, 25, 30].filter((sl) => sl * spec.tickValue * 2 <= 500),
+      tp1s: pair.tp1s,
+      tp2s: [],
+      acts: [],
+      dists: [],
+      kinds: ["tp1trail"],
+      trailFromTp1: 1,
+      newsModes: ["all"],
+    };
+    const r = await analyse(symbol, d, pair.levels, spec.tickSize, spec.tickValue, grid, settings, () => {}, { events, currencies });
     const c = r.top[0];
     console.log(
       `${symbol} ${new Date(d.from).toISOString().slice(0, 10)} → ${new Date(d.to).toISOString().slice(0, 10)} · ${c.n} trades · ${(c.pnl / 12).toFixed(0)} $/mois · DD ${(c.propDD ?? 0).toFixed(0)}`

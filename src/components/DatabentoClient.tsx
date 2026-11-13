@@ -13,12 +13,12 @@ type Entry = { symbol: string; zones: number[]; result: SymbolResult | null; cho
 
 const SETTINGS_KEY = "databento-settings";
 
-/** The trader's account: MEDIUM at the prop firm, six pairs, a master and a slave to start with. */
+/** The trader's account: MEDIUM at the prop firm, five pairs, a master and a slave to start with. */
 const DEFAULT_ACCOUNT: AccountRules = {
   tiers: DEFAULT_TIERS,
   dailyStop: 1000,
   ddLimit: 2000,
-  pairs: 6,
+  pairs: 5,
   safety: 30,
   ddMode: "eod",
   target: null,
@@ -28,6 +28,13 @@ const DEFAULT_ACCOUNT: AccountRules = {
   copies: 2,
 };
 const DD_MODE_TEXT = { eod: "suiveur fin de journée", intraday: "suiveur intraday" } as const;
+
+/**
+ * How many months the history spans, for "a month": not the months a pair
+ * happened to trade in, which would make a pair that sat out three of them
+ * look a third better than it was.
+ */
+const spanMonths = (r: { from: number; to: number }) => Math.max(1, (r.to - r.from) / (30.44 * 86400000));
 
 const fmtZone = (z: number) => String(z).replace(".", ",");
 const fmtDay = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -352,7 +359,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
         budget * per.length,
         account
       );
-    return { per, trades, pnl: eq, maxDD, pf: loss > 0 ? win / loss : win > 0 ? null : 0, winRate: trades.length ? wins / trades.length : 0, months, cell, accountRuns, plan, budget };
+    return { per, trades, pnl: eq, maxDD, pf: loss > 0 ? win / loss : win > 0 ? null : 0, winRate: trades.length ? wins / trades.length : 0, months, cell, accountRuns, plan, budget, span: per.length ? Math.max(...per.map(({ e }) => spanMonths(e.result!))) : 1 };
   }, [analysed, account]);
 
   const sel = analysed.find((e) => e.symbol === view) ?? null;
@@ -462,19 +469,19 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 20, marginTop: 16 }}>
                 <Figure
                   title="PnL par mois"
-                  value={general.months.length ? fmtUsd(general.pnl / general.months.length) : "—"}
+                  value={general.months.length ? fmtUsd(general.pnl / general.span) : "—"}
                   color={tone(general.pnl)}
                   hint={`par compte · ${general.months.filter((m) => general.cell(m, null).pnl > 0).length} / ${general.months.length} mois positifs`}
                 />
                 {(account.copies ?? 1) > 1 && general.months.length > 0 && (
                   <Figure
                     title={`Sur ${account.copies} comptes`}
-                    value={fmtUsd((general.pnl / general.months.length) * account.copies!)}
+                    value={fmtUsd((general.pnl / general.span) * account.copies!)}
                     color={tone(general.pnl)}
-                    hint={`réaliste : ${fmtUsd((general.pnl / general.months.length) * account.copies! * 0.5)} à ${fmtUsd((general.pnl / general.months.length) * account.copies! * 0.65)}`}
+                    hint={`réaliste : ${fmtUsd((general.pnl / general.span) * account.copies! * 0.5)} à ${fmtUsd((general.pnl / general.span) * account.copies! * 0.65)}`}
                   />
                 )}
-                <Figure title="Gagnants" value={pct(general.winRate)} hint={`${(general.trades.length / Math.max(1, general.months.length)).toFixed(0)} trades par mois`} />
+                <Figure title="Gagnants" value={pct(general.winRate)} hint={`${(general.trades.length / general.span).toFixed(0)} trades par mois`} />
                 <Figure
                   title="Drawdown max"
                   value={fmtUsd(-(general.accountRuns[0]?.run.propDD ?? 0))}
@@ -501,7 +508,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                 </thead>
                 <tbody>
                   {general.per.map(({ e, c }) => {
-                    const n = Math.max(1, Object.keys(c.months).length);
+                    const n = spanMonths(e.result!);
                     return (
                       <tr key={e.symbol} style={{ cursor: "pointer" }} onClick={() => setView(e.symbol)}>
                         <td style={{ ...td, fontWeight: 700 }}>{e.symbol}</td>
@@ -724,7 +731,9 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
       {row("Stop", `${c.sl} ticks (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
       {row("Sortie", exitInLots(c, lots))}
       {row("News", news)}
-      {hours.length > 0 && row("Éviter", hours.map((h) => `${h}h–${h + 1}h`).join(", ") + " (Chicago)")}
+      {r.rules?.hours && row("Horaires", `ordres de ${r.rules.hours[0]}h à ${r.rules.hours[1]}h (Chicago)${hours.length ? `, sauf ${hours.map((h) => `${h}h–${h + 1}h`).join(", ")}` : ""}`)}
+      {!r.rules?.hours && hours.length > 0 && row("Éviter", hours.map((h) => `${h}h–${h + 1}h`).join(", ") + " (Chicago)")}
+      {r.settings.maxHours < 24 && row("Durée max", `${r.settings.maxHours} h, puis clôture au marché`)}
     </div>
   );
 }
@@ -735,7 +744,7 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
   const months = Object.keys(cfg.months).sort().reverse();
   const zones = Object.entries(cfg.zones).sort(([a], [b]) => Number(a) - Number(b));
   const [open, setOpen] = useState(false);
-  const nMonths = Math.max(1, Object.keys(cfg.months).length);
+  const nMonths = spanMonths(r);
   return (
     <div style={glassCard}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>

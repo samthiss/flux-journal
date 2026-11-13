@@ -7,7 +7,8 @@
  * database cannot be written from anywhere else.
  *
  * A report already in place is left alone — and with it the configuration
- * chosen in the page — unless the file holds a newer run of the analysis.
+ * chosen in the page — unless the file holds a newer run of the analysis. A
+ * pair the file no longer holds is removed.
  */
 import "dotenv/config";
 import { existsSync, readFileSync } from "node:fs";
@@ -45,7 +46,9 @@ async function main() {
     });
     written++;
   }
-  console.log(`Databento : ${written} rapport(s) chargé(s) sur ${entries.length}.`);
+  // A pair the analysis no longer covers goes, with its report.
+  const gone = await prisma.databentoSymbol.deleteMany({ where: { ownerId: OWNER, symbol: { notIn: entries.map((e) => e.symbol) } } });
+  console.log(`Databento : ${written} rapport(s) chargé(s) sur ${entries.length}, ${gone.count} retiré(s).`);
 }
 
 main()
