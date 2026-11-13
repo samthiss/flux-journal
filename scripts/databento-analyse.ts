@@ -53,9 +53,11 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // Set by the trader: TP1 at 10 with a 15-tick stop, two trades in three won.
   "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2], tp1s: FX_TP1, pick: { sl: 15, tp1: 10 } },
   "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1 },
-  // ZS (1153.75 / 1174.75 / 1227.75 / 1293.5) is left out: price overshoots
-  // its levels by about as much as it rebounds, and the only configuration
-  // under the drawdown cap — eight ticks beyond — lost 2,250 on the last months.
+  // ZS overshoots its levels before it turns: the order goes eight ticks
+  // (two cents) beyond the level, and only in the grains' day session —
+  // 8h–14h, the hours before it kept out. Under the 15-tick approach rule
+  // every stop and TP1 tried there made money, on both parts of the year.
+  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1153.75, 1174.75, 1227.75, 1293.5], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10 }, offset: -8 },
   // Set by the trader: TP1 at 5 with a 15-tick stop, the runner trailed at
   // 5 — wins five trades in six, where 40 relied on a handful of runs a year.
   ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 608.5, 634.5, 685, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5 } },

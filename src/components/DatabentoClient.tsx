@@ -17,7 +17,7 @@ const DEFAULT_ACCOUNT: AccountRules = {
   tiers: DEFAULT_TIERS,
   dailyStop: 1000,
   ddLimit: 2000,
-  pairs: 5,
+  pairs: 6,
   safety: 30,
   ddMode: "eod",
   target: null,
@@ -345,7 +345,14 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                     const n = spanMonths(e.result!);
                     return (
                       <tr key={e.symbol} style={{ cursor: "pointer" }} onClick={() => setView(e.symbol)}>
-                        <td style={{ ...td, fontWeight: 700 }}>{e.symbol}</td>
+                        <td style={{ ...td, fontWeight: 700 }}>
+                  {e.symbol}
+                  {c.cfg.offset !== 0 && (
+                    <div style={{ fontWeight: 400, fontSize: 11 }}>
+                      ordre {Math.abs(c.cfg.offset)} ticks {c.cfg.offset < 0 ? "au-delà" : "avant"} du niveau
+                    </div>
+                  )}
+                </td>
                         <td style={{ ...td, color: tone(c.pnl), fontWeight: 700 }}>{fmtUsd(c.pnl / n)}</td>
                         <td style={td}>{(c.n / n).toFixed(1)}</td>
                         <td style={td}>{pct(c.winRate)}</td>
@@ -461,7 +468,7 @@ function GeneralRules({ r }: { r: SymbolResult }) {
   return (
     <div style={ruleBox}>
       <div style={{ ...label, fontSize: 11, marginBottom: 2 }}>Règles générales — les mêmes pour toutes les paires</div>
-      {ruleRow("Entrée", `ordre limite sur la zone, ${lots} lots`)}
+      {ruleRow("Entrée", `ordre limite sur la zone (sauf écart indiqué pour la paire), ${lots} lots`)}
       {ruleRow("Sortie", `${lots / 2} lot à TP1 (stop au BE), l'autre en trailing dès TP1, à la distance du TP1`)}
       {h && ruleRow("Horaires", `ordres de ${h[0]}h à ${h[1]}h (Chicago) · ${r.rules?.maxPerDay ?? 1} trade par jour et par marché`)}
       {r.rules?.minApproach
