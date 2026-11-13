@@ -40,6 +40,12 @@ export type Grid = {
   dists: number[];
   kinds: ExitKind[];
   newsModes?: NewsMode[];
+  /**
+   * Only ways out that close the whole position at once: a single target or a
+   * trail on all of it. One lot cannot be halved, so without micros a TP1 on
+   * half the position does not exist.
+   */
+  singleExit?: boolean;
 };
 /**
  * The trader's own session rules, applied to every configuration.
@@ -627,17 +633,21 @@ function statsOf(
 export function configsOf(g: Grid): Config[] {
   const out: Config[] = [];
   const kinds = g.kinds?.length ? g.kinds : (["fixed"] as ExitKind[]);
+  // A single target can be any of the target distances, TP1's or TP2's.
+  const singles = [...new Set([...g.tp1s, ...g.tp2s])].sort((a, b) => a - b);
   for (const offset of g.offsets)
     for (const sl of g.sls) {
-      if (kinds.includes("fixed"))
-        for (const tp1 of g.tp1s) for (const tp2 of g.tp2s) if (tp2 >= tp1) out.push({ kind: "fixed", offset, sl, tp1, tp2, act: 0, dist: 0 });
+      if (kinds.includes("fixed")) {
+        if (g.singleExit) for (const tp of singles) out.push({ kind: "fixed", offset, sl, tp1: tp, tp2: tp, act: 0, dist: 0 });
+        else for (const tp1 of g.tp1s) for (const tp2 of g.tp2s) if (tp2 >= tp1) out.push({ kind: "fixed", offset, sl, tp1, tp2, act: 0, dist: 0 });
+      }
       // A trail wider than its trigger would put the stop back under the
       // entry the moment it starts: those are left out.
       for (const act of g.acts ?? [])
         for (const dist of g.dists ?? []) {
           if (dist > act || dist <= 0) continue;
           if (kinds.includes("trail")) out.push({ kind: "trail", offset, sl, tp1: 0, tp2: 0, act, dist });
-          if (kinds.includes("tp1trail")) for (const tp1 of g.tp1s) out.push({ kind: "tp1trail", offset, sl, tp1, tp2: 0, act, dist });
+          if (kinds.includes("tp1trail") && !g.singleExit) for (const tp1 of g.tp1s) out.push({ kind: "tp1trail", offset, sl, tp1, tp2: 0, act, dist });
         }
     }
   return out;

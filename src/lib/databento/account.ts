@@ -28,6 +28,8 @@ export type AccountRules = {
   maxContracts?: number | null;
   /** The most one trade may lose, stop hit: sizes that would risk more are not offered. */
   maxLossPerTrade?: number | null;
+  /** Standard contracts only: no micros, so no size between whole lots. */
+  wholeLots?: boolean;
 };
 
 /** The stop of a configuration, in ticks, read off its key ("kind|offset|sl|…"). */
@@ -65,6 +67,8 @@ export type AccountRun = {
   maxOpen: number;
   /** The worst any session went, open losses included: what the daily limit is measured against. */
   worstDay: number;
+  /** Trades not taken because they would have put more contracts on than the firm allows. */
+  refused: number;
   winRate: number;
   pf: number | null;
   lastLots: number;
@@ -102,13 +106,33 @@ export function fromRow(row: number[], tickValue: number): AccountTrade {
  * the limit — and nothing more is traded until the next session.
  */
 export function runAccount(trades: AccountTrade[], fixedLots: number | ((tr: AccountTrade) => number), rules: AccountRules): AccountRun {
-  const sorted = [...trades].sort((a, b) => a.t - b.t);
+  const lotsFor = (tr: AccountTrade) => (typeof fixedLots === "function" ? fixedLots(tr) : fixedLots);
+  let sorted = [...trades].sort((a, b) => a.t - b.t);
+  // The firm refuses an order that would put more contracts on than it allows:
+  // that trade is simply not taken.
+  // The same pass counts what is really open at each moment.
+  let refused = 0;
+  let maxOpen = 0;
+  {
+    const open: { end: number; lots: number }[] = [];
+    sorted = sorted.filter((tr) => {
+      for (let i = open.length - 1; i >= 0; i--) if (open[i].end < tr.t) open.splice(i, 1);
+      const lots = lotsFor(tr);
+      const now = open.reduce((a, o) => a + o.lots, 0) + lots;
+      if (rules.maxContracts && now > rules.maxContracts + 1e-9) {
+        refused++;
+        return false;
+      }
+      open.push({ end: tr.end ?? tr.t, lots });
+      maxOpen = Math.max(maxOpen, now);
+      return true;
+    });
+  }
   let eq = 0, peak = 0, maxDD = 0, win = 0, loss = 0, wins = 0, n = 0, skipped = 0, lastLots = 0;
   const dayPnl = new Map<number, number>();
   const stopped = new Set<number>();
   const paths: PathTrade[] = [];
   const sessions = new Set<number>();
-  let maxOpen = 0;
   let worstDay = 0;
   let targetAt: number | null = null;
   let targetSessions: number | null = null;
@@ -128,16 +152,15 @@ export function runAccount(trades: AccountTrade[], fixedLots: number | ((tr: Acc
       continue;
     }
     // The tier is decided by where the account stood before the trades.
-    let final = 0, mfe = 0, mae = 0, give = 0, open = 0;
+    let final = 0, mfe = 0, mae = 0, give = 0;
     const results: number[] = [];
     for (const tr of group) {
-      let lots = typeof fixedLots === "function" ? fixedLots(tr) : fixedLots;
+      let lots = lotsFor(tr);
       if (rules.tiers?.length) {
         lots = rules.tiers[0].lots;
         for (const t of rules.tiers) if (eq >= t.from) lots = t.lots;
       }
       lastLots = lots;
-      open += lots;
       const money = tr.tickValue * lots;
       const p = tr.ticks * money;
       results.push(p);
@@ -160,8 +183,6 @@ export function runAccount(trades: AccountTrade[], fixedLots: number | ((tr: Acc
     n += group.length;
     sessions.add(day);
     worstDay = Math.min(worstDay, before + mae);
-    // Positions taken together are counted as open together: an upper bound.
-    maxOpen = Math.max(maxOpen, open);
     if (liquidated) loss -= final;
     else
       for (const p of results) {
@@ -195,6 +216,7 @@ export function runAccount(trades: AccountTrade[], fixedLots: number | ((tr: Acc
     targetSessions,
     maxOpen,
     worstDay,
+    refused,
     winRate: n ? wins / n : 0,
     pf: loss > 0 ? win / loss : win > 0 ? null : 0,
     lastLots,
@@ -210,6 +232,7 @@ export type Plan = { choices: PlanChoice[]; run: AccountRun; searched: number };
 
 /** 0.5 is five micros. */
 export const PLAN_LOTS = [0.5, 1, 1.5, 2, 3];
+export const WHOLE_LOTS = [1, 2, 3];
 
 /**
  * The most the account could have made without ever reaching the prop
@@ -226,7 +249,7 @@ export function bestPlan(symbols: PlanSymbol[], ddLimit: number, rules: AccountR
   const options: Opt[][] = symbols.map((s) => [
     { key: null, lots: 0, trades: [] },
     ...s.configs.slice(0, perSymbol).flatMap((c) =>
-      PLAN_LOTS.filter((lots) => !rules.maxLossPerTrade || stopOfKey(c.key) * s.tickValue * lots <= rules.maxLossPerTrade + 1e-9).map((lots) => ({
+      (rules.wholeLots ? WHOLE_LOTS : PLAN_LOTS).filter((lots) => !rules.maxLossPerTrade || stopOfKey(c.key) * s.tickValue * lots <= rules.maxLossPerTrade + 1e-9).map((lots) => ({
         key: c.key,
         lots,
         trades: c.trades,
@@ -266,7 +289,8 @@ export function bestPlan(symbols: PlanSymbol[], ddLimit: number, rules: AccountR
     }
   } else {
     // Coordinate ascent, from nothing and from each symbol's best at each size.
-    const starts = [options.map(() => 0), ...PLAN_LOTS.map((_, k) => options.map(() => 1 + k))];
+    const sizes = rules.wholeLots ? WHOLE_LOTS : PLAN_LOTS;
+    const starts = [options.map(() => 0), ...sizes.map((_, k) => options.map((o) => Math.min(1 + k, o.length - 1)))];
     for (const start of starts) {
       const pick = [...start];
       // A move is taken only when it makes strictly more: two choices worth the

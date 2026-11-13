@@ -25,6 +25,7 @@ const DEFAULT_GRID: Grid = {
   dists: [5, 10, 15, 20],
   kinds: ["fixed", "trail", "tp1trail"],
   newsModes: ["all", "window", "day"],
+  singleExit: false,
 };
 type ListKey = "offsets" | "sls" | "tp1s" | "tp2s" | "acts" | "dists";
 const LIST_KEYS: ListKey[] = ["offsets", "sls", "tp1s", "tp2s", "acts", "dists"];
@@ -40,6 +41,7 @@ const DEFAULT_ACCOUNT: AccountRules = {
   target: null,
   maxContracts: 5,
   maxLossPerTrade: 500,
+  wholeLots: true,
 };
 const DD_MODE_TEXT = { eod: "suiveur fin de journée", intraday: "suiveur intraday" } as const;
 
@@ -762,6 +764,9 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               <option value="pnl">PnL max sous le budget</option>
             </select>
           </RuleRow>
+          <RuleRow on={!!account.wholeLots} onToggle={(v) => updateAccount({ ...account, wholeLots: v })} label="Lots entiers, pas de micros">
+            <span style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)" }}>le plan propose 1, 2 ou 3 lots par paire</span>
+          </RuleRow>
           <RuleRow on={!!account.maxLossPerTrade} onToggle={(v) => updateAccount({ ...account, maxLossPerTrade: v ? 500 : null })} label="Perte max par trade, stop touché ($)">
             <input type="number" min={1} value={account.maxLossPerTrade ?? 500} disabled={!account.maxLossPerTrade} onChange={(e) => updateAccount({ ...account, maxLossPerTrade: Number(e.target.value) })} style={{ ...smallField, width: 80 }} />
           </RuleRow>
@@ -817,6 +822,18 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           <button type="button" disabled={busy} onClick={lancer} style={{ ...btn(accentColor, true), padding: "10px 18px", fontSize: 13.5, cursor: busy ? "wait" : "pointer" }}>
             Lancer l&apos;analyse
           </button>
+          <label style={{ display: "flex", gap: 5, alignItems: "center", cursor: "pointer", fontSize: 12.5 }} title="Un lot ne se coupe pas en deux : à 1 lot, seules les sorties de toute la position existent.">
+            <input
+              type="checkbox"
+              checked={!!grid.singleExit}
+              onChange={(e) => {
+                const g = { ...grid, singleExit: e.target.checked };
+                setGrid(g);
+                saveSettings(g, settings);
+              }}
+            />
+            Sortie en une fois (pour 1 lot)
+          </label>
           <span style={{ display: "flex", gap: 12, fontSize: 12.5 }}>
             {(Object.keys(EXIT_LABELS) as ExitKind[]).map((k) => (
               <label key={k} style={{ display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}>
