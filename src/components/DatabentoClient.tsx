@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { accentColor, glassCard, lossColor, winColor } from "@/lib/theme";
-import { CONTRACTS } from "@/lib/contracts";
+import { CONTRACTS, newsCurrencies } from "@/lib/contracts";
 import { Field, Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, td, th, tone } from "@/components/BacktestUi";
 import { parseDatabentoCsv, mergeDatasets, type Dataset } from "@/lib/databento/parse";
 import { deleteDataset, loadDataset, loadDatasets, saveDataset } from "@/lib/databento/store";
-import { EXIT_LABELS, analyse, configsOf, kindOf, monthOf, type Best, type Bucket, type ConfigStats, type ExitKind, type Grid, type Settings, type SymbolResult } from "@/lib/databento/engine";
-import { entryText, exitText, recommend, type Reco } from "@/lib/databento/recommend";
-import { chooseDatabentoConfig, deleteDatabentoSymbol, saveDatabentoResult, saveDatabentoZones } from "@/lib/actions/databento";
+import { DEFAULT_RULES, EXIT_LABELS, NEWS_BUCKETS, NEWS_LABELS, type NewsMode, type Rules, analyse, configsOf, kindOf, monthOf, type Best, type Bucket, type ConfigStats, type ExitKind, type Grid, type Settings, type SymbolResult } from "@/lib/databento/engine";
+import { DEFAULT_TIERS, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
+import { entryText, exitText, newsRule, recommend, type Reco } from "@/lib/databento/recommend";
+import { chooseDatabentoConfig, deleteDatabentoSymbol, getNewsHistory, saveDatabentoResult, saveDatabentoZones } from "@/lib/actions/databento";
 
 type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
 type Entry = { symbol: string; zones: number[]; result: SymbolResult | null; chosenKey: string | null };
@@ -23,11 +24,13 @@ const DEFAULT_GRID: Grid = {
   acts: [10, 15, 20, 30],
   dists: [5, 10, 15, 20],
   kinds: ["fixed", "trail", "tp1trail"],
+  newsModes: ["all", "window", "day"],
 };
 type ListKey = "offsets" | "sls" | "tp1s" | "tp2s" | "acts" | "dists";
 const LIST_KEYS: ListKey[] = ["offsets", "sls", "tp1s", "tp2s", "acts", "dists"];
 const textOf = (g: Grid) => Object.fromEntries(LIST_KEYS.map((k) => [k, fmtList(g[k])])) as Record<ListKey, string>;
-const DEFAULT_SETTINGS: Settings = { lots: 2, rearm: 30, maxHours: 24, minTrades: 10 };
+const DEFAULT_SETTINGS: Settings = { lots: 2, rearm: 30, maxHours: 24, minTrades: 10, newsWindow: 30, rules: DEFAULT_RULES };
+const DEFAULT_ACCOUNT: AccountRules = { tiers: DEFAULT_TIERS, dailyStop: 500 };
 
 /** "1,3186 / 1,3552" → [1.3186, 1.3552]: a comma is a decimal point here, never a separator. */
 function parseZones(text: string): number[] {
@@ -53,7 +56,8 @@ const exitShort = (c: ConfigStats["cfg"]) => {
   const trail = `trail +${c.act} à ${c.dist}`;
   return k === "trail" ? trail : `TP1 ${c.tp1} + ${trail}`;
 };
-const cfgText = (c: ConfigStats["cfg"]) => `Entrée ${fmtOffset(c.offset)} · SL ${c.sl} · ${exitShort(c)}`;
+const NEWS_SHORT: Record<NewsMode, string> = { all: "", window: " · hors news", day: " · hors jours de news" };
+const cfgText = (c: ConfigStats["cfg"]) => `Entrée ${fmtOffset(c.offset)} · SL ${c.sl} · ${exitShort(c)}${NEWS_SHORT[c.news ?? "all"]}`;
 
 function parseResult(raw: string | null): SymbolResult | null {
   if (!raw) return null;
@@ -100,6 +104,47 @@ function Equity({ trades, money }: { trades: [number, number][]; money: number }
       <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="oklch(0.4 0.02 250)" strokeDasharray="4 4" strokeWidth={1} />
       <path d={d} fill="none" stroke={tone(pts[pts.length - 1])} strokeWidth={2} vectorEffect="non-scaling-stroke" />
     </svg>
+  );
+}
+
+/** What the account rules did, from the runs the general report already made. */
+function accountRecos(runs: { label: string; run: ReturnType<typeof runAccount> }[], account: AccountRules, lots: number): Reco[] {
+  const out: Reco[] = [];
+  const base = runs[0]?.run;
+  if (!base) return out;
+  const usd = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(0)} $`;
+  if (account.tiers) {
+    const t = runs.find((r) => r.label.startsWith("Paliers ") && !r.label.includes("coupe"))?.run;
+    if (t)
+      out.push({
+        tone: "ok",
+        text: `Paliers : ${usd(t.pnl)} (DD ${usd(-t.maxDD)}) contre ${usd(base.pnl)} (DD ${usd(-base.maxDD)}) à ${lots} lots fixes. Dernier palier atteint : ${t.lastLots} lot(s).`,
+      });
+  }
+  if (account.dailyStop !== null) {
+    const d = runs.find((r) => r.label.includes("coupe-circuit") && !r.label.startsWith("Paliers"))?.run;
+    if (d && d.stopDays === 0)
+      out.push({ tone: "ok", text: `Coupe-circuit −${account.dailyStop} $ : jamais déclenché sur la période — aucune journée n'a perdu autant. Il ne coûte rien, mais n'a rien protégé non plus.` });
+    else if (d)
+      out.push({
+        tone: d.pnl >= base.pnl ? "ok" : "warn",
+        text: `Coupe-circuit −${account.dailyStop} $ : ${d.stopDays} journée(s) coupée(s), ${d.skipped} trade(s) évité(s), ${usd(d.pnl - base.pnl)} sur le résultat.`,
+      });
+  }
+  return out;
+}
+
+const smallField: React.CSSProperties = { ...fieldStyle, width: 64, padding: "5px 7px", fontSize: 12 };
+
+function RuleRow({ on, onToggle, label: text, children }: { on: boolean; onToggle: (v: boolean) => void; label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, opacity: on ? 1 : 0.55 }}>
+      <label style={{ display: "flex", gap: 7, alignItems: "center", cursor: "pointer" }}>
+        <input type="checkbox" checked={on} onChange={(e) => onToggle(e.target.checked)} />
+        {text}
+      </label>
+      <div style={{ display: "flex", gap: 6, paddingLeft: 22 }}>{children}</div>
+    </div>
   );
 }
 
@@ -199,6 +244,8 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
   const [grid, setGrid] = useState<Grid>(DEFAULT_GRID);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [gridText, setGridText] = useState<Record<ListKey, string>>(() => textOf(DEFAULT_GRID));
+  const [account, setAccount] = useState<AccountRules>(DEFAULT_ACCOUNT);
+  const [tiersDraft, setTiersDraft] = useState(tiersText(DEFAULT_TIERS));
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "null");
@@ -207,8 +254,13 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
         const g: Grid = { ...DEFAULT_GRID, ...saved.grid };
         // eslint-disable-next-line react-hooks/set-state-in-effect -- the browser's own storage, read once after mount
         setGrid(g);
-        setSettings({ ...DEFAULT_SETTINGS, ...saved.settings });
+        // Settings saved before the rules existed start on the trader's own.
+        setSettings({ ...DEFAULT_SETTINGS, ...saved.settings, rules: saved.settings.rules ?? DEFAULT_RULES });
         setGridText(textOf(g));
+        if (saved.account) {
+          setAccount(saved.account);
+          setTiersDraft(tiersText(saved.account.tiers ?? DEFAULT_TIERS));
+        }
       }
     } catch {
       // ignore storage failures
@@ -217,12 +269,18 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
       .then((ds) => setDatasets(ds.map((d) => ({ symbol: d.symbol, from: d.from, to: d.to, n: d.n, importedAt: d.importedAt }))))
       .catch(() => setMessage({ text: "Le stockage local du navigateur n'est pas disponible.", error: true }));
   }, []);
-  const saveSettings = (g: Grid, s: Settings) => {
+  const saveSettings = (g: Grid, s: Settings, a: AccountRules = account) => {
     try {
-      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ grid: g, settings: s }));
+      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ grid: g, settings: s, account: a }));
     } catch {
       // ignore storage failures
     }
+  };
+  const toggleNews = (m: NewsMode) => {
+    const cur = grid.newsModes ?? ["all"];
+    const g = { ...grid, newsModes: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m] };
+    setGrid(g);
+    saveSettings(g, settings);
   };
   const toggleKind = (k: ExitKind) => {
     const kinds = grid.kinds.includes(k) ? grid.kinds.filter((x) => x !== k) : [...grid.kinds, k];
@@ -241,7 +299,17 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
     setSettings(s);
     saveSettings(grid, s);
   };
-  const nConfigs = useMemo(() => configsOf(grid).length, [grid]);
+  const rules = settings.rules ?? DEFAULT_RULES;
+  const setRules = (r: Rules) => {
+    const s = { ...settings, rules: r };
+    setSettings(s);
+    saveSettings(grid, s);
+  };
+  const updateAccount = (a: AccountRules) => {
+    setAccount(a);
+    saveSettings(grid, settings, a);
+  };
+  const nConfigs = useMemo(() => configsOf(grid).length * Math.max(1, grid.newsModes?.length ?? 1), [grid]);
 
   // ---- Symbols: those with data, those with levels, those with results --------
   const symbols = useMemo(
@@ -361,8 +429,24 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
         if (!spec) throw new Error(`${s} : taille et valeur du tick inconnues.`);
         const d = await loadDataset(s);
         if (!d) continue;
-        const r = await analyse(s, d, entryOf(s).zones, spec.tickSize, spec.tickValue, grid, settings, (done, total) =>
-          setProgress(`${s} : ${done} / ${total} configurations`)
+        // The releases the contract moves on, over the same stretch.
+        const currencies = newsCurrencies(s);
+        let news: { events: Awaited<ReturnType<typeof getNewsHistory>> & object; currencies: string[] } | null = null;
+        {
+          setProgress(`${s} : lecture du calendrier ${currencies.join("/")}…`);
+          const events = await getNewsHistory(currencies, d.from, d.to).catch(() => null);
+          news = events ? { events, currencies } : null;
+        }
+        const r = await analyse(
+          s,
+          d,
+          entryOf(s).zones,
+          spec.tickSize,
+          spec.tickValue,
+          grid,
+          settings,
+          (done, total) => setProgress(`${s} : ${done} / ${total} configurations`),
+          news
         );
         setProgress(`${s} : enregistrement du rapport…`);
         await saveDatabentoResult(s, JSON.stringify(r));
@@ -412,8 +496,20 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
       const list = trades.filter((t) => (m === null || monthOf(t.t) === m) && (s === null || t.symbol === s));
       return { n: list.length, pnl: list.reduce((a, t) => a + t.pnl, 0), wins: list.filter((t) => t.pnl > 0).length };
     };
-    return { per, trades, pnl: eq, maxDD, pf: loss > 0 ? win / loss : win > 0 ? null : 0, winRate: trades.length ? wins / trades.length : 0, months, cell };
-  }, [analysed]);
+    // The account rules, played over the same trades: fixed size as tested,
+    // then the tiers, then the daily stop, then both.
+    const raw = per.flatMap(({ e, c }) => c.trades.map(([m, ticks]) => ({ t: m * 60000, ticks, tickValue: e.result!.tickValue })));
+    const lots = per[0]?.e.result!.settings.lots ?? 2;
+    const accountRuns = [
+      { label: `${lots} lots fixes`, run: runAccount(raw, lots, { tiers: null, dailyStop: null }) },
+      ...(account.tiers ? [{ label: `Paliers ${tiersText(account.tiers)}`, run: runAccount(raw, lots, { tiers: account.tiers, dailyStop: null }) }] : []),
+      ...(account.dailyStop !== null
+        ? [{ label: `${lots} lots fixes + coupe-circuit −${account.dailyStop} $`, run: runAccount(raw, lots, { tiers: null, dailyStop: account.dailyStop }) }]
+        : []),
+      ...(account.tiers && account.dailyStop !== null ? [{ label: "Paliers + coupe-circuit (tes règles)", run: runAccount(raw, lots, account) }] : []),
+    ];
+    return { per, trades, pnl: eq, maxDD, pf: loss > 0 ? win / loss : win > 0 ? null : 0, winRate: trades.length ? wins / trades.length : 0, months, cell, accountRuns };
+  }, [analysed, account]);
 
   const sel = analysed.find((e) => e.symbol === view) ?? null;
   const selCfg = sel ? retained(sel) : null;
@@ -511,6 +607,53 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
         </div>
       </div>
 
+      {/* ---- Rules ---- */}
+      <div style={{ ...glassCard, marginBottom: 20 }}>
+        <div style={label}>Tes règles</div>
+        <div style={{ fontSize: 12.5, color: "oklch(0.62 0.03 250)", marginTop: 8 }}>
+          Appliquées à toutes les configs testées, heures de Chicago. Le rapport montre ce que chacune rapporte ou coûte en la retirant.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14, marginTop: 14, fontSize: 13 }}>
+          <RuleRow on={rules.maxPerDay !== null} onToggle={(v) => setRules({ ...rules, maxPerDay: v ? 1 : null })} label="Trades max par jour et par marché">
+            <input type="number" min={1} value={rules.maxPerDay ?? 1} disabled={rules.maxPerDay === null} onChange={(e) => setRules({ ...rules, maxPerDay: Math.max(1, Number(e.target.value)) })} style={smallField} />
+          </RuleRow>
+          <RuleRow on={rules.hours !== null} onToggle={(v) => setRules({ ...rules, hours: v ? [1, 15] : null })} label="Ordres actifs de / à (h)">
+            <input type="number" min={0} max={23} value={rules.hours?.[0] ?? 1} disabled={!rules.hours} onChange={(e) => setRules({ ...rules, hours: [Number(e.target.value), rules.hours?.[1] ?? 15] })} style={smallField} />
+            <input type="number" min={1} max={24} value={rules.hours?.[1] ?? 15} disabled={!rules.hours} onChange={(e) => setRules({ ...rules, hours: [rules.hours?.[0] ?? 1, Number(e.target.value)] })} style={smallField} />
+          </RuleRow>
+          <RuleRow on={rules.flatAt !== null} onToggle={(v) => setRules({ ...rules, flatAt: v ? 16 : null })} label="Clôture de tout à (h)">
+            <input type="number" min={0} max={23} value={rules.flatAt ?? 16} disabled={rules.flatAt === null} onChange={(e) => setRules({ ...rules, flatAt: Number(e.target.value) })} style={smallField} />
+          </RuleRow>
+          <RuleRow
+            on={rules.blackout !== null}
+            onToggle={(v) => setRules({ ...rules, blackout: v ? { before: 30, after: 120 } : null })}
+            label="Blackout CPI/NFP/Fed + BoE ou BCE (min avant / après)"
+          >
+            <input type="number" min={0} value={rules.blackout?.before ?? 30} disabled={!rules.blackout} onChange={(e) => setRules({ ...rules, blackout: { before: Number(e.target.value), after: rules.blackout?.after ?? 120 } })} style={smallField} />
+            <input type="number" min={0} value={rules.blackout?.after ?? 120} disabled={!rules.blackout} onChange={(e) => setRules({ ...rules, blackout: { before: rules.blackout?.before ?? 30, after: Number(e.target.value) } })} style={smallField} />
+          </RuleRow>
+          <RuleRow on={account.tiers !== null} onToggle={(v) => updateAccount({ ...account, tiers: v ? parseTiers(tiersDraft) : null })} label="Paliers de lots (gain du compte : lots)">
+            <input
+              value={tiersDraft}
+              disabled={account.tiers === null}
+              onChange={(e) => {
+                setTiersDraft(e.target.value);
+                const t = parseTiers(e.target.value);
+                if (t.length) updateAccount({ ...account, tiers: t });
+              }}
+              style={{ ...smallField, width: 170 }}
+            />
+          </RuleRow>
+          <RuleRow on={account.dailyStop !== null} onToggle={(v) => updateAccount({ ...account, dailyStop: v ? 500 : null })} label="Coupe-circuit journalier ($)">
+            <input type="number" min={1} value={account.dailyStop ?? 500} disabled={account.dailyStop === null} onChange={(e) => updateAccount({ ...account, dailyStop: Number(e.target.value) })} style={smallField} />
+          </RuleRow>
+        </div>
+        <div style={{ fontSize: 11.5, color: "oklch(0.5 0.03 250)", marginTop: 10 }}>
+          Paliers et coupe-circuit sont des règles de compte : elles s&apos;appliquent dans le rapport général, sur les trades de tous les symboles
+          ensemble, sans relancer l&apos;analyse.
+        </div>
+      </div>
+
       {/* ---- 3. Settings and run ---- */}
       <div style={{ ...glassCard, marginBottom: 20 }}>
         <div style={label}>3 · Ce qui est testé</div>
@@ -542,6 +685,9 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           <Field title="Durée max (heures)" hint="sinon sortie au prix du moment">
             <input type="number" min={1} value={settings.maxHours} onChange={(e) => setSetting("maxHours", Number(e.target.value))} style={fieldStyle} />
           </Field>
+          <Field title="Fenêtre news (min)" hint="avant et après une annonce à fort impact">
+            <input type="number" min={1} value={settings.newsWindow ?? 30} onChange={(e) => setSetting("newsWindow", Number(e.target.value))} style={fieldStyle} />
+          </Field>
           <Field title="Trades minimum" hint="pour qu'une config soit classée">
             <input type="number" min={1} value={settings.minTrades} onChange={(e) => setSetting("minTrades", Number(e.target.value))} style={fieldStyle} />
           </Field>
@@ -555,6 +701,14 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               <label key={k} style={{ display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}>
                 <input type="checkbox" checked={grid.kinds.includes(k)} onChange={() => toggleKind(k)} />
                 {EXIT_LABELS[k]}
+              </label>
+            ))}
+          </span>
+          <span style={{ display: "flex", gap: 12, fontSize: 12.5 }}>
+            {(Object.keys(NEWS_LABELS) as NewsMode[]).map((m) => (
+              <label key={m} style={{ display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}>
+                <input type="checkbox" checked={(grid.newsModes ?? ["all"]).includes(m)} onChange={() => toggleNews(m)} />
+                {NEWS_LABELS[m]}
               </label>
             ))}
           </span>
@@ -602,17 +756,56 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                 title="Règles par symbole"
                 recos={general.per.flatMap(({ e, c }): Reco[] => {
                   const v = e.result!.validation;
+                  const nr = newsRule(c.cfg.news, e.result!);
                   const lines: Reco[] = [
-                    { tone: "rule", text: `${e.symbol} : ${entryText(c.cfg.offset)}, SL ${c.cfg.sl} ticks, ${exitText(c.cfg)}.` },
+                    { tone: "rule", text: `${e.symbol} : ${entryText(c.cfg.offset)}, SL ${c.cfg.sl} ticks, ${exitText(c.cfg)}.${nr ? ` ${nr}` : ""}` },
                   ];
                   if (c.pnl <= 0) lines.push({ tone: "warn", text: `${e.symbol} perd avec sa meilleure config (${fmtUsd(c.pnl)}) : à ne pas trader sur ces niveaux.` });
                   else if (v && v.outPnl <= 0)
                     lines.push({ tone: "warn", text: `${e.symbol} ne tient pas hors échantillon (${fmtUsd(v.outPnl)} sur ${v.outN} trades) : prudence.` });
                   else if (v) lines.push({ tone: "ok", text: `${e.symbol} tient hors échantillon (${fmtUsd(v.outPnl)} sur ${v.outN} trades).` });
                   return lines;
-                })}
+                }).concat(accountRecos(general.accountRuns, account, general.per[0]?.e.result!.settings.lots ?? 2))}
               />
 
+              {general.accountRuns.length > 1 && (
+                <div style={{ overflowX: "auto", marginTop: 18 }}>
+                  <div style={{ ...label, fontSize: 11 }}>Tes règles de compte, sur tous les symboles</div>
+                  <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
+                    <thead>
+                      <tr>
+                        <th style={th}>Gestion</th>
+                        <th style={th}>Trades</th>
+                        <th style={th}>Win</th>
+                        <th style={th}>PnL</th>
+                        <th style={th}>PF</th>
+                        <th style={th}>DD max</th>
+                        <th style={th}>Jours coupés</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {general.accountRuns.map(({ label: l, run }) => (
+                        <tr key={l}>
+                          <td style={{ ...td, fontFamily: "inherit" }}>{l}</td>
+                          <td style={td}>
+                            {run.n}
+                            {run.skipped ? <span style={{ color: "oklch(0.55 0.03 250)" }}> (−{run.skipped})</span> : null}
+                          </td>
+                          <td style={td}>{pct(run.winRate)}</td>
+                          <td style={{ ...td, color: tone(run.pnl), fontWeight: 700 }}>{fmtUsd(run.pnl)}</td>
+                          <td style={td}>{fmtPfOrInf(run.pf)}</td>
+                          <td style={{ ...td, color: lossColor }}>{fmtUsd(-run.maxDD)}</td>
+                          <td style={td}>{run.stopDays || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{ fontSize: 11.5, color: "oklch(0.5 0.03 250)", marginTop: 6 }}>
+                    À 1 lot, la sortie moitié TP1 / moitié TP2 n&apos;est possible qu&apos;avec des micros (M6B, M6E) : en lots standards, prends un TP unique ou le
+                    trailing sur toute la position.
+                  </div>
+                </div>
+              )}
               <div style={{ overflowX: "auto", marginTop: 18 }}>
                 <table style={{ borderCollapse: "collapse", width: "100%" }}>
                   <thead>
@@ -728,7 +921,43 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
 
       <Recommendations recos={recommend(r, cfg)} />
 
+      {r.rulesImpact && r.rulesImpact.length > 0 && cfg.key === r.top[0]?.key && (
+        <div style={{ overflowX: "auto", marginTop: 18 }}>
+          <div style={{ ...label, fontSize: 11 }}>Pertinence de tes règles — la config retenue, règle par règle</div>
+          <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
+            <thead>
+              <tr>
+                <th style={th}></th>
+                <th style={th}>Trades</th>
+                <th style={th}>Win</th>
+                <th style={th}>PnL</th>
+                <th style={th}>Écart</th>
+                <th style={th}>DD max</th>
+              </tr>
+            </thead>
+            <tbody>
+              {r.rulesImpact.map((x, i) => {
+                const delta = r.rulesImpact![0].pnl - x.pnl;
+                return (
+                  <tr key={x.label} style={i === 0 ? { background: "oklch(0.84 0.17 196 / 0.07)" } : undefined}>
+                    <td style={{ ...td, fontFamily: "inherit", fontWeight: i === 0 ? 700 : undefined }}>{x.label}</td>
+                    <td style={td}>{x.n}</td>
+                    <td style={td}>{pct(x.winRate)}</td>
+                    <td style={{ ...td, color: tone(x.pnl), fontWeight: 700 }}>{fmtUsd(x.pnl)}</td>
+                    <td style={{ ...td, color: i === 0 ? undefined : tone(delta) }}>{i === 0 ? "" : `règle ${delta >= 0 ? "rapporte" : "coûte"} ${fmtUsd(delta)}`}</td>
+                    <td style={{ ...td, color: lossColor }}>{fmtUsd(-x.maxDD)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 22, marginTop: 22 }}>
+        {r.byNews && r.byNews.length > 1 && (
+          <BestTable title="Règle news" rows={r.byNews} render={(v) => NEWS_LABELS[v as NewsMode] ?? v} />
+        )}
         {r.byExit && r.byExit.length > 0 && (
           <BestTable title="Meilleure sortie" rows={r.byExit} render={(v) => EXIT_LABELS[v as ExitKind] ?? v} />
         )}
@@ -805,6 +1034,22 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
             title="Par sens"
             first="Sens"
             rows={(["long", "short"] as const).filter((d) => cfg.dirs![d]).map((d) => [d === "long" ? "Long" : "Short", cfg.dirs![d]])}
+          />
+        )}
+        {cfg.news && (
+          <BucketTable
+            title={`News ${r.newsInfo?.currencies.join("/") ?? ""} (±${r.newsInfo?.window ?? 30} min)`}
+            first="Séance"
+            rows={[NEWS_BUCKETS.quiet, NEWS_BUCKETS.day, NEWS_BUCKETS.window].filter((k) => cfg.news![k]).map((k) => [k, cfg.news![k]])}
+          />
+        )}
+        {cfg.newsTitles && Object.keys(cfg.newsTitles).length > 0 && (
+          <BucketTable
+            title="Par annonce (trades du jour)"
+            first="Annonce"
+            rows={Object.entries(cfg.newsTitles)
+              .sort((a, b) => b[1].n - a[1].n)
+              .slice(0, 15)}
           />
         )}
         {cfg.hours && (

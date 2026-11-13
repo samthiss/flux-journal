@@ -23,7 +23,14 @@ import type { Bars } from "./parse";
  */
 
 export type ExitKind = "fixed" | "trail" | "tp1trail";
-export type Config = { kind: ExitKind; offset: number; sl: number; tp1: number; tp2: number; act: number; dist: number };
+/**
+ * What is done about the releases: trade through them, stay out of the
+ * minutes around a high-impact one, or stay out of the days that have one.
+ * Filtered on the fill: a trade the rule would not have taken is not taken.
+ */
+export type NewsMode = "all" | "window" | "day";
+export type Config = { kind: ExitKind; offset: number; sl: number; tp1: number; tp2: number; act: number; dist: number; news?: NewsMode };
+export type NewsEvent = { at: number; currency: string; title: string };
 export type Grid = {
   offsets: number[];
   sls: number[];
@@ -32,8 +39,42 @@ export type Grid = {
   acts: number[];
   dists: number[];
   kinds: ExitKind[];
+  newsModes?: NewsMode[];
 };
-export type Settings = { lots: number; rearm: number; maxHours: number; minTrades: number };
+/**
+ * The trader's own session rules, applied to every configuration.
+ *
+ * Each one can be off (null). They are the rules a configuration is traded
+ * under, not settings it is searched over: the search finds the best entry,
+ * stop and exit for the way the account is actually run, and the report then
+ * shows what each rule did by taking it away.
+ */
+export type Rules = {
+  /** At most this many trades a day (Chicago), the first fills kept. */
+  maxPerDay: number | null;
+  /** Orders live from this hour to that one, Chicago time: a fill outside is not taken. */
+  hours: [number, number] | null;
+  /** Everything closed at this hour, Chicago time. */
+  flatAt: number | null;
+  /** No fill from `before` minutes ahead of a major release to `after` minutes past it. */
+  blackout: { before: number; after: number } | null;
+};
+export type Settings = { lots: number; rearm: number; maxHours: number; minTrades: number; newsWindow?: number; rules?: Rules };
+
+export const DEFAULT_RULES: Rules = { maxPerDay: 1, hours: [1, 15], flatAt: 16, blackout: { before: 30, after: 120 } };
+
+/**
+ * The releases the blackout is about: American CPI and payrolls, the Fed, and
+ * the contract's own central bank — the Bank of England for 6B, the ECB for
+ * 6E. Titled as the calendar titles them.
+ */
+export function isMajorRelease(e: NewsEvent, symbol: string): boolean {
+  const t = e.title;
+  if (e.currency === "USD") return /^(Core )?Inflation Rate (MoM|YoY)$|Non Farm Payrolls|^(Fed )?Interest Rate( Decision)?$|FOMC/i.test(t);
+  if (e.currency === "GBP") return symbol === "6B" && /^(BoE )?Interest Rate( Decision)?$/i.test(t);
+  if (e.currency === "EUR") return symbol === "6E" && /ECB Interest Rate|Deposit Facility Rate/i.test(t);
+  return false;
+}
 
 export type Outcome = "SL" | "TP1" | "TP2" | "TR" | "TO";
 /** One simulated trade: when it was filled, which level, how many ticks it made per contract. */
@@ -47,10 +88,72 @@ export const EXIT_LABELS: Record<ExitKind, string> = {
   tp1trail: "TP1 + trailing",
 };
 
+export const NEWS_LABELS: Record<NewsMode, string> = {
+  all: "Toutes les séances",
+  window: "Sans la fenêtre des news",
+  day: "Sans les jours de news",
+};
+
 /** Results saved before the trailing stop existed carry no kind: they were fixed targets. */
 export const kindOf = (c: Partial<Config>): ExitKind => c.kind ?? "fixed";
 
-export const configKey = (c: Config) => `${c.kind}|${c.offset}|${c.sl}|${c.tp1}|${c.tp2}|${c.act}|${c.dist}`;
+export const configKey = (c: Config) => `${c.kind}|${c.offset}|${c.sl}|${c.tp1}|${c.tp2}|${c.act}|${c.dist}|${c.news ?? "all"}`;
+
+// ---------------------------------------------------------------------------
+// Releases
+
+const chicagoDay = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" });
+const chicagoWall = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Chicago",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "numeric",
+  hourCycle: "h23",
+});
+
+/** The next time it is `hour`:00 in Chicago after `t`, daylight saving included. */
+export function nextChicagoHour(t: number, hour: number): number {
+  const p = Object.fromEntries(chicagoWall.formatToParts(t).map((x) => [x.type, x.value]));
+  const wall = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour), Number(p.minute));
+  const offset = t - wall - (t % 60000);
+  let target = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), hour) + offset;
+  if (target <= t) target = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day) + 1, hour) + offset;
+  return target;
+}
+
+/** Where a fill stands against the releases: on a quiet day, a news day, or in the minutes around one. */
+type NewsContext = { day: boolean; window: boolean; titles: string[] };
+
+function newsLookup(events: NewsEvent[], windowMin: number) {
+  const byDay = new Map<string, Set<string>>();
+  for (const e of events) {
+    const d = chicagoDay.format(e.at);
+    const set = byDay.get(d) ?? new Set<string>();
+    set.add(e.title);
+    byDay.set(d, set);
+  }
+  const times = events.map((e) => e.at);
+  const w = windowMin * 60000;
+  const memo = new Map<number, NewsContext>();
+  return (t: number): NewsContext => {
+    const hit = memo.get(t);
+    if (hit) return hit;
+    // The first release at or after t − window: inside the window if it is not past t + window.
+    let lo = 0;
+    let hi = times.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (times[mid] < t - w) lo = mid + 1;
+      else hi = mid;
+    }
+    const titles = byDay.get(chicagoDay.format(t));
+    const ctx = { day: !!titles, window: lo < times.length && times[lo] <= t + w, titles: titles ? [...titles] : [] };
+    memo.set(t, ctx);
+    return ctx;
+  };
+}
 
 /** Every time price came back to a level, and from which side. */
 export function findTouches(b: Bars, level: number, tick: number, rearmTicks: number, maxOffset: number): Touch[] {
@@ -88,7 +191,7 @@ export function findTouches(b: Bars, level: number, tick: number, rearmTicks: nu
   return out;
 }
 
-export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHours: number): Trade | null {
+export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHours: number, flatAt: number | null = null): Trade | null {
   const eps = tick * 1e-3;
   const d = touch.dir;
   const entry = touch.zone + d * cfg.offset * tick;
@@ -111,7 +214,9 @@ export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHo
 
   if (against(fill, sl)) return trade(-cfg.sl, "SL");
 
-  const limit = b.t[fill] + maxHours * 3600000;
+  let limit = b.t[fill] + maxHours * 3600000;
+  // Closed on the bar before the hour, at its close.
+  if (flatAt !== null) limit = Math.min(limit, nextChicagoHour(b.t[fill], flatAt) - 60000);
   const n = b.t.length;
   const kind = kindOf(cfg);
 
@@ -196,6 +301,10 @@ export type ConfigStats = {
   zones: Record<string, Bucket>;
   /** "long" / "short". */
   dirs?: Record<string, Bucket>;
+  /** Quiet days, news days, the minutes around a release. */
+  news?: Record<string, Bucket>;
+  /** Trades on the day of each release, by its title. */
+  newsTitles?: Record<string, Bucket>;
   /** Hour of the fill on the result's `hoursTz` clock, "0" to "23". */
   hours?: Record<string, Bucket>;
   /** [minutes since epoch, ticks], in order: enough to redraw the curve and combine symbols. */
@@ -234,6 +343,15 @@ export type SymbolResult = {
   neighbours?: Neighbours | null;
   /** The clock the hours are on. Results saved before it was recorded were on Paris time. */
   hoursTz?: string;
+  byNews?: Best[];
+  /** The rules the search ran under. */
+  rules?: Rules;
+  /** The retained configuration with all the rules, without each one in turn, and with none. */
+  rulesImpact?: { label: string; n: number; pnl: number; winRate: number; maxDD: number; pf: number | null }[];
+  /** How many major releases the blackout had to work with. */
+  majorReleases?: number;
+  /** The releases read against: how many, of which currencies, the window around them. Null when the calendar could not be read. */
+  newsInfo?: { events: number; currencies: string[]; window: number } | null;
 };
 
 export const monthOf = (t: number) => new Date(t).toISOString().slice(0, 7);
@@ -255,13 +373,24 @@ function bump(map: Record<string, Bucket>, key: string, p: number, won: boolean)
   if (won) b.wins++;
 }
 
-function statsOf(cfg: Config, trades: Trade[], tickValue: number, lots: number, keepDetail: boolean): ConfigStats {
+export const NEWS_BUCKETS = { quiet: "Jour sans news", day: "Jour de news, hors fenêtre", window: "Autour d'une news" } as const;
+
+function statsOf(
+  cfg: Config,
+  trades: Trade[],
+  tickValue: number,
+  lots: number,
+  keepDetail: boolean,
+  news: ((t: number) => NewsContext) | null = null
+): ConfigStats {
   trades.sort((a, b) => a.t - b.t);
   let tp2 = 0, tp1 = 0, sl = 0, tr = 0, to = 0, netTicks = 0, win = 0, loss = 0, peak = 0, eq = 0, maxDD = 0, wins = 0;
   const months: Record<string, Bucket> = {};
   const zones: Record<string, Bucket> = {};
   const dirs: Record<string, Bucket> = {};
   const hours: Record<string, Bucket> = {};
+  const newsB: Record<string, Bucket> = {};
+  const newsTitles: Record<string, Bucket> = {};
   const money = tickValue * lots;
   for (const t of trades) {
     if (t.out === "TP2") tp2++;
@@ -283,6 +412,11 @@ function statsOf(cfg: Config, trades: Trade[], tickValue: number, lots: number, 
       bump(zones, String(t.zone), p, won);
       bump(dirs, t.dir === 1 ? "long" : "short", p, won);
       bump(hours, String(exchangeHour(t.t)), p, won);
+      if (news) {
+        const ctx = news(t.t);
+        bump(newsB, ctx.window ? NEWS_BUCKETS.window : ctx.day ? NEWS_BUCKETS.day : NEWS_BUCKETS.quiet, p, won);
+        for (const title of ctx.titles) bump(newsTitles, title, p, won);
+      }
     }
   }
   return {
@@ -303,6 +437,7 @@ function statsOf(cfg: Config, trades: Trade[], tickValue: number, lots: number, 
     zones,
     dirs,
     hours,
+    ...(news ? { news: newsB, newsTitles } : {}),
     trades: keepDetail ? trades.map((t) => [Math.round(t.t / 60000), t.ticks]) : [],
   };
 }
@@ -359,8 +494,49 @@ export async function analyse(
   tickValue: number,
   grid: Grid,
   settings: Settings,
-  onProgress: (done: number, total: number) => void
+  onProgress: (done: number, total: number) => void,
+  news: { events: NewsEvent[]; currencies: string[] } | null = null
 ): Promise<SymbolResult> {
+  const windowMin = settings.newsWindow ?? 30;
+  const rules: Rules = settings.rules ?? { maxPerDay: null, hours: null, flatAt: null, blackout: null };
+  const major = (news?.events ?? []).filter((e) => isMajorRelease(e, symbol)).map((e) => e.at);
+  /** Whether a fill is one the rules let through, before the daily cap. */
+  const allowed = (t: number, r: Rules) => {
+    if (r.hours) {
+      const h = exchangeHour(t);
+      if (h < r.hours[0] || h >= r.hours[1]) return false;
+    }
+    if (r.blackout) {
+      const before = r.blackout.before * 60000;
+      const after = r.blackout.after * 60000;
+      for (const at of major) if (t >= at - before && t <= at + after) return false;
+    }
+    return true;
+  };
+  /** The first fills of each Chicago day, up to the cap. */
+  const capped = (trades: Trade[], r: Rules) => {
+    if (r.maxPerDay === null) return trades;
+    const sorted = [...trades].sort((a, c) => a.t - c.t);
+    const perDay = new Map<string, number>();
+    return sorted.filter((t) => {
+      const d = chicagoDay.format(t.t);
+      const k = perDay.get(d) ?? 0;
+      if (k >= r.maxPerDay!) return false;
+      perDay.set(d, k + 1);
+      return true;
+    });
+  };
+  const run = (cfg: Config, r: Rules) => {
+    const trades: Trade[] = [];
+    for (const touch of touches) {
+      const tr = simulate(b, touch, cfg, tick, settings.maxHours, r.flatAt);
+      if (tr && allowed(tr.t, r)) trades.push(tr);
+    }
+    return trades;
+  };
+  const lookup = news ? newsLookup(news.events, windowMin) : null;
+  // Without a calendar there is nothing to filter on: only "all" is run.
+  const modes: NewsMode[] = lookup ? (grid.newsModes?.length ? grid.newsModes : ["all"]) : ["all"];
   const maxOffset = Math.max(...grid.offsets, 0);
   const touches = zones.flatMap((z) => findTouches(b, z, tick, settings.rearm, maxOffset)).sort((a, c) => a.start - c.start);
   const configs = configsOf(grid);
@@ -368,12 +544,23 @@ export async function analyse(
 
   for (let i = 0; i < configs.length; i++) {
     const cfg = configs[i];
-    const trades: Trade[] = [];
-    for (const touch of touches) {
-      const tr = simulate(b, touch, cfg, tick, settings.maxHours);
-      if (tr) trades.push(tr);
+    const trades = run(cfg, rules);
+    // The same trades under each rule about the releases: simulated once,
+    // filtered three ways — and only then capped, since a fill the rule
+    // refuses does not use up the day.
+    for (const mode of modes) {
+      const kept = capped(
+        mode === "all" || !lookup
+          ? trades
+          : trades.filter((t) => {
+              const ctx = lookup(t.t);
+              return mode === "window" ? !ctx.window : !ctx.day;
+            }),
+        rules
+      );
+      const c = { ...cfg, news: mode };
+      all.push({ cfg: c, trades: kept, s: statsOf(c, [...kept], tickValue, settings.lots, false) });
     }
-    all.push({ cfg, trades, s: statsOf(cfg, trades, tickValue, settings.lots, false) });
     if (i % 20 === 19) {
       onProgress(i + 1, configs.length);
       await new Promise((r) => setTimeout(r, 0));
@@ -448,6 +635,37 @@ export async function analyse(
       neighbours = { n: near.length, positive: near.filter((s) => s.pnl > 0).length, avgPnl: near.reduce((a, s) => a + s.pnl, 0) / near.length };
   }
 
+  // What each rule did to the retained configuration: taken away one at a time.
+  let rulesImpact: SymbolResult["rulesImpact"] = [];
+  if (pool.length) {
+    const cfg = pool[0].cfg;
+    const mode = cfg.news ?? "all";
+    const measure = (label: string, r: Rules) => {
+      let trades = run(cfg, r);
+      if (mode !== "all" && lookup)
+        trades = trades.filter((t) => {
+          const ctx = lookup(t.t);
+          return mode === "window" ? !ctx.window : !ctx.day;
+        });
+      const st = statsOf(cfg, capped(trades, r), tickValue, settings.lots, false);
+      return { label, n: st.n, pnl: st.pnl, winRate: st.winRate, maxDD: st.maxDD, pf: st.pf };
+    };
+    const off: [keyof Rules, string][] = [
+      ["maxPerDay", `sans « ${rules.maxPerDay} trade(s) par jour »`],
+      ["hours", `sans « ordres ${rules.hours?.[0]}h–${rules.hours?.[1]}h »`],
+      ["flatAt", `sans « clôture à ${rules.flatAt}h »`],
+      ["blackout", `sans « blackout news −${rules.blackout?.before} min / +${rules.blackout?.after} min »`],
+    ];
+    const active = off.filter(([k]) => rules[k] !== null);
+    if (active.length) {
+      rulesImpact = [
+        measure("Toutes tes règles", rules),
+        ...active.map(([k, label]) => measure(label, { ...rules, [k]: null })),
+        measure("Aucune règle", { maxPerDay: null, hours: null, flatAt: null, blackout: null }),
+      ];
+    }
+  }
+
   const fixed = pool.filter((x) => x.cfg.kind === "fixed");
   const trailing = pool.filter((x) => x.cfg.kind !== "fixed");
 
@@ -462,7 +680,7 @@ export async function analyse(
     settings,
     zones,
     tested: configs.length,
-    top: pool.slice(0, 20).map((x) => statsOf(x.cfg, x.trades, tickValue, settings.lots, true)),
+    top: pool.slice(0, 20).map((x) => statsOf(x.cfg, x.trades, tickValue, settings.lots, true, lookup)),
     byOffset: best(pool, (c) => String(c.offset)).sort(num),
     bySl: best(pool, (c) => String(c.sl)).sort(num),
     byTp: best(fixed, (c) => `${c.tp1}/${c.tp2}`).sort(pair),
@@ -471,5 +689,10 @@ export async function analyse(
     validation,
     neighbours,
     hoursTz: HOURS_TZ,
+    byNews: lookup ? best(pool, (c) => c.news ?? "all") : [],
+    rules,
+    rulesImpact,
+    majorReleases: major.length,
+    newsInfo: news ? { events: news.events.length, currencies: news.currencies, window: windowMin } : null,
   };
 }

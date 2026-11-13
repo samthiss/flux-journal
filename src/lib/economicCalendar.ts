@@ -325,6 +325,43 @@ export async function getEventsOver(days: string[]): Promise<EconomicEvent[]> {
 }
 
 /**
+ * The high-impact releases of some currencies over a long stretch, for a
+ * backtest to be read against.
+ *
+ * Asked a month at a time: a year in one request is more than the source has
+ * been seen to answer. Null when any month fails, so a backtest is never told
+ * a month was quiet when it was only unreadable.
+ */
+export async function getHighImpactBetween(
+  from: Date,
+  to: Date,
+  currencies: string[]
+): Promise<{ at: number; currency: string; title: string }[] | null> {
+  const wanted = new Set(currencies);
+  const out: { at: number; currency: string; title: string }[] = [];
+  for (let start = new Date(from); start < to; ) {
+    const end = new Date(start);
+    end.setUTCMonth(end.getUTCMonth() + 1);
+    const chunk = await readRange(start, end < to ? end : to);
+    if (!chunk) return null;
+    for (const e of chunk)
+      if (e.kind === "release" && e.impact === "high" && e.at && wanted.has(e.currency))
+        out.push({ at: Date.parse(e.at), currency: e.currency, title: e.title });
+    start = end;
+  }
+  // Months overlap at their edges.
+  const seen = new Set<string>();
+  return out
+    .filter((e) => {
+      const k = `${e.at}|${e.currency}|${e.title}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .sort((a, b) => a.at - b.at);
+}
+
+/**
  * The events as rated here rather than at the source.
  *
  * Kept beside the fetch rather than in the action file, because a "use server"

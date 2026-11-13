@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { exigeProprietaire, monJournal } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { getHighImpactBetween } from "@/lib/economicCalendar";
 
 const clean = (symbol: string) => symbol.trim().toUpperCase();
 
@@ -56,4 +57,14 @@ export async function deleteDatabentoSymbol(symbol: string) {
   const ownerId = await monJournal();
   await prisma.databentoSymbol.deleteMany({ where: { ownerId, symbol: clean(symbol) } });
   revalidatePath("/backtesting-databento");
+}
+
+/**
+ * The high-impact releases of the currencies a contract moves on, over the
+ * history being tested. Null when the calendar could not be read.
+ */
+export async function getNewsHistory(currencies: string[], from: number, to: number) {
+  await exigeProprietaire();
+  // A day either side, for releases at the edges of the history.
+  return getHighImpactBetween(new Date(from - 86400000), new Date(to + 86400000), currencies);
 }
