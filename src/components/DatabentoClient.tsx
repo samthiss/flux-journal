@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { accentColor, glassCard, lossColor } from "@/lib/theme";
+import { accentColor, glassCard, lossColor, winColor } from "@/lib/theme";
 import { CONTRACTS } from "@/lib/contracts";
 import { Field, Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, td, th, tone } from "@/components/BacktestUi";
 import { parseDatabentoCsv, mergeDatasets, type Dataset } from "@/lib/databento/parse";
 import { deleteDataset, loadDataset, loadDatasets, saveDataset } from "@/lib/databento/store";
-import { analyse, configsOf, monthOf, type Best, type ConfigStats, type Grid, type Settings, type SymbolResult } from "@/lib/databento/engine";
+import { EXIT_LABELS, analyse, configsOf, kindOf, monthOf, type Best, type Bucket, type ConfigStats, type ExitKind, type Grid, type Settings, type SymbolResult } from "@/lib/databento/engine";
+import { entryText, exitText, recommend, type Reco } from "@/lib/databento/recommend";
 import { chooseDatabentoConfig, deleteDatabentoSymbol, saveDatabentoResult, saveDatabentoZones } from "@/lib/actions/databento";
 
 type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
@@ -14,7 +15,18 @@ type Entry = { symbol: string; zones: number[]; result: SymbolResult | null; cho
 
 const SETTINGS_KEY = "databento-settings";
 
-const DEFAULT_GRID: Grid = { offsets: [-4, -2, 0, 2, 4], sls: [6, 8, 10, 12, 15, 20], tp1s: [5, 10, 15, 20], tp2s: [10, 20, 30, 40] };
+const DEFAULT_GRID: Grid = {
+  offsets: [-4, -2, 0, 2, 4],
+  sls: [6, 8, 10, 12, 15, 20],
+  tp1s: [5, 10, 15, 20],
+  tp2s: [10, 20, 30, 40],
+  acts: [10, 15, 20, 30],
+  dists: [5, 10, 15, 20],
+  kinds: ["fixed", "trail", "tp1trail"],
+};
+type ListKey = "offsets" | "sls" | "tp1s" | "tp2s" | "acts" | "dists";
+const LIST_KEYS: ListKey[] = ["offsets", "sls", "tp1s", "tp2s", "acts", "dists"];
+const textOf = (g: Grid) => Object.fromEntries(LIST_KEYS.map((k) => [k, fmtList(g[k])])) as Record<ListKey, string>;
 const DEFAULT_SETTINGS: Settings = { lots: 2, rearm: 30, maxHours: 24, minTrades: 10 };
 
 /** "1,3186 / 1,3552" → [1.3186, 1.3552]: a comma is a decimal point here, never a separator. */
@@ -34,8 +46,14 @@ const fmtZone = (z: number) => String(z).replace(".", ",");
 const fmtDay = (t: number) => new Date(t).toISOString().slice(0, 10);
 const pct = (x: number) => `${(x * 100).toFixed(0)} %`;
 const fmtPfOrInf = (pf: number | null) => (pf === null ? "∞" : pf.toFixed(2));
-const cfgText = (c: ConfigStats["cfg"]) =>
-  `Entrée ${fmtOffset(c.offset)} · SL ${c.sl} · ${c.tp1 === c.tp2 ? `TP ${c.tp1}` : `TP1 ${c.tp1} / TP2 ${c.tp2}`}`;
+/** The way out, short. */
+const exitShort = (c: ConfigStats["cfg"]) => {
+  const k = kindOf(c);
+  if (k === "fixed") return c.tp1 === c.tp2 ? `TP ${c.tp1}` : `TP1 ${c.tp1} / TP2 ${c.tp2}`;
+  const trail = `trail +${c.act} à ${c.dist}`;
+  return k === "trail" ? trail : `TP1 ${c.tp1} + ${trail}`;
+};
+const cfgText = (c: ConfigStats["cfg"]) => `Entrée ${fmtOffset(c.offset)} · SL ${c.sl} · ${exitShort(c)}`;
 
 function parseResult(raw: string | null): SymbolResult | null {
   if (!raw) return null;
@@ -82,6 +100,53 @@ function Equity({ trades, money }: { trades: [number, number][]; money: number }
       <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="oklch(0.4 0.02 250)" strokeDasharray="4 4" strokeWidth={1} />
       <path d={d} fill="none" stroke={tone(pts[pts.length - 1])} strokeWidth={2} vectorEffect="non-scaling-stroke" />
     </svg>
+  );
+}
+
+function BucketTable({ title, first, rows }: { title: string; first: string; rows: [string, Bucket][] }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ ...label, fontSize: 11 }}>{title}</div>
+      <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
+        <thead>
+          <tr>
+            <th style={th}>{first}</th>
+            <th style={th}>Trades</th>
+            <th style={th}>Win</th>
+            <th style={th}>PnL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([k, b]) => (
+            <tr key={k}>
+              <td style={{ ...td, fontFamily: "inherit" }}>{k}</td>
+              <td style={td}>{b.n}</td>
+              <td style={td}>{pct(b.wins / b.n)}</td>
+              <td style={{ ...td, color: tone(b.pnl), fontWeight: 700 }}>{fmtUsd(b.pnl)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Recommendations({ recos, title = "Recommandations" }: { recos: Reco[]; title?: string }) {
+  if (!recos.length) return null;
+  const mark = { rule: "▶", ok: "✓", warn: "!" } as const;
+  const color = { rule: accentColor, ok: winColor, warn: lossColor } as const;
+  return (
+    <div style={{ marginTop: 20, padding: "14px 16px", border: "1px solid oklch(0.84 0.17 196 / 0.25)", borderRadius: 8, background: "oklch(0.84 0.17 196 / 0.04)" }}>
+      <div style={{ ...label, fontSize: 11, marginBottom: 8 }}>{title}</div>
+      <div style={{ display: "grid", gap: 7 }}>
+        {recos.map((r, i) => (
+          <div key={i} style={{ display: "flex", gap: 10, fontSize: 13, lineHeight: 1.5, fontWeight: r.tone === "rule" ? 600 : undefined }}>
+            <span style={{ ...mono, color: color[r.tone], width: 12, flex: "none" }}>{mark[r.tone]}</span>
+            <span>{r.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -133,25 +198,17 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
   // ---- Settings, kept in the browser ---------------------------------------
   const [grid, setGrid] = useState<Grid>(DEFAULT_GRID);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [gridText, setGridText] = useState<Record<keyof Grid, string>>({
-    offsets: fmtList(DEFAULT_GRID.offsets),
-    sls: fmtList(DEFAULT_GRID.sls),
-    tp1s: fmtList(DEFAULT_GRID.tp1s),
-    tp2s: fmtList(DEFAULT_GRID.tp2s),
-  });
+  const [gridText, setGridText] = useState<Record<ListKey, string>>(() => textOf(DEFAULT_GRID));
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "null");
       if (saved?.grid && saved?.settings) {
+        // Settings saved before the trailing stop existed lack its lists.
+        const g: Grid = { ...DEFAULT_GRID, ...saved.grid };
         // eslint-disable-next-line react-hooks/set-state-in-effect -- the browser's own storage, read once after mount
-        setGrid(saved.grid);
+        setGrid(g);
         setSettings({ ...DEFAULT_SETTINGS, ...saved.settings });
-        setGridText({
-          offsets: fmtList(saved.grid.offsets),
-          sls: fmtList(saved.grid.sls),
-          tp1s: fmtList(saved.grid.tp1s),
-          tp2s: fmtList(saved.grid.tp2s),
-        });
+        setGridText(textOf(g));
       }
     } catch {
       // ignore storage failures
@@ -167,7 +224,13 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
       // ignore storage failures
     }
   };
-  const setGridField = (k: keyof Grid, text: string) => {
+  const toggleKind = (k: ExitKind) => {
+    const kinds = grid.kinds.includes(k) ? grid.kinds.filter((x) => x !== k) : [...grid.kinds, k];
+    const g = { ...grid, kinds };
+    setGrid(g);
+    saveSettings(g, settings);
+  };
+  const setGridField = (k: ListKey, text: string) => {
     setGridText((t) => ({ ...t, [k]: text }));
     const g = { ...grid, [k]: parseList(text) };
     setGrid(g);
@@ -287,7 +350,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
       return;
     }
     if (!nConfigs) {
-      setMessage({ text: "Aucune configuration à tester : vérifie les listes (TP2 doit être ≥ TP1).", error: true });
+      setMessage({ text: "Aucune configuration à tester : coche au moins une sortie et vérifie les listes (TP2 ≥ TP1, distance ≤ déclenchement).", error: true });
       return;
     }
     setBusy(true);
@@ -464,6 +527,12 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           <Field title="TP2 (ticks)" hint="TP2 = TP1 : TP unique">
             <input value={gridText.tp2s} onChange={(e) => setGridField("tp2s", e.target.value)} style={fieldStyle} />
           </Field>
+          <Field title="Trailing : déclenchement" hint="ticks de gain avant que le stop suive">
+            <input value={gridText.acts} onChange={(e) => setGridField("acts", e.target.value)} style={fieldStyle} />
+          </Field>
+          <Field title="Trailing : distance" hint="ticks entre le stop et le meilleur prix">
+            <input value={gridText.dists} onChange={(e) => setGridField("dists", e.target.value)} style={fieldStyle} />
+          </Field>
           <Field title="Lots">
             <input type="number" min={1} value={settings.lots} onChange={(e) => setSetting("lots", Number(e.target.value))} style={fieldStyle} />
           </Field>
@@ -481,6 +550,14 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           <button type="button" disabled={busy} onClick={lancer} style={{ ...btn(accentColor, true), padding: "10px 18px", fontSize: 13.5, cursor: busy ? "wait" : "pointer" }}>
             Lancer l&apos;analyse
           </button>
+          <span style={{ display: "flex", gap: 12, fontSize: 12.5 }}>
+            {(Object.keys(EXIT_LABELS) as ExitKind[]).map((k) => (
+              <label key={k} style={{ display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}>
+                <input type="checkbox" checked={grid.kinds.includes(k)} onChange={() => toggleKind(k)} />
+                {EXIT_LABELS[k]}
+              </label>
+            ))}
+          </span>
           <span style={{ ...mono, fontSize: 12, color: "oklch(0.6 0.03 250)" }}>{nConfigs} configurations par symbole</span>
           {progress && <span style={{ ...mono, fontSize: 12, color: accentColor }}>{progress}</span>}
         </div>
@@ -521,6 +598,20 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                 />
               </div>
               <Equity trades={general.trades.map((t) => [0, t.pnl])} money={1} />
+              <Recommendations
+                title="Règles par symbole"
+                recos={general.per.flatMap(({ e, c }): Reco[] => {
+                  const v = e.result!.validation;
+                  const lines: Reco[] = [
+                    { tone: "rule", text: `${e.symbol} : ${entryText(c.cfg.offset)}, SL ${c.cfg.sl} ticks, ${exitText(c.cfg)}.` },
+                  ];
+                  if (c.pnl <= 0) lines.push({ tone: "warn", text: `${e.symbol} perd avec sa meilleure config (${fmtUsd(c.pnl)}) : à ne pas trader sur ces niveaux.` });
+                  else if (v && v.outPnl <= 0)
+                    lines.push({ tone: "warn", text: `${e.symbol} ne tient pas hors échantillon (${fmtUsd(v.outPnl)} sur ${v.outN} trades) : prudence.` });
+                  else if (v) lines.push({ tone: "ok", text: `${e.symbol} tient hors échantillon (${fmtUsd(v.outPnl)} sur ${v.outN} trades).` });
+                  return lines;
+                })}
+              />
 
               <div style={{ overflowX: "auto", marginTop: 18 }}>
                 <table style={{ borderCollapse: "collapse", width: "100%" }}>
@@ -544,7 +635,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                         <td style={td}>{cfgText(c.cfg)}</td>
                         <td style={td}>{c.n}</td>
                         <td style={td}>{pct(c.winRate)}</td>
-                        <td style={td}>{c.n ? pct(c.tp2 / c.n) : "—"}</td>
+                        <td style={td}>{c.n && kindOf(c.cfg) === "fixed" ? pct(c.tp2 / c.n) : "—"}</td>
                         <td style={{ ...td, color: tone(c.pnl), fontWeight: 700 }}>{fmtUsd(c.pnl)}</td>
                         <td style={td}>{fmtPfOrInf(c.pf)}</td>
                         <td style={{ ...td, color: lossColor }}>{fmtUsd(-c.maxDD)}</td>
@@ -623,20 +714,38 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 20, marginTop: 16 }}>
         <Figure title="PnL" value={fmtUsd(cfg.pnl)} color={tone(cfg.pnl)} hint={`${cfg.netTicks} ticks / contrat`} />
-        <Figure title="Trades" value={String(cfg.n)} hint={`${cfg.tp2} TP2 · ${cfg.tp1} TP1 · ${cfg.sl} SL · ${cfg.to} temps`} />
+        <Figure
+          title="Trades"
+          value={String(cfg.n)}
+          hint={kindOf(cfg.cfg) === "fixed" ? `${cfg.tp2} TP2 · ${cfg.tp1} TP1 · ${cfg.sl} SL · ${cfg.to} temps` : `${cfg.tr ?? 0} trailing · ${cfg.tp1} BE · ${cfg.sl} SL · ${cfg.to} temps`}
+        />
         <Figure title="Winrate" value={pct(cfg.winRate)} />
-        <Figure title="TP2 atteint" value={cfg.n ? pct(cfg.tp2 / cfg.n) : "—"} />
         <Figure title="Profit factor" value={fmtPfOrInf(cfg.pf)} />
         <Figure title="Drawdown max" value={fmtUsd(-cfg.maxDD)} color={cfg.maxDD ? lossColor : undefined} />
         <Figure title="Espérance" value={cfg.n ? fmtUsd(cfg.pnl / cfg.n) : "—"} hint="par trade" />
       </div>
       <Equity trades={cfg.trades} money={money} />
 
+      <Recommendations recos={recommend(r, cfg)} />
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 22, marginTop: 22 }}>
+        {r.byExit && r.byExit.length > 0 && (
+          <BestTable title="Meilleure sortie" rows={r.byExit} render={(v) => EXIT_LABELS[v as ExitKind] ?? v} />
+        )}
+        {r.byTrail && r.byTrail.length > 0 && (
+          <BestTable
+            title="Meilleur trailing (déclenchement / distance)"
+            rows={r.byTrail}
+            render={(v) => {
+              const [a, d] = v.split("/");
+              return `+${a} / ${d}`;
+            }}
+          />
+        )}
         <BestTable title="Meilleure entrée (ticks)" rows={r.byOffset} render={(v) => fmtOffset(Number(v))} />
         <BestTable title="Meilleur SL (ticks)" rows={r.bySl} render={(v) => v} />
         <BestTable
-          title="Meilleur TP (TP1 / TP2)"
+          title="Meilleur TP fixe (TP1 / TP2)"
           rows={r.byTp}
           render={(v) => {
             const [a, b] = v.split("/");
@@ -656,11 +765,9 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
               <th style={th}>#</th>
               <th style={th}>Entrée</th>
               <th style={th}>SL</th>
-              <th style={th}>TP1</th>
-              <th style={th}>TP2</th>
+              <th style={th}>Sortie</th>
               <th style={th}>Trades</th>
               <th style={th}>Win</th>
-              <th style={th}>TP2</th>
               <th style={th}>PnL</th>
               <th style={th}>PF</th>
               <th style={th}>DD max</th>
@@ -676,11 +783,9 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
                   <td style={{ ...td, color: on ? accentColor : undefined }}>{on ? "●" : i + 1}</td>
                   <td style={td}>{fmtOffset(c.cfg.offset)}</td>
                   <td style={td}>{c.cfg.sl}</td>
-                  <td style={td}>{c.cfg.tp1}</td>
-                  <td style={td}>{c.cfg.tp2}</td>
+                  <td style={td}>{exitShort(c.cfg)}</td>
                   <td style={td}>{c.n}</td>
                   <td style={td}>{pct(c.winRate)}</td>
-                  <td style={td}>{c.n ? pct(c.tp2 / c.n) : "—"}</td>
                   <td style={{ ...td, color: tone(c.pnl), fontWeight: 700 }}>{fmtUsd(c.pnl)}</td>
                   <td style={td}>{fmtPfOrInf(c.pf)}</td>
                   <td style={{ ...td, color: lossColor }}>{fmtUsd(-c.maxDD)}</td>
@@ -692,56 +797,25 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
         </table>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 22, marginTop: 22 }}>
-        <div>
-          <div style={{ ...label, fontSize: 11 }}>Par mois</div>
-          <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
-            <thead>
-              <tr>
-                <th style={th}>Mois</th>
-                <th style={th}>Trades</th>
-                <th style={th}>Win</th>
-                <th style={th}>PnL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {months.map((m) => {
-                const b = cfg.months[m];
-                return (
-                  <tr key={m}>
-                    <td style={{ ...td, fontFamily: "inherit" }}>{monthLabel(m)}</td>
-                    <td style={td}>{b.n}</td>
-                    <td style={td}>{pct(b.wins / b.n)}</td>
-                    <td style={{ ...td, color: tone(b.pnl), fontWeight: 700 }}>{fmtUsd(b.pnl)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div>
-          <div style={{ ...label, fontSize: 11 }}>Par niveau</div>
-          <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
-            <thead>
-              <tr>
-                <th style={th}>Niveau</th>
-                <th style={th}>Trades</th>
-                <th style={th}>Win</th>
-                <th style={th}>PnL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {zones.map(([z, b]) => (
-                <tr key={z}>
-                  <td style={td}>{fmtZone(Number(z))}</td>
-                  <td style={td}>{b.n}</td>
-                  <td style={td}>{pct(b.wins / b.n)}</td>
-                  <td style={{ ...td, color: tone(b.pnl), fontWeight: 700 }}>{fmtUsd(b.pnl)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 22, marginTop: 22 }}>
+        <BucketTable title="Par mois" first="Mois" rows={months.map((m) => [monthLabel(m), cfg.months[m]])} />
+        <BucketTable title="Par niveau" first="Niveau" rows={zones.map(([z, b]) => [fmtZone(Number(z)), b])} />
+        {cfg.dirs && (
+          <BucketTable
+            title="Par sens"
+            first="Sens"
+            rows={(["long", "short"] as const).filter((d) => cfg.dirs![d]).map((d) => [d === "long" ? "Long" : "Short", cfg.dirs![d]])}
+          />
+        )}
+        {cfg.hours && (
+          <BucketTable
+            title="Par heure (Paris)"
+            first="Heure"
+            rows={Object.entries(cfg.hours)
+              .sort(([a], [b]) => Number(a) - Number(b))
+              .map(([h, b]) => [`${h}h–${Number(h) + 1}h`, b])}
+          />
+        )}
       </div>
     </div>
   );

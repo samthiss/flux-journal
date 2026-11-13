@@ -7,27 +7,50 @@ import type { Bars } from "./parse";
  * re-arm distance, the next time it comes back is a touch. Price coming down
  * onto it is a long, price coming up onto it a short — the level as support
  * or resistance. Each configuration is a limit order placed some ticks before
- * or beyond the level, a stop, and two targets: half the position comes off at
- * TP1 and the stop goes to the entry, the other half at TP2. TP1 equal to TP2
- * is a single target.
+ * or beyond the level, a stop, and one of three ways out:
+ *
+ * - "fixed": half the position comes off at TP1 and the stop goes to the
+ *   entry, the other half at TP2. TP1 equal to TP2 is a single target.
+ * - "trail": no target. Once the trade is `act` ticks in profit, the stop
+ *   follows the best price at `dist` ticks.
+ * - "tp1trail": half off at TP1 with the stop to the entry, and the other half
+ *   trailed as above.
  *
  * One-minute bars do not say what happened inside the minute, so every doubt
  * is settled against the trade: a bar that reaches both the stop and a target
- * is a stop, and the bar that fills the order can stop it out but cannot pay
- * a target.
+ * is a stop, the bar that fills the order can stop it out but cannot pay a
+ * target, and a trailing stop raised by a bar only protects from the next one.
  */
 
-export type Config = { offset: number; sl: number; tp1: number; tp2: number };
-export type Grid = { offsets: number[]; sls: number[]; tp1s: number[]; tp2s: number[] };
+export type ExitKind = "fixed" | "trail" | "tp1trail";
+export type Config = { kind: ExitKind; offset: number; sl: number; tp1: number; tp2: number; act: number; dist: number };
+export type Grid = {
+  offsets: number[];
+  sls: number[];
+  tp1s: number[];
+  tp2s: number[];
+  acts: number[];
+  dists: number[];
+  kinds: ExitKind[];
+};
 export type Settings = { lots: number; rearm: number; maxHours: number; minTrades: number };
 
-export type Outcome = "SL" | "TP1" | "TP2" | "TO";
+export type Outcome = "SL" | "TP1" | "TP2" | "TR" | "TO";
 /** One simulated trade: when it was filled, which level, how many ticks it made per contract. */
 export type Trade = { t: number; zone: number; dir: 1 | -1; ticks: number; out: Outcome };
 
 type Touch = { start: number; end: number; dir: 1 | -1; zone: number };
 
-export const configKey = (c: Config) => `${c.offset}|${c.sl}|${c.tp1}|${c.tp2}`;
+export const EXIT_LABELS: Record<ExitKind, string> = {
+  fixed: "TP1/TP2 fixes",
+  trail: "Trailing",
+  tp1trail: "TP1 + trailing",
+};
+
+/** Results saved before the trailing stop existed carry no kind: they were fixed targets. */
+export const kindOf = (c: Partial<Config>): ExitKind => c.kind ?? "fixed";
+
+export const configKey = (c: Config) => `${c.kind}|${c.offset}|${c.sl}|${c.tp1}|${c.tp2}|${c.act}|${c.dist}`;
 
 /** Every time price came back to a level, and from which side. */
 export function findTouches(b: Bars, level: number, tick: number, rearmTicks: number, maxOffset: number): Touch[] {
@@ -84,27 +107,60 @@ export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHo
   const against = (j: number, p: number) => (d === 1 ? b.l[j] <= p + eps : b.h[j] >= p - eps);
   const towards = (j: number, p: number) => (d === 1 ? b.h[j] >= p - eps : b.l[j] <= p + eps);
   const trade = (ticks: number, out: Outcome): Trade => ({ t: b.t[fill], zone: touch.zone, dir: d, ticks: Math.round(ticks * 10) / 10, out });
+  const ticksAt = (p: number) => (d * (p - entry)) / tick;
 
   if (against(fill, sl)) return trade(-cfg.sl, "SL");
 
   const limit = b.t[fill] + maxHours * 3600000;
   const n = b.t.length;
-  let j = fill + 1;
-  for (; j < n && b.t[j] <= limit; j++) {
-    if (against(j, sl)) return trade(-cfg.sl, "SL");
-    if (towards(j, tp1)) {
-      if (towards(j, tp2)) return trade((cfg.tp1 + cfg.tp2) / 2, "TP2");
-      for (let k = j + 1; k < n && b.t[k] <= limit; k++) {
-        if (against(k, entry)) return trade(cfg.tp1 / 2, "TP1");
-        if (towards(k, tp2)) return trade((cfg.tp1 + cfg.tp2) / 2, "TP2");
+  const kind = kindOf(cfg);
+
+  if (kind === "fixed") {
+    for (let j = fill + 1; j < n && b.t[j] <= limit; j++) {
+      if (against(j, sl)) return trade(-cfg.sl, "SL");
+      if (towards(j, tp1)) {
+        if (towards(j, tp2)) return trade((cfg.tp1 + cfg.tp2) / 2, "TP2");
+        for (let k = j + 1; k < n && b.t[k] <= limit; k++) {
+          if (against(k, entry)) return trade(cfg.tp1 / 2, "TP1");
+          if (towards(k, tp2)) return trade((cfg.tp1 + cfg.tp2) / 2, "TP2");
+        }
+        // Out of time with half on: the rest closes where the clock ran out.
+        return trade((cfg.tp1 + ticksAt(b.c[lastBefore(b, limit)])) / 2, "TO");
       }
-      // Out of time with half on: the rest closes where the clock ran out.
-      const k = lastBefore(b, limit);
-      return trade((cfg.tp1 + (d * (b.c[k] - entry)) / tick) / 2, "TO");
+    }
+    return trade(ticksAt(b.c[lastBefore(b, limit)]), "TO");
+  }
+
+  // Trailing: the whole position, or the half left after TP1.
+  const half = kind === "tp1trail";
+  let stop = sl;
+  let best = entry;
+  let tp1Done = false;
+  let trailed = false;
+  for (let j = fill + 1; j < n && b.t[j] <= limit; j++) {
+    // The stop as it stood when the bar opened.
+    if (against(j, stop)) {
+      if (half && !tp1Done) return trade(-cfg.sl, "SL");
+      const runner = ticksAt(stop);
+      const out: Outcome = trailed ? "TR" : half ? "TP1" : "SL";
+      return trade(half ? (cfg.tp1 + runner) / 2 : runner, out);
+    }
+    if (half && !tp1Done && towards(j, tp1)) {
+      tp1Done = true;
+      if (d * (entry - stop) > 0) stop = entry;
+    }
+    const fav = d === 1 ? b.h[j] : b.l[j];
+    if (d * (fav - best) > 0) best = fav;
+    if ((!half || tp1Done) && ticksAt(best) >= cfg.act - 1e-9) {
+      const cand = best - d * cfg.dist * tick;
+      if (d * (cand - stop) > 0) {
+        stop = cand;
+        trailed = true;
+      }
     }
   }
-  const k = lastBefore(b, limit);
-  return trade((d * (b.c[k] - entry)) / tick, "TO");
+  const close = ticksAt(b.c[lastBefore(b, limit)]);
+  return trade(half ? (tp1Done ? (cfg.tp1 + close) / 2 : close) : close, "TO");
 }
 
 function lastBefore(b: Bars, limit: number) {
@@ -129,6 +185,7 @@ export type ConfigStats = {
   tp2: number;
   tp1: number;
   sl: number;
+  tr?: number;
   to: number;
   netTicks: number;
   pnl: number;
@@ -137,11 +194,24 @@ export type ConfigStats = {
   winRate: number;
   months: Record<string, Bucket>;
   zones: Record<string, Bucket>;
+  /** "long" / "short". */
+  dirs?: Record<string, Bucket>;
+  /** Hour of the fill, Paris time, "0" to "23". */
+  hours?: Record<string, Bucket>;
   /** [minutes since epoch, ticks], in order: enough to redraw the curve and combine symbols. */
   trades: [number, number][];
 };
 
 export type Best = { value: string; key: string; n: number; winRate: number; pnl: number; pf: number | null };
+
+/**
+ * The honest version of "the best configuration": chosen on the first two
+ * thirds of the history, then judged on the last third it never saw.
+ */
+export type Validation = { split: number; key: string; cfg: Config; inN: number; inPnl: number; outN: number; outPnl: number; outWin: number };
+
+/** How the configurations one step away from the best one did. */
+export type Neighbours = { n: number; positive: number; avgPnl: number };
 
 export type SymbolResult = {
   symbol: string;
@@ -158,39 +228,53 @@ export type SymbolResult = {
   byOffset: Best[];
   bySl: Best[];
   byTp: Best[];
+  byExit?: Best[];
+  byTrail?: Best[];
+  validation?: Validation | null;
+  neighbours?: Neighbours | null;
 };
 
 export const monthOf = (t: number) => new Date(t).toISOString().slice(0, 7);
 
+const parisClock = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Paris", hour: "2-digit", hourCycle: "h23" });
+/** The hour of a moment in Paris, 0 to 23. */
+const parisHour = (t: number) => Number(parisClock.formatToParts(t).find((p) => p.type === "hour")?.value ?? 0);
+
+function bump(map: Record<string, Bucket>, key: string, p: number, won: boolean) {
+  const b = (map[key] ??= { n: 0, wins: 0, pnl: 0 });
+  b.n++;
+  b.pnl += p;
+  if (won) b.wins++;
+}
+
 function statsOf(cfg: Config, trades: Trade[], tickValue: number, lots: number, keepDetail: boolean): ConfigStats {
   trades.sort((a, b) => a.t - b.t);
-  let tp2 = 0, tp1 = 0, sl = 0, to = 0, netTicks = 0, win = 0, loss = 0, peak = 0, eq = 0, maxDD = 0, wins = 0;
+  let tp2 = 0, tp1 = 0, sl = 0, tr = 0, to = 0, netTicks = 0, win = 0, loss = 0, peak = 0, eq = 0, maxDD = 0, wins = 0;
   const months: Record<string, Bucket> = {};
   const zones: Record<string, Bucket> = {};
+  const dirs: Record<string, Bucket> = {};
+  const hours: Record<string, Bucket> = {};
   const money = tickValue * lots;
-  for (const tr of trades) {
-    if (tr.out === "TP2") tp2++;
-    else if (tr.out === "TP1") tp1++;
-    else if (tr.out === "SL") sl++;
+  for (const t of trades) {
+    if (t.out === "TP2") tp2++;
+    else if (t.out === "TP1") tp1++;
+    else if (t.out === "SL") sl++;
+    else if (t.out === "TR") tr++;
     else to++;
-    const p = tr.ticks * money;
-    const won = tr.ticks > 0;
+    const p = t.ticks * money;
+    const won = t.ticks > 0;
     if (won) wins++;
-    netTicks += tr.ticks;
+    netTicks += t.ticks;
     if (p > 0) win += p;
     else loss -= p;
     eq += p;
     peak = Math.max(peak, eq);
     maxDD = Math.max(maxDD, peak - eq);
     if (keepDetail) {
-      const m = (months[monthOf(tr.t)] ??= { n: 0, wins: 0, pnl: 0 });
-      m.n++;
-      m.pnl += p;
-      if (won) m.wins++;
-      const z = (zones[String(tr.zone)] ??= { n: 0, wins: 0, pnl: 0 });
-      z.n++;
-      z.pnl += p;
-      if (won) z.wins++;
+      bump(months, monthOf(t.t), p, won);
+      bump(zones, String(t.zone), p, won);
+      bump(dirs, t.dir === 1 ? "long" : "short", p, won);
+      bump(hours, String(parisHour(t.t)), p, won);
     }
   }
   return {
@@ -200,6 +284,7 @@ function statsOf(cfg: Config, trades: Trade[], tickValue: number, lots: number, 
     tp2,
     tp1,
     sl,
+    tr,
     to,
     netTicks: Math.round(netTicks * 10) / 10,
     pnl: netTicks * money,
@@ -208,17 +293,48 @@ function statsOf(cfg: Config, trades: Trade[], tickValue: number, lots: number, 
     winRate: trades.length ? wins / trades.length : 0,
     months,
     zones,
+    dirs,
+    hours,
     trades: keepDetail ? trades.map((t) => [Math.round(t.t / 60000), t.ticks]) : [],
   };
 }
 
 export function configsOf(g: Grid): Config[] {
   const out: Config[] = [];
+  const kinds = g.kinds?.length ? g.kinds : (["fixed"] as ExitKind[]);
   for (const offset of g.offsets)
-    for (const sl of g.sls)
-      for (const tp1 of g.tp1s)
-        for (const tp2 of g.tp2s) if (tp2 >= tp1) out.push({ offset, sl, tp1, tp2 });
+    for (const sl of g.sls) {
+      if (kinds.includes("fixed"))
+        for (const tp1 of g.tp1s) for (const tp2 of g.tp2s) if (tp2 >= tp1) out.push({ kind: "fixed", offset, sl, tp1, tp2, act: 0, dist: 0 });
+      // A trail wider than its trigger would put the stop back under the
+      // entry the moment it starts: those are left out.
+      for (const act of g.acts ?? [])
+        for (const dist of g.dists ?? []) {
+          if (dist > act || dist <= 0) continue;
+          if (kinds.includes("trail")) out.push({ kind: "trail", offset, sl, tp1: 0, tp2: 0, act, dist });
+          if (kinds.includes("tp1trail")) for (const tp1 of g.tp1s) out.push({ kind: "tp1trail", offset, sl, tp1, tp2: 0, act, dist });
+        }
+    }
   return out;
+}
+
+/** The configurations one step away in a single setting, on the grid that was tested. */
+function neighboursOf(c: Config, g: Grid): string[] {
+  const step = (list: number[] | undefined, v: number) => {
+    const s = [...new Set(list ?? [])].sort((a, b) => a - b);
+    const i = s.indexOf(v);
+    return [s[i - 1], s[i + 1]].filter((x) => x !== undefined);
+  };
+  const out: Config[] = [];
+  for (const offset of step(g.offsets, c.offset)) out.push({ ...c, offset });
+  for (const sl of step(g.sls, c.sl)) out.push({ ...c, sl });
+  if (c.kind !== "trail") for (const tp1 of step(g.tp1s, c.tp1)) out.push({ ...c, tp1 });
+  if (c.kind === "fixed") for (const tp2 of step(g.tp2s, c.tp2)) out.push({ ...c, tp2 });
+  if (c.kind !== "fixed") {
+    for (const act of step(g.acts, c.act)) out.push({ ...c, act });
+    for (const dist of step(g.dists, c.dist)) out.push({ ...c, dist });
+  }
+  return out.map(configKey);
 }
 
 /**
@@ -250,7 +366,7 @@ export async function analyse(
       if (tr) trades.push(tr);
     }
     all.push({ cfg, trades, s: statsOf(cfg, trades, tickValue, settings.lots, false) });
-    if (i % 10 === 9) {
+    if (i % 20 === 19) {
       onProgress(i + 1, configs.length);
       await new Promise((r) => setTimeout(r, 0));
     }
@@ -263,12 +379,69 @@ export async function analyse(
   const pool = enough.length ? enough : all;
   pool.sort((a, c) => c.s.pnl - a.s.pnl);
 
-  const best = (pick: (c: Config) => string): Best[] => {
+  const best = (rows: typeof pool, pick: (c: Config) => string | null): Best[] => {
     const m = new Map<string, (typeof pool)[number]>();
-    for (const x of pool) if (!m.has(pick(x.cfg))) m.set(pick(x.cfg), x);
+    for (const x of rows) {
+      const v = pick(x.cfg);
+      if (v !== null && !m.has(v)) m.set(v, x);
+    }
     return [...m.entries()].map(([value, x]) => ({ value, key: x.s.key, n: x.s.n, winRate: x.s.winRate, pnl: x.s.pnl, pf: x.s.pf }));
   };
   const num = (a: Best, c: Best) => Number(a.value) - Number(c.value);
+  const pair = (a: Best, c: Best) => {
+    const [a1, a2] = a.value.split("/").map(Number);
+    const [c1, c2] = c.value.split("/").map(Number);
+    return a1 - c1 || a2 - c2;
+  };
+
+  // Out of sample: chosen on the first two thirds, judged on the last.
+  const split = b.from + ((b.to - b.from) * 2) / 3;
+  let validation: Validation | null = null;
+  {
+    const scored = all.map((x) => {
+      let inN = 0, inT = 0, outN = 0, outT = 0, outW = 0;
+      for (const t of x.trades) {
+        if (t.t < split) {
+          inN++;
+          inT += t.ticks;
+        } else {
+          outN++;
+          outT += t.ticks;
+          if (t.ticks > 0) outW++;
+        }
+      }
+      return { x, inN, inT, outN, outT, outW };
+    });
+    const minIn = Math.max(1, Math.round((settings.minTrades * 2) / 3));
+    const ok = scored.filter((s) => s.inN >= minIn);
+    const pick = (ok.length ? ok : scored).reduce<(typeof scored)[number] | null>((a, s) => (!a || s.inT > a.inT ? s : a), null);
+    if (pick) {
+      const money = tickValue * settings.lots;
+      validation = {
+        split,
+        key: pick.x.s.key,
+        cfg: pick.x.cfg,
+        inN: pick.inN,
+        inPnl: pick.inT * money,
+        outN: pick.outN,
+        outPnl: pick.outT * money,
+        outWin: pick.outN ? pick.outW / pick.outN : 0,
+      };
+    }
+  }
+
+  let neighbours: Neighbours | null = null;
+  if (pool.length) {
+    const byKey = new Map(all.map((x) => [x.s.key, x.s]));
+    const near = neighboursOf(pool[0].cfg, grid)
+      .map((k) => byKey.get(k))
+      .filter((s): s is ConfigStats => !!s);
+    if (near.length)
+      neighbours = { n: near.length, positive: near.filter((s) => s.pnl > 0).length, avgPnl: near.reduce((a, s) => a + s.pnl, 0) / near.length };
+  }
+
+  const fixed = pool.filter((x) => x.cfg.kind === "fixed");
+  const trailing = pool.filter((x) => x.cfg.kind !== "fixed");
 
   return {
     symbol,
@@ -282,12 +455,12 @@ export async function analyse(
     zones,
     tested: configs.length,
     top: pool.slice(0, 20).map((x) => statsOf(x.cfg, x.trades, tickValue, settings.lots, true)),
-    byOffset: best((c) => String(c.offset)).sort(num),
-    bySl: best((c) => String(c.sl)).sort(num),
-    byTp: best((c) => `${c.tp1}/${c.tp2}`).sort((a, c) => {
-      const [a1, a2] = a.value.split("/").map(Number);
-      const [c1, c2] = c.value.split("/").map(Number);
-      return a1 - c1 || a2 - c2;
-    }),
+    byOffset: best(pool, (c) => String(c.offset)).sort(num),
+    bySl: best(pool, (c) => String(c.sl)).sort(num),
+    byTp: best(fixed, (c) => `${c.tp1}/${c.tp2}`).sort(pair),
+    byExit: best(pool, (c) => c.kind),
+    byTrail: best(trailing, (c) => `${c.act}/${c.dist}`).sort(pair),
+    validation,
+    neighbours,
   };
 }
