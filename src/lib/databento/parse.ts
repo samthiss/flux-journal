@@ -1,9 +1,12 @@
 /**
- * Databento OHLCV files, read in the browser.
+ * Databento files, read in the browser.
  *
  * The CSV the portal writes, in either of its two shapes: timestamps as
  * nanoseconds or as ISO text, prices as fixed-point integers (1e-9) or as
- * decimals. A file bought on a parent symbol (6E.FUT) holds every contract
+ * decimals. Bars (OHLCV) are read as they are; trades — one line per fill,
+ * a price and a size — are built into one-minute bars first. A CSV of bars
+ * written by something else is read too, as long as it has a time column and
+ * open, high, low, close. A file bought on a parent symbol (6E.FUT) holds every contract
  * month and the spreads between them; the spreads are dropped and, day by day,
  * the contract that traded the most is kept — the front month, rolled when the
  * volume rolls. A continuous symbol (6E.c.0) has already been rolled and goes
@@ -29,56 +32,98 @@ export function rootOf(symbol: string): string {
 }
 
 function parseTime(s: string): number {
-  // Nanoseconds as an integer: cut the last six digits rather than divide, a
-  // nanosecond count does not fit in a double exactly.
-  if (/^\d+$/.test(s)) return Number(s.slice(0, -6));
-  // ISO with nine fractional digits, which Date.parse does not read.
-  return Date.parse(s.replace(/\.(\d{3})\d*/, ".$1"));
+  if (/^\d+$/.test(s)) {
+    // Nanoseconds as an integer: cut the last six digits rather than divide, a
+    // nanosecond count does not fit in a double exactly.
+    if (s.length >= 16) return Number(s.slice(0, -6));
+    // Milliseconds, or seconds.
+    return s.length >= 13 ? Number(s) : Number(s) * 1000;
+  }
+  // ISO with nine fractional digits, which Date.parse does not read, and
+  // "2025-11-13 00:00:00+00:00", which not every browser reads with a space.
+  return Date.parse(s.replace(" ", "T").replace(/\.(\d{3})\d*/, ".$1"));
 }
+
+const TIME_COLUMNS = ["ts_event", "ts_recv", "datetime", "timestamp", "time", "date"];
 
 type Row = { t: number; o: number; h: number; l: number; c: number; v: number; contract: string };
 
 export function parseDatabentoCsv(text: string, fallbackSymbol: string | null): Dataset[] {
   const firstBreak = text.indexOf("\n");
-  const header = text.slice(0, firstBreak).trim().split(",");
+  const headerLine = text.slice(0, firstBreak < 0 ? text.length : firstBreak).replace(/^\uFEFF/, "").trim();
+  const sep = headerLine.includes("\t") ? "\t" : headerLine.includes(";") && !headerLine.includes(",") ? ";" : ",";
+  const header = headerLine.split(sep).map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
   const col = (name: string) => header.indexOf(name);
-  const iT = col("ts_event") >= 0 ? col("ts_event") : col("ts_recv");
-  const iO = col("open"), iH = col("high"), iL = col("low"), iC = col("close"), iV = col("volume"), iS = col("symbol");
-  if (iT < 0 || iO < 0 || iH < 0 || iL < 0 || iC < 0) {
-    throw new Error("Ce fichier n'a pas les colonnes d'un OHLCV Databento (ts_event, open, high, low, close).");
+  const iT = TIME_COLUMNS.map(col).find((i) => i >= 0) ?? -1;
+  const iO = col("open"), iH = col("high"), iL = col("low"), iC = col("close"), iS = col("symbol");
+  const iP = col("price");
+  const iV = col("volume") >= 0 ? col("volume") : col("size");
+  const bars = iO >= 0 && iH >= 0 && iL >= 0 && iC >= 0;
+  const trades = !bars && iP >= 0;
+  if (iT < 0 || (!bars && !trades)) {
+    throw new Error(
+      `Colonnes non reconnues (${header.join(", ")}). Il faut des bougies (temps, open, high, low, close) ou des trades Databento (ts_event, price, size).`
+    );
   }
+  // An action column means a market-by-order style file: only fills are trades.
+  const iA = col("action");
   if (iS < 0 && !fallbackSymbol) throw new Error("Le fichier n'a pas de colonne symbol : choisis le symbole avant d'importer.");
 
   // Fixed-point or decimal is decided once, on the first row.
   let scale = 0;
+  const px = (s: string) => {
+    if (scale === 0) scale = !s.includes(".") && Math.abs(Number(s)) > 1e6 ? 1e-9 : 1;
+    return Number(s) * scale;
+  };
 
   const byRoot = new Map<string, Row[]>();
-  let pos = firstBreak + 1;
+  // Trades become bars as they are read, one per contract and minute.
+  const minutes = new Map<string, Row>();
+  const add = (root: string, row: Row) => {
+    const list = byRoot.get(root);
+    if (list) list.push(row);
+    else byRoot.set(root, [row]);
+  };
+
+  let pos = firstBreak < 0 ? text.length : firstBreak + 1;
   while (pos < text.length) {
     let next = text.indexOf("\n", pos);
     if (next < 0) next = text.length;
     const line = text.slice(pos, next);
     pos = next + 1;
     if (line.length < 5) continue;
-    const f = line.split(",");
+    const f = line.split(sep);
     const contract = iS >= 0 ? f[iS].trim().replace(/^"|"$/g, "") : fallbackSymbol!;
     // Spreads and combinations: "6EZ5-6EH6".
-    if (contract.includes("-") || contract.includes(" ")) continue;
-    if (scale === 0) scale = !f[iO].includes(".") && Math.abs(Number(f[iO])) > 1e6 ? 1e-9 : 1;
-    const row: Row = {
-      t: parseTime(f[iT].trim()),
-      o: Number(f[iO]) * scale,
-      h: Number(f[iH]) * scale,
-      l: Number(f[iL]) * scale,
-      c: Number(f[iC]) * scale,
-      v: iV >= 0 ? Number(f[iV]) : 0,
-      contract,
-    };
-    if (!Number.isFinite(row.t) || !Number.isFinite(row.h) || !Number.isFinite(row.l)) continue;
+    if (!contract || contract.includes("-") || contract.includes(" ")) continue;
+    const t = parseTime(f[iT].trim().replace(/^"|"$/g, ""));
+    if (!Number.isFinite(t)) continue;
     const root = fallbackSymbol && iS < 0 ? fallbackSymbol : rootOf(contract);
-    const list = byRoot.get(root);
-    if (list) list.push(row);
-    else byRoot.set(root, [row]);
+
+    if (bars) {
+      const row: Row = { t, o: px(f[iO]), h: px(f[iH]), l: px(f[iL]), c: px(f[iC]), v: iV >= 0 ? Number(f[iV]) || 0 : 0, contract };
+      if (Number.isFinite(row.h) && Number.isFinite(row.l)) add(root, row);
+      continue;
+    }
+
+    if (iA >= 0 && f[iA].trim() !== "T") continue;
+    const p = px(f[iP]);
+    if (!Number.isFinite(p) || p <= 0) continue;
+    const size = iV >= 0 ? Number(f[iV]) || 0 : 0;
+    const m = Math.floor(t / 60000) * 60000;
+    const key = `${contract}|${m}`;
+    const bar = minutes.get(key);
+    if (!bar) {
+      const row: Row = { t: m, o: p, h: p, l: p, c: p, v: size, contract };
+      minutes.set(key, row);
+      add(root, row);
+    } else {
+      // Lines come in time order: the last one read is the close.
+      if (p > bar.h) bar.h = p;
+      if (p < bar.l) bar.l = p;
+      bar.c = p;
+      bar.v += size;
+    }
   }
 
   const out: Dataset[] = [];
@@ -135,10 +180,15 @@ function toDataset(symbol: string, rows: { t: number; o: number; h: number; l: n
   return d;
 }
 
-/** Two imports of one symbol, as one history: where they overlap, the newer wins. */
-export function mergeDatasets(old: Dataset, neu: Dataset): Dataset {
-  const rows: { t: number; o: number; h: number; l: number; c: number }[] = [];
-  for (const d of [old, neu]) for (let i = 0; i < d.n; i++) rows.push({ t: d.t[i], o: d.o[i], h: d.h[i], l: d.l[i], c: d.c[i] });
-  rows.sort((a, b) => a.t - b.t);
-  return toDataset(neu.symbol, rows);
+/**
+ * Several imports of one symbol, as one history — a day's file after another,
+ * or a new file over an old import. Where they overlap, the later one wins.
+ */
+export function mergeDatasets(list: Dataset[]): Dataset {
+  const rows: { t: number; o: number; h: number; l: number; c: number; k: number }[] = [];
+  list.forEach((d, k) => {
+    for (let i = 0; i < d.n; i++) rows.push({ t: d.t[i], o: d.o[i], h: d.h[i], l: d.l[i], c: d.c[i], k });
+  });
+  rows.sort((a, b) => a.t - b.t || a.k - b.k);
+  return toDataset(list[list.length - 1].symbol, rows);
 }

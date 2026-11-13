@@ -196,23 +196,44 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
     setMessage(null);
     const lus: string[] = [];
     try {
-      for (const file of Array.from(files)) {
-        if (/\.(zst|zstd)$/i.test(file.name)) {
-          throw new Error(`${file.name} est compressé (zstd). Retélécharge-le sur Databento avec « Compression : None », ou décompresse-le d'abord.`);
-        }
-        if (/\.dbn$/i.test(file.name)) throw new Error(`${file.name} est au format DBN : choisis l'encodage CSV sur Databento.`);
-        setProgress(`Lecture de ${file.name}…`);
-        await new Promise((r) => setTimeout(r, 0));
-        const text = await file.text();
-        const parsed = parseDatabentoCsv(text, fallbackSymbol.trim().toUpperCase() || null);
-        if (!parsed.length) throw new Error(`${file.name} : aucune bougie lue.`);
-        for (const d of parsed) {
-          const old = await loadDataset(d.symbol);
-          const merged = old ? mergeDatasets(old, d) : d;
-          await saveDataset(merged);
-          lus.push(`${d.symbol} : ${d.n.toLocaleString("fr-FR")} bougies (${fmtDay(d.from)} → ${fmtDay(d.to)})`);
-        }
+      // Every file is read before anything is merged: a year of daily trade
+      // files is three hundred of them, and merging after each would copy the
+      // growing history three hundred times.
+      const list = Array.from(files)
+        .filter((f) => /\.(csv|txt)$/i.test(f.name))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const ignored = Array.from(files).filter((f) => !list.includes(f));
+      if (!list.length) {
+        const zst = ignored.some((f) => /\.(zst|zstd)$/i.test(f.name));
+        throw new Error(
+          zst
+            ? "Ces fichiers sont compressés (.zst). Retélécharge-les sur Databento avec « Compression : None »."
+            : "Aucun fichier CSV dans la sélection."
+        );
       }
+      const parts = new Map<string, Dataset[]>();
+      for (let i = 0; i < list.length; i++) {
+        const file = list[i];
+        setProgress(`Lecture ${i + 1} / ${list.length} : ${file.name}`);
+        await new Promise((r) => setTimeout(r, 0));
+        let parsed: Dataset[];
+        try {
+          parsed = parseDatabentoCsv(await file.text(), fallbackSymbol.trim().toUpperCase() || null);
+        } catch (e) {
+          throw new Error(`${file.name} : ${e instanceof Error ? e.message : "illisible"}`);
+        }
+        for (const d of parsed) if (d.n) parts.set(d.symbol, [...(parts.get(d.symbol) ?? []), d]);
+      }
+      if (!parts.size) throw new Error("Aucune bougie lue dans ces fichiers.");
+      for (const [symbol, ds] of parts) {
+        setProgress(`${symbol} : assemblage de ${ds.length} fichier(s)…`);
+        await new Promise((r) => setTimeout(r, 0));
+        const old = await loadDataset(symbol);
+        const merged = mergeDatasets(old ? [old, ...ds] : ds);
+        await saveDataset(merged);
+        lus.push(`${symbol} : ${merged.n.toLocaleString("fr-FR")} bougies (${fmtDay(merged.from)} → ${fmtDay(merged.to)})`);
+      }
+      if (ignored.length) lus.push(`${ignored.length} fichier(s) non CSV ignoré(s)`);
       const ds = await loadDatasets();
       setDatasets(ds.map((d) => ({ symbol: d.symbol, from: d.from, to: d.to, n: d.n, importedAt: d.importedAt })));
       setMessage({ text: `Importé — ${lus.join(" · ")}` });
@@ -342,11 +363,12 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
         <div style={{ fontSize: 12.5, color: "oklch(0.62 0.03 250)", marginTop: 8, lineHeight: 1.7 }}>
           Sur databento.com : dataset <b>CME Globex MDP 3.0</b>, schéma <b>OHLCV-1m</b>, symbole continu <b>6E.c.0</b> (ou 6E.FUT),
           encodage <b>CSV</b>, compression <b>None</b>. Le fichier est lu par ton navigateur et reste sur ton ordi : rien n&apos;est envoyé.
-          Un deuxième fichier du même symbole complète le premier.
+          Bougies (OHLCV-1m) ou trades : les trades sont transformés en bougies 1 min. Tu peux sélectionner tous les fichiers
+          journaliers d&apos;un coup ; un nouvel import du même symbole complète le précédent.
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginTop: 14 }}>
           <Field title="Fichiers CSV">
-            <input type="file" accept=".csv,text/csv" multiple disabled={busy} onChange={(e) => { void importer(e.target.files); e.target.value = ""; }} style={{ ...fieldStyle, width: 320 }} />
+            <input type="file" accept=".csv,text/csv,.json" multiple disabled={busy} onChange={(e) => { void importer(e.target.files); e.target.value = ""; }} style={{ ...fieldStyle, width: 320 }} />
           </Field>
           <Field title="Symbole" hint="seulement si le fichier n'a pas de colonne symbol">
             <input value={fallbackSymbol} onChange={(e) => setFallbackSymbol(e.target.value)} placeholder="ex. 6E" style={{ ...fieldStyle, width: 120 }} />
