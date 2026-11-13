@@ -32,7 +32,7 @@ const textOf = (g: Grid) => Object.fromEntries(LIST_KEYS.map((k) => [k, fmtList(
 const DEFAULT_SETTINGS: Settings = { lots: 2, rearm: 30, maxHours: 24, minTrades: 10, newsWindow: 30, rules: DEFAULT_RULES, objective: "ratio" };
 const DEFAULT_ACCOUNT: AccountRules = {
   tiers: DEFAULT_TIERS,
-  dailyStop: 500,
+  dailyStop: 1000,
   ddLimit: 2000,
   pairs: 5,
   safety: 30,
