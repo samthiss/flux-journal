@@ -61,6 +61,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         market: trade.market ?? "",
         setup: trade.setup,
         strategy: trade.strategy ?? "",
+        entryType: trade.entryType ?? "",
         side: trade.side,
         size: String(trade.size),
         pnl: String(trade.pnl),

@@ -268,6 +268,10 @@ export default async function TradeDetail({
               <span style={{ fontWeight: 600 }}>{trade.strategy ?? "—"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+              <span style={{ color: "oklch(0.6 0.034 250)" }}>Entry type</span>
+              <span style={{ fontWeight: 600 }}>{trade.entryType ?? "—"}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
               <span style={{ color: "oklch(0.6 0.034 250)" }}>Market</span>
               <span style={{ fontWeight: 600 }}>{trade.market ?? "—"}</span>
             </div>

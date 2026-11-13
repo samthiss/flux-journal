@@ -128,6 +128,13 @@ model Trade {
    */
   strategy       String?
 
+  /**
+   * How the entry was taken: "Confirmation" — waited for the market to confirm
+   * and entered by hand — or "Automatique", a resting order filled at the
+   * level. Null on the trades taken before the question was asked.
+   */
+  entryType      String?
+
   emotion        String?
   preTradeNotes  String?
   postTradeNotes String?

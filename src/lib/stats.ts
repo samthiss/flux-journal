@@ -39,6 +39,7 @@ export type TradeForStats = {
   /** Whose rules it was taken under, or null on the trades taken before the
       question was asked. */
   strategy: string | null;
+  entryType: string | null;
   market: string | null;
   rr: number | null;
   /** How far the market went: 1, 2, 3, or null. */
@@ -77,6 +78,7 @@ export const TRADE_FOR_STATS_SELECT = {
   // Which school's rules the trade was taken under: filtered on in the list,
   // and the question a losing run is read against.
   strategy: true,
+  entryType: true,
   market: true,
   rr: true,
   // What the trade reached and what it was, which the trades list filters on.

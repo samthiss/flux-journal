@@ -220,6 +220,7 @@ export default function TradesClient({
   const [filterOutcome, setFilterOutcome] = useState(vue.outcome ?? "all");
   const [filterSetup, setFilterSetup] = useState(vue.setup ?? "all");
   const [filterStrategy, setFilterStrategy] = useState(vue.strategy ?? "all");
+  const [filterEntry, setFilterEntry] = useState(vue.entry ?? "all");
   const [filterTp, setFilterTp] = useState(vue.tp ?? "all");
   const [filterValidity, setFilterValidity] = useState(vue.validity ?? "all");
   const [openInNewTab, setOpenInNewTab] = useState(false);
@@ -272,6 +273,7 @@ export default function TradesClient({
       outcome: filterOutcome,
       setup: filterSetup,
       strategy: filterStrategy,
+      entry: filterEntry,
       tp: filterTp,
       validity: filterValidity,
       period,
@@ -317,6 +319,12 @@ export default function TradesClient({
     [trades],
   );
   const sansStrategie = useMemo(() => trades.some((t) => !t.strategy), [trades]);
+  // The same, for how the entry was taken.
+  const entryOptions = useMemo(
+    () => [...new Set(trades.map((t) => t.entryType).filter((s): s is string => Boolean(s)))].sort(),
+    [trades],
+  );
+  const sansEntree = useMemo(() => trades.some((t) => !t.entryType), [trades]);
 
   const filteredTrades = useMemo(() => {
     return filterByPeriod(withOutcome(trades), period, now)
@@ -325,6 +333,9 @@ export default function TradesClient({
       .filter((t) => filterSetup === "all" || t.setup === filterSetup)
       .filter((t) =>
         filterStrategy === "all" ? true : filterStrategy === "none" ? !t.strategy : t.strategy === filterStrategy,
+      )
+      .filter((t) =>
+        filterEntry === "all" ? true : filterEntry === "none" ? !t.entryType : t.entryType === filterEntry,
       )
       // "TP2" means the market went at least that far, which is the question
       // worth asking of a setup — not how many stopped exactly there.
@@ -346,7 +357,7 @@ export default function TradesClient({
       )
       .slice()
       .reverse();
-  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterStrategy, filterTp, filterValidity]);
+  }, [trades, period, now, filterSymbol, filterOutcome, filterSetup, filterStrategy, filterEntry, filterTp, filterValidity]);
 
   /**
    * The rows actually on the page.
@@ -501,6 +512,20 @@ export default function TradesClient({
             </option>
           ))}
           {sansStrategie && strategyOptions.length > 0 && <option value="none">No strategy</option>}
+        </select>
+        <select
+          value={filterEntry}
+          onChange={(e) => { setFilterEntry(e.target.value); noter({ entry: e.target.value }); }}
+          disabled={entryOptions.length === 0}
+          style={{ ...selectStyle, opacity: entryOptions.length === 0 ? 0.45 : 1 }}
+        >
+          <option value="all">All entries</option>
+          {entryOptions.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+          {sansEntree && entryOptions.length > 0 && <option value="none">No entry type</option>}
         </select>
         <select value={filterTp} onChange={(e) => { setFilterTp(e.target.value); noter({ tp: e.target.value }); }} style={selectStyle}>
           <option value="all">All TP</option>

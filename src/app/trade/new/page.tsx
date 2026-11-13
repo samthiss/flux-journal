@@ -132,6 +132,7 @@ export default async function NewTradePage({
         setup: prealable?.setup ?? "Backtest reverse",
         // Nothing to carry over: the plan does not name a school.
         strategy: "",
+        entryType: "",
         side: prealable?.side ?? "Long",
         size: "",
         pnl: "",

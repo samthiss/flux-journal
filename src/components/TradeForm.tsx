@@ -16,6 +16,9 @@ const SETUP_OPTIONS = ["Backtest reverse", "Trend run"] as const;
 /** And whose rules it was taken under. */
 const STRATEGY_OPTIONS = ["Volume academy", "Jahreswiderstand"] as const;
 
+/** And how the entry was taken: by hand on a confirmation, or by a resting order. */
+const ENTRY_TYPE_OPTIONS = ["Confirmation", "Automatique"] as const;
+
 /**
  * What it opens on when nothing said otherwise.
  *
@@ -46,6 +49,7 @@ export type TradeFormValues = {
   market: string;
   setup: string;
   strategy: string;
+  entryType: string;
   side: string;
   size: string;
   pnl: string;
@@ -280,6 +284,9 @@ export default function TradeForm({
   // field that answers it for them would file them all under one on the next
   // edit of something else.
   const [strategy, setStrategy] = useState(initial.strategy || "");
+  // Empty for the same reason: the trades already written were taken before
+  // the question existed.
+  const [entryType, setEntryType] = useState(initial.entryType || "");
 
   const [planCharts, setPlanCharts] = useState<string[]>(planChartsInitial);
   const [planFollowed, setPlanFollowed] = useState<string | null>(initial.planFollowed || null);
@@ -457,6 +464,20 @@ export default function TradeForm({
                   <option value={strategy}>{strategy}</option>
                 )}
                 {STRATEGY_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              {fieldLabel("Entry type")}
+              <select name="entryType" value={entryType} onChange={(e) => setEntryType(e.target.value)} style={inputStyle}>
+                <option value="">—</option>
+                {!entryType || (ENTRY_TYPE_OPTIONS as readonly string[]).includes(entryType) ? null : (
+                  <option value={entryType}>{entryType}</option>
+                )}
+                {ENTRY_TYPE_OPTIONS.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
