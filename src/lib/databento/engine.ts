@@ -196,7 +196,7 @@ export type ConfigStats = {
   zones: Record<string, Bucket>;
   /** "long" / "short". */
   dirs?: Record<string, Bucket>;
-  /** Hour of the fill, Paris time, "0" to "23". */
+  /** Hour of the fill on the result's `hoursTz` clock, "0" to "23". */
   hours?: Record<string, Bucket>;
   /** [minutes since epoch, ticks], in order: enough to redraw the curve and combine symbols. */
   trades: [number, number][];
@@ -232,13 +232,21 @@ export type SymbolResult = {
   byTrail?: Best[];
   validation?: Validation | null;
   neighbours?: Neighbours | null;
+  /** The clock the hours are on. Results saved before it was recorded were on Paris time. */
+  hoursTz?: string;
 };
 
 export const monthOf = (t: number) => new Date(t).toISOString().slice(0, 7);
 
-const parisClock = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Paris", hour: "2-digit", hourCycle: "h23" });
-/** The hour of a moment in Paris, 0 to 23. */
-const parisHour = (t: number) => Number(parisClock.formatToParts(t).find((p) => p.type === "hour")?.value ?? 0);
+/**
+ * Hours are read on the exchange's clock: CME trades on Chicago time, and its
+ * sessions — the 8:30 open, the 16:00 close — are where a level is or is not
+ * respected.
+ */
+export const HOURS_TZ = "America/Chicago";
+const exchangeClock = new Intl.DateTimeFormat("en-GB", { timeZone: HOURS_TZ, hour: "2-digit", hourCycle: "h23" });
+/** The hour of a moment in Chicago, 0 to 23. */
+const exchangeHour = (t: number) => Number(exchangeClock.formatToParts(t).find((p) => p.type === "hour")?.value ?? 0);
 
 function bump(map: Record<string, Bucket>, key: string, p: number, won: boolean) {
   const b = (map[key] ??= { n: 0, wins: 0, pnl: 0 });
@@ -274,7 +282,7 @@ function statsOf(cfg: Config, trades: Trade[], tickValue: number, lots: number, 
       bump(months, monthOf(t.t), p, won);
       bump(zones, String(t.zone), p, won);
       bump(dirs, t.dir === 1 ? "long" : "short", p, won);
-      bump(hours, String(parisHour(t.t)), p, won);
+      bump(hours, String(exchangeHour(t.t)), p, won);
     }
   }
   return {
@@ -462,5 +470,6 @@ export async function analyse(
     byTrail: best(trailing, (c) => `${c.act}/${c.dist}`).sort(pair),
     validation,
     neighbours,
+    hoursTz: HOURS_TZ,
   };
 }

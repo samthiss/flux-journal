@@ -71,17 +71,18 @@ export function recommend(r: SymbolResult, c: ConfigStats): Reco[] {
     side("shorts", short, long);
   }
 
-  // 5. Hours, Paris time.
+  // 5. Hours, on the clock the analysis used.
+  const clock = r.hoursTz === "America/Chicago" ? "heure de Chicago" : "heure de Paris";
   if (c.hours) {
     const hours = Object.entries(c.hours).filter(([, b]) => b.n >= 3);
     const bad = hours.filter(([, b]) => b.pnl < 0).sort((a, b) => a[1].pnl - b[1].pnl).slice(0, 3);
     if (bad.length)
       out.push({
         tone: "warn",
-        text: `Heures à éviter (heure de Paris) : ${bad.map(([h, b]) => `${h}h–${Number(h) + 1}h (${usd(b.pnl)}, ${b.n} trades)`).join(", ")}.`,
+        text: `Heures à éviter (${clock}) : ${bad.map(([h, b]) => `${h}h–${Number(h) + 1}h (${usd(b.pnl)}, ${b.n} trades)`).join(", ")}.`,
       });
     const good = hours.filter(([, b]) => b.pnl > 0).sort((a, b) => b[1].pnl - a[1].pnl).slice(0, 3);
-    if (good.length) out.push({ tone: "ok", text: `Meilleures heures : ${good.map(([h, b]) => `${h}h–${Number(h) + 1}h (${usd(b.pnl)})`).join(", ")}.` });
+    if (good.length) out.push({ tone: "ok", text: `Meilleures heures (${clock}) : ${good.map(([h, b]) => `${h}h–${Number(h) + 1}h (${usd(b.pnl)})`).join(", ")}.` });
   }
 
   // 6. Does it hold?

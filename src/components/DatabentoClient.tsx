@@ -809,7 +809,7 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
         )}
         {cfg.hours && (
           <BucketTable
-            title="Par heure (Paris)"
+            title={r.hoursTz === "America/Chicago" ? "Par heure (Chicago)" : "Par heure (Paris)"}
             first="Heure"
             rows={Object.entries(cfg.hours)
               .sort(([a], [b]) => Number(a) - Number(b))
