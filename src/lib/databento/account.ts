@@ -30,6 +30,11 @@ export type AccountRules = {
   maxLossPerTrade?: number | null;
   /** Standard contracts only: no micros, so no size between whole lots. */
   wholeLots?: boolean;
+  /**
+   * How many accounts take the same trades — a master and its slaves. Every
+   * limit above is each account's own; only the totals are multiplied.
+   */
+  copies?: number;
 };
 
 /** The stop of a configuration, in ticks, read off its key ("kind|offset|sl|…"). */

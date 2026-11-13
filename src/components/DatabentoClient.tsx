@@ -42,6 +42,7 @@ const DEFAULT_ACCOUNT: AccountRules = {
   maxContracts: 5,
   maxLossPerTrade: 500,
   wholeLots: true,
+  copies: 1,
 };
 const DD_MODE_TEXT = { eod: "suiveur fin de journée", intraday: "suiveur intraday" } as const;
 
@@ -764,6 +765,17 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               <option value="pnl">PnL max sous le budget</option>
             </select>
           </RuleRow>
+          <RuleRow on onToggle={() => {}} label="Comptes copiés (master + slaves)">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={account.copies ?? 1}
+              onChange={(e) => updateAccount({ ...account, copies: Math.max(1, Math.round(Number(e.target.value))) })}
+              style={smallField}
+            />
+            <span style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)", alignSelf: "center" }}>mêmes trades sur chaque compte · les limites restent celles d&apos;un compte</span>
+          </RuleRow>
           <RuleRow on={!!account.wholeLots} onToggle={(v) => updateAccount({ ...account, wholeLots: v })} label="Lots entiers, pas de micros">
             <span style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)" }}>le plan propose 1, 2 ou 3 lots par paire</span>
           </RuleRow>
@@ -893,6 +905,23 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                   value={general.months.length ? fmtUsd(general.pnl / general.months.length) : "—"}
                   hint={`${general.months.filter((m) => general.cell(m, null).pnl > 0).length} / ${general.months.length} mois positifs`}
                 />
+                {(account.copies ?? 1) > 1 && general.months.length > 0 && (
+                  <>
+                    <Figure
+                      title={`Sur ${account.copies} comptes`}
+                      value={fmtUsd((general.pnl / general.months.length) * account.copies!)}
+                      color={tone(general.pnl)}
+                      hint={`par mois · ${fmtUsd(general.pnl * account.copies!)} sur la période`}
+                    />
+                    {/* A backtest picks its settings on the months it is judged on:
+                        what follows has, every time it has been checked, been less. */}
+                    <Figure
+                      title="Réaliste"
+                      value={`${fmtUsd((general.pnl / general.months.length) * account.copies! * 0.5)} à ${fmtUsd((general.pnl / general.months.length) * account.copies! * 0.65)}`}
+                      hint="par mois, 50 à 65 % du backtest, avant frais"
+                    />
+                  </>
+                )}
               </div>
               <Equity trades={general.trades.map((t) => [0, t.pnl])} money={1} />
               <Recommendations
