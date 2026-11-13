@@ -36,9 +36,9 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
 
 /**
  * Where each pair's history is, its levels, the hours (Chicago) it is not
- * traded in, its TP1s to try. Only wheat keeps one: 8h–9h, the grains'
- * day session reopening at 8:30 after a 45-minute break, when a six-tick
- * stop does not survive the first minutes.
+ * traded in, its TP1s to try. The hours kept out are market openings only:
+ * 2h, London, for the currencies that move on it; 7h–9h, the American open
+ * with its 7:30 figures; 8h, the grains' day session reopening at 8:30.
  */
 const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; sls?: number[]; offset?: number }> = {
   "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [], tp1s: FX_TP1 },
@@ -46,8 +46,8 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // under one in two, for the same drawdown, and held on the last months —
   // where 30, the most profitable on the year, had stopped working.
   "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [], tp1s: [15], sls: [12] },
-  "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [], tp1s: FX_TP1 },
-  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [], tp1s: FX_TP1 },
+  "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2], tp1s: FX_TP1 },
+  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1 },
   // ZS (1153.75 / 1174.75 / 1227.75 / 1293.5) is left out: price overshoots
   // its levels by about as much as it rebounds, and the only configuration
   // under the drawdown cap — eight ticks beyond — lost 2,250 on the last months.
