@@ -40,9 +40,12 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
  * day session reopening at 8:30 after a 45-minute break, when a six-tick
  * stop does not survive the first minutes.
  */
-const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; offset?: number }> = {
+const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; sls?: number[]; offset?: number }> = {
   "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [], tp1s: FX_TP1 },
-  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [], tp1s: FX_TP1 },
+  // Set by the trader: a TP1 of 15 wins three trades in five rather than
+  // under one in two, for the same drawdown, and held on the last months —
+  // where 30, the most profitable on the year, had stopped working.
+  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [], tp1s: [15], sls: [12] },
   "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [], tp1s: FX_TP1 },
   "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [], tp1s: FX_TP1 },
   // ZS (1153.75 / 1174.75 / 1227.75 / 1293.5) is left out: price overshoots
@@ -115,7 +118,7 @@ function bars(symbol: string, source: string): Dataset {
       // On the level, unless the pair is known to do better off it.
       offsets: [pair.offset ?? 0],
       // 500 at most on a stop at two lots.
-      sls: [6, 8, 10, 12, 15, 20, 25, 30].filter((sl) => sl * spec.tickValue * 2 <= 500),
+      sls: (pair.sls ?? [6, 8, 10, 12, 15, 20, 25, 30]).filter((sl) => sl * spec.tickValue * 2 <= 500),
       tp1s: pair.tp1s,
       tp2s: [],
       acts: [],

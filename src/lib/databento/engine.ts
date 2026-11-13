@@ -116,6 +116,14 @@ export type Settings = {
   ddMode?: DDMode;
   /** The most one trade may lose, stop hit: the report says what size that allows. */
   maxLossPerTrade?: number | null;
+  /** A configuration that wins less often than this is not ranked. */
+  minWinRate?: number;
+  /**
+   * Ranked only if it also made money on the last third of the history: a
+   * configuration whose profit is all in the early months is not one to trade
+   * now.
+   */
+  holdsOut?: boolean;
 };
 
 /** Made per dollar of intraday drawdown: the measure of a configuration that will be sized to a budget. */
@@ -886,7 +894,15 @@ export async function analyse(
 
   // A configuration that traded three times and won three times is luck, not
   // a result: ranked only among those with enough trades, if any have.
-  const enough = all.filter((x) => x.s.n >= settings.minTrades);
+  // The last third of the history, set apart: what each configuration made there.
+  const split = b.from + ((b.to - b.from) * 2) / 3;
+  const lateTicks = new Map(all.map((x) => [x.s.key, x.trades.reduce((a, t) => a + (t.t >= split ? t.ticks : 0), 0)]));
+  const enough = all.filter(
+    (x) =>
+      x.s.n >= settings.minTrades &&
+      (settings.minWinRate === undefined || x.s.winRate >= settings.minWinRate) &&
+      (!settings.holdsOut || (lateTicks.get(x.s.key) ?? 0) > 0)
+  );
   const counted = enough.length ? enough : all;
   const limitDD = settings.ddLimit ?? null;
   const objective = settings.objective ?? "ratio";
@@ -931,7 +947,6 @@ export async function analyse(
   };
 
   // Out of sample: chosen on the first two thirds, judged on the last.
-  const split = b.from + ((b.to - b.from) * 2) / 3;
   let validation: Validation | null = null;
   {
     const scored = all.map((x) => {
