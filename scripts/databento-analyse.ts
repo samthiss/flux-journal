@@ -40,21 +40,21 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
  * 2h, London, for the currencies that move on it; 7h–9h, the American open
  * with its 7:30 figures; 8h, the grains' day session reopening at 8:30.
  */
-const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; sls?: number[]; offset?: number }> = {
+const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; pick?: { sl: number; tp1: number }; offset?: number }> = {
   "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [], tp1s: FX_TP1 },
   // Set by the trader: a TP1 of 15 wins three trades in five rather than
   // under one in two, for the same drawdown, and held on the last months —
   // where 30, the most profitable on the year, had stopped working.
-  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [], tp1s: [15], sls: [12] },
+  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [], tp1s: FX_TP1, pick: { sl: 12, tp1: 15 } },
   // Set by the trader: TP1 at 10 with a 15-tick stop, two trades in three won.
-  "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2], tp1s: [10], sls: [15] },
+  "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2], tp1s: FX_TP1, pick: { sl: 15, tp1: 10 } },
   "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1 },
   // ZS (1153.75 / 1174.75 / 1227.75 / 1293.5) is left out: price overshoots
   // its levels by about as much as it rebounds, and the only configuration
   // under the drawdown cap — eight ticks beyond — lost 2,250 on the last months.
   // Set by the trader: TP1 at 5 with a 15-tick stop, the runner trailed at
   // 5 — wins five trades in six, where 40 relied on a handful of runs a year.
-  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 608.5, 634.5, 685, 710.5], excludeHours: [8], tp1s: [5], sls: [15] },
+  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 608.5, 634.5, 685, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5 } },
 };
 
 /** The prop firm's account, MEDIUM: 2,000 trailed at the session's close, 1,000 a day, five contracts. */
@@ -63,8 +63,8 @@ const ACCOUNT: AccountRules = { tiers: null, dailyStop: 1000, ddLimit: 2000, ddM
 /** The most one pair may draw down at two lots. */
 const PAIR_DD_CAP = Number(process.env.PAIR_DD_CAP ?? 850);
 
-/** How many configurations each report keeps: the file goes to the server, over a slow connection. */
-const KEEP = 8;
+/** How many other configurations each report shows beside the one it is read with. */
+const ALTERNATIVES = 3;
 
 function bars(symbol: string, source: string): Dataset {
   mkdirSync(CACHE, { recursive: true });
@@ -121,7 +121,7 @@ function bars(symbol: string, source: string): Dataset {
       // On the level, unless the pair is known to do better off it.
       offsets: [pair.offset ?? 0],
       // 500 at most on a stop at two lots.
-      sls: (pair.sls ?? [6, 8, 10, 12, 15, 20, 25, 30]).filter((sl) => sl * spec.tickValue * 2 <= 500),
+      sls: [6, 8, 10, 12, 15, 20, 25, 30].filter((sl) => sl * spec.tickValue * 2 <= 500),
       tp1s: pair.tp1s,
       tp2s: [],
       acts: [],
@@ -130,12 +130,20 @@ function bars(symbol: string, source: string): Dataset {
       trailFromTp1: 1,
       newsModes: ["all"],
     };
-    const r = await analyse(symbol, d, pair.levels, spec.tickSize, spec.tickValue, grid, settings, () => {}, { events, currencies });
+    const full = await analyse(symbol, d, pair.levels, spec.tickSize, spec.tickValue, grid, settings, () => {}, { events, currencies });
+    let r = { ...full, top: full.top.slice(0, ALTERNATIVES + 1) };
+    if (pair.pick) {
+      // The trader's own setting comes first and is the one the report reads;
+      // the search's best three follow, to compare or pick another.
+      const mine = await analyse(symbol, d, pair.levels, spec.tickSize, spec.tickValue, { ...grid, sls: [pair.pick.sl], tp1s: [pair.pick.tp1] }, settings, () => {}, { events, currencies });
+      r = { ...mine, byOffset: full.byOffset, bySl: full.bySl, byTp: full.byTp, byExit: full.byExit, byTrail: full.byTrail, tested: full.tested,
+        top: [mine.top[0], ...full.top.filter((x) => x.key !== mine.top[0].key).slice(0, ALTERNATIVES)] };
+    }
     const c = r.top[0];
     console.log(
       `${symbol} ${new Date(d.from).toISOString().slice(0, 10)} → ${new Date(d.to).toISOString().slice(0, 10)} · ${c.n} trades · ${(c.pnl / 12).toFixed(0)} $/mois · DD ${(c.propDD ?? 0).toFixed(0)}`
     );
-    out.push({ symbol, zones: pair.levels, result: { ...r, top: r.top.slice(0, KEEP) } });
+    out.push({ symbol, zones: pair.levels, result: r });
   }
   const file = path.join(process.cwd(), "prisma", "databento-results.json");
   writeFileSync(file, JSON.stringify(out));
