@@ -774,8 +774,9 @@ export async function analyse(
   const floor = tickValue * settings.lots;
   let safe: typeof counted;
   if (objective === "ratio") {
-    // Ranked by what a dollar of drawdown buys: only those that make money.
-    safe = counted.filter((x) => x.s.pnl > 0);
+    // Ranked by what a dollar of drawdown buys: only those that make money,
+    // and, when the size is fixed and the pair has a ceiling, under it.
+    safe = counted.filter((x) => x.s.pnl > 0 && (limitDD === null || (x.s.propDD ?? 0) < limitDD));
   } else {
     // One that would have blown its share of the prop account is not a result at all.
     safe = limitDD === null ? counted : counted.filter((x) => (x.s.propDD ?? 0) < limitDD);
