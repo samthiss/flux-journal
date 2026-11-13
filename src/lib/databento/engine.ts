@@ -59,7 +59,28 @@ export type Rules = {
   /** No fill from `before` minutes ahead of a major release to `after` minutes past it. */
   blackout: { before: number; after: number } | null;
 };
-export type Settings = { lots: number; rearm: number; maxHours: number; minTrades: number; newsWindow?: number; rules?: Rules };
+export type Settings = {
+  lots: number;
+  rearm: number;
+  maxHours: number;
+  minTrades: number;
+  newsWindow?: number;
+  rules?: Rules;
+  /**
+   * This symbol's share of the prop firm's drawdown, in money at `lots`: under
+   * "pnl", a configuration that reaches it is out. Null for none.
+   */
+  ddLimit?: number | null;
+  /**
+   * What "best" means. "ratio": the most made per dollar of intraday drawdown,
+   * which does not depend on size — the size is then set by the budget. "pnl":
+   * the most made, among those under the budget.
+   */
+  objective?: "ratio" | "pnl";
+};
+
+/** Made per dollar of intraday drawdown: the measure of a configuration that will be sized to a budget. */
+export const ratioOf = (s: { pnl: number; propDD?: number }, floor = 1) => s.pnl / Math.max(s.propDD ?? 0, floor);
 
 export const DEFAULT_RULES: Rules = { maxPerDay: 1, hours: [1, 15], flatAt: 16, blackout: { before: 30, after: 120 } };
 
@@ -78,7 +99,19 @@ export function isMajorRelease(e: NewsEvent, symbol: string): boolean {
 
 export type Outcome = "SL" | "TP1" | "TP2" | "TR" | "TO";
 /** One simulated trade: when it was filled, which level, how many ticks it made per contract. */
-export type Trade = { t: number; zone: number; dir: 1 | -1; ticks: number; out: Outcome };
+export type Trade = {
+  t: number;
+  /** When it was closed. */
+  end: number;
+  zone: number;
+  dir: 1 | -1;
+  ticks: number;
+  out: Outcome;
+  /** Its best, its worst, and the most it gave back from its best, open, in ticks per contract. */
+  mfe: number;
+  mae: number;
+  give: number;
+};
 
 type Touch = { start: number; end: number; dir: 1 | -1; zone: number };
 
@@ -209,54 +242,61 @@ export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHo
   const tp2 = entry + d * cfg.tp2 * tick;
   const against = (j: number, p: number) => (d === 1 ? b.l[j] <= p + eps : b.h[j] >= p - eps);
   const towards = (j: number, p: number) => (d === 1 ? b.h[j] >= p - eps : b.l[j] <= p + eps);
-  const trade = (ticks: number, out: Outcome): Trade => ({ t: b.t[fill], zone: touch.zone, dir: d, ticks: Math.round(ticks * 10) / 10, out });
   const ticksAt = (p: number) => (d * (p - entry)) / tick;
+  const kind = kindOf(cfg);
+  /** The trade, with the path it took to get there. */
+  const done = (ticks: number, out: Outcome, exit: number, tp1At: number): Trade => {
+    const x = excursion(b, fill, exit, tp1At, d, entry, tick, cfg, kind, ticks, out);
+    const r = (v: number) => Math.round(v * 10) / 10;
+    return { t: b.t[fill], end: b.t[exit], zone: touch.zone, dir: d, ticks: r(ticks), out, mfe: r(x.mfe), mae: r(x.mae), give: r(x.give) };
+  };
 
-  if (against(fill, sl)) return trade(-cfg.sl, "SL");
+  if (against(fill, sl)) return done(-cfg.sl, "SL", fill, -1);
 
   let limit = b.t[fill] + maxHours * 3600000;
   // Closed on the bar before the hour, at its close.
   if (flatAt !== null) limit = Math.min(limit, nextChicagoHour(b.t[fill], flatAt) - 60000);
   const n = b.t.length;
-  const kind = kindOf(cfg);
 
   if (kind === "fixed") {
     for (let j = fill + 1; j < n && b.t[j] <= limit; j++) {
-      if (against(j, sl)) return trade(-cfg.sl, "SL");
+      if (against(j, sl)) return done(-cfg.sl, "SL", j, -1);
       if (towards(j, tp1)) {
-        if (towards(j, tp2)) return trade((cfg.tp1 + cfg.tp2) / 2, "TP2");
+        if (towards(j, tp2)) return done((cfg.tp1 + cfg.tp2) / 2, "TP2", j, j);
         for (let k = j + 1; k < n && b.t[k] <= limit; k++) {
-          if (against(k, entry)) return trade(cfg.tp1 / 2, "TP1");
-          if (towards(k, tp2)) return trade((cfg.tp1 + cfg.tp2) / 2, "TP2");
+          if (against(k, entry)) return done(cfg.tp1 / 2, "TP1", k, j);
+          if (towards(k, tp2)) return done((cfg.tp1 + cfg.tp2) / 2, "TP2", k, j);
         }
         // Out of time with half on: the rest closes where the clock ran out.
-        return trade((cfg.tp1 + ticksAt(b.c[lastBefore(b, limit)])) / 2, "TO");
+        const k = lastBefore(b, limit);
+        return done((cfg.tp1 + ticksAt(b.c[k])) / 2, "TO", k, j);
       }
     }
-    return trade(ticksAt(b.c[lastBefore(b, limit)]), "TO");
+    const k = lastBefore(b, limit);
+    return done(ticksAt(b.c[k]), "TO", k, -1);
   }
 
   // Trailing: the whole position, or the half left after TP1.
   const half = kind === "tp1trail";
   let stop = sl;
   let best = entry;
-  let tp1Done = false;
+  let tp1At = -1;
   let trailed = false;
   for (let j = fill + 1; j < n && b.t[j] <= limit; j++) {
     // The stop as it stood when the bar opened.
     if (against(j, stop)) {
-      if (half && !tp1Done) return trade(-cfg.sl, "SL");
+      if (half && tp1At < 0) return done(-cfg.sl, "SL", j, -1);
       const runner = ticksAt(stop);
       const out: Outcome = trailed ? "TR" : half ? "TP1" : "SL";
-      return trade(half ? (cfg.tp1 + runner) / 2 : runner, out);
+      return done(half ? (cfg.tp1 + runner) / 2 : runner, out, j, tp1At);
     }
-    if (half && !tp1Done && towards(j, tp1)) {
-      tp1Done = true;
+    if (half && tp1At < 0 && towards(j, tp1)) {
+      tp1At = j;
       if (d * (entry - stop) > 0) stop = entry;
     }
     const fav = d === 1 ? b.h[j] : b.l[j];
     if (d * (fav - best) > 0) best = fav;
-    if ((!half || tp1Done) && ticksAt(best) >= cfg.act - 1e-9) {
+    if ((!half || tp1At >= 0) && ticksAt(best) >= cfg.act - 1e-9) {
       const cand = best - d * cfg.dist * tick;
       if (d * (cand - stop) > 0) {
         stop = cand;
@@ -264,8 +304,94 @@ export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHo
       }
     }
   }
-  const close = ticksAt(b.c[lastBefore(b, limit)]);
-  return trade(half ? (tp1Done ? (cfg.tp1 + close) / 2 : close) : close, "TO");
+  const k = lastBefore(b, limit);
+  const close = ticksAt(b.c[k]);
+  return done(half ? (tp1At >= 0 ? (cfg.tp1 + close) / 2 : close) : close, "TO", k, tp1At);
+}
+
+/**
+ * The open profit and loss of a trade on its way, per contract of the position.
+ *
+ * What a prop firm's intraday trailing drawdown is measured on: the best the
+ * trade was worth at any moment (`mfe`), the worst (`mae`), and the most it
+ * gave back from its best (`give`). Inside each minute the high is taken to
+ * come before the low, which is the order that costs the most. Once TP1 is
+ * paid, half the position is closed and only the other half still moves.
+ */
+function excursion(
+  b: Bars,
+  fill: number,
+  exit: number,
+  tp1At: number,
+  d: 1 | -1,
+  entry: number,
+  tick: number,
+  cfg: Config,
+  kind: ExitKind,
+  final: number,
+  out: Outcome
+) {
+  const halfAfter = kind !== "trail" && tp1At >= 0 ? tp1At : Infinity;
+  const val = (p: number, j: number) => {
+    const x = (d * (p - entry)) / tick;
+    return j > halfAfter ? (cfg.tp1 + x) / 2 : x;
+  };
+  let mfe = 0;
+  let mae = 0;
+  let give = 0;
+  for (let j = fill; j <= exit; j++) {
+    // The fill bar came down to the order: its high was before the fill.
+    let vf = j === fill ? 0 : val(d === 1 ? b.h[j] : b.l[j], j);
+    let va = val(d === 1 ? b.l[j] : b.h[j], j);
+    if (j === exit) {
+      // A target caps the best, a stop the worst: the position was gone past them.
+      if (out === "TP2") vf = Math.min(vf, final);
+      if (out === "SL" || out === "TP1" || out === "TR") va = Math.max(va, final);
+    }
+    if (vf > mfe) mfe = vf;
+    if (mfe - va > give) give = mfe - va;
+    if (va < mae) mae = va;
+  }
+  return { mfe, mae, give };
+}
+
+/** One position for the drawdown: when it was open, and its path, in money. */
+export type PathTrade = { start: number; end: number; final: number; mfe: number; mae: number; give: number };
+
+/**
+ * An intraday trailing drawdown, the way a prop firm counts it: from the
+ * highest the account was ever worth, open profit included, to the lowest it
+ * fell after. Positions open at the same time — 6B and 6E both long against
+ * the dollar — are taken together, their worst moments as if they came at
+ * once: the figure is an upper bound, which is the side to be wrong on.
+ */
+export function trailingDrawdown(trades: PathTrade[], limit: number | null = null): { dd: number; breachAt: number | null } {
+  const sorted = [...trades].sort((a, b) => a.start - b.start);
+  let eq = 0, peak = 0, dd = 0;
+  let breachAt: number | null = null;
+  for (let i = 0; i < sorted.length; ) {
+    // The positions that overlap this one, as one.
+    const c = { ...sorted[i] };
+    let k = i + 1;
+    while (k < sorted.length && sorted[k].start <= c.end) {
+      const x = sorted[k];
+      c.end = Math.max(c.end, x.end);
+      c.final += x.final;
+      c.mfe += x.mfe;
+      c.mae += x.mae;
+      c.give += x.give;
+      k++;
+    }
+    dd = Math.max(dd, peak - (eq + c.mae));
+    const top = eq + c.mfe;
+    const peak2 = Math.max(peak, top);
+    dd = Math.max(dd, peak2 - (top - c.give));
+    eq += c.final;
+    peak = Math.max(peak2, eq);
+    if (limit !== null && breachAt === null && dd >= limit) breachAt = c.start;
+    i = k;
+  }
+  return { dd, breachAt };
 }
 
 function lastBefore(b: Bars, limit: number) {
@@ -295,7 +421,10 @@ export type ConfigStats = {
   netTicks: number;
   pnl: number;
   pf: number | null;
+  /** Peak to trough on closed trades. */
   maxDD: number;
+  /** Intraday trailing, open profit included: what a prop firm counts. */
+  propDD?: number;
   winRate: number;
   months: Record<string, Bucket>;
   zones: Record<string, Bucket>;
@@ -307,11 +436,16 @@ export type ConfigStats = {
   newsTitles?: Record<string, Bucket>;
   /** Hour of the fill on the result's `hoursTz` clock, "0" to "23". */
   hours?: Record<string, Bucket>;
-  /** [minutes since epoch, ticks], in order: enough to redraw the curve and combine symbols. */
-  trades: [number, number][];
+  /**
+   * In order: [fill, ticks] — and, since the drawdown is counted open,
+   * [fill, ticks, close, best, worst, given back], times in minutes and the
+   * rest in ticks per contract. Enough to redraw the curve, combine symbols
+   * and recount a prop firm's drawdown at another size.
+   */
+  trades: number[][];
 };
 
-export type Best = { value: string; key: string; n: number; winRate: number; pnl: number; pf: number | null };
+export type Best = { value: string; key: string; n: number; winRate: number; pnl: number; pf: number | null; propDD?: number; ratio?: number };
 
 /**
  * The honest version of "the best configuration": chosen on the first two
@@ -347,7 +481,13 @@ export type SymbolResult = {
   /** The rules the search ran under. */
   rules?: Rules;
   /** The retained configuration with all the rules, without each one in turn, and with none. */
-  rulesImpact?: { label: string; n: number; pnl: number; winRate: number; maxDD: number; pf: number | null }[];
+  rulesImpact?: { label: string; n: number; pnl: number; winRate: number; maxDD: number; propDD?: number; pf: number | null }[];
+  /** The prop limit the ranking kept to, and what the best configuration would have been without it. */
+  ddLimit?: number | null;
+  objective?: "ratio" | "pnl";
+  /** True when no configuration stayed under the limit: the ranking then ignores it. */
+  ddBreached?: boolean;
+  unconstrained?: { key: string; cfg: Config; pnl: number; propDD: number } | null;
   /** How many major releases the blackout had to work with. */
   majorReleases?: number;
   /** The releases read against: how many, of which currencies, the window around them. Null when the calendar could not be read. */
@@ -419,10 +559,14 @@ function statsOf(
       }
     }
   }
+  const propDD = trailingDrawdown(
+    trades.map((t) => ({ start: t.t, end: t.end, final: t.ticks * money, mfe: t.mfe * money, mae: t.mae * money, give: t.give * money }))
+  ).dd;
   return {
     key: configKey(cfg),
     cfg,
     n: trades.length,
+    propDD,
     tp2,
     tp1,
     sl,
@@ -438,7 +582,7 @@ function statsOf(
     dirs,
     hours,
     ...(news ? { news: newsB, newsTitles } : {}),
-    trades: keepDetail ? trades.map((t) => [Math.round(t.t / 60000), t.ticks]) : [],
+    trades: keepDetail ? trades.map((t) => [Math.round(t.t / 60000), t.ticks, Math.round(t.end / 60000), t.mfe, t.mae, t.give]) : [],
   };
 }
 
@@ -571,8 +715,23 @@ export async function analyse(
   // A configuration that traded three times and won three times is luck, not
   // a result: ranked only among those with enough trades, if any have.
   const enough = all.filter((x) => x.s.n >= settings.minTrades);
-  const pool = enough.length ? enough : all;
-  pool.sort((a, c) => c.s.pnl - a.s.pnl);
+  const counted = enough.length ? enough : all;
+  const limitDD = settings.ddLimit ?? null;
+  const objective = settings.objective ?? "ratio";
+  // A drawdown under one tick on the position is noise, not safety.
+  const floor = tickValue * settings.lots;
+  let safe: typeof counted;
+  if (objective === "ratio") {
+    // Ranked by what a dollar of drawdown buys: only those that make money.
+    safe = counted.filter((x) => x.s.pnl > 0);
+  } else {
+    // One that would have blown its share of the prop account is not a result at all.
+    safe = limitDD === null ? counted : counted.filter((x) => (x.s.propDD ?? 0) < limitDD);
+  }
+  const pool = safe.length ? safe : counted;
+  if (objective === "ratio") pool.sort((a, c) => ratioOf(c.s, floor) - ratioOf(a.s, floor) || c.s.pnl - a.s.pnl);
+  else pool.sort((a, c) => c.s.pnl - a.s.pnl);
+  const unconstrained = [...counted].sort((a, c) => c.s.pnl - a.s.pnl)[0];
 
   const best = (rows: typeof pool, pick: (c: Config) => string | null): Best[] => {
     const m = new Map<string, (typeof pool)[number]>();
@@ -580,7 +739,16 @@ export async function analyse(
       const v = pick(x.cfg);
       if (v !== null && !m.has(v)) m.set(v, x);
     }
-    return [...m.entries()].map(([value, x]) => ({ value, key: x.s.key, n: x.s.n, winRate: x.s.winRate, pnl: x.s.pnl, pf: x.s.pf }));
+    return [...m.entries()].map(([value, x]) => ({
+      value,
+      key: x.s.key,
+      n: x.s.n,
+      winRate: x.s.winRate,
+      pnl: x.s.pnl,
+      pf: x.s.pf,
+      propDD: x.s.propDD,
+      ratio: ratioOf(x.s, floor),
+    }));
   };
   const num = (a: Best, c: Best) => Number(a.value) - Number(c.value);
   const pair = (a: Best, c: Best) => {
@@ -605,11 +773,26 @@ export async function analyse(
           if (t.ticks > 0) outW++;
         }
       }
-      return { x, inN, inT, outN, outT, outW };
+      return { x, inN, inT, outN, outT, outW, inScore: inT };
     });
     const minIn = Math.max(1, Math.round((settings.minTrades * 2) / 3));
     const ok = scored.filter((s) => s.inN >= minIn);
-    const pick = (ok.length ? ok : scored).reduce<(typeof scored)[number] | null>((a, s) => (!a || s.inT > a.inT ? s : a), null);
+    if (objective === "ratio") {
+      // Chosen the way the ranking chooses: per dollar of drawdown, on the first two thirds alone.
+      const money = tickValue * settings.lots;
+      for (const sc of ok) {
+        if (sc.inT <= 0) {
+          sc.inScore = -Infinity;
+          continue;
+        }
+        const inTrades = sc.x.trades.filter((t) => t.t < split);
+        const dd = trailingDrawdown(
+          inTrades.map((t) => ({ start: t.t, end: t.end, final: t.ticks * money, mfe: t.mfe * money, mae: t.mae * money, give: t.give * money }))
+        ).dd;
+        sc.inScore = (sc.inT * money) / Math.max(dd, floor);
+      }
+    }
+    const pick = (ok.length ? ok : scored).reduce<(typeof scored)[number] | null>((a, s) => (!a || s.inScore > a.inScore ? s : a), null);
     if (pick) {
       const money = tickValue * settings.lots;
       validation = {
@@ -648,7 +831,7 @@ export async function analyse(
           return mode === "window" ? !ctx.window : !ctx.day;
         });
       const st = statsOf(cfg, capped(trades, r), tickValue, settings.lots, false);
-      return { label, n: st.n, pnl: st.pnl, winRate: st.winRate, maxDD: st.maxDD, pf: st.pf };
+      return { label, n: st.n, pnl: st.pnl, winRate: st.winRate, maxDD: st.maxDD, propDD: st.propDD, pf: st.pf };
     };
     const off: [keyof Rules, string][] = [
       ["maxPerDay", `sans « ${rules.maxPerDay} trade(s) par jour »`],
@@ -692,6 +875,10 @@ export async function analyse(
     byNews: lookup ? best(pool, (c) => c.news ?? "all") : [],
     rules,
     rulesImpact,
+    ddLimit: limitDD,
+    objective,
+    ddBreached: objective === "pnl" && limitDD !== null && !safe.length,
+    unconstrained: unconstrained ? { key: unconstrained.s.key, cfg: unconstrained.cfg, pnl: unconstrained.s.pnl, propDD: unconstrained.s.propDD ?? 0 } : null,
     majorReleases: major.length,
     newsInfo: news ? { events: news.events.length, currencies: news.currencies, window: windowMin } : null,
   };

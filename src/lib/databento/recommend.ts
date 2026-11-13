@@ -1,4 +1,4 @@
-import { EXIT_LABELS, NEWS_BUCKETS, NEWS_LABELS, kindOf, type Bucket, type Config, type ConfigStats, type NewsMode, type SymbolResult } from "./engine";
+import { EXIT_LABELS, NEWS_BUCKETS, NEWS_LABELS, kindOf, ratioOf, type Bucket, type Config, type ConfigStats, type NewsMode, type SymbolResult } from "./engine";
 
 /**
  * Rules read off an analysis, in words.
@@ -34,6 +34,18 @@ export function newsRule(mode: NewsMode | undefined, r: SymbolResult): string | 
   return null;
 }
 
+/**
+ * The most this configuration can be traded at and stay inside the symbol's
+ * share of the prop drawdown: the drawdown grows with the size, so one lot's
+ * worth is enough to know. Rounded down to a micro (a tenth of a lot).
+ */
+export function sizeFor(r: SymbolResult, c: ConfigStats): { budget: number; perLot: number; maxLots: number } | null {
+  const budget = r.ddLimit;
+  if (!budget || !c.propDD) return null;
+  const perLot = c.propDD / r.settings.lots;
+  return { budget, perLot, maxLots: Math.floor((budget / perLot) * 10) / 10 };
+}
+
 export function recommend(r: SymbolResult, c: ConfigStats): Reco[] {
   const out: Reco[] = [];
   const fmtZone = (z: string) => z.replace(".", ",");
@@ -42,6 +54,25 @@ export function recommend(r: SymbolResult, c: ConfigStats): Reco[] {
   out.push({ tone: "rule", text: `Entrée : ${entryText(c.cfg.offset)}. Stop initial : ${c.cfg.sl} ticks. Sortie : ${exitText(c.cfg)}.` });
   const nr = newsRule(c.cfg.news, r);
   if (nr) out.push({ tone: "rule", text: nr });
+
+  // 1b. The size the drawdown budget allows.
+  const size = sizeFor(r, c);
+  if (size) {
+    if (size.maxLots < 0.1)
+      out.push({ tone: "warn", text: `Même 1 micro dépasse ton budget de drawdown (${size.budget.toFixed(0)} $ pour cette paire) : config trop risquée pour ton compte.` });
+    else
+      out.push({
+        tone: "rule",
+        text: `Taille : ${size.maxLots >= 1 ? `${size.maxLots} lot(s)` : `${Math.round(size.maxLots * 10)} micros`} au maximum — ${size.perLot.toFixed(0)} $ de drawdown intraday par lot, budget ${size.budget.toFixed(0)} $ pour cette paire. À cette taille : ${usd((c.pnl / r.settings.lots) * size.maxLots)} sur la période.`,
+      });
+  }
+  const u = r.unconstrained;
+  if (u && u.key !== c.key && (r.objective ?? "ratio") === "ratio")
+    out.push({
+      tone: "ok",
+      text: `La config la plus rentable ferait ${usd(u.pnl)} mais avec ${u.propDD.toFixed(0)} $ de drawdown intraday (ratio ${ratioOf(u).toFixed(1)}) ; celle-ci : ${usd(c.pnl)} pour ${(c.propDD ?? 0).toFixed(0)} $ (ratio ${ratioOf(c).toFixed(1)}).`,
+    });
+  if (r.ddBreached) out.push({ tone: "warn", text: "Aucune config ne reste sous ton budget de drawdown à cette taille : réduis les lots ou passe en micros." });
 
   // 2. Which way out pays.
   const exits = r.byExit ?? [];
