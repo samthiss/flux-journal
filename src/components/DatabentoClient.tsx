@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { accentColor, glassCard, lossColor, winColor } from "@/lib/theme";
+import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, td, th, tone } from "@/components/BacktestUi";
-import { ratioOf, EXIT_LABELS, NEWS_BUCKETS, NEWS_LABELS, type NewsMode, kindOf, monthOf, type Best, type Bucket, type ConfigStats, type ExitKind, type SymbolResult } from "@/lib/databento/engine";
-import { DEFAULT_TIERS, bestPlan, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules, type Plan } from "@/lib/databento/account";
-import { entryText, exitText, newsRule, recommend, sizeFor, type Reco } from "@/lib/databento/recommend";
+import { ratioOf, type NewsMode, kindOf, monthOf, type Bucket, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
+import { DEFAULT_TIERS, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
 
 type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
@@ -65,107 +64,8 @@ function retained(e: Entry): ConfigStats | null {
   return e.result.top.find((c) => c.key === e.chosenKey) ?? e.result.top[0];
 }
 
-/** Cumulative PnL as a line, from a list of trades in order. */
-function Equity({ trades, money }: { trades: number[][]; money: number }) {
-  if (trades.length < 2) return null;
-  const pts: number[] = [0];
-  for (const [, ticks] of trades) pts.push(pts[pts.length - 1] + ticks * money);
-  const min = Math.min(...pts);
-  const max = Math.max(...pts);
-  const W = 600;
-  const H = 120;
-  const y = (v: number) => (max === min ? H / 2 : H - ((v - min) / (max - min)) * (H - 8) - 4);
-  const d = pts.map((v, i) => `${i ? "L" : "M"}${((i / (pts.length - 1)) * W).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 120, marginTop: 14 }} preserveAspectRatio="none">
-      <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="oklch(0.4 0.02 250)" strokeDasharray="4 4" strokeWidth={1} />
-      <path d={d} fill="none" stroke={tone(pts[pts.length - 1])} strokeWidth={2} vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
 
-/** The most the analysed pairs could have made inside their share of the drawdown. */
-function PlanCard({ plan, per, budget }: { plan: Plan | null; per: { e: Entry }[]; budget: number }) {
-  const total = budget * per.length;
-  return (
-    <div style={{ marginTop: 18, padding: "14px 16px", border: `1px solid ${accentColor}`, borderRadius: 8, background: "oklch(0.84 0.17 196 / 0.05)" }}>
-      <div style={{ ...label, fontSize: 11 }}>
-        Plan prop firm — {per.length} paire(s) analysée(s) × {budget.toFixed(0)} $ = {total.toFixed(0)} $ de drawdown autorisé
-      </div>
-      {!plan ? (
-        <div style={{ fontSize: 13, color: lossColor, marginTop: 8 }}>
-          Aucune combinaison ne tient dans ce budget, même en micros : ces configs sont trop risquées pour ton compte.
-        </div>
-      ) : (
-        <>
-          <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
-            <thead>
-              <tr>
-                <th style={th}>Paire</th>
-                <th style={th}>Config</th>
-                <th style={th}>Taille</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plan.choices.map((c) => {
-                const cfg = per.find((p) => p.e.symbol === c.symbol)?.e.result?.top.find((x) => x.key === c.key)?.cfg;
-                return (
-                  <tr key={c.symbol}>
-                    <td style={{ ...td, fontWeight: 700 }}>{c.symbol}</td>
-                    <td style={td}>{cfg ? cfgText(cfg) : <span style={{ color: lossColor }}>ne pas trader</span>}</td>
-                    <td style={td}>{c.key ? (c.lots >= 1 ? `${c.lots} lot(s)` : `${Math.round(c.lots * 10)} micros`) : "—"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div style={{ display: "flex", gap: 22, marginTop: 10, flexWrap: "wrap", ...mono, fontSize: 12.5 }}>
-            <span>
-              PnL <b style={{ color: tone(plan.run.pnl) }}>{fmtUsd(plan.run.pnl)}</b>
-            </span>
-            <span>
-              DD prop <b style={{ color: lossColor }}>{fmtUsd(-plan.run.propDD)}</b> / {total.toFixed(0)} $
-            </span>
-            <span>{plan.run.n} trades · {pct(plan.run.winRate)}</span>
-            <span>
-              pire journée <b style={{ color: lossColor }}>{fmtUsd(plan.run.worstDay)}</b>
-            </span>
-            <span>{plan.run.maxOpen} contrats ouverts au plus</span>
-            {plan.run.targetAt && <span style={{ color: accentColor }}>objectif atteint le {fmtDay(plan.run.targetAt)} ({plan.run.targetSessions} séances)</span>}
-            <span style={{ color: "oklch(0.55 0.03 250)" }}>{plan.searched.toLocaleString("fr-FR")} combinaisons testées</span>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
-/** What the account rules did, from the runs the general report already made. */
-function accountRecos(runs: { label: string; run: ReturnType<typeof runAccount> }[], account: AccountRules, lots: number): Reco[] {
-  const out: Reco[] = [];
-  const base = runs[0]?.run;
-  if (!base) return out;
-  const usd = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(0)} $`;
-  if (account.tiers) {
-    const t = runs.find((r) => r.label.startsWith("Paliers ") && !r.label.includes("limite jour"))?.run;
-    if (t)
-      out.push({
-        tone: "ok",
-        text: `Paliers : ${usd(t.pnl)} (DD ${usd(-t.propDD)}) contre ${usd(base.pnl)} (DD ${usd(-base.propDD)}) à ${lots} lots fixes. Dernier palier atteint : ${t.lastLots} lot(s).`,
-      });
-  }
-  if (account.dailyStop !== null) {
-    const d = runs.find((r) => r.label.includes("limite jour") && !r.label.startsWith("Paliers"))?.run;
-    if (d && d.stopDays === 0)
-      out.push({ tone: "ok", text: `Limite de −${account.dailyStop} $ par jour (latente comprise) : jamais touchée sur la période.` });
-    else if (d)
-      out.push({
-        tone: d.pnl >= base.pnl ? "ok" : "warn",
-        text: `Limite de −${account.dailyStop} $ par jour (latente comprise) : touchée ${d.stopDays} jour(s), positions coupées par la prop firm et ${d.skipped} trade(s) non pris ensuite — ${usd(d.pnl - base.pnl)} sur le résultat.`,
-      });
-  }
-  return out;
-}
 
 const smallField: React.CSSProperties = { ...fieldStyle, width: 64, padding: "5px 7px", fontSize: 12 };
 
@@ -209,60 +109,7 @@ function BucketTable({ title, first, rows }: { title: string; first: string; row
   );
 }
 
-function Recommendations({ recos, title = "Recommandations" }: { recos: Reco[]; title?: string }) {
-  if (!recos.length) return null;
-  const mark = { rule: "▶", ok: "✓", warn: "!" } as const;
-  const color = { rule: accentColor, ok: winColor, warn: lossColor } as const;
-  return (
-    <div style={{ marginTop: 20, padding: "14px 16px", border: "1px solid oklch(0.84 0.17 196 / 0.25)", borderRadius: 8, background: "oklch(0.84 0.17 196 / 0.04)" }}>
-      <div style={{ ...label, fontSize: 11, marginBottom: 8 }}>{title}</div>
-      <div style={{ display: "grid", gap: 7 }}>
-        {recos.map((r, i) => (
-          <div key={i} style={{ display: "flex", gap: 10, fontSize: 13, lineHeight: 1.5, fontWeight: r.tone === "rule" ? 600 : undefined }}>
-            <span style={{ ...mono, color: color[r.tone], width: 12, flex: "none" }}>{mark[r.tone]}</span>
-            <span>{r.text}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-function BestTable({ title, rows, render }: { title: string; rows: Best[]; render: (v: string) => string }) {
-  // The row the ranking prefers: per dollar of drawdown when the result has it.
-  const score = (b: Best) => b.ratio ?? b.pnl;
-  const top = rows.reduce<Best | null>((a, b) => (!a || score(b) > score(a) ? b : a), null);
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ ...label, fontSize: 11, marginBottom: 6 }}>{title}</div>
-      <table style={{ borderCollapse: "collapse", width: "100%" }}>
-        <thead>
-          <tr>
-            <th style={th}></th>
-            <th style={th}>Trades</th>
-            <th style={th}>Win</th>
-            <th style={th}>PnL</th>
-            <th style={th}>÷ DD</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.value} style={{ background: top?.value === r.value ? "oklch(0.84 0.17 196 / 0.08)" : undefined }}>
-              <td style={{ ...td, color: top?.value === r.value ? accentColor : undefined }}>
-                {render(r.value)}
-                {top?.value === r.value ? " ★" : ""}
-              </td>
-              <td style={td}>{r.n}</td>
-              <td style={td}>{pct(r.winRate)}</td>
-              <td style={{ ...td, color: tone(r.pnl), fontWeight: 700 }}>{fmtUsd(r.pnl)}</td>
-              <td style={td}>{r.ratio !== undefined ? r.ratio.toFixed(1) : "—"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 export default function DatabentoClient({ initial }: { initial: Saved[] }) {
   const [entries, setEntries] = useState<Entry[]>(() =>
@@ -345,21 +192,8 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
         : []),
       ...(account.tiers && account.dailyStop !== null ? [{ label: "Paliers + limite jour (tes règles)", run: runAccount(raw, lots, account) }] : []),
     ];
-    // The plan: one configuration and one size per pair, inside the share of
-    // the drawdown that the analysed pairs are owed.
     const budget = pairBudget(account);
-    let plan: Plan | null = null;
-    if (budget && per.length)
-      plan = bestPlan(
-        per.map(({ e }) => ({
-          symbol: e.symbol,
-          tickValue: e.result!.tickValue,
-          configs: e.result!.top.map((c) => ({ key: c.key, trades: c.trades.map((row) => fromRow(row, e.result!.tickValue)) })),
-        })),
-        budget * per.length,
-        account
-      );
-    return { per, trades, pnl: eq, maxDD, pf: loss > 0 ? win / loss : win > 0 ? null : 0, winRate: trades.length ? wins / trades.length : 0, months, cell, accountRuns, plan, budget, span: per.length ? Math.max(...per.map(({ e }) => spanMonths(e.result!))) : 1 };
+    return { per, trades, pnl: eq, maxDD, pf: loss > 0 ? win / loss : win > 0 ? null : 0, winRate: trades.length ? wins / trades.length : 0, months, cell, accountRuns, budget, span: per.length ? Math.max(...per.map(({ e }) => spanMonths(e.result!))) : 1 };
   }, [analysed, account]);
 
   const sel = analysed.find((e) => e.symbol === view) ?? null;
@@ -533,75 +367,6 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
 
               {detail && (
               <>
-              <Equity trades={general.trades.map((t) => [0, t.pnl])} money={1} />
-              <Recommendations
-                title="Règles par symbole"
-                recos={general.per.flatMap(({ e, c }): Reco[] => {
-                  const v = e.result!.validation;
-                  const nr = newsRule(c.cfg.news, e.result!);
-                  const lines: Reco[] = [
-                    { tone: "rule", text: `${e.symbol} : ${entryText(c.cfg.offset)}, SL ${c.cfg.sl} ticks, ${exitText(c.cfg)}.${nr ? ` ${nr}` : ""}` },
-                  ];
-                  if (c.pnl <= 0) lines.push({ tone: "warn", text: `${e.symbol} perd avec sa meilleure config (${fmtUsd(c.pnl)}) : à ne pas trader sur ces niveaux.` });
-                  else if (v && v.outPnl <= 0)
-                    lines.push({ tone: "warn", text: `${e.symbol} ne tient pas hors échantillon (${fmtUsd(v.outPnl)} sur ${v.outN} trades) : prudence.` });
-                  else if (v) lines.push({ tone: "ok", text: `${e.symbol} tient hors échantillon (${fmtUsd(v.outPnl)} sur ${v.outN} trades).` });
-                  return lines;
-                }).concat(accountRecos(general.accountRuns, account, general.per[0]?.e.result!.settings.lots ?? 2))}
-              />
-
-              {general.budget !== null && (
-                <PlanCard plan={general.plan} per={general.per} budget={general.budget} />
-              )}
-              {general.accountRuns.length > 1 && (
-                <div style={{ overflowX: "auto", marginTop: 18 }}>
-                  <div style={{ ...label, fontSize: 11 }}>Tes règles de compte, sur tous les symboles</div>
-                  <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
-                    <thead>
-                      <tr>
-                        <th style={th}>Gestion</th>
-                        <th style={th}>Trades</th>
-                        <th style={th}>Win</th>
-                        <th style={th}>PnL</th>
-                        <th style={th}>PF</th>
-                        <th style={th}>DD clôturé</th>
-                        <th style={th}>DD prop</th>
-                        <th style={th}>Pire journée</th>
-                        <th style={th}>Jours à −{account.dailyStop ?? "—"} $</th>
-                        <th style={th}>Objectif {account.target ? `${account.target} $` : ""}</th>
-                        <th style={th}>Contrats ouverts max</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {general.accountRuns.map(({ label: l, run }) => (
-                        <tr key={l}>
-                          <td style={{ ...td, fontFamily: "inherit" }}>{l}</td>
-                          <td style={td}>
-                            {run.n}
-                            {run.skipped ? <span style={{ color: "oklch(0.55 0.03 250)" }}> (−{run.skipped})</span> : null}
-                          </td>
-                          <td style={td}>{pct(run.winRate)}</td>
-                          <td style={{ ...td, color: tone(run.pnl), fontWeight: 700 }}>{fmtUsd(run.pnl)}</td>
-                          <td style={td}>{fmtPfOrInf(run.pf)}</td>
-                          <td style={{ ...td, color: lossColor }}>{fmtUsd(-run.maxDD)}</td>
-                          <td style={{ ...td, color: lossColor, fontWeight: run.breachAt ? 700 : undefined }}>
-                            {fmtUsd(-run.propDD)}
-                            {run.breachAt ? <span style={{ fontSize: 11 }}> · compte sauté le {fmtDay(run.breachAt)}</span> : null}
-                          </td>
-                          <td style={{ ...td, color: lossColor }}>{fmtUsd(run.worstDay)}</td>
-                          <td style={td}>{run.stopDays || "—"}</td>
-                          <td style={td}>{run.targetAt ? `${fmtDay(run.targetAt)} (${run.targetSessions} séances)` : "—"}</td>
-                          <td style={{ ...td, color: account.maxContracts && run.maxOpen > account.maxContracts ? lossColor : undefined }}>{run.maxOpen}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div style={{ fontSize: 11.5, color: "oklch(0.5 0.03 250)", marginTop: 6 }}>
-                    À 1 lot, la sortie moitié TP1 / moitié TP2 n&apos;est possible qu&apos;avec des micros (M6B, M6E) : en lots standards, prends un TP unique ou le
-                    trailing sur toute la position.
-                  </div>
-                </div>
-              )}
               <div style={{ overflowX: "auto", marginTop: 18 }}>
                 <table style={{ borderCollapse: "collapse", width: "100%" }}>
                   <thead>
@@ -742,9 +507,7 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
 
 function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats; onChoose: (key: string) => void }) {
   const r = entry.result!;
-  const money = r.tickValue * r.settings.lots;
   const months = Object.keys(cfg.months).sort().reverse();
-  const zones = Object.entries(cfg.zones).sort(([a], [b]) => Number(a) - Number(b));
   const [open, setOpen] = useState(false);
   const nMonths = spanMonths(r);
   return (
@@ -775,100 +538,7 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
 
       {open && (
       <>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 20, marginTop: 16 }}>
-        <Figure title="PnL" value={fmtUsd(cfg.pnl)} color={tone(cfg.pnl)} hint={`${cfg.netTicks} ticks / contrat`} />
-        <Figure
-          title="Trades"
-          value={String(cfg.n)}
-          hint={kindOf(cfg.cfg) === "fixed" ? `${cfg.tp2} TP2 · ${cfg.tp1} TP1 · ${cfg.sl} SL · ${cfg.to} temps` : `${cfg.tr ?? 0} trailing · ${cfg.tp1} BE · ${cfg.sl} SL · ${cfg.to} temps`}
-        />
-        <Figure title="Winrate" value={pct(cfg.winRate)} />
-        <Figure title="Profit factor" value={fmtPfOrInf(cfg.pf)} />
-        <Figure title={r.ddMode === "eod" ? "DD suiveur fin de journée" : "DD suiveur intraday"} value={fmtUsd(-(cfg.propDD ?? cfg.maxDD))} color={lossColor} hint={`clôturé : ${fmtUsd(-cfg.maxDD)} · ${r.settings.lots} lots`} />
-        <Figure title="PnL ÷ DD" value={ratioOf(cfg).toFixed(2)} hint="ce que rapporte 1 $ de drawdown" />
-        {(() => {
-          const size = sizeFor(r, cfg);
-          return size ? (
-            <Figure
-              title="Taille max"
-              value={size.maxLots >= 1 ? `${size.maxLots} lots` : `${Math.round(size.maxLots * 10)} micros`}
-              color={size.maxLots < 0.1 ? lossColor : accentColor}
-              hint={`budget ${size.budget.toFixed(0)} $ / paire`}
-            />
-          ) : null;
-        })()}
-        <Figure title="Espérance" value={cfg.n ? fmtUsd(cfg.pnl / cfg.n) : "—"} hint="par trade" />
-      </div>
-      <Equity trades={cfg.trades} money={money} />
-
-      <Recommendations recos={recommend(r, cfg)} />
-
-      {r.rulesImpact && r.rulesImpact.length > 0 && cfg.key === r.top[0]?.key && (
-        <div style={{ overflowX: "auto", marginTop: 18 }}>
-          <div style={{ ...label, fontSize: 11 }}>Pertinence de tes règles — la config retenue, règle par règle</div>
-          <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
-            <thead>
-              <tr>
-                <th style={th}></th>
-                <th style={th}>Trades</th>
-                <th style={th}>Win</th>
-                <th style={th}>PnL</th>
-                <th style={th}>Écart</th>
-                <th style={th}>DD prop</th>
-              </tr>
-            </thead>
-            <tbody>
-              {r.rulesImpact.map((x, i) => {
-                const delta = r.rulesImpact![0].pnl - x.pnl;
-                return (
-                  <tr key={x.label} style={i === 0 ? { background: "oklch(0.84 0.17 196 / 0.07)" } : undefined}>
-                    <td style={{ ...td, fontFamily: "inherit", fontWeight: i === 0 ? 700 : undefined }}>{x.label}</td>
-                    <td style={td}>{x.n}</td>
-                    <td style={td}>{pct(x.winRate)}</td>
-                    <td style={{ ...td, color: tone(x.pnl), fontWeight: 700 }}>{fmtUsd(x.pnl)}</td>
-                    <td style={{ ...td, color: i === 0 ? undefined : tone(delta) }}>{i === 0 ? "" : `règle ${delta >= 0 ? "rapporte" : "coûte"} ${fmtUsd(delta)}`}</td>
-                    <td style={{ ...td, color: lossColor }}>{fmtUsd(-(x.propDD ?? x.maxDD))}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 22, marginTop: 22 }}>
-        {r.byNews && r.byNews.length > 1 && (
-          <BestTable title="Règle news" rows={r.byNews} render={(v) => NEWS_LABELS[v as NewsMode] ?? v} />
-        )}
-        {r.byExit && r.byExit.length > 0 && (
-          <BestTable title="Meilleure sortie" rows={r.byExit} render={(v) => EXIT_LABELS[v as ExitKind] ?? v} />
-        )}
-        {r.byTrail && r.byTrail.length > 0 && (
-          <BestTable
-            title="Meilleur trailing (déclenchement / distance)"
-            rows={r.byTrail}
-            render={(v) => {
-              const [a, d] = v.split("/");
-              return `+${a} / ${d}`;
-            }}
-          />
-        )}
-        <BestTable title="Meilleure entrée (ticks)" rows={r.byOffset} render={(v) => fmtOffset(Number(v))} />
-        <BestTable title="Meilleur SL (ticks)" rows={r.bySl} render={(v) => v} />
-        <BestTable
-          title="Meilleur TP fixe (TP1 / TP2)"
-          rows={r.byTp}
-          render={(v) => {
-            const [a, b] = v.split("/");
-            return a === b ? `${a} unique` : `${a} / ${b}`;
-          }}
-        />
-      </div>
-      <div style={{ fontSize: 11.5, color: "oklch(0.5 0.03 250)", marginTop: 6 }}>
-        Chaque ligne : le meilleur PnL obtenu avec cette valeur, les autres réglages étant au mieux.
-      </div>
-
-      <div style={{ ...label, fontSize: 11, marginTop: 22 }}>Top {r.top.length} des configurations — clique pour la retenir</div>
+      <div style={{ ...label, fontSize: 11, marginTop: 22 }}>Configs — la tienne, puis les 3 meilleures autres · clique pour en retenir une</div>
       <div style={{ overflowX: "auto", marginTop: 8 }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead>
@@ -910,41 +580,8 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
         </table>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 22, marginTop: 22 }}>
-        <BucketTable title="Par mois" first="Mois" rows={months.map((m) => [monthLabel(m), cfg.months[m]])} />
-        <BucketTable title="Par niveau" first="Niveau" rows={zones.map(([z, b]) => [fmtZone(Number(z)), b])} />
-        {cfg.dirs && (
-          <BucketTable
-            title="Par sens"
-            first="Sens"
-            rows={(["long", "short"] as const).filter((d) => cfg.dirs![d]).map((d) => [d === "long" ? "Long" : "Short", cfg.dirs![d]])}
-          />
-        )}
-        {cfg.news && (
-          <BucketTable
-            title={`News ${r.newsInfo?.currencies.join("/") ?? ""} (±${r.newsInfo?.window ?? 30} min)`}
-            first="Séance"
-            rows={[NEWS_BUCKETS.quiet, NEWS_BUCKETS.day, NEWS_BUCKETS.window].filter((k) => cfg.news![k]).map((k) => [k, cfg.news![k]])}
-          />
-        )}
-        {cfg.newsTitles && Object.keys(cfg.newsTitles).length > 0 && (
-          <BucketTable
-            title="Par annonce (trades du jour)"
-            first="Annonce"
-            rows={Object.entries(cfg.newsTitles)
-              .sort((a, b) => b[1].n - a[1].n)
-              .slice(0, 15)}
-          />
-        )}
-        {cfg.hours && (
-          <BucketTable
-            title={r.hoursTz === "America/Chicago" ? "Par heure (Chicago)" : "Par heure (Paris)"}
-            first="Heure"
-            rows={Object.entries(cfg.hours)
-              .sort(([a], [b]) => Number(a) - Number(b))
-              .map(([h, b]) => [`${h}h–${Number(h) + 1}h`, b])}
-          />
-        )}
+      <div style={{ maxWidth: 520, marginTop: 22 }}>
+        <BucketTable title="Mois par mois" first="Mois" rows={months.map((m) => [monthLabel(m), cfg.months[m]])} />
       </div>
       </>
       )}
