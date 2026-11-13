@@ -51,7 +51,10 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // ZS (1153.75 / 1174.75 / 1227.75 / 1293.5) is left out: price overshoots
   // its levels by about as much as it rebounds, and the only configuration
   // under the drawdown cap — eight ticks beyond — lost 2,250 on the last months.
-  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 608.5, 634.5, 685, 710.5], excludeHours: [8], tp1s: GRAIN_TP1 },
+  // TP1 at 20 rather than 40: touched twice as often. Forty is worth more on
+  // the year, but only through a handful of runs — six in twelve months,
+  // four of them in one summer — and months of small stops between.
+  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 608.5, 634.5, 685, 710.5], excludeHours: [8], tp1s: [20] },
 };
 
 /** The prop firm's account, MEDIUM: 2,000 trailed at the session's close, 1,000 a day, five contracts. */
