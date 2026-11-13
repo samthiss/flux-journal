@@ -53,6 +53,23 @@ export type AccountRun = {
 
 const chicagoDay = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" });
 
+/**
+ * A trade's Chicago day, worked out once.
+ *
+ * Formatting a date in a time zone is slow, and the plan runs the same trades
+ * through the account thousands of times: without this, finding a plan for
+ * six pairs took minutes.
+ */
+const days = new WeakMap<AccountTrade, string>();
+function dayOf(tr: AccountTrade) {
+  let d = days.get(tr);
+  if (d === undefined) {
+    d = chicagoDay.format(tr.t);
+    days.set(tr, d);
+  }
+  return d;
+}
+
 /** "0:1, 1000:1.5, 2000:2" ↔ tiers. */
 export const tiersText = (tiers: Tier[]) => tiers.map((t) => `${t.from}:${t.lots}`).join(", ");
 export function parseTiers(text: string): Tier[] {
@@ -79,7 +96,7 @@ export function runAccount(trades: AccountTrade[], fixedLots: number | ((tr: Acc
   const stopped = new Set<string>();
   const paths: PathTrade[] = [];
   for (const tr of sorted) {
-    const day = chicagoDay.format(tr.t);
+    const day = dayOf(tr);
     if (stopped.has(day)) {
       skipped++;
       continue;
@@ -187,23 +204,35 @@ export function bestPlan(symbols: PlanSymbol[], ddLimit: number, dailyStop: numb
     const starts = [options.map(() => 0), ...PLAN_LOTS.map((_, k) => options.map(() => 1 + k))];
     for (const start of starts) {
       const pick = [...start];
+      // A move is taken only when it makes strictly more: two choices worth the
+      // same would otherwise be swapped back and forth for ever.
+      const score = () => {
+        const run = evaluate(pick);
+        return run.propDD < ddLimit ? run.pnl : -Infinity;
+      };
+      let current = score();
       let improved = true;
-      while (improved) {
+      for (let pass = 0; improved && pass < 50; pass++) {
         improved = false;
         for (let i = 0; i < options.length; i++) {
-          let bestHere = pick[i];
-          let bestPnl = -Infinity;
+          const was = pick[i];
+          let bestHere = was;
+          let bestPnl = current;
           for (let o = 0; o < options[i].length; o++) {
+            if (o === was) continue;
             pick[i] = o;
             searched++;
-            const run = evaluate(pick);
-            if (run.propDD < ddLimit && run.pnl > bestPnl) {
-              bestPnl = run.pnl;
+            const v = score();
+            if (v > bestPnl + 0.01) {
+              bestPnl = v;
               bestHere = o;
             }
           }
-          if (pick[i] !== bestHere) improved = true;
           pick[i] = bestHere;
+          if (bestHere !== was) {
+            improved = true;
+            current = bestPnl;
+          }
         }
       }
       consider(pick);
