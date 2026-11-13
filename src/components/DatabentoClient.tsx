@@ -507,7 +507,7 @@ function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
                   {c.cfg.sl} ticks ({(c.cfg.sl * r.tickValue * r.settings.lots).toFixed(0)} $)
                 </td>
                 <td style={td}>{c.cfg.tp1} ticks</td>
-                <td style={td}>{hours.length ? hours.map((h) => `${h}h–${h + 1}h`).join(", ") : "—"}</td>
+                <td style={td}>{hours.length ? hoursText(hours) : "—"}</td>
               </tr>
             );
           })}
@@ -515,6 +515,17 @@ function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
       </table>
     </div>
   );
+}
+
+/** Hours kept out, consecutive ones as one span: [2, 7, 8] → "2h–3h, 7h–9h". */
+function hoursText(hours: number[]) {
+  const spans: [number, number][] = [];
+  for (const h of [...hours].sort((x, y) => x - y)) {
+    const last = spans[spans.length - 1];
+    if (last && last[1] === h) last[1] = h + 1;
+    else spans.push([h, h + 1]);
+  }
+  return spans.map(([a, b]) => `${a}h–${b}h`).join(", ");
 }
 
 /** What is this pair's own: its levels, stop, TP1 and the hours it skips. */
@@ -539,7 +550,7 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
       {c.offset !== 0 && ruleRow("Entrée", c.offset > 0 ? `${c.offset} ticks avant le niveau` : `${-c.offset} ticks au-delà du niveau`)}
       {ruleRow("Stop", `${c.sl} ticks (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
       {ruleRow("TP1", kindOf(c) === "tp1trail" ? `${c.tp1} ticks, puis trailing à ${c.dist} ticks` : exitInLots(c, lots))}
-      {hours.length > 0 && ruleRow("Pas d'ordre", `${hours.map((x) => `${x}h–${x + 1}h`).join(", ")} (Chicago)`)}
+      {hours.length > 0 && ruleRow("Pas d'ordre", `${hoursText(hours)} (Chicago)`)}
     </div>
   );
 }

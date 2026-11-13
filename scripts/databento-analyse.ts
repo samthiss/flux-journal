@@ -41,7 +41,11 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
  * with its 7:30 figures; 8h, the grains' day session reopening at 8:30.
  */
 const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; pick?: { sl: number; tp1: number }; offset?: number }> = {
-  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [], tp1s: FX_TP1 },
+  // Set by the trader: 6B only in London's session, 2h–8h — after it, the
+  // American session runs the pound through its levels and only 5-tick
+  // targets held. On the morning alone a 25-tick stop and a TP1 of 20 make
+  // five times as much a trade, on half as many, for a lower drawdown.
+  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [8, 9, 10, 11, 12, 13], tp1s: FX_TP1, pick: { sl: 25, tp1: 20 } },
   // Set by the trader: a TP1 of 15 wins three trades in five rather than
   // under one in two, for the same drawdown, and held on the last months —
   // where 30, the most profitable on the year, had stopped working.
