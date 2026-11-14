@@ -457,7 +457,10 @@ function GeneralRules({ r, account }: { r: SymbolResult; account: AccountRules }
         : null}
       {ruleRow("Nouvelle touche", `un niveau déjà touché ne compte de nouveau qu'une fois que le prix s'en est éloigné de ${r.settings.rearm} ticks, puis y revient`)}
       {h && ruleRow("Horaires", `ordres de ${h[0]}h à ${h[1]}h (Chicago), sauf les heures indiquées pour la paire`)}
-      {ruleRow("Un trade par paire", `${perDay} trade par jour et par paire : dès qu'un ordre est rempli, les autres ordres de la paire sont annulés`)}
+      {ruleRow(
+        "Un trade par paire",
+        `le matin, tu poses un ordre par niveau valable ; dès que l'un d'eux est rempli, tu annules les autres ordres de cette paire, et tu ne reprends plus de trade sur elle de la journée, même une fois la position fermée (${perDay} trade par jour et par paire ; les autres paires gardent leurs ordres)`
+      )}
       {ruleRow("Sortie", `${lots / 2} lot à TP1 et le stop passe au prix d'entrée ; l'autre suit en trailing dès TP1, à la distance du TP1`)}
       {ruleRow("Durée", `${r.settings.maxHours} h au plus en position${r.rules?.flatAt ? `, tout clôturé à ${r.rules.flatAt}h (Chicago)` : ""}`)}
       {ruleRow("News", bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après ${bo.all ? "chaque news 3 étoiles des devises de la paire" : "CPI, NFP, Fed et la banque centrale de la paire"}` : "pas de blackout")}

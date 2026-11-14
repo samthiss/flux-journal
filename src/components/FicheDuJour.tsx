@@ -109,7 +109,11 @@ export default function FicheDuJour({
             Une touche avant l&apos;heure ou annulée pour une news ne brûle pas le niveau : si le prix s&apos;en éloigne jusqu&apos;au
             prix « réarmé » puis y revient dans les heures, c&apos;est un nouveau trade.
           </li>
-          <li>Une seule position par paire : dès qu&apos;un ordre est rempli, annule les autres ordres de la même paire.</li>
+          <li>
+            Un seul trade par paire et par jour : tu poses un ordre par niveau valable, et dès que l&apos;un d&apos;eux est rempli, tu
+            annules les autres ordres de cette paire. Une fois la position fermée (TP1, stop ou trailing), plus de trade sur cette paire
+            jusqu&apos;au lendemain. Les autres paires gardent leurs ordres.
+          </li>
           <li>Deux positions au plus en même temps (5 contrats) : avec deux positions ouvertes, ne prends pas la troisième.</li>
           <li>
             Chaque ordre part avec son SL. À TP1, un lot sort et le stop passe au prix d&apos;entrée ; l&apos;autre lot suit en
