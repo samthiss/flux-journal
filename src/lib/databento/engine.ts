@@ -155,6 +155,8 @@ export function isMajorRelease(e: NewsEvent, symbol: string): boolean {
 }
 
 export type Outcome = "SL" | "TP1" | "TP2" | "TR" | "TO";
+/** The ways out, in the order a stored trade row numbers them. */
+export const OUTCOMES: Outcome[] = ["SL", "TP1", "TP2", "TR", "TO"];
 /** One simulated trade: when it was filled, which level, how many ticks it made per contract. */
 export type Trade = {
   t: number;
@@ -554,7 +556,8 @@ export type ConfigStats = {
    * In order: [fill, ticks] — and, since the drawdown is counted open,
    * [fill, ticks, close, best, worst, given back], times in minutes and the
    * rest in ticks per contract. Enough to redraw the curve, combine symbols
-   * and recount a prop firm's drawdown at another size.
+   * and recount a prop firm's drawdown at another size. Then, to show the
+   * trade itself: [level, direction (1 long, −1 short), way out (OUTCOMES)].
    */
   trades: number[][];
 };
@@ -578,6 +581,8 @@ export type SymbolResult = {
   bars: number;
   touches: number;
   tickValue: number;
+  /** The contract's tick, to price a trade's entry, stop and target. */
+  tickSize?: number;
   settings: Settings;
   zones: number[];
   tested: number;
@@ -700,7 +705,9 @@ function statsOf(
     dirs,
     hours,
     ...(news ? { news: newsB, newsTitles } : {}),
-    trades: keepDetail ? trades.map((t) => [Math.round(t.t / 60000), t.ticks, Math.round(t.end / 60000), t.mfe, t.mae, t.give]) : [],
+    trades: keepDetail
+      ? trades.map((t) => [Math.round(t.t / 60000), t.ticks, Math.round(t.end / 60000), t.mfe, t.mae, t.give, t.zone, t.dir, OUTCOMES.indexOf(t.out)])
+      : [],
   };
 }
 
@@ -1068,6 +1075,7 @@ export async function analyse(
     bars: b.n,
     touches: touches.length,
     tickValue,
+    tickSize: tick,
     settings,
     zones,
     tested: configs.length,

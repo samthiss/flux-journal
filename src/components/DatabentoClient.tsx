@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, td, th, tone } from "@/components/BacktestUi";
-import { ratioOf, kindOf, monthOf, type Bucket, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
+import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
 
@@ -88,33 +88,6 @@ function RuleRow({ on, onToggle, label: text, children }: { on: boolean; onToggl
   );
 }
 
-function BucketTable({ title, first, rows }: { title: string; first: string; rows: [string, Bucket][] }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ ...label, fontSize: 11 }}>{title}</div>
-      <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
-        <thead>
-          <tr>
-            <th style={th}>{first}</th>
-            <th style={th}>Trades</th>
-            <th style={th}>Win</th>
-            <th style={th}>PnL</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(([k, b]) => (
-            <tr key={k}>
-              <td style={{ ...td, fontFamily: "inherit" }}>{k}</td>
-              <td style={td}>{b.n}</td>
-              <td style={td}>{pct(b.wins / b.n)}</td>
-              <td style={{ ...td, color: tone(b.pnl), fontWeight: 700 }}>{fmtUsd(b.pnl)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 
 
@@ -547,6 +520,110 @@ function hoursText(hours: number[]) {
   return spans.map(([a, b]) => `${a}h–${b}h`).join(", ");
 }
 
+/** A price as the pair is quoted: 32nds for Treasuries, otherwise to its tick's decimals. */
+function fmtPrice(p: number, symbol: string, tick: number | undefined) {
+  if (IN_32NDS.has(symbol)) return fmtZone(p, symbol);
+  let d = 0;
+  if (tick) while (d < 10 && Math.abs(Math.round(tick * 10 ** d) - tick * 10 ** d) > 1e-9) d++;
+  return p.toFixed(tick ? d : 5).replace(".", ",");
+}
+
+const chicagoTime = new Intl.DateTimeFormat("fr-CH", { timeZone: "America/Chicago", weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+/** How a trade ended, for the runner-trailed exit the plan uses. */
+const OUT_TEXT: Record<string, string> = {
+  SL: "Stop",
+  TP1: "TP1, reste au BE",
+  TR: "TP1 + trailing",
+  TP2: "TP2",
+  TO: "Clôturé (durée max)",
+};
+
+/** The months, each one opening onto the trades it took: entry, stop, target and result. */
+function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStats; months: string[] }) {
+  const [openMonth, setOpenMonth] = useState<string | null>(null);
+  const c = cfg.cfg;
+  const tick = r.tickSize;
+  const money = r.tickValue * r.settings.lots;
+  const rows = openMonth ? cfg.trades.filter((t) => monthOf(t[0] * 60000) === openMonth) : [];
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div style={{ ...label, fontSize: 11 }}>Mois par mois · clique sur un mois pour voir ses trades</div>
+      <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 520, marginTop: 8 }}>
+        <thead>
+          <tr>
+            <th style={th}>Mois</th>
+            <th style={th}>Trades</th>
+            <th style={th}>Win</th>
+            <th style={th}>PnL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {months.map((m) => {
+            const b = cfg.months[m];
+            const on = m === openMonth;
+            return (
+              <tr key={m} onClick={() => setOpenMonth(on ? null : m)} style={{ cursor: "pointer", background: on ? "oklch(0.84 0.17 196 / 0.1)" : undefined }}>
+                <td style={{ ...td, fontFamily: "inherit", color: on ? accentColor : undefined }}>{on ? "▾ " : "▸ "}{monthLabel(m)}</td>
+                <td style={td}>{b.n}</td>
+                <td style={td}>{pct(b.wins / b.n)}</td>
+                <td style={{ ...td, color: tone(b.pnl), fontWeight: 700 }}>{fmtUsd(b.pnl)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {openMonth && (
+        <div style={{ overflowX: "auto", marginTop: 14 }}>
+          <div style={{ ...label, fontSize: 11 }}>Trades de {monthLabel(openMonth)} · heures de Chicago</div>
+          <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 8 }}>
+            <thead>
+              <tr>
+                <th style={th}>Ouvert</th>
+                <th style={th}>Sens</th>
+                <th style={th}>Niveau</th>
+                <th style={th}>Entrée</th>
+                <th style={th}>SL</th>
+                <th style={th}>TP1</th>
+                <th style={th}>Sortie</th>
+                <th style={th}>Fermé</th>
+                <th style={th}>Ticks</th>
+                <th style={th}>PnL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((t) => {
+                const [m, ticks, end, , , , zone, dir, out] = t;
+                const known = zone !== undefined && dir !== undefined && tick;
+                const entry = known ? zone + dir * c.offset * tick : null;
+                const price = (p: number | null) => (p === null ? "—" : fmtPrice(p, r.symbol, tick));
+                return (
+                  <tr key={m}>
+                    <td style={{ ...td, fontFamily: "inherit" }}>{chicagoTime.format(m * 60000)}</td>
+                    <td style={{ ...td, fontFamily: "inherit" }}>{dir === undefined ? "—" : dir === 1 ? "Achat" : "Vente"}</td>
+                    <td style={td}>{zone === undefined ? "—" : fmtPrice(zone, r.symbol, tick)}</td>
+                    <td style={td}>{price(entry)}</td>
+                    <td style={td}>{price(entry === null ? null : entry - dir * c.sl * tick!)}</td>
+                    <td style={td}>{price(entry === null ? null : entry + dir * c.tp1 * tick!)}</td>
+                    <td style={{ ...td, fontFamily: "inherit" }}>{out === undefined ? "—" : OUT_TEXT[OUTCOMES[out]] ?? OUTCOMES[out]}</td>
+                    <td style={{ ...td, fontFamily: "inherit" }}>{end === undefined ? "—" : chicagoTime.format(end * 60000).split(" ").pop()}</td>
+                    <td style={{ ...td, color: tone(ticks) }}>{ticks > 0 ? "+" : ""}{ticks}</td>
+                    <td style={{ ...td, color: tone(ticks), fontWeight: 700 }}>{fmtUsd(ticks * money)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)", marginTop: 6 }}>
+            Ticks par contrat, en moyenne sur les {r.settings.lots} lots (un à TP1, l&apos;autre en trailing) · PnL à {r.settings.lots} lots
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** What is this pair's own: its levels, stop, TP1 and the hours it skips. */
 function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
   const c = cfg.cfg;
@@ -649,9 +726,7 @@ function SymbolReport({ entry, cfg, onChoose }: { entry: Entry; cfg: ConfigStats
         </table>
       </div>
 
-      <div style={{ maxWidth: 520, marginTop: 22 }}>
-        <BucketTable title="Mois par mois" first="Mois" rows={months.map((m) => [monthLabel(m), cfg.months[m]])} />
-      </div>
+      <MonthsWithTrades r={r} cfg={cfg} months={months} />
       </>
       )}
     </div>
