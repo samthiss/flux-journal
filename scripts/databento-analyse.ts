@@ -44,6 +44,9 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
 // trader on the chart): 6B 1.3469 → 1.3477, 6N 0.59245 → 0.5930, ZS
 // 1227.75 → 1229.75, ZW 608.50 → 606.50; 6B 1.3552 and ZW 685, losing
 // wherever they were put, are dropped.
+// Added (2026-11-14): 6E 1.16595 and 6N 0.59635, 0.58855, 0.58515, 0.56795 —
+// found on the turns of November to May, and as good as the others on the
+// six months after.
 const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; pick?: { sl: number; tp1: number }; offset?: number }> = {
   // Set by the trader: 6B only in London's session, 2h–8h — after it, the
   // American session runs the pound through its levels and only 5-tick
@@ -53,12 +56,12 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // Set by the trader: a TP1 of 15 wins three trades in five rather than
   // under one in two, for the same drawdown, and held on the last months —
   // where 30, the most profitable on the year, had stopped working.
-  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [], tp1s: FX_TP1, pick: { sl: 12, tp1: 15 } },
+  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.16595, 1.18435], excludeHours: [], tp1s: FX_TP1, pick: { sl: 12, tp1: 15 } },
   // Set by the trader: TP1 at 10 with a 15-tick stop, two trades in three won.
   "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2], tp1s: FX_TP1, pick: { sl: 15, tp1: 10 } },
   // Set for the win rate: TP1 20 wins four trades in five, where 30 wins
   // two in three for 12 a month more.
-  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.593, 0.57865, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1, pick: { sl: 25, tp1: 20 } },
+  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59635, 0.593, 0.58855, 0.58515, 0.57865, 0.56795, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1, pick: { sl: 25, tp1: 20 } },
   // ZS overshoots its levels before it turns: the order goes eight ticks
   // (two cents) beyond the level, and only in the grains' day session —
   // 8h–14h, the hours before it kept out. Under the 15-tick approach rule
