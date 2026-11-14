@@ -40,27 +40,33 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
  * 2h, London, for the currencies that move on it; 7h–9h, the American open
  * with its 7:30 figures; 8h, the grains' day session reopening at 8:30.
  */
+// Levels moved where the year's turns were (2026-11-14, checked by the
+// trader on the chart): 6B 1.3469 → 1.3477, 6N 0.59245 → 0.5930, ZS
+// 1227.75 → 1229.75, ZW 608.50 → 606.50; 6B 1.3552 and ZW 685, losing
+// wherever they were put, are dropped.
 const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; pick?: { sl: number; tp1: number }; offset?: number }> = {
   // Set by the trader: 6B only in London's session, 2h–8h — after it, the
   // American session runs the pound through its levels and only 5-tick
   // targets held. On the morning alone a 25-tick stop and a TP1 of 20 make
   // five times as much a trade, on half as many, for a lower drawdown.
-  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3469, 1.3552, 1.3651], excludeHours: [8, 9, 10, 11, 12, 13], tp1s: FX_TP1, pick: { sl: 25, tp1: 20 } },
+  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3477, 1.3651], excludeHours: [8, 9, 10, 11, 12, 13], tp1s: FX_TP1, pick: { sl: 25, tp1: 20 } },
   // Set by the trader: a TP1 of 15 wins three trades in five rather than
   // under one in two, for the same drawdown, and held on the last months —
   // where 30, the most profitable on the year, had stopped working.
   "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.18435], excludeHours: [], tp1s: FX_TP1, pick: { sl: 12, tp1: 15 } },
   // Set by the trader: TP1 at 10 with a 15-tick stop, two trades in three won.
   "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2], tp1s: FX_TP1, pick: { sl: 15, tp1: 10 } },
-  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59245, 0.57865, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1 },
+  // Set for the win rate: TP1 20 wins four trades in five, where 30 wins
+  // two in three for 12 a month more.
+  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.593, 0.57865, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1, pick: { sl: 25, tp1: 20 } },
   // ZS overshoots its levels before it turns: the order goes eight ticks
   // (two cents) beyond the level, and only in the grains' day session —
   // 8h–14h, the hours before it kept out. Under the 15-tick approach rule
   // every stop and TP1 tried there made money, on both parts of the year.
-  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1153.75, 1174.75, 1227.75, 1293.5], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10 }, offset: -8 },
+  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1153.75, 1174.75, 1229.75, 1293.5], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10 }, offset: -8 },
   // Set by the trader: TP1 at 5 with a 15-tick stop, the runner trailed at
   // 5 — wins five trades in six, where 40 relied on a handful of runs a year.
-  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 608.5, 634.5, 685, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5 } },
+  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 606.5, 634.5, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5 } },
 };
 
 /** The prop firm's account, MEDIUM: 2,000 trailed at the session's close, 1,000 a day, five contracts. */
