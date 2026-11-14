@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { glassCard, lossColor, accentColor } from "@/lib/theme";
 import { fieldStyle, label, mono, td, th } from "@/components/BacktestUi";
-import { fmtPrice, fmtZone, parsePrice } from "@/lib/databento/format";
+import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, parsePrice } from "@/lib/databento/format";
 import { chicagoInstant } from "@/lib/databento/clock";
 
 export type FichePair = {
@@ -101,7 +101,7 @@ export default function FicheDuJour({
           </li>
           {minApproach && (
             <li>
-              Un niveau à moins de {minApproach} ticks du prix de 17h ne se trade pas. Un niveau que le prix a déjà traversé depuis
+              Un niveau à moins de {fmtDistBySymbol(minApproach, pairs.map((p) => p.symbol))} du prix de 17h ne se trade pas. Un niveau que le prix a déjà traversé depuis
               17h non plus : n&apos;y laisse pas d&apos;ordre.
             </li>
           )}
@@ -191,7 +191,8 @@ export default function FicheDuJour({
                 </div>
               )}
               <div style={{ fontSize: 12.5 }}>
-                {p.lots} lots · SL {p.sl} ticks ({(p.sl * money).toFixed(0)} $) · TP1 {p.tp1} · trailing {p.trail}
+                {p.lots} lots · SL {fmtDist(p.symbol, p.sl)} ({(p.sl * money).toFixed(0)} $) · TP1 {fmtDist(p.symbol, p.tp1)} · trailing{" "}
+                {fmtDist(p.symbol, p.trail)}
               </div>
             </div>
 
@@ -249,7 +250,7 @@ export default function FicheDuJour({
                         <td style={td}>{ok ? price(entry - dir * p.sl * p.tickSize) : "—"}</td>
                         <td style={td}>{ok ? price(entry + dir * p.tp1 * p.tickSize) : "—"}</td>
                         <td style={{ ...td, fontFamily: "inherit" }}>
-                          {dist.toFixed(0)} ticks de 17h{ok ? "" : ` (moins de ${p.minApproach ?? minApproach})`}
+                          {fmtDist(p.symbol, Math.round(dist))} de 17h{ok ? "" : ` (moins de ${fmtDist(p.symbol, p.minApproach ?? minApproach!)})`}
                         </td>
                         <td style={td}>{ok ? price(z + dir * p.rearm * p.tickSize) : "—"}</td>
                       </tr>

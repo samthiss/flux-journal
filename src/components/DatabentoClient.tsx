@@ -6,7 +6,7 @@ import { Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, t
 import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
-import { fmtPrice, fmtZone } from "@/lib/databento/format";
+import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, inUnit, unitOf } from "@/lib/databento/format";
 
 type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
 type Entry = { symbol: string; zones: number[]; result: SymbolResult | null; chosenKey: string | null };
@@ -275,7 +275,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           {view === "general" || !sel || !selCfg ? (
             <div style={glassCard}>
               <div style={label}>Rapport général — par compte, {general.per.length} paires à {general.per[0]?.e.result!.settings.lots ?? 2} lots</div>
-              {general.per[0] && <GeneralRules r={general.per[0].e.result!} account={account} />}
+              {general.per[0] && <GeneralRules r={general.per[0].e.result!} account={account} symbols={general.per.map(({ e }) => e.symbol)} />}
               {general.per.length > 0 && <PairRules per={general.per} />}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 20, marginTop: 16 }}>
                 <Figure
@@ -326,7 +326,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                   {e.symbol}
                   {c.cfg.offset !== 0 && (
                     <div style={{ fontWeight: 400, fontSize: 11 }}>
-                      ordre {Math.abs(c.cfg.offset)} ticks {c.cfg.offset < 0 ? "au-delà" : "avant"} du niveau
+                      ordre {fmtDist(e.symbol, Math.abs(c.cfg.offset))} {c.cfg.offset < 0 ? "au-delà" : "avant"} du niveau
                     </div>
                   )}
                 </td>
@@ -438,7 +438,7 @@ const ruleBox: React.CSSProperties = {
 };
 
 /** What every pair is traded under, read off the reports. */
-function GeneralRules({ r, account }: { r: SymbolResult; account: AccountRules }) {
+function GeneralRules({ r, account, symbols }: { r: SymbolResult; account: AccountRules; symbols: string[] }) {
   const bo = r.rules?.blackout;
   const h = r.rules?.hours;
   const lots = r.settings.lots;
@@ -452,10 +452,10 @@ function GeneralRules({ r, account }: { r: SymbolResult; account: AccountRules }
       {r.rules?.minApproach
         ? ruleRow(
             "Approche",
-            `le prix doit avoir fait au moins ${r.rules.minApproach} ticks vers la zone depuis l'ouverture de 17h (Chicago) — sinon pas d'ordre ; un niveau traversé dans la séance ne se trade donc plus dans l'autre sens`
+            `le prix doit avoir fait au moins ${fmtDistBySymbol(r.rules.minApproach, symbols)} vers la zone depuis l'ouverture de 17h (Chicago) — sinon pas d'ordre ; un niveau traversé dans la séance ne se trade donc plus dans l'autre sens`
           )
         : null}
-      {ruleRow("Nouvelle touche", `un niveau déjà touché ne compte de nouveau qu'une fois que le prix s'en est éloigné de ${r.settings.rearm} ticks, puis y revient`)}
+      {ruleRow("Nouvelle touche", `un niveau déjà touché ne compte de nouveau qu'une fois que le prix s'en est éloigné de ${fmtDistBySymbol(r.settings.rearm, symbols)}, puis y revient`)}
       {h && ruleRow("Horaires", `ordres de ${h[0]}h à ${h[1]}h (Chicago), sauf les heures indiquées pour la paire`)}
       {ruleRow(
         "Un trade par paire",
@@ -512,9 +512,9 @@ function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
                   ))}
                 </td>
                 <td style={td}>
-                  {c.cfg.sl} ticks ({(c.cfg.sl * r.tickValue * r.settings.lots).toFixed(0)} $)
+                  {fmtDist(e.symbol, c.cfg.sl)} ({(c.cfg.sl * r.tickValue * r.settings.lots).toFixed(0)} $)
                 </td>
-                <td style={td}>{c.cfg.tp1} ticks</td>
+                <td style={td}>{fmtDist(e.symbol, c.cfg.tp1)}</td>
                 <td style={td}>{hours.length ? hoursText(hours) : "—"}</td>
               </tr>
             );
@@ -596,7 +596,7 @@ function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStat
                 <th style={th}>TP1</th>
                 <th style={th}>Sortie</th>
                 <th style={th}>Fermé</th>
-                <th style={th}>Ticks</th>
+                <th style={th}>{unitOf(r.symbol) === "/32" ? "32e" : unitOf(r.symbol)}</th>
                 <th style={th}>PnL</th>
               </tr>
             </thead>
@@ -616,7 +616,10 @@ function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStat
                     <td style={td}>{price(entry === null ? null : entry + dir * c.tp1 * tick!)}</td>
                     <td style={{ ...td, fontFamily: "inherit" }}>{out === undefined ? "—" : OUT_TEXT[OUTCOMES[out]] ?? OUTCOMES[out]}</td>
                     <td style={{ ...td, fontFamily: "inherit" }}>{end === undefined ? "—" : chicagoTime.format(end * 60000).split(" ").pop()}</td>
-                    <td style={{ ...td, color: tone(ticks) }}>{ticks > 0 ? "+" : ""}{ticks}</td>
+                    <td style={{ ...td, color: tone(ticks) }}>
+                      {ticks > 0 ? "+" : ""}
+                      {String(Math.round(inUnit(r.symbol, ticks) * 100) / 100).replace(".", ",")}
+                    </td>
                     <td style={{ ...td, color: tone(ticks), fontWeight: 700 }}>{fmtUsd(ticks * money)}</td>
                   </tr>
                 );
@@ -624,7 +627,7 @@ function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStat
             </tbody>
           </table>
           <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)", marginTop: 6 }}>
-            Ticks par contrat, en moyenne sur les {r.settings.lots} lots (un à TP1, l&apos;autre en trailing) · PnL à {r.settings.lots} lots
+            {unitOf(r.symbol) === "/32" ? "32e" : unitOf(r.symbol).replace(/^./, (x) => x.toUpperCase())} par contrat, en moyenne sur les {r.settings.lots} lots (un à TP1, l&apos;autre en trailing) · PnL à {r.settings.lots} lots
           </div>
         </div>
       )}
@@ -651,9 +654,9 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
           ))}
         </span>
       )}
-      {c.offset !== 0 && ruleRow("Entrée", c.offset > 0 ? `${c.offset} ticks avant le niveau` : `${-c.offset} ticks au-delà du niveau`)}
-      {ruleRow("Stop", `${c.sl} ticks (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
-      {ruleRow("TP1", kindOf(c) === "tp1trail" ? `${c.tp1} ticks, puis trailing à ${c.dist} ticks` : exitInLots(c, lots))}
+      {c.offset !== 0 && ruleRow("Entrée", `${fmtDist(r.symbol, Math.abs(c.offset))} ${c.offset > 0 ? "avant" : "au-delà du"} niveau`)}
+      {ruleRow("Stop", `${fmtDist(r.symbol, c.sl)} (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
+      {ruleRow("TP1", kindOf(c) === "tp1trail" ? `${fmtDist(r.symbol, c.tp1)}, puis trailing à ${fmtDist(r.symbol, c.dist)}` : exitInLots(c, lots))}
       {hours.length > 0 && ruleRow("Pas d'ordre", `${hoursText(hours)} (Chicago)`)}
     </div>
   );
