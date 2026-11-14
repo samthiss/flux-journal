@@ -17,6 +17,8 @@ export type FichePair = {
   sl: number;
   tp1: number;
   trail: number;
+  /** Ticks price must move away from a level before a return to it is a new touch. */
+  rearm: number;
   hours: [number, number] | null;
   excludeHours: number[];
   minApproach: number | null;
@@ -103,6 +105,10 @@ export default function FicheDuJour({
               17h non plus : n&apos;y laisse pas d&apos;ordre.
             </li>
           )}
+          <li>
+            Une touche avant l&apos;heure ou annulée pour une news ne brûle pas le niveau : si le prix s&apos;en éloigne jusqu&apos;au
+            prix « réarmé » puis y revient dans les heures, c&apos;est un nouveau trade.
+          </li>
           <li>Une seule position par paire : dès qu&apos;un ordre est rempli, annule les autres ordres de la même paire.</li>
           <li>Deux positions au plus en même temps (5 contrats) : avec deux positions ouvertes, ne prends pas la troisième.</li>
           <li>
@@ -207,6 +213,7 @@ export default function FicheDuJour({
                     <th style={th}>SL</th>
                     <th style={th}>TP1 (1 lot)</th>
                     <th style={th}>Distance</th>
+                    <th style={th}>Réarmé à</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -217,6 +224,9 @@ export default function FicheDuJour({
                           <td style={td}>{fmtZone(z, p.symbol)}</td>
                           <td style={{ ...td, fontFamily: "inherit", color: "oklch(0.6 0.03 250)" }} colSpan={5}>
                             entre le prix de 17h
+                          </td>
+                          <td style={td}>
+                            {fmtPrice(z + p.rearm * p.tickSize, p.symbol, p.tickSize)} / {fmtPrice(z - p.rearm * p.tickSize, p.symbol, p.tickSize)}
                           </td>
                         </tr>
                       );
@@ -237,6 +247,7 @@ export default function FicheDuJour({
                         <td style={{ ...td, fontFamily: "inherit" }}>
                           {dist.toFixed(0)} ticks de 17h{ok ? "" : ` (moins de ${p.minApproach ?? minApproach})`}
                         </td>
+                        <td style={td}>{ok ? price(z + dir * p.rearm * p.tickSize) : "—"}</td>
                       </tr>
                     );
                   })}

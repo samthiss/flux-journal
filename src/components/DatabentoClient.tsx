@@ -275,7 +275,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           {view === "general" || !sel || !selCfg ? (
             <div style={glassCard}>
               <div style={label}>Rapport général — par compte, {general.per.length} paires à {general.per[0]?.e.result!.settings.lots ?? 2} lots</div>
-              {general.per[0] && <GeneralRules r={general.per[0].e.result!} />}
+              {general.per[0] && <GeneralRules r={general.per[0].e.result!} account={account} />}
               {general.per.length > 0 && <PairRules per={general.per} />}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 20, marginTop: 16 }}>
                 <Figure
@@ -438,22 +438,40 @@ const ruleBox: React.CSSProperties = {
 };
 
 /** What every pair is traded under, read off the reports. */
-function GeneralRules({ r }: { r: SymbolResult }) {
+function GeneralRules({ r, account }: { r: SymbolResult; account: AccountRules }) {
   const bo = r.rules?.blackout;
   const h = r.rules?.hours;
   const lots = r.settings.lots;
+  const perDay = r.rules?.maxPerDay ?? 1;
+  const positions = account.maxContracts ? Math.floor(account.maxContracts / lots) : null;
   return (
     <div style={ruleBox}>
       <div style={{ ...label, fontSize: 11, marginBottom: 2 }}>Règles générales — les mêmes pour toutes les paires</div>
-      {ruleRow("Entrée", `ordre limite sur la zone (sauf écart indiqué pour la paire), ${lots} lots`)}
-      {ruleRow("Sortie", `${lots / 2} lot à TP1 (stop au BE), l'autre en trailing dès TP1, à la distance du TP1`)}
-      {h && ruleRow("Horaires", `ordres de ${h[0]}h à ${h[1]}h (Chicago) · ${r.rules?.maxPerDay ?? 1} trade par jour et par marché`)}
+      {ruleRow("Sens", "achat quand le prix descend sur le niveau, vente quand il monte dessus")}
+      {ruleRow("Entrée", `ordre limite sur la zone (sauf écart indiqué pour la paire), ${lots} lots, SL attaché à l'ordre`)}
       {r.rules?.minApproach
-        ? ruleRow("Approche", `le prix doit avoir fait au moins ${r.rules.minApproach} ticks vers la zone depuis l'ouverture de 17h (Chicago) — sinon pas d'ordre`)
+        ? ruleRow(
+            "Approche",
+            `le prix doit avoir fait au moins ${r.rules.minApproach} ticks vers la zone depuis l'ouverture de 17h (Chicago) — sinon pas d'ordre ; un niveau traversé dans la séance ne se trade donc plus dans l'autre sens`
+          )
         : null}
-      {ruleRow("Durée", `${r.settings.maxHours} h au plus en position${r.rules?.flatAt ? `, tout clôturé à ${r.rules.flatAt}h` : ""}`)}
+      {ruleRow("Nouvelle touche", `un niveau déjà touché ne compte de nouveau qu'une fois que le prix s'en est éloigné de ${r.settings.rearm} ticks, puis y revient`)}
+      {h && ruleRow("Horaires", `ordres de ${h[0]}h à ${h[1]}h (Chicago), sauf les heures indiquées pour la paire`)}
+      {ruleRow("Un trade par paire", `${perDay} trade par jour et par paire : dès qu'un ordre est rempli, les autres ordres de la paire sont annulés`)}
+      {ruleRow("Sortie", `${lots / 2} lot à TP1 et le stop passe au prix d'entrée ; l'autre suit en trailing dès TP1, à la distance du TP1`)}
+      {ruleRow("Durée", `${r.settings.maxHours} h au plus en position${r.rules?.flatAt ? `, tout clôturé à ${r.rules.flatAt}h (Chicago)` : ""}`)}
       {ruleRow("News", bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après ${bo.all ? "chaque news 3 étoiles des devises de la paire" : "CPI, NFP, Fed et la banque centrale de la paire"}` : "pas de blackout")}
-      {r.settings.maxLossPerTrade ? ruleRow("Risque", `jamais plus de ${r.settings.maxLossPerTrade} $ perdus sur un trade`) : null}
+      {r.settings.maxLossPerTrade ? ruleRow("Risque par trade", `jamais plus de ${r.settings.maxLossPerTrade} $ perdus sur un trade`) : null}
+      {ruleRow(
+        "Compte",
+        [
+          account.dailyStop ? `−${account.dailyStop} $ dans la journée (positions ouvertes comprises) : tout fermer, journée finie` : null,
+          positions ? `${positions} positions au plus en même temps (${account.maxContracts} contrats)` : null,
+          account.ddLimit ? `drawdown max ${account.ddLimit} $ (${account.ddMode === "eod" ? "suiveur fin de journée" : "suiveur intraday"})` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      )}
     </div>
   );
 }
