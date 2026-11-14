@@ -68,6 +68,17 @@ function ChecklistIcon({ color }: { color: string }) {
   );
 }
 
+/** A day on the calendar, with the orders listed under it. */
+function FicheIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18">
+      <rect x="1.5" y="2.5" width="15" height="14" rx="2.5" fill="none" stroke={color} strokeWidth="1.6" />
+      <path d="M1.5 6.5h15M5.5 1v3M12.5 1v3" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M5 10h8M5 13h5" stroke={color} strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+    </svg>
+  );
+}
+
 function NotesIcon({ color }: { color: string }) {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18">
@@ -227,6 +238,7 @@ function AgentIcon({ color }: { color: string }) {
   );
 }
 
+/** One per entry of NAV_ITEMS, in the same order: a page added there needs its icon here. */
 const ICONS = [
   DashboardIcon,
   TradesIcon,
@@ -234,6 +246,7 @@ const ICONS = [
   RiskIcon,
   BacktestIcon,
   DatabentoIcon,
+  FicheIcon,
   ChecklistIcon,
   VolumeAlertIcon,
   NotesIcon,
