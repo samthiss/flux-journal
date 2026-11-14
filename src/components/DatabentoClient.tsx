@@ -17,7 +17,7 @@ const DEFAULT_ACCOUNT: AccountRules = {
   tiers: DEFAULT_TIERS,
   dailyStop: 1000,
   ddLimit: 2000,
-  pairs: 7,
+  pairs: 8,
   safety: 30,
   ddMode: "eod",
   target: null,
@@ -35,7 +35,16 @@ const DD_MODE_TEXT = { eod: "suiveur fin de journée", intraday: "suiveur intrad
  */
 const spanMonths = (r: { from: number; to: number }) => Math.max(1, (r.to - r.from) / (30.44 * 86400000));
 
-const fmtZone = (z: number) => String(z).replace(".", ",");
+/** Treasuries are quoted in 32nds, halves included (104'06.5); the rest in decimals. */
+const IN_32NDS = new Set(["ZN", "ZB", "ZF", "ZT", "UB"]);
+const fmtZone = (z: number, symbol?: string) => {
+  if (symbol && IN_32NDS.has(symbol)) {
+    const whole = Math.floor(z);
+    const t = Math.round((z - whole) * 64) / 2;
+    return `${whole}'${t < 10 ? "0" : ""}${t}`;
+  }
+  return String(z).replace(".", ",");
+};
 const fmtDay = (t: number) => new Date(t).toISOString().slice(0, 10);
 const pct = (x: number) => `${(x * 100).toFixed(0)} %`;
 const fmtPfOrInf = (pf: number | null) => (pf === null ? "∞" : pf.toFixed(2));
@@ -508,7 +517,7 @@ function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
                   {levels.map(([z, b], i) => (
                     <span key={z} style={{ color: b.pnl > 0 ? undefined : lossColor }}>
                       {i ? " · " : ""}
-                      {fmtZone(Number(z))}
+                      {fmtZone(Number(z), e.symbol)}
                       {b.pnl > 0 ? "" : " ✗"}
                     </span>
                   ))}
@@ -551,7 +560,7 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
         <span style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           {levels.map(([z, b]) => (
             <span key={z} style={{ ...mono, color: b.pnl > 0 ? undefined : lossColor }} title={`${fmtUsd(b.pnl)} sur ${b.n} trades`}>
-              {fmtZone(Number(z))}
+              {fmtZone(Number(z), r.symbol)}
               {b.pnl > 0 ? "" : " ✗"}
             </span>
           ))}
