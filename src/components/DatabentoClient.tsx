@@ -6,6 +6,7 @@ import { Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, t
 import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
+import { fmtPrice, fmtZone } from "@/lib/databento/format";
 
 type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
 type Entry = { symbol: string; zones: number[]; result: SymbolResult | null; chosenKey: string | null };
@@ -36,16 +37,6 @@ const DD_MODE_TEXT = { eod: "suiveur fin de journée", intraday: "suiveur intrad
  */
 const spanMonths = (r: { from: number; to: number }) => Math.max(1, (r.to - r.from) / (30.44 * 86400000));
 
-/** Treasuries are quoted in 32nds, halves included (104'06.5); the rest in decimals. */
-const IN_32NDS = new Set(["ZN", "ZB", "ZF", "ZT", "UB"]);
-const fmtZone = (z: number, symbol?: string) => {
-  if (symbol && IN_32NDS.has(symbol)) {
-    const whole = Math.floor(z);
-    const t = Math.round((z - whole) * 64) / 2;
-    return `${whole}'${t < 10 ? "0" : ""}${t}`;
-  }
-  return String(z).replace(".", ",");
-};
 const fmtDay = (t: number) => new Date(t).toISOString().slice(0, 10);
 const pct = (x: number) => `${(x * 100).toFixed(0)} %`;
 const fmtPfOrInf = (pf: number | null) => (pf === null ? "∞" : pf.toFixed(2));
@@ -522,14 +513,6 @@ function hoursText(hours: number[]) {
     else spans.push([h, h + 1]);
   }
   return spans.map(([a, b]) => `${a}h–${b}h`).join(", ");
-}
-
-/** A price as the pair is quoted: 32nds for Treasuries, otherwise to its tick's decimals. */
-function fmtPrice(p: number, symbol: string, tick: number | undefined) {
-  if (IN_32NDS.has(symbol)) return fmtZone(p, symbol);
-  let d = 0;
-  if (tick) while (d < 10 && Math.abs(Math.round(tick * 10 ** d) - tick * 10 ** d) > 1e-9) d++;
-  return p.toFixed(tick ? d : 5).replace(".", ",");
 }
 
 const chicagoTime = new Intl.DateTimeFormat("fr-CH", { timeZone: "America/Chicago", weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });

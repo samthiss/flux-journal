@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { href: "/risque", label: "Risque", match: (p: string) => p.startsWith("/risque") },
   { href: "/backtesting", label: "Backtesting", match: (p: string) => p === "/backtesting" || p.startsWith("/backtesting/") },
   { href: "/backtesting-databento", label: "Backtesting Databento", match: (p: string) => p.startsWith("/backtesting-databento") },
+  { href: "/fiche-du-jour", label: "Fiche du jour", match: (p: string) => p.startsWith("/fiche-du-jour") },
   { href: "/checklist", label: "Checklist & News", match: (p: string) => p.startsWith("/checklist") },
   { href: "/volume-alert", label: "Volume Alert", match: (p: string) => p.startsWith("/volume-alert") },
   { href: "/notes", label: "Notes", match: (p: string) => p.startsWith("/notes") },
