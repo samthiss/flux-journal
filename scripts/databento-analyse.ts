@@ -80,8 +80,8 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 606.5, 634.5, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5 } },
 };
 
-/** The prop firm's account, MEDIUM: 2,000 trailed at the session's close, 1,000 a day, five contracts. */
-const ACCOUNT: AccountRules = { tiers: null, dailyStop: 1000, ddLimit: 2000, ddMode: "eod", pairs: 5, safety: 30, maxContracts: 5, maxLossPerTrade: 500 };
+/** The prop firm's account, MEDIUM: 2,000 trailed at the session's close, five contracts; 500 a day, the trader's own limit (the firm's is 1,000). */
+const ACCOUNT: AccountRules = { tiers: null, dailyStop: 500, ddLimit: 2000, ddMode: "eod", pairs: 5, safety: 30, maxContracts: 5, maxLossPerTrade: 500 };
 
 /** The most one pair may draw down at two lots. */
 const PAIR_DD_CAP = Number(process.env.PAIR_DD_CAP ?? 850);

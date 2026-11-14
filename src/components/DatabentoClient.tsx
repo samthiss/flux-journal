@@ -15,7 +15,8 @@ const SETTINGS_KEY = "databento-settings";
 /** The trader's account: MEDIUM at the prop firm, five pairs, a master and a slave to start with. */
 const DEFAULT_ACCOUNT: AccountRules = {
   tiers: DEFAULT_TIERS,
-  dailyStop: 1000,
+  // The trader's own: half the firm's 1,000, two bad trades together and the day is over.
+  dailyStop: 500,
   ddLimit: 2000,
   pairs: 8,
   safety: 30,
@@ -105,8 +106,11 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
     try {
       const saved = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "null");
       if (saved?.account) {
+        // Saved before the daily limit became the trader's 500: moved there once.
+        const account = (saved.rulesVersion ?? 1) < 2 ? { ...saved.account, dailyStop: DEFAULT_ACCOUNT.dailyStop } : saved.account;
+        if ((saved.rulesVersion ?? 1) < 2) window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...saved, account, rulesVersion: 2 }));
         // eslint-disable-next-line react-hooks/set-state-in-effect -- the browser's own storage, read once after mount
-        setAccount({ ...DEFAULT_ACCOUNT, ...saved.account });
+        setAccount({ ...DEFAULT_ACCOUNT, ...account });
         setTiersDraft(tiersText(saved.account.tiers ?? DEFAULT_TIERS));
       }
     } catch {
@@ -117,7 +121,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
     setAccount(a);
     try {
       const saved = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}");
-      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...saved, account: a }));
+      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...saved, account: a, rulesVersion: 2 }));
     } catch {
       // ignore storage failures
     }
@@ -251,7 +255,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           <RuleRow on={!!account.maxLossPerTrade} onToggle={(v) => updateAccount({ ...account, maxLossPerTrade: v ? 500 : null })} label="Perte max par trade, stop touché ($)">
             <input type="number" min={1} value={account.maxLossPerTrade ?? 500} disabled={!account.maxLossPerTrade} onChange={(e) => updateAccount({ ...account, maxLossPerTrade: Number(e.target.value) })} style={{ ...smallField, width: 80 }} />
           </RuleRow>
-          <RuleRow on={account.dailyStop !== null} onToggle={(v) => updateAccount({ ...account, dailyStop: v ? 500 : null })} label="Prop firm : perte max par jour, latente comprise ($)">
+          <RuleRow on={account.dailyStop !== null} onToggle={(v) => updateAccount({ ...account, dailyStop: v ? 500 : null })} label="Perte max par jour, latente comprise ($) — ta limite (prop firm : 1 000)">
             <input type="number" min={1} value={account.dailyStop ?? 500} disabled={account.dailyStop === null} onChange={(e) => updateAccount({ ...account, dailyStop: Number(e.target.value) })} style={smallField} />
           </RuleRow>
         </div>
