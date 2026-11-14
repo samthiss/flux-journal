@@ -30,13 +30,6 @@ type News = { at: number; currency: string; title: string };
 const DAILY_STOP = 500;
 const FLAT_AT = 16;
 
-/**
- * A safety the trader keeps on 6E: after a 1-hour candle this big, price is
- * breaking out rather than turning. Two trades in the year met it, one won
- * and one stopped, so it costs nothing on the backtest.
- */
-const BIG_CANDLE: Record<string, string> = { "6E": "60 pips (0,0060)" };
-
 const hm = (t: number, timeZone?: string) =>
   new Intl.DateTimeFormat("fr-CH", { timeZone, hour: "2-digit", minute: "2-digit" }).format(t);
 
@@ -250,13 +243,6 @@ export default function FicheDuJour({
                 </tbody>
               </table>
             </div>
-
-            {BIG_CANDLE[p.symbol] && (
-              <div style={{ marginTop: 10, fontSize: 12.5 }}>
-                Grosse bougie : si la bougie 1 h de la touche, ou celle d&apos;avant, fait {BIG_CANDLE[p.symbol]} ou plus, ne prends pas le
-                trade.
-              </div>
-            )}
 
             {pairNews.length > 0 && p.blackout && (
               <div style={{ marginTop: 10, fontSize: 12.5 }}>
