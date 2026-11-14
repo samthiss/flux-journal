@@ -62,6 +62,10 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // Set for the win rate: TP1 20 wins four trades in five, where 30 wins
   // two in three for 12 a month more.
   "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59635, 0.593, 0.58855, 0.58515, 0.57865, 0.56795, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1, pick: { sl: 25, tp1: 20 } },
+  // Added 2026-11-14: levels where the year turned, the ones broken or
+  // untouched since May left out. Set for the win rate: TP1 20 wins four
+  // trades in five, where 30 wins a little less for 30 a month more.
+  "6C": { source: "GLBX-20261114-XT3UQKQJN8", levels: [0.7078, 0.70965, 0.71235, 0.71705, 0.7196, 0.7269, 0.72935], excludeHours: [], tp1s: FX_TP1, pick: { sl: 25, tp1: 20 } },
   // ZS overshoots its levels before it turns: the order goes eight ticks
   // (two cents) beyond the level, and only in the grains' day session —
   // 8h–14h, the hours before it kept out. Under the 15-tick approach rule

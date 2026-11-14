@@ -17,7 +17,7 @@ const DEFAULT_ACCOUNT: AccountRules = {
   tiers: DEFAULT_TIERS,
   dailyStop: 1000,
   ddLimit: 2000,
-  pairs: 6,
+  pairs: 7,
   safety: 30,
   ddMode: "eod",
   target: null,
