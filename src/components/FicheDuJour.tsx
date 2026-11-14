@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { glassCard, lossColor, accentColor } from "@/lib/theme";
 import { fieldStyle, label, mono, td, th } from "@/components/BacktestUi";
-import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, parsePrice } from "@/lib/databento/format";
+import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, parsePrice, pipNote } from "@/lib/databento/format";
 import { chicagoInstant } from "@/lib/databento/clock";
 
 export type FichePair = {
@@ -94,6 +94,7 @@ export default function FicheDuJour({
     <div style={{ display: "grid", gap: 20 }}>
       <div style={glassCard}>
         <div style={{ ...label }}>Séance du {dayText}</div>
+        <div style={{ fontSize: 12, marginTop: 6, color: "oklch(0.62 0.034 250)" }}>{pipNote(pairs.map((p) => p.symbol))}</div>
         <ol style={{ margin: "12px 0 0", paddingLeft: 20, lineHeight: 1.7, fontSize: 13.5 }}>
           <li>
             Avant {firstHour}h Chicago ({hm(at(firstHour))} chez toi) : entre pour chaque paire le prix d&apos;ouverture de 17h

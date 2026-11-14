@@ -6,7 +6,7 @@ import { Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, t
 import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
-import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, inUnit, unitOf } from "@/lib/databento/format";
+import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, inPips, pipNote } from "@/lib/databento/format";
 
 type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
 type Entry = { symbol: string; zones: number[]; result: SymbolResult | null; chosenKey: string | null };
@@ -447,6 +447,7 @@ function GeneralRules({ r, account, symbols }: { r: SymbolResult; account: Accou
   return (
     <div style={ruleBox}>
       <div style={{ ...label, fontSize: 11, marginBottom: 2 }}>Règles générales — les mêmes pour toutes les paires</div>
+      {ruleRow("Pips", pipNote(symbols))}
       {ruleRow("Sens", "achat quand le prix descend sur le niveau, vente quand il monte dessus")}
       {ruleRow("Entrée", `ordre limite sur la zone (sauf écart indiqué pour la paire), ${lots} lots, SL attaché à l'ordre`)}
       {r.rules?.minApproach
@@ -596,7 +597,7 @@ function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStat
                 <th style={th}>TP1</th>
                 <th style={th}>Sortie</th>
                 <th style={th}>Fermé</th>
-                <th style={th}>{unitOf(r.symbol) === "/32" ? "32e" : unitOf(r.symbol)}</th>
+                <th style={th}>Pips</th>
                 <th style={th}>PnL</th>
               </tr>
             </thead>
@@ -618,7 +619,7 @@ function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStat
                     <td style={{ ...td, fontFamily: "inherit" }}>{end === undefined ? "—" : chicagoTime.format(end * 60000).split(" ").pop()}</td>
                     <td style={{ ...td, color: tone(ticks) }}>
                       {ticks > 0 ? "+" : ""}
-                      {String(Math.round(inUnit(r.symbol, ticks) * 100) / 100).replace(".", ",")}
+                      {String(Math.round(inPips(r.symbol, ticks) * 100) / 100).replace(".", ",")}
                     </td>
                     <td style={{ ...td, color: tone(ticks), fontWeight: 700 }}>{fmtUsd(ticks * money)}</td>
                   </tr>
@@ -627,7 +628,7 @@ function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStat
             </tbody>
           </table>
           <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)", marginTop: 6 }}>
-            {unitOf(r.symbol) === "/32" ? "32e" : unitOf(r.symbol).replace(/^./, (x) => x.toUpperCase())} par contrat, en moyenne sur les {r.settings.lots} lots (un à TP1, l&apos;autre en trailing) · PnL à {r.settings.lots} lots
+            Pips par contrat, en moyenne sur les {r.settings.lots} lots (un à TP1, l&apos;autre en trailing) · PnL à {r.settings.lots} lots
           </div>
         </div>
       )}

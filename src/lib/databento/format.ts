@@ -35,44 +35,30 @@ export function parsePrice(text: string): number | null {
 }
 
 /**
- * Distances as the trader reads them on each market: pips on the currencies
- * (half a pip a tick on most, a whole one on 6B), cents on the grains (a
- * quarter cent a tick), 32nds on Treasuries (half a 32nd a tick). Anything
- * else stays in ticks.
+ * Distances in pips, the one word the trader uses on every market. On the
+ * currencies a pip is the usual one: half a pip a tick on most, a whole one
+ * on 6B. Grains and Treasuries have no pip of their own: there a pip is one
+ * tick, a line of the ladder (ZS 1/4 cent, ZW 1/4 cent, ZN 1/64).
  */
-const UNITS: Record<string, { perTick: number; name: string }> = {
-  "6E": { perTick: 0.5, name: "pips" },
-  "6N": { perTick: 0.5, name: "pips" },
-  "6C": { perTick: 0.5, name: "pips" },
-  "6A": { perTick: 0.5, name: "pips" },
-  "6S": { perTick: 0.5, name: "pips" },
-  "6J": { perTick: 0.5, name: "pips" },
-  "6B": { perTick: 1, name: "pips" },
-  ZS: { perTick: 0.25, name: "cents" },
-  ZW: { perTick: 0.25, name: "cents" },
-  ZC: { perTick: 0.25, name: "cents" },
-  ZN: { perTick: 0.5, name: "/32" },
-  ZB: { perTick: 1, name: "/32" },
-  ZF: { perTick: 0.25, name: "/32" },
-};
+const PIPS_PER_TICK: Record<string, number> = { "6E": 0.5, "6N": 0.5, "6C": 0.5, "6A": 0.5, "6S": 0.5, "6J": 0.5, "6B": 1 };
 
 const num = (v: number) => String(Math.round(v * 100) / 100).replace(".", ",");
 
-/** The unit a market's distances are read in. */
-export const unitOf = (symbol: string) => UNITS[symbol]?.name ?? "ticks";
+/** Ticks as pips on this market. */
+export const inPips = (symbol: string, ticks: number) => ticks * (PIPS_PER_TICK[symbol] ?? 1);
 
-/** Ticks as a number in the market's own unit. */
-export const inUnit = (symbol: string, ticks: number) => ticks * (UNITS[symbol]?.perTick ?? 1);
+/** "12,5 pips". */
+export const fmtDist = (symbol: string, ticks: number) => `${num(inPips(symbol, ticks))} pips`;
 
-/** "12,5 pips", "3 cents", "6/32", or "20 ticks" where no unit is known. */
-export function fmtDist(symbol: string, ticks: number) {
-  const u = UNITS[symbol];
-  if (!u) return `${num(ticks)} ticks`;
-  const v = num(ticks * u.perTick);
-  // Grains and Treasuries have no pips: their own unit, and the ticks — one line of the ladder each.
-  if (u.name === "/32") return `${v}/32 (${num(ticks)} ticks)`;
-  if (u.name === "cents") return `${v} cents (${num(ticks)} ticks)`;
-  return `${v} ${u.name}`;
+/** What a pip is on each market, for the rules. */
+export function pipNote(symbols: string[]) {
+  const groups = new Map<string, string[]>();
+  for (const s of symbols) {
+    const per = PIPS_PER_TICK[s] ?? 1;
+    const k = per === 1 ? "1 pip = 1 tick" : `1 pip = ${num(1 / per)} ticks`;
+    groups.set(k, [...(groups.get(k) ?? []), s]);
+  }
+  return [...groups].map(([k, ss]) => `${ss.join(", ")} : ${k}`).join(" · ") + " (1 tick = une ligne du DOM)";
 }
 
 /** One distance in ticks, said for each market it applies to: "7,5 pips (6E, 6N) · 15 pips (6B)". */
