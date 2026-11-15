@@ -580,6 +580,11 @@ function GeneralRules({ r, account, symbols }: { r: SymbolResult; account: Accou
               main: `Le prix doit s'éloigner de ${fmtDistBySymbol(r.settings.rearm, symbols)} puis revenir`,
               detail: "avant qu'un niveau déjà touché compte de nouveau",
             },
+            {
+              k: "Déjà touché hors horaires",
+              main: "Pas d'ordre sur un niveau déjà touché la nuit, à une heure exclue ou pendant une news",
+              detail: `tant que le prix ne s'en est pas éloigné de ${fmtDistBySymbol(r.settings.rearm, symbols)} : un prix qui traîne sur le niveau depuis des heures ne rebondit plus (backtest : ces trades gagnent 1 fois sur 3 et perdent ≈ 13 500 $ par an)`,
+            },
           ]}
         />
         <RuleCard

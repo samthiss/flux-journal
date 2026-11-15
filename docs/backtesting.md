@@ -39,6 +39,7 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 - **Ordre** : ordre limite **1 tick avant le niveau** (pour ZS : 7 ticks au-delà), 2 lots, avec le SL attaché à l'ordre. À 1 tick avant, l'ordre est rempli dès que le prix touche le niveau, quelle que soit ma place dans la file d'attente.
 - **Un trade par jour et par paire** : je pose un ordre par niveau valable. Dès que l'un d'eux est rempli, j'annule les autres ordres de cette paire pour la journée. Les autres paires gardent leurs ordres.
 - **Nouvelle touche** : un niveau déjà touché ne compte de nouveau que si le prix s'en éloigne de **30 ticks**, puis revient dessus.
+- **Déjà touché hors horaires** : pas d'ordre sur un niveau que le prix a déjà touché **en dehors des heures d'ordres** (la nuit avant 2h, pendant une heure exclue ou pendant le blackout d'une news), tant qu'il ne s'en est pas éloigné de 30 ticks. À vérifier sur le graphique à 2h, et en reposant les ordres après une news. Un prix qui traîne sur un niveau depuis des heures ne rebondit plus.
 
 **Gérer le trade**
 
@@ -118,6 +119,7 @@ On ne refait pas ces tests sans raison nouvelle.
 
 **Filtres**
 
+- **Trader un niveau déjà touché hors horaires**, une fois les ordres reposés (testé le 15.11, à partir de 6J le 02.11) : 140 trades de plus par an, 34 % de gagnants, **−13 460 $ par an**. La règle « déjà touché hors horaires » (§2) les écarte.
 - Tendance, jour de la semaine, niveau récemment stoppé, une seule position à la fois : sans intérêt.
 - Trader seulement de 7h à 11h, blackout des news à ±30 ou 60 min, pas de trade les jours de news : moins bien.
 - Règles « niveau traversé » et « ouverture proche » : moins bien.
@@ -167,4 +169,5 @@ On ne refait pas ces tests sans raison nouvelle.
   - TP2 pour le runner ;
   - **ordre 1 tick avant le niveau** et backtest compté de façon prudente ;
   - commissions et partage des gains LMI dans le rapport ;
-  - ZN affiché au format CME (107'015).
+  - ZN affiché au format CME (107'015) ;
+  - règle « déjà touché hors horaires » écrite : le backtest l'appliquait déjà sans le dire.
