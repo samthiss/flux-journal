@@ -18,6 +18,8 @@ export type FichePair = {
   sl: number;
   tp1: number;
   trail: number;
+  /** The runner's target, if it has one; the trail works below it. */
+  tp2: number | null;
   /** Ticks price must move away from a level before a return to it is a new touch. */
   rearm: number;
   hours: [number, number] | null;
@@ -195,6 +197,7 @@ export default function FicheDuJour({
               <div style={{ fontSize: 12.5 }}>
                 {p.lots} lots · SL {fmtDist(p.symbol, p.sl)} ({(p.sl * money).toFixed(0)} $) · TP1 {fmtDist(p.symbol, p.tp1)} · trailing{" "}
                 {fmtDist(p.symbol, p.trail)}
+                {p.tp2 !== null && <> · TP2 {fmtDist(p.symbol, p.tp2)}</>}
               </div>
             </div>
 

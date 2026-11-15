@@ -14,7 +14,7 @@ import type { Bars } from "./parse";
  * - "trail": no target. Once the trade is `act` ticks in profit, the stop
  *   follows the best price at `dist` ticks.
  * - "tp1trail": half off at TP1 with the stop to the entry, and the other half
- *   trailed as above.
+ *   trailed as above — out at TP2 if it gets there (tp2 0: no TP2).
  *
  * One-minute bars do not say what happened inside the minute, so every doubt
  * is settled against the trade: a bar that reaches both the stop and a target
@@ -380,6 +380,8 @@ export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHo
       tp1At = j;
       if (d * (entry - stop) > 0) stop = entry;
     }
+    // The runner's own target, a bracket's TP2: taken when price reaches it.
+    if (half && tp1At >= 0 && cfg.tp2 > cfg.tp1 && towards(j, tp2)) return done((cfg.tp1 + cfg.tp2) / 2, "TP2", j, tp1At);
     const fav = d === 1 ? b.h[j] : b.l[j];
     if (d * (fav - best) > 0) best = fav;
     if ((!half || tp1At >= 0) && ticksAt(best) >= cfg.act - 1e-9) {
@@ -735,7 +737,9 @@ function baseConfigs(g: Grid): Config[] {
   if (g.trailFromTp1 !== undefined && kinds.includes("tp1trail") && !g.singleExit)
     for (const offset of g.offsets)
       for (const sl of g.sls)
-        for (const tp1 of g.tp1s) out.push({ kind: "tp1trail", offset, sl, tp1, tp2: 0, act: tp1, dist: Math.max(1, Math.round(tp1 * g.trailFromTp1)) });
+        for (const tp1 of g.tp1s)
+          for (const tp2 of g.tp2s.length ? g.tp2s : [0])
+            if (tp2 === 0 || tp2 > tp1) out.push({ kind: "tp1trail", offset, sl, tp1, tp2, act: tp1, dist: Math.max(1, Math.round(tp1 * g.trailFromTp1)) });
   // A single target can be any of the target distances, TP1's or TP2's.
   const singles = [...new Set([...g.tp1s, ...g.tp2s])].sort((a, b) => a - b);
   for (const offset of g.offsets)

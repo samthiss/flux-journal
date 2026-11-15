@@ -492,7 +492,7 @@ function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
             <th style={th}>Paire</th>
             <th style={th}>Niveaux</th>
             <th style={th}>Stop</th>
-            <th style={th}>TP1 = trailing</th>
+            <th style={th}>TP1 = trailing · TP2</th>
             <th style={th}>Pas d&apos;ordre</th>
           </tr>
         </thead>
@@ -516,7 +516,12 @@ function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
                 <td style={td}>
                   {fmtDist(e.symbol, c.cfg.sl)} ({(c.cfg.sl * r.tickValue * r.settings.lots).toFixed(0)} $)
                 </td>
-                <td style={td}>{fmtDist(e.symbol, c.cfg.tp1)}</td>
+                <td style={td}>
+                  {fmtDist(e.symbol, c.cfg.tp1)}
+                  {kindOf(c.cfg) === "tp1trail" && c.cfg.tp2 > c.cfg.tp1 && (
+                    <div style={{ color: "oklch(0.62 0.034 250)" }}>TP2 {fmtDist(e.symbol, c.cfg.tp2)}</div>
+                  )}
+                </td>
                 <td style={td}>{hours.length ? hoursText(hours) : "—"}</td>
               </tr>
             );
@@ -659,6 +664,7 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
       {c.offset !== 0 && ruleRow("Entrée", `${fmtDist(r.symbol, Math.abs(c.offset))} ${c.offset > 0 ? "avant" : "au-delà du"} niveau`)}
       {ruleRow("Stop", `${fmtDist(r.symbol, c.sl)} (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
       {ruleRow("TP1", kindOf(c) === "tp1trail" ? `${fmtDist(r.symbol, c.tp1)}, puis trailing à ${fmtDist(r.symbol, c.dist)}` : exitInLots(c, lots))}
+      {kindOf(c) === "tp1trail" && c.tp2 > c.tp1 && ruleRow("TP2", `${fmtDist(r.symbol, c.tp2)} pour le 2e lot — loin, là où vont les plus grosses courses : le trailing sort avant la plupart du temps`)}
       {hours.length > 0 && ruleRow("Pas d'ordre", `${hoursText(hours)} (Chicago)`)}
       <LevelPrices r={r} c={c} zones={levels.map(([z]) => Number(z))} />
     </div>
@@ -674,9 +680,10 @@ function LevelPrices({ r, c, zones }: { r: SymbolResult; c: ConfigStats["cfg"]; 
   if (!tick) return null;
   const price = (x: number) => fmtPrice(x, r.symbol, tick);
   const rearm = r.settings.rearm;
+  const hasTp2 = kindOf(c) === "tp1trail" && c.tp2 > c.tp1;
   return (
     <details style={{ marginTop: 8 }}>
-      <summary style={{ cursor: "pointer", fontSize: 12.5 }}>Prix par niveau : entrée, SL, TP1, 2e rebond</summary>
+      <summary style={{ cursor: "pointer", fontSize: 12.5 }}>Prix par niveau : entrée, SL, TP1{hasTp2 ? ", TP2" : ""}, 2e rebond</summary>
       <div style={{ overflowX: "auto", marginTop: 6 }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead>
@@ -686,6 +693,7 @@ function LevelPrices({ r, c, zones }: { r: SymbolResult; c: ConfigStats["cfg"]; 
               <th style={th}>Entrée</th>
               <th style={th}>SL</th>
               <th style={th}>TP1 (1 lot)</th>
+              {hasTp2 && <th style={th}>TP2 (2e lot)</th>}
               <th style={th} title="Après une touche, le niveau ne se retrade que si le prix va jusqu'à ce prix puis revient">
                 2e rebond : s&apos;éloigner jusqu&apos;à
               </th>
@@ -704,6 +712,7 @@ function LevelPrices({ r, c, zones }: { r: SymbolResult; c: ConfigStats["cfg"]; 
                     <td style={td}>{price(entry)}</td>
                     <td style={td}>{price(entry - dir * c.sl * tick)}</td>
                     <td style={td}>{price(entry + dir * c.tp1 * tick)}</td>
+                    {hasTp2 && <td style={td}>{price(entry + dir * c.tp2 * tick)}</td>}
                     <td style={td}>{price(z + dir * rearm * tick)}</td>
                   </tr>
                 );

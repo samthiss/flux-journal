@@ -34,6 +34,7 @@ export default async function FicheDuJourPage() {
       sl: c.cfg.sl,
       tp1: c.cfg.tp1,
       trail: c.cfg.dist,
+      tp2: c.cfg.kind === "tp1trail" && c.cfg.tp2 > c.cfg.tp1 ? c.cfg.tp2 : null,
       rearm: r.settings.rearm,
       hours: r.rules?.hours ?? null,
       excludeHours: r.rules?.excludeHours ?? [],
