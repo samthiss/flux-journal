@@ -124,6 +124,8 @@ On ne refait pas ces tests sans raison nouvelle.
 - Trader seulement de 7h à 11h, blackout des news à ±30 ou 60 min, pas de trade les jours de news : moins bien.
 - Règles « niveau traversé » et « ouverture proche » : moins bien.
 - **Grosse bougie d'1 h sur 6E** (≥ 60 pips) : seulement 2 trades par an, j'ai annulé la règle.
+- **Approche comptée depuis le point le plus éloigné** et non plus depuis l'ouverture de 17h (testé le 15.11) : une séance qui ouvre près du niveau puis s'en éloigne avant de revenir compterait. Résultat : 100 trades de plus par an, 2 246 $/mois au lieu de 2 513, avec moins de gagnants. Seul 6B fait mieux sur les deux moitiés de l'année (621 au lieu de 537 $/mois) ; 6N, 6J et ZS font nettement moins bien.
+- **Distance pour une nouvelle touche** (15, 20, 30, 40 ou 60 ticks, testé le 15.11) : 30 est le meilleur au total. Quelques paires font un peu mieux à une autre valeur, mais jamais sur les deux moitiés de l'année. Au-dessus de 30, c'est nettement moins bien. En pratique, 25 à 30 ticks suffisent.
 - **Durée** : 4 h fait mieux que 1 à 3 h, et mieux que 6 h ou sans limite.
 - **6E de 2h à 8h seulement** : n'apporte rien. **6J de 9h à 14h en 25/10** : +87 $/mois, refusé pour l'instant.
 
@@ -170,4 +172,5 @@ On ne refait pas ces tests sans raison nouvelle.
   - **ordre 1 tick avant le niveau** et backtest compté de façon prudente ;
   - commissions et partage des gains LMI dans le rapport ;
   - ZN affiché au format CME (107'015) ;
-  - règle « déjà touché hors horaires » écrite : le backtest l'appliquait déjà sans le dire.
+  - règle « déjà touché hors horaires » écrite : le backtest l'appliquait déjà sans le dire ;
+  - distance de nouvelle touche et approche depuis le point le plus éloigné testées : on garde 30 ticks et l'approche depuis 17h.

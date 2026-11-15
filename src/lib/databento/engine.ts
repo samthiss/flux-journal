@@ -103,6 +103,12 @@ export type Rules = {
    * next to the level, or on its far side, is not traded on it.
    */
   minApproach?: number | null;
+  /**
+   * Where the approach is measured from: the session's 17:00 open (not said),
+   * or the farthest price reached on the way in before the fill — a session
+   * that opened by the level and went away from it then counts.
+   */
+  approachFrom?: "open" | "farthest";
 };
 export type Settings = {
   lots: number;
@@ -823,10 +829,25 @@ export async function analyse(
   // What the session-based rules need, worked out once: each session's
   // opening price, and the minutes a level was crossed by a close.
   const sessionOpen = new Map<number, number>();
+  const sessionStart = new Map<number, number>();
   for (let i = 0; i < b.t.length; i++) {
     const d = sessionDay(b.t[i]);
-    if (!sessionOpen.has(d)) sessionOpen.set(d, b.o[i]);
+    if (!sessionOpen.has(d)) {
+      sessionOpen.set(d, b.o[i]);
+      sessionStart.set(d, i);
+    }
   }
+  /** The bar a moment falls in. */
+  const barAt = (t: number) => {
+    let lo = 0;
+    let hi = b.t.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (b.t[mid] <= t) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo;
+  };
   const crosses = new Map<number, { t: number; down: boolean }[]>();
   for (const z of zones) {
     const list: { t: number; down: boolean }[] = [];
@@ -846,7 +867,16 @@ export async function analyse(
     }
     if (r.minApproach) {
       const open = sessionOpen.get(sessionDay(t));
-      if (open !== undefined && ((open - tr.zone) * tr.dir) / tick < r.minApproach - 1e-6) return false;
+      let from = open;
+      if (r.approachFrom === "farthest" && open !== undefined) {
+        // The farthest on the side price comes from, between the open and the fill.
+        const day = sessionDay(t);
+        for (let i = sessionStart.get(day)!, end = barAt(t); i < end; i++) {
+          const p = tr.dir === 1 ? b.h[i] : b.l[i];
+          if ((p - from!) * tr.dir > 0) from = p;
+        }
+      }
+      if (from !== undefined && ((from - tr.zone) * tr.dir) / tick < r.minApproach - 1e-6) return false;
     }
     if (r.noReverseAfterCross) {
       const day = sessionDay(t);
