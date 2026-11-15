@@ -35,38 +35,27 @@ export function parsePrice(text: string): number | null {
 }
 
 /**
- * Distances in pips, the one word the trader uses on every market. On the
- * currencies a pip is the usual one: half a pip a tick on most, a whole one
- * on 6B. Grains and Treasuries have no pip of their own: there a pip is one
- * tick, a line of the ladder (ZS 1/4 cent, ZW 1/4 cent, ZN 1/64).
+ * Distances in ticks — one line of the DOM — on every market: what the
+ * trader measures on the platform, always a whole number.
  */
-const PIPS_PER_TICK: Record<string, number> = { "6E": 0.5, "6N": 0.5, "6C": 0.5, "6A": 0.5, "6S": 0.5, "6J": 0.5, "6B": 1 };
-
 const num = (v: number) => String(Math.round(v * 100) / 100).replace(".", ",");
 
-/** Ticks as pips on this market. */
-export const inPips = (symbol: string, ticks: number) => ticks * (PIPS_PER_TICK[symbol] ?? 1);
+/** "25 ticks". */
+export const fmtDist = (_symbol: string, ticks: number) => `${num(ticks)} ticks`;
 
-/** "12,5 pips". */
-export const fmtDist = (symbol: string, ticks: number) => `${num(inPips(symbol, ticks))} pips`;
-
-/** What a pip is on each market, for the rules. */
-export function pipNote(symbols: string[]) {
+/** What a tick is on each market, for the rules: "6E, 6C : 0,00005 · ZS : 0,25". */
+export function tickNote(symbols: string[], tickOf: (symbol: string) => number | undefined) {
   const groups = new Map<string, string[]>();
   for (const s of symbols) {
-    const per = PIPS_PER_TICK[s] ?? 1;
-    const k = per === 1 ? "1 pip = 1 tick" : `1 pip = ${num(1 / per)} ticks`;
+    const t = tickOf(s);
+    if (t === undefined) continue;
+    const k = IN_32NDS.has(s) ? "1/64 (un demi-32e)" : fmtPrice(t, s, t);
     groups.set(k, [...(groups.get(k) ?? []), s]);
   }
-  return [...groups].map(([k, ss]) => `${ss.join(", ")} : ${k}`).join(" · ") + " (1 tick = une ligne du DOM)";
+  return "1 tick = une ligne du DOM — " + [...groups].map(([k, ss]) => `${ss.join(", ")} : ${k}`).join(" · ");
 }
 
-/** One distance in ticks, said for each market it applies to: "7,5 pips (6E, 6N) · 15 pips (6B)". */
-export function fmtDistBySymbol(ticks: number, symbols: string[]) {
-  const groups = new Map<string, string[]>();
-  for (const s of symbols) {
-    const k = fmtDist(s, ticks);
-    groups.set(k, [...(groups.get(k) ?? []), s]);
-  }
-  return [...groups].map(([k, ss]) => `${k} (${ss.join(", ")})`).join(" · ");
+/** One distance in ticks, for every market: "15 ticks". */
+export function fmtDistBySymbol(ticks: number, _symbols: string[]) {
+  return `${num(ticks)} ticks`;
 }

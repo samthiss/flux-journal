@@ -6,7 +6,8 @@ import { Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, t
 import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
-import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, inPips, pipNote } from "@/lib/databento/format";
+import { CONTRACTS } from "@/lib/contracts";
+import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, tickNote } from "@/lib/databento/format";
 
 type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
 type Entry = { symbol: string; zones: number[]; result: SymbolResult | null; chosenKey: string | null };
@@ -447,7 +448,7 @@ function GeneralRules({ r, account, symbols }: { r: SymbolResult; account: Accou
   return (
     <div style={ruleBox}>
       <div style={{ ...label, fontSize: 11, marginBottom: 2 }}>Règles générales — les mêmes pour toutes les paires</div>
-      {ruleRow("Pips", pipNote(symbols))}
+      {ruleRow("Ticks", tickNote(symbols, (s) => CONTRACTS[s]?.tickSize))}
       {ruleRow("Sens", "achat quand le prix descend sur le niveau, vente quand il monte dessus")}
       {ruleRow("Entrée", `ordre limite sur la zone (sauf écart indiqué pour la paire), ${lots} lots, SL attaché à l'ordre`)}
       {r.rules?.minApproach
@@ -597,7 +598,7 @@ function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStat
                 <th style={th}>TP1</th>
                 <th style={th}>Sortie</th>
                 <th style={th}>Fermé</th>
-                <th style={th}>Pips</th>
+                <th style={th}>Ticks</th>
                 <th style={th}>PnL</th>
               </tr>
             </thead>
@@ -619,7 +620,7 @@ function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStat
                     <td style={{ ...td, fontFamily: "inherit" }}>{end === undefined ? "—" : chicagoTime.format(end * 60000).split(" ").pop()}</td>
                     <td style={{ ...td, color: tone(ticks) }}>
                       {ticks > 0 ? "+" : ""}
-                      {String(Math.round(inPips(r.symbol, ticks) * 100) / 100).replace(".", ",")}
+                      {String(Math.round(ticks * 100) / 100).replace(".", ",")}
                     </td>
                     <td style={{ ...td, color: tone(ticks), fontWeight: 700 }}>{fmtUsd(ticks * money)}</td>
                   </tr>
@@ -628,7 +629,7 @@ function MonthsWithTrades({ r, cfg, months }: { r: SymbolResult; cfg: ConfigStat
             </tbody>
           </table>
           <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)", marginTop: 6 }}>
-            Pips par contrat, en moyenne sur les {r.settings.lots} lots (un à TP1, l&apos;autre en trailing) · PnL à {r.settings.lots} lots
+            Ticks par contrat, en moyenne sur les {r.settings.lots} lots (un à TP1, l&apos;autre en trailing) · PnL à {r.settings.lots} lots
           </div>
         </div>
       )}
@@ -659,7 +660,59 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
       {ruleRow("Stop", `${fmtDist(r.symbol, c.sl)} (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
       {ruleRow("TP1", kindOf(c) === "tp1trail" ? `${fmtDist(r.symbol, c.tp1)}, puis trailing à ${fmtDist(r.symbol, c.dist)}` : exitInLots(c, lots))}
       {hours.length > 0 && ruleRow("Pas d'ordre", `${hoursText(hours)} (Chicago)`)}
+      <LevelPrices r={r} c={c} zones={levels.map(([z]) => Number(z))} />
     </div>
+  );
+}
+
+/**
+ * Every level's order in prices, both ways: entry, stop, TP1, and the price
+ * it must go away to before a second bounce on the level is traded.
+ */
+function LevelPrices({ r, c, zones }: { r: SymbolResult; c: ConfigStats["cfg"]; zones: number[] }) {
+  const tick = r.tickSize ?? CONTRACTS[r.symbol]?.tickSize;
+  if (!tick) return null;
+  const price = (x: number) => fmtPrice(x, r.symbol, tick);
+  const rearm = r.settings.rearm;
+  return (
+    <details style={{ marginTop: 8 }}>
+      <summary style={{ cursor: "pointer", fontSize: 12.5 }}>Prix par niveau : entrée, SL, TP1, 2e rebond</summary>
+      <div style={{ overflowX: "auto", marginTop: 6 }}>
+        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+          <thead>
+            <tr>
+              <th style={th}>Niveau</th>
+              <th style={th}>Ordre</th>
+              <th style={th}>Entrée</th>
+              <th style={th}>SL</th>
+              <th style={th}>TP1 (1 lot)</th>
+              <th style={th} title="Après une touche, le niveau ne se retrade que si le prix va jusqu'à ce prix puis revient">
+                2e rebond : s&apos;éloigner jusqu&apos;à
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {zones.flatMap((z) =>
+              ([1, -1] as const).map((dir) => {
+                const entry = z + dir * c.offset * tick;
+                return (
+                  <tr key={`${z}${dir}`}>
+                    <td style={td}>{dir === 1 ? fmtZone(z, r.symbol) : ""}</td>
+                    <td style={{ ...td, fontFamily: "inherit", fontWeight: 700, color: dir === 1 ? "oklch(0.78 0.16 150)" : lossColor }}>
+                      {dir === 1 ? "Achat (prix qui descend)" : "Vente (prix qui monte)"}
+                    </td>
+                    <td style={td}>{price(entry)}</td>
+                    <td style={td}>{price(entry - dir * c.sl * tick)}</td>
+                    <td style={td}>{price(entry + dir * c.tp1 * tick)}</td>
+                    <td style={td}>{price(z + dir * rearm * tick)}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }
 
