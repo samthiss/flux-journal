@@ -134,7 +134,17 @@ export type Settings = {
    * now.
    */
   holdsOut?: boolean;
+  /**
+   * How a limit order is filled. Not said: as soon as price reaches it. With
+   * `through`, only once price trades that many ticks past it — sure to be
+   * filled from the back of the queue. With `cancelOnMiss`, an order price
+   * reached without filling is cancelled once price has gone TP1 its way:
+   * the trade was missed, the order not left for a return.
+   */
+  fill?: Fill;
 };
+
+export type Fill = { through: number; cancelOnMiss?: boolean };
 
 /** Made per dollar of intraday drawdown: the measure of a configuration that will be sized to a budget. */
 export const ratioOf = (s: { pnl: number; propDD?: number }, floor = 1) => s.pnl / Math.max(s.propDD ?? 0, floor);
@@ -284,7 +294,7 @@ export function findTouches(b: Bars, level: number, tick: number, rearmTicks: nu
   return out;
 }
 
-export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHours: number, flatAt: number | null = null): Trade | null {
+export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHours: number, flatAt: number | null = null, fillRule: Fill | null = null): Trade | null {
   const eps = tick * 1e-3;
   const d = touch.dir;
   let entry = touch.zone + d * cfg.offset * tick;
@@ -313,11 +323,17 @@ export function simulate(b: Bars, touch: Touch, cfg: Config, tick: number, maxHo
       }
     }
   } else {
+    const through = (fillRule?.through ?? 0) * tick;
+    const missedAt = entry + d * cfg.tp1 * tick;
+    let reached = false;
     for (let i = touch.start; i < touch.end; i++) {
-      if (d === 1 ? b.l[i] <= entry + eps : b.h[i] >= entry - eps) {
+      if (d === 1 ? b.l[i] <= entry - through + eps : b.h[i] >= entry + through - eps) {
         fill = i;
         break;
       }
+      // Reached but not filled, then gone to where TP1 would have been: missed.
+      if (reached && fillRule?.cancelOnMiss && (d === 1 ? b.h[i] >= missedAt - eps : b.l[i] <= missedAt + eps)) return null;
+      if (d === 1 ? b.l[i] <= entry + eps : b.h[i] >= entry - eps) reached = true;
     }
   }
   if (fill < 0) return null;
@@ -878,7 +894,7 @@ export async function analyse(
   const run = (cfg: Config, r: Rules) => {
     const trades: Trade[] = [];
     for (const touch of touches) {
-      const tr = simulate(b, touch, cfg, tick, settings.maxHours, r.flatAt);
+      const tr = simulate(b, touch, cfg, tick, settings.maxHours, r.flatAt, settings.fill ?? null);
       if (tr && allowed(tr, r)) trades.push(tr);
     }
     return trades;

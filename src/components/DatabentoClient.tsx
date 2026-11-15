@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import { Figure, Pill, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, td, th, tone } from "@/components/BacktestUi";
 import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
-import { DEFAULT_TIERS, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
+import { DEFAULT_TIERS, feeRoundTrip, firmShares, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
 import { CONTRACTS } from "@/lib/contracts";
 import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, tickNote } from "@/lib/databento/format";
@@ -28,6 +28,11 @@ const DEFAULT_ACCOUNT: AccountRules = {
   maxLossPerTrade: 500,
   wholeLots: true,
   copies: 2,
+  // LMI: all of it up to 30,000 made on the account, 90 % past it.
+  split: { from: 30000, firm: 10 },
+  // LMI's commission on one contract (2026-11-15): 3.22 on the currencies,
+  // 4.12 on the grains, 1.52 on ZN — the round trip.
+  fees: { perSide: false, bySymbol: { "6B": 3.22, "6E": 3.22, "6J": 3.22, "6N": 3.22, "6C": 3.22, ZN: 1.52, ZS: 4.12, ZW: 4.12 } },
 };
 const DD_MODE_TEXT = { eod: "suiveur fin de journée", intraday: "suiveur intraday" } as const;
 
@@ -135,10 +140,12 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
     const per = analysed.map((e) => {
       const c = retained(e)!;
       const money = e.result!.tickValue * e.result!.settings.lots;
-      return { e, c, money };
+      // The commission, as ticks off each contract's result.
+      const feeTicks = feeRoundTrip(account.fees, e.symbol) / e.result!.tickValue;
+      return { e, c, money, feeTicks };
     });
     const trades = per
-      .flatMap(({ e, c, money }) => c.trades.map(([m, ticks]) => ({ t: m * 60000, pnl: ticks * money, symbol: e.symbol })))
+      .flatMap(({ e, c, money, feeTicks }) => c.trades.map(([m, ticks]) => ({ t: m * 60000, pnl: (ticks - feeTicks) * money, symbol: e.symbol })))
       .sort((a, b) => a.t - b.t);
     let eq = 0, peak = 0, maxDD = 0, win = 0, loss = 0, wins = 0;
     for (const t of trades) {
@@ -157,7 +164,12 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
     };
     // The account rules, played over the same trades: fixed size as tested,
     // then the tiers, then the daily stop, then both.
-    const raw = per.flatMap(({ e, c }) => c.trades.map((row) => fromRow(row, e.result!.tickValue)));
+    const raw = per.flatMap(({ e, c, feeTicks }) =>
+      c.trades.map((row) => {
+        const tr = fromRow(row, e.result!.tickValue);
+        return { ...tr, ticks: tr.ticks - feeTicks };
+      })
+    );
     const lots = per[0]?.e.result!.settings.lots ?? 2;
     const dd = account.ddLimit ?? null;
     const accountRuns = [
@@ -171,6 +183,12 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
     const budget = pairBudget(account);
     return { per, trades, pnl: eq, maxDD, pf: loss > 0 ? win / loss : win > 0 ? null : 0, winRate: trades.length ? wins / trades.length : 0, months, cell, accountRuns, budget, span: per.length ? Math.max(...per.map(({ e }) => spanMonths(e.result!))) : 1 };
   }, [analysed, account]);
+  /** The firm's share of each month on one account, oldest first, and in all. */
+  const shares = useMemo(() => {
+    const months = [...general.months].sort();
+    const cuts = firmShares(months.map((m) => general.cell(m, null).pnl), account.split ?? null);
+    return { byMonth: new Map(months.map((m, i) => [m, cuts[i]])), total: cuts.reduce((a, c) => a + c, 0) };
+  }, [general, account.split]);
 
   const sel = analysed.find((e) => e.symbol === view) ?? null;
   const selCfg = sel ? retained(sel) : null;
@@ -240,6 +258,41 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               style={smallField}
             />
             <span style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)", alignSelf: "center" }}>mêmes trades sur chaque compte · les limites restent celles d&apos;un compte</span>
+          </RuleRow>
+          <RuleRow on={!!account.split} onToggle={(v) => updateAccount({ ...account, split: v ? { from: 30000, firm: 10 } : null })} label="Partage des gains : la firme prend (%) au-delà de ($) par compte">
+            <input type="number" min={0} max={100} value={account.split?.firm ?? 10} disabled={!account.split} onChange={(e) => updateAccount({ ...account, split: { from: account.split?.from ?? 30000, firm: Number(e.target.value) } })} style={smallField} />
+            <input type="number" min={0} value={account.split?.from ?? 30000} disabled={!account.split} onChange={(e) => updateAccount({ ...account, split: { firm: account.split?.firm ?? 10, from: Number(e.target.value) } })} style={{ ...smallField, width: 80 }} />
+          </RuleRow>
+          <RuleRow
+            on={!!account.fees}
+            onToggle={(v) => updateAccount({ ...account, fees: v ? DEFAULT_ACCOUNT.fees : null })}
+            label="Commission par contrat ($) — déduite de chaque trade"
+          >
+            <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <select
+                value={account.fees?.perSide ? "side" : "rt"}
+                disabled={!account.fees}
+                onChange={(e) => account.fees && updateAccount({ ...account, fees: { ...account.fees, perSide: e.target.value === "side" } })}
+                style={{ ...smallField, width: "auto" }}
+              >
+                <option value="side">par côté (entrée + sortie)</option>
+                <option value="rt">aller-retour</option>
+              </select>
+              {Object.entries(account.fees?.bySymbol ?? DEFAULT_ACCOUNT.fees!.bySymbol).map(([sym, v]) => (
+                <label key={sym} style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11.5 }}>
+                  {sym}
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={v}
+                    disabled={!account.fees}
+                    onChange={(e) => account.fees && updateAccount({ ...account, fees: { ...account.fees, bySymbol: { ...account.fees.bySymbol, [sym]: Number(e.target.value) } } })}
+                    style={{ ...smallField, width: 58 }}
+                  />
+                </label>
+              ))}
+            </span>
           </RuleRow>
           <RuleRow on={!!account.wholeLots} onToggle={(v) => updateAccount({ ...account, wholeLots: v })} label="Lots entiers, pas de micros">
             <span style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)" }}>le plan propose 1, 2 ou 3 lots par paire</span>
@@ -327,7 +380,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                   {e.symbol}
                   {c.cfg.offset !== 0 && (
                     <div style={{ fontWeight: 400, fontSize: 11 }}>
-                      ordre {fmtDist(e.symbol, Math.abs(c.cfg.offset))} {c.cfg.offset < 0 ? "au-delà" : "avant"} du niveau
+                      ordre {fmtDist(e.symbol, Math.abs(c.cfg.offset))} {c.cfg.offset < 0 ? "au-delà du" : "avant le"} niveau
                     </div>
                   )}
                 </td>
@@ -362,6 +415,8 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                         <th key={e.symbol} style={th}>{e.symbol}</th>
                       ))}
                       <th style={{ ...th, color: accentColor }}>Combiné</th>
+                      {(account.copies ?? 1) > 1 && <th style={{ ...th, color: accentColor }}>Sur {account.copies} comptes</th>}
+                      {account.split && <th style={{ ...th, color: accentColor }}>Pour toi, après partage</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -389,6 +444,22 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                             <div style={{ color: tone(tot.pnl), fontWeight: 700, fontSize: 14 }}>{fmtUsd(tot.pnl)}</div>
                             <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>{tot.n} trades · {tot.n ? pct(tot.wins / tot.n) : "—"}</div>
                           </td>
+                          {(account.copies ?? 1) > 1 && (
+                            <td style={td}>
+                              <div style={{ color: tone(tot.pnl), fontWeight: 700, fontSize: 14 }}>{fmtUsd(tot.pnl * account.copies!)}</div>
+                              <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>{fmtUsd(tot.pnl)} × {account.copies}</div>
+                            </td>
+                          )}
+                          {account.split && (() => {
+                            const cut = m === null ? shares.total : shares.byMonth.get(m) ?? 0;
+                            const copies = account.copies ?? 1;
+                            return (
+                              <td style={td}>
+                                <div style={{ color: tone(tot.pnl - cut), fontWeight: 700, fontSize: 14 }}>{fmtUsd((tot.pnl - cut) * copies)}</div>
+                                <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>{cut > 0 ? `firme −${fmtUsd(cut * copies).replace("+", "")}` : "100 % pour toi"}</div>
+                              </td>
+                            );
+                          })()}
                         </tr>
                       );
                     })}
@@ -450,7 +521,8 @@ function GeneralRules({ r, account, symbols }: { r: SymbolResult; account: Accou
       <div style={{ ...label, fontSize: 11, marginBottom: 2 }}>Règles générales — les mêmes pour toutes les paires</div>
       {ruleRow("Ticks", tickNote(symbols, (s) => CONTRACTS[s]?.tickSize))}
       {ruleRow("Sens", "achat quand le prix descend sur le niveau, vente quand il monte dessus")}
-      {ruleRow("Entrée", `ordre limite sur la zone (sauf écart indiqué pour la paire), ${lots} lots, SL attaché à l'ordre`)}
+      {ruleRow("Entrée", `ordre limite à l'écart du niveau indiqué pour la paire (1 tick avant : rempli dès que le prix touche le niveau, quelle que soit la place dans la file), ${lots} lots, SL attaché à l'ordre`)}
+      {r.settings.fill && ruleRow("Remplissage", `backtest compté prudemment : un ordre n'est rempli que si le prix le dépasse de ${fmtDist(r.symbol, r.settings.fill.through)}${r.settings.fill.cancelOnMiss ? ", et annulé si le prix l'a touché sans le remplir puis est allé au TP1" : ""}`)}
       {r.rules?.minApproach
         ? ruleRow(
             "Approche",
@@ -661,7 +733,7 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
           ))}
         </span>
       )}
-      {c.offset !== 0 && ruleRow("Entrée", `${fmtDist(r.symbol, Math.abs(c.offset))} ${c.offset > 0 ? "avant" : "au-delà du"} niveau`)}
+      {c.offset !== 0 && ruleRow("Entrée", `${fmtDist(r.symbol, Math.abs(c.offset))} ${c.offset > 0 ? "avant le" : "au-delà du"} niveau`)}
       {ruleRow("Stop", `${fmtDist(r.symbol, c.sl)} (${(c.sl * r.tickValue * lots).toFixed(0)} $ à ${lots} lots)`)}
       {ruleRow("TP1", kindOf(c) === "tp1trail" ? `${fmtDist(r.symbol, c.tp1)}, puis trailing à ${fmtDist(r.symbol, c.dist)}` : exitInLots(c, lots))}
       {kindOf(c) === "tp1trail" && c.tp2 > c.tp1 && ruleRow("TP2", `${fmtDist(r.symbol, c.tp2)} pour le 2e lot — loin, là où vont les plus grosses courses : le trailing sort avant la plupart du temps`)}

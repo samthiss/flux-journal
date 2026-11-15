@@ -41,7 +41,7 @@ export function parsePrice(text: string): number | null {
 const num = (v: number) => String(Math.round(v * 100) / 100).replace(".", ",");
 
 /** "25 ticks". */
-export const fmtDist = (_symbol: string, ticks: number) => `${num(ticks)} ticks`;
+export const fmtDist = (_symbol: string, ticks: number) => `${num(ticks)} tick${Math.abs(ticks) > 1 ? "s" : ""}`;
 
 /** What a tick is on each market, for the rules: "6E, 6C : 0,00005 · ZS : 0,25". */
 export function tickNote(symbols: string[], tickOf: (symbol: string) => number | undefined) {
@@ -57,5 +57,5 @@ export function tickNote(symbols: string[], tickOf: (symbol: string) => number |
 
 /** One distance in ticks, for every market: "15 ticks". */
 export function fmtDistBySymbol(ticks: number, _symbols: string[]) {
-  return `${num(ticks)} ticks`;
+  return fmtDist("", ticks);
 }

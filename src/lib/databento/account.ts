@@ -35,7 +35,36 @@ export type AccountRules = {
    * limit above is each account's own; only the totals are multiplied.
    */
   copies?: number;
+  /**
+   * The firm's share of the profits: none up to `from` made on the account,
+   * `firm` percent of what is made past it. Null for none.
+   */
+  split?: { from: number; firm: number } | null;
+  /**
+   * The commission on one contract, by market: per side (paid going in and
+   * again coming out) or the round trip. Null for none.
+   */
+  fees?: { perSide: boolean; bySymbol: Record<string, number> } | null;
 };
+
+/** What a trade costs on one contract, in and out. */
+export const feeRoundTrip = (fees: AccountRules["fees"], symbol: string) =>
+  fees ? (fees.bySymbol[symbol] ?? 0) * (fees.perSide ? 2 : 1) : 0;
+
+/**
+ * What the firm takes from each month's profit, in order: none until the
+ * account has made `from` in all, then its share of what is past it. A month
+ * that loses gives back what it was taken on.
+ */
+export function firmShares(monthly: number[], split: AccountRules["split"]): number[] {
+  let made = 0;
+  return monthly.map((pnl) => {
+    if (!split) return 0;
+    const before = Math.max(0, made - split.from);
+    made += pnl;
+    return ((Math.max(0, made - split.from) - before) * split.firm) / 100;
+  });
+}
 
 /** The stop of a configuration, in ticks, read off its key ("kind|offset|sl|…"). */
 export const stopOfKey = (key: string) => Number(key.split("|")[2]);

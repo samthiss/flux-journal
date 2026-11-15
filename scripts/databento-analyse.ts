@@ -74,11 +74,11 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // none of the other pairs. Levels where the year turned, the three losing
   // ones left out; TP1 5 on a 12-tick stop wins nearly nine trades in ten.
   ZN: { source: "GLBX-20261114-5455U3L7DB", levels: [104.203125, 104.765625, 105.859375, 106.375, 108.828125, 109.390625, 109.859375, 112], excludeHours: [], tp1s: [3, 5, 8, 10, 15, 20], pick: { sl: 12, tp1: 5, tp2: 30 } },
-  // ZS overshoots its levels before it turns: the order goes eight ticks
-  // (two cents) beyond the level, and only in the grains' day session —
+  // ZS overshoots its levels before it turns: the order goes seven ticks
+  // beyond the level (eight, one tick early as on every pair), and only in the grains' day session —
   // 8h–14h, the hours before it kept out. Under the 15-tick approach rule
   // every stop and TP1 tried there made money, on both parts of the year.
-  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1153.75, 1174.75, 1229.75, 1293.5], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10, tp2: 45 }, offset: -8 },
+  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1153.75, 1174.75, 1229.75, 1293.5], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10, tp2: 45 }, offset: -7 },
   // Set by the trader: TP1 at 5 with a 15-tick stop, the runner trailed at
   // 5 — wins five trades in six, where 40 relied on a handful of runs a year.
   ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 606.5, 634.5, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5, tp2: 40 } },
@@ -147,10 +147,16 @@ function bars(symbol: string, source: string): Dataset {
       ddMode: ACCOUNT.ddMode,
       objective: "pnl",
       maxLossPerTrade: ACCOUNT.maxLossPerTrade,
+      // Counted the careful way: an order is filled only once price trades a
+      // tick past it, as from the back of the queue.
+      fill: { through: 1 },
     };
     const grid: Grid = {
-      // On the level, unless the pair is known to do better off it.
-      offsets: [pair.offset ?? 0],
+      // One tick before the level, unless the pair is known to do better off
+      // it (2026-11-15): filled whenever price touches the level, wherever
+      // the order is in the queue. On the level, the year made 2,340 to 3,040
+      // a month depending on the queue; one tick before, 2,510 to 2,600.
+      offsets: [pair.offset ?? 1],
       // 500 at most on a stop at two lots.
       sls: [6, 8, 10, 12, 15, 20, 25, 30].filter((sl) => sl * spec.tickValue * 2 <= 500),
       tp1s: pair.tp1s,
