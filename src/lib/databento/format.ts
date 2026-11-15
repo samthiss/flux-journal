@@ -1,14 +1,15 @@
 /**
- * Prices as the trader's platform shows them: Treasuries in 32nds, halves
- * included (104'06.5), everything else in decimals to its tick, with a comma.
+ * Prices as the trader's platform shows them: Treasuries in 32nds the CME
+ * way, two digits of 32nds and one of tenths of a 32nd (107'015 = 107 and
+ * 1.5/32), everything else in decimals to its tick, with a comma.
  */
 export const IN_32NDS = new Set(["ZN", "ZB", "ZF", "ZT", "UB"]);
 
 export function fmtZone(z: number, symbol?: string) {
   if (symbol && IN_32NDS.has(symbol)) {
     const whole = Math.floor(z);
-    const t = Math.round((z - whole) * 64) / 2;
-    return `${whole}'${t < 10 ? "0" : ""}${t}`;
+    const tenths = Math.round((z - whole) * 320);
+    return `${whole}'${String(Math.floor(tenths / 10)).padStart(2, "0")}${tenths % 10}`;
   }
   return String(z).replace(".", ",");
 }
@@ -22,14 +23,16 @@ export function fmtPrice(p: number, symbol: string, tick: number | undefined) {
 }
 
 /**
- * A price as typed: "1,3186", "1.3186", or for Treasuries "105'09" /
- * "105'09.5" (32nds) as well as a decimal. Null when it is not a price.
+ * A price as typed: "1,3186", "1.3186", or for Treasuries "107'015" (CME:
+ * 32nds and a tenth), "105'09" / "105'09.5" (32nds) as well as a decimal.
+ * Null when it is not a price.
  */
 export function parsePrice(text: string): number | null {
   const s = text.trim().replace(",", ".");
   if (!s) return null;
   const q = s.match(/^(\d+)'(\d+(?:\.\d+)?)$/);
-  if (q) return Number(q[1]) + Number(q[2]) / 32;
+  // Three digits, no point: the last is tenths of a 32nd.
+  if (q) return Number(q[1]) + (/^\d{3}$/.test(q[2]) ? Number(q[2]) / 10 : Number(q[2])) / 32;
   const n = Number(s);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
@@ -49,7 +52,7 @@ export function tickNote(symbols: string[], tickOf: (symbol: string) => number |
   for (const s of symbols) {
     const t = tickOf(s);
     if (t === undefined) continue;
-    const k = IN_32NDS.has(s) ? "1/64 (un demi-32e)" : fmtPrice(t, s, t);
+    const k = IN_32NDS.has(s) ? "0'005 (un demi-32e)" : fmtPrice(t, s, t);
     groups.set(k, [...(groups.get(k) ?? []), s]);
   }
   return "1 tick = une ligne du DOM — " + [...groups].map(([k, ss]) => `${ss.join(", ")} : ${k}`).join(" · ");

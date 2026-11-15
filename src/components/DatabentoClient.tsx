@@ -509,6 +509,27 @@ const ruleBox: React.CSSProperties = {
   gap: 6,
 };
 
+/** One rule: what to do, in a few words, and the detail under it. */
+type Rule = { k: string; main: React.ReactNode; detail?: React.ReactNode };
+
+/** A group of rules on its own card: the moment of the day they belong to. */
+function RuleCard({ title, rules }: { title: string; rules: (Rule | null | false | undefined)[] }) {
+  return (
+    <div style={{ padding: "12px 14px", borderRadius: 8, background: "oklch(0.84 0.17 196 / 0.05)", border: "1px solid oklch(0.84 0.17 196 / 0.25)" }}>
+      <div style={{ ...label, fontSize: 11, color: accentColor, marginBottom: 10 }}>{title}</div>
+      <div style={{ display: "grid", gap: 12 }}>
+        {rules.filter((x): x is Rule => !!x).map((x) => (
+          <div key={x.k}>
+            <div style={{ fontSize: 10.5, letterSpacing: 0.4, textTransform: "uppercase", color: "oklch(0.6 0.03 250)", marginBottom: 2 }}>{x.k}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.4 }}>{x.main}</div>
+            {x.detail && <div style={{ fontSize: 12, color: "oklch(0.66 0.03 250)", lineHeight: 1.45, marginTop: 2 }}>{x.detail}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** What every pair is traded under, read off the reports. */
 function GeneralRules({ r, account, symbols }: { r: SymbolResult; account: AccountRules; symbols: string[] }) {
   const bo = r.rules?.blackout;
@@ -516,39 +537,76 @@ function GeneralRules({ r, account, symbols }: { r: SymbolResult; account: Accou
   const lots = r.settings.lots;
   const perDay = r.rules?.maxPerDay ?? 1;
   const positions = account.maxContracts ? Math.floor(account.maxContracts / lots) : null;
+  const fill = r.settings.fill;
   return (
-    <div style={ruleBox}>
-      <div style={{ ...label, fontSize: 11, marginBottom: 2 }}>Règles générales — les mêmes pour toutes les paires</div>
-      {ruleRow("Ticks", tickNote(symbols, (s) => CONTRACTS[s]?.tickSize))}
-      {ruleRow("Sens", "achat quand le prix descend sur le niveau, vente quand il monte dessus")}
-      {ruleRow("Entrée", `ordre limite à l'écart du niveau indiqué pour la paire (1 tick avant : rempli dès que le prix touche le niveau, quelle que soit la place dans la file), ${lots} lots, SL attaché à l'ordre`)}
-      {r.settings.fill && ruleRow("Remplissage", `backtest compté prudemment : un ordre n'est rempli que si le prix le dépasse de ${fmtDist(r.symbol, r.settings.fill.through)}${r.settings.fill.cancelOnMiss ? ", et annulé si le prix l'a touché sans le remplir puis est allé au TP1" : ""}`)}
-      {r.rules?.minApproach
-        ? ruleRow(
-            "Approche",
-            `le prix doit avoir fait au moins ${fmtDistBySymbol(r.rules.minApproach, symbols)} vers la zone depuis l'ouverture de 17h (Chicago) — sinon pas d'ordre ; un niveau traversé dans la séance ne se trade donc plus dans l'autre sens`
-          )
-        : null}
-      {ruleRow("Nouvelle touche", `un niveau déjà touché ne compte de nouveau qu'une fois que le prix s'en est éloigné de ${fmtDistBySymbol(r.settings.rearm, symbols)}, puis y revient`)}
-      {h && ruleRow("Horaires", `ordres de ${h[0]}h à ${h[1]}h (Chicago), sauf les heures indiquées pour la paire`)}
-      {ruleRow(
-        "Un trade par paire",
-        `le matin, tu poses un ordre par niveau valable ; dès que l'un d'eux est rempli, tu annules les autres ordres de cette paire, et tu ne reprends plus de trade sur elle de la journée, même une fois la position fermée (${perDay} trade par jour et par paire ; les autres paires gardent leurs ordres)`
-      )}
-      {ruleRow("Sortie", `${lots / 2} lot à TP1 et le stop passe au prix d'entrée ; l'autre suit en trailing dès TP1, à la distance du TP1`)}
-      {ruleRow("Durée", `${r.settings.maxHours} h au plus en position${r.rules?.flatAt ? `, tout clôturé à ${r.rules.flatAt}h (Chicago)` : ""}`)}
-      {ruleRow("News", bo ? `pas d'ordre de ${bo.before} min avant à ${bo.after} min après ${bo.all ? "chaque news 3 étoiles des devises de la paire" : "CPI, NFP, Fed et la banque centrale de la paire"}` : "pas de blackout")}
-      {r.settings.maxLossPerTrade ? ruleRow("Risque par trade", `jamais plus de ${r.settings.maxLossPerTrade} $ perdus sur un trade`) : null}
-      {ruleRow(
-        "Compte",
-        [
-          account.dailyStop ? `−${account.dailyStop} $ dans la journée (positions ouvertes comprises) : tout fermer, journée finie` : null,
-          positions ? `${positions} positions au plus en même temps (${account.maxContracts} contrats)` : null,
-          account.ddLimit ? `drawdown max ${account.ddLimit} $ (${account.ddMode === "eod" ? "suiveur fin de journée" : "suiveur intraday"})` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      )}
+    <div style={{ marginTop: 16 }}>
+      <div style={{ ...label, fontSize: 11, marginBottom: 8 }}>Règles générales — les mêmes pour toutes les paires</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12 }}>
+        <RuleCard
+          title="1 · Préparer la séance"
+          rules={[
+            h && { k: "Horaires", main: `Ordres de ${h[0]}h à ${h[1]}h Chicago`, detail: "sauf les heures exclues indiquées pour la paire" },
+            {
+              k: "News",
+              main: bo ? `Pas d'ordre ${bo.before} min avant → ${bo.after} min après` : "Pas de blackout",
+              detail: bo ? (bo.all ? "chaque news 3 étoiles des devises de la paire" : "CPI, NFP, Fed et la banque centrale de la paire") : undefined,
+            },
+            r.rules?.minApproach
+              ? {
+                  k: "Approche",
+                  main: `Au moins ${fmtDistBySymbol(r.rules.minApproach, symbols)} vers le niveau depuis 17h`,
+                  detail: "sinon pas d'ordre sur ce niveau ; un niveau traversé dans la séance ne se trade plus dans l'autre sens",
+                }
+              : null,
+            { k: "Ticks", main: "1 tick = une ligne du DOM", detail: tickNote(symbols, (s) => CONTRACTS[s]?.tickSize).replace(/^1 tick = une ligne du DOM — /, "") },
+          ]}
+        />
+        <RuleCard
+          title="2 · Entrer"
+          rules={[
+            { k: "Sens", main: "Achat si le prix descend sur le niveau, vente s'il monte dessus" },
+            {
+              k: "Ordre",
+              main: `Limite 1 tick avant le niveau · ${lots} lots · SL attaché`,
+              detail: "rempli dès que le prix touche le niveau, quelle que soit ta place dans la file (écart propre à la paire s'il est indiqué)",
+            },
+            {
+              k: "Un trade par paire",
+              main: `${perDay} trade par jour et par paire`,
+              detail: "un ordre par niveau valable ; dès que l'un est rempli, annule les autres de cette paire pour la journée — les autres paires gardent les leurs",
+            },
+            {
+              k: "Nouvelle touche",
+              main: `Le prix doit s'éloigner de ${fmtDistBySymbol(r.settings.rearm, symbols)} puis revenir`,
+              detail: "avant qu'un niveau déjà touché compte de nouveau",
+            },
+          ]}
+        />
+        <RuleCard
+          title="3 · Gérer le trade"
+          rules={[
+            { k: "TP1", main: `${lots / 2} lot au TP1, stop au prix d'entrée` },
+            { k: "Runner", main: "L'autre lot en trailing dès TP1, à la distance du TP1", detail: "sorti au TP2 de la paire s'il l'atteint" },
+            { k: "Durée", main: `${r.settings.maxHours} h au plus en position`, detail: r.rules?.flatAt ? `tout clôturé à ${r.rules.flatAt}h Chicago` : undefined },
+          ]}
+        />
+        <RuleCard
+          title="4 · Protéger le compte"
+          rules={[
+            r.settings.maxLossPerTrade ? { k: "Par trade", main: `Jamais plus de ${r.settings.maxLossPerTrade} $ perdus` } : null,
+            account.dailyStop ? { k: "Par jour", main: `−${account.dailyStop} $ : tout fermer, journée finie`, detail: "positions ouvertes comprises" } : null,
+            positions ? { k: "En même temps", main: `${positions} positions au plus`, detail: `${account.maxContracts} contrats` } : null,
+            account.ddLimit
+              ? { k: "Drawdown", main: `${account.ddLimit} $ max`, detail: account.ddMode === "eod" ? "suiveur fin de journée" : "suiveur intraday" }
+              : null,
+            fill && {
+              k: "Backtest",
+              main: "Compté prudemment",
+              detail: `un ordre n'est compté rempli que si le prix le dépasse de ${fmtDist(r.symbol, fill.through)}${fill.cancelOnMiss ? ", annulé s'il a été touché sans être rempli puis que le prix est allé au TP1" : ""}`,
+            },
+          ]}
+        />
+      </div>
     </div>
   );
 }
