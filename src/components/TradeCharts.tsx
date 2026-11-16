@@ -30,7 +30,7 @@ export default function TradeCharts({ charts }: { charts: { key: string; label: 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
         {charts.map((chart) => (
           <div key={chart.key}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.78 0.02 290)", marginBottom: 8 }}>{chart.label}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.78 0 0)", marginBottom: 8 }}>{chart.label}</div>
             <Image
               src={chart.src}
               alt={chart.label}
@@ -53,7 +53,7 @@ export default function TradeCharts({ charts }: { charts: { key: string; label: 
                 // few stray pixels under every tile.
                 display: "block",
                 borderRadius: 10,
-                border: "1px solid oklch(0.32 0.03 290 / 0.5)",
+                border: "1px solid oklch(0.32 0 0 / 0.5)",
                 cursor: "zoom-in",
               }}
             />

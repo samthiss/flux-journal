@@ -65,8 +65,8 @@ const tabStyle = (active: boolean): CSSProperties => ({
   fontWeight: 600,
   cursor: "pointer",
   background: active ? accentColor : "transparent",
-  color: active ? "oklch(0.12 0.01 290)" : "oklch(0.7 0.02 290)",
-  border: `1px solid ${active ? accentColor : "oklch(0.4 0.02 290)"}`,
+  color: active ? "oklch(0.04 0 0)" : "oklch(0.7 0 0)",
+  border: `1px solid ${active ? accentColor : "oklch(0.4 0 0)"}`,
 });
 
 const marketPillStyle = (active: boolean): CSSProperties => ({
@@ -76,8 +76,8 @@ const marketPillStyle = (active: boolean): CSSProperties => ({
   fontWeight: 600,
   cursor: "pointer",
   background: active ? accentColor : "transparent",
-  color: active ? "oklch(0.12 0.01 290)" : "oklch(0.7 0.02 290)",
-  border: `1px solid ${active ? accentColor : "oklch(0.4 0.02 290)"}`,
+  color: active ? "oklch(0.04 0 0)" : "oklch(0.7 0 0)",
+  border: `1px solid ${active ? accentColor : "oklch(0.4 0 0)"}`,
 });
 
 export default function ChecklistTabs({
@@ -152,7 +152,7 @@ export default function ChecklistTabs({
     <div style={{ maxWidth: CONTENT_WIDTH }}>
       <div style={{ ...glassCard, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: editMarkets ? 12 : 0 }}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Marché
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -182,9 +182,9 @@ export default function ChecklistTabs({
                 fontSize: 12,
                 padding: "5px 10px",
                 borderRadius: 6,
-                border: `1px solid ${editMarkets ? accentColor : "oklch(0.4 0.02 290)"}`,
+                border: `1px solid ${editMarkets ? accentColor : "oklch(0.4 0 0)"}`,
                 background: editMarkets ? accentColor : "transparent",
-                color: editMarkets ? "oklch(0.12 0.01 290)" : "oklch(0.75 0.02 290)",
+                color: editMarkets ? "oklch(0.04 0 0)" : "oklch(0.75 0 0)",
                 cursor: "pointer",
               }}
             >
@@ -205,9 +205,9 @@ export default function ChecklistTabs({
               style={{
                 flex: "1 1 160px",
                 fontSize: 14,
-                color: "oklch(0.88 0.01 290)",
+                color: "oklch(0.88 0 0)",
                 background: "transparent",
-                border: "1px dashed oklch(0.4 0.02 290)",
+                border: "1px dashed oklch(0.4 0 0)",
                 borderRadius: 6,
                 padding: "6px 8px",
               }}
@@ -244,7 +244,7 @@ export default function ChecklistTabs({
               and the widget read as one centred block. */}
           <div style={{ marginBottom: 24, textAlign: "center" }}>
             <PageTitle>Calendrier économique</PageTitle>
-            <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
+            <div style={{ fontSize: 14, color: "oklch(0.62 0 0)", marginTop: 4 }}>
               Publications de la semaine — filtre les jours, les devises et l&apos;importance
             </div>
           </div>

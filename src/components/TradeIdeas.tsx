@@ -84,9 +84,9 @@ function SideChip({ side, on, onClick }: { side: "long" | "short"; on: boolean; 
         padding: "4px 14px",
         borderRadius: 999,
         cursor: "pointer",
-        border: `1px ${on ? "solid" : "dashed"} ${on ? colour : "oklch(0.38 0.02 290)"}`,
+        border: `1px ${on ? "solid" : "dashed"} ${on ? colour : "oklch(0.38 0 0)"}`,
         background: on ? `${colour.replace(")", " / 0.16)")}` : "transparent",
-        color: on ? colour : "oklch(0.62 0.02 290)",
+        color: on ? colour : "oklch(0.62 0 0)",
       }}
     >
       {side === "long" ? "Long" : "Short"}
@@ -113,9 +113,9 @@ function SetupChip({ setup, on, onClick }: { setup: string; on: boolean; onClick
         padding: "4px 14px",
         borderRadius: 999,
         cursor: "pointer",
-        border: `1px ${on ? "solid" : "dashed"} ${on ? tone.line : "oklch(0.38 0.02 290)"}`,
+        border: `1px ${on ? "solid" : "dashed"} ${on ? tone.line : "oklch(0.38 0 0)"}`,
         background: on ? tone.bg : "transparent",
-        color: on ? tone.fg : "oklch(0.62 0.02 290)",
+        color: on ? tone.fg : "oklch(0.62 0 0)",
       }}
     >
       {setup}
@@ -167,7 +167,7 @@ function IdeaImages({
         padding: dropping ? 5 : 0,
         border: dropping ? `1px dashed ${accentColor}` : "1px solid transparent",
         borderRadius: 4,
-        background: dropping ? "oklch(0.68 0.19 293 / 0.1)" : "transparent",
+        background: dropping ? "oklch(0.79 0.17 66 / 0.1)" : "transparent",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: images.length && !folded ? 8 : 0 }}>
@@ -180,8 +180,8 @@ function IdeaImages({
               fontSize: 10,
               padding: "3px 10px",
               borderRadius: 999,
-              border: "1px solid oklch(0.32 0.0118 290)",
-              color: "oklch(0.6 0.0118 290)",
+              border: "1px solid oklch(0.32 0 0)",
+              color: "oklch(0.6 0 0)",
               cursor: "pointer",
             }}
           >
@@ -195,8 +195,8 @@ function IdeaImages({
             fontSize: 10,
             padding: "3px 10px",
             borderRadius: 999,
-            border: "1px dashed oklch(0.32 0.0118 290)",
-            color: "oklch(0.55 0.0118 290)",
+            border: "1px dashed oklch(0.32 0 0)",
+            color: "oklch(0.55 0 0)",
             cursor: "pointer",
           }}
         >
@@ -227,7 +227,7 @@ function IdeaImages({
                   width: "100%",
                   height: "auto",
                   borderRadius: 4,
-                  border: "1px solid oklch(0.3 0.02 290)",
+                  border: "1px solid oklch(0.3 0 0)",
                   cursor: "zoom-in",
                 }}
               />
@@ -248,9 +248,9 @@ function IdeaImages({
                   justifyContent: "center",
                   fontSize: 11,
                   borderRadius: 999,
-                  background: "oklch(0.15 0.0176 290 / 0.85)",
-                  border: "1px solid oklch(0.4 0.02 290)",
-                  color: "oklch(0.8 0.0118 290)",
+                  background: "oklch(0.07 0 0 / 0.85)",
+                  border: "1px solid oklch(0.4 0 0)",
+                  color: "oklch(0.8 0 0)",
                   cursor: "pointer",
                 }}
               >
@@ -385,7 +385,7 @@ function MotsLibres({
                   padding: 8,
                   borderRadius: 8,
                   border: `1px solid ${accentColor.replace(")", " / 0.5)")}`,
-                  background: "oklch(0.18 0.0176 290)",
+                  background: "oklch(0.1 0 0)",
                 }}
               >
               <input
@@ -403,13 +403,13 @@ function MotsLibres({
                   onChange(valeurs.map((v) => (v === mot ? suivant : v)));
                   void renommerMot(kind, mot, suivant);
                 }}
-                style={{ ...mono, fontSize: 10, padding: "3px 9px", borderRadius: 999, border: `1px solid ${accentColor}`, background: "transparent", color: "oklch(0.88 0.0118 290)", outline: "none", width: 160 }}
+                style={{ ...mono, fontSize: 10, padding: "3px 9px", borderRadius: 999, border: `1px solid ${accentColor}`, background: "transparent", color: "oklch(0.88 0 0)", outline: "none", width: 160 }}
               />
               {/* And which setup it belongs to. A word given to one is offered
                   under that one alone; "Tous" takes it back. */}
               {setupsConnus.length > 0 && onSetup && (
                 <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                  <span style={{ ...mono, fontSize: 8.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.55 0.0118 290)" }}>
+                  <span style={{ ...mono, fontSize: 8.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.55 0 0)" }}>
                     Setup
                   </span>
                   {[null, ...setupsConnus].map((choix) => (
@@ -426,9 +426,9 @@ function MotsLibres({
                         padding: "2px 8px",
                         borderRadius: 999,
                         cursor: "pointer",
-                        border: `1px ${choix === actuel ? "solid" : "dashed"} ${choix === actuel ? accentColor : "oklch(0.34 0.0118 290)"}`,
+                        border: `1px ${choix === actuel ? "solid" : "dashed"} ${choix === actuel ? accentColor : "oklch(0.34 0 0)"}`,
                         background: choix === actuel ? accentColor.replace(")", " / 0.14)") : "transparent",
-                        color: choix === actuel ? accentColor : "oklch(0.62 0.0118 290)",
+                        color: choix === actuel ? accentColor : "oklch(0.62 0 0)",
                       }}
                     >
                       {choix ?? "Tous"}
@@ -459,9 +459,9 @@ function MotsLibres({
                 padding: "3px 9px",
                 borderRadius: 999,
                 cursor: "pointer",
-                border: `1px ${choisi ? "solid" : "dashed"} ${choisi ? tone.line : "oklch(0.34 0.0118 290)"}`,
+                border: `1px ${choisi ? "solid" : "dashed"} ${choisi ? tone.line : "oklch(0.34 0 0)"}`,
                 background: choisi ? tone.bg : "transparent",
-                color: choisi ? tone.fg : "oklch(0.6 0.0118 290)",
+                color: choisi ? tone.fg : "oklch(0.6 0 0)",
               }}
             >
               {choisi ? "✓ " : ""}
@@ -511,9 +511,9 @@ function MotsLibres({
             fontSize: 10,
             padding: "3px 9px",
             borderRadius: 999,
-            border: "1px dashed oklch(0.34 0.0118 290)",
+            border: "1px dashed oklch(0.34 0 0)",
             background: "transparent",
-            color: "oklch(0.8 0.0118 290)",
+            color: "oklch(0.8 0 0)",
             outline: "none",
             width: 110,
           }}
@@ -748,8 +748,8 @@ export default function TradeIdeas({
           }}
           style={{
             padding: 12,
-            border: `1px ${dropping ? "dashed" : "solid"} ${dropping ? accentColor : "oklch(0.68 0.19 293 / 0.35)"}`,
-            background: dropping ? "oklch(0.68 0.19 293 / 0.12)" : "oklch(0.68 0.19 293 / 0.05)",
+            border: `1px ${dropping ? "dashed" : "solid"} ${dropping ? accentColor : "oklch(0.79 0.17 66 / 0.35)"}`,
+            background: dropping ? "oklch(0.79 0.17 66 / 0.12)" : "oklch(0.79 0.17 66 / 0.05)",
             // No cut corners here, unlike the panels elsewhere: clip-path also
             // clips what overflows, and the tag lists open downward out of this
             // frame — bevelled, half of each list was sliced off.
@@ -786,9 +786,9 @@ export default function TradeIdeas({
               fontFamily: "inherit",
               padding: "8px 10px",
               borderRadius: 6,
-              border: "1px solid oklch(0.32 0.02 290)",
-              background: "oklch(0.16 0.0176 290)",
-              color: "oklch(0.88 0.01 290)",
+              border: "1px solid oklch(0.32 0 0)",
+              background: "oklch(0.08 0 0)",
+              color: "oklch(0.88 0 0)",
               outline: "none",
               resize: "vertical",
             }}
@@ -840,7 +840,7 @@ export default function TradeIdeas({
                   src={p.preview}
                   alt=""
                   onClick={() => setZoomed(p.preview)}
-                  style={{ height: 46, borderRadius: 4, border: "1px solid oklch(0.34 0.02 290)", cursor: "zoom-in" }}
+                  style={{ height: 46, borderRadius: 4, border: "1px solid oklch(0.34 0 0)", cursor: "zoom-in" }}
                 />
                 <span
                   onClick={() => {
@@ -859,9 +859,9 @@ export default function TradeIdeas({
                     justifyContent: "center",
                     fontSize: 9,
                     borderRadius: 999,
-                    background: "oklch(0.18 0.0176 290)",
-                    border: "1px solid oklch(0.42 0.02 290)",
-                    color: "oklch(0.8 0.0118 290)",
+                    background: "oklch(0.1 0 0)",
+                    border: "1px solid oklch(0.42 0 0)",
+                    color: "oklch(0.8 0 0)",
                     cursor: "pointer",
                   }}
                 >
@@ -876,8 +876,8 @@ export default function TradeIdeas({
                 fontSize: 10.5,
                 padding: "4px 11px",
                 borderRadius: 999,
-                border: "1px dashed oklch(0.34 0.0118 290)",
-                color: "oklch(0.6 0.0118 290)",
+                border: "1px dashed oklch(0.34 0 0)",
+                color: "oklch(0.6 0 0)",
                 cursor: "pointer",
               }}
             >
@@ -909,16 +909,16 @@ export default function TradeIdeas({
                 padding: "5px 14px",
                 borderRadius: 6,
                 cursor: "pointer",
-                border: `1px solid ${filled ? accentColor : "oklch(0.34 0.02 290)"}`,
-                background: filled ? "oklch(0.68 0.19 293 / 0.16)" : "transparent",
-                color: filled ? accentColor : "oklch(0.45 0.0176 290)",
+                border: `1px solid ${filled ? accentColor : "oklch(0.34 0 0)"}`,
+                background: filled ? "oklch(0.79 0.17 66 / 0.16)" : "transparent",
+                color: filled ? accentColor : "oklch(0.45 0 0)",
               }}
             >
               {saving ? "…" : "Enregistrer"}
             </span>
             <span
               onClick={reset}
-              style={{ ...mono, fontSize: 11, padding: "5px 12px", color: "oklch(0.6 0.0176 290)", cursor: "pointer" }}
+              style={{ ...mono, fontSize: 11, padding: "5px 12px", color: "oklch(0.6 0 0)", cursor: "pointer" }}
             >
               annuler
             </span>
@@ -948,8 +948,8 @@ export default function TradeIdeas({
               gap: 6,
               padding: "9px 12px",
               marginBottom: 6,
-              border: "1px solid oklch(0.3 0.02 290)",
-              background: "oklch(0.17 0.0176 290 / 0.6)",
+              border: "1px solid oklch(0.3 0 0)",
+              background: "oklch(0.09 0 0 / 0.6)",
               borderRadius: 8,
             }}
           >
@@ -980,7 +980,7 @@ export default function TradeIdeas({
               <span
                 onClick={() => startEditing(idea)}
                 title="Modifier cette idée"
-                style={{ flex: "none", fontSize: 11, color: "oklch(0.5 0.02 290)", cursor: "pointer" }}
+                style={{ flex: "none", fontSize: 11, color: "oklch(0.5 0 0)", cursor: "pointer" }}
               >
                 ✎
               </span>
@@ -990,7 +990,7 @@ export default function TradeIdeas({
                   onChanged();
                 }}
                 title="Supprimer cette idée"
-                style={{ flex: "none", fontSize: 12, color: "oklch(0.5 0.02 290)", cursor: "pointer" }}
+                style={{ flex: "none", fontSize: 12, color: "oklch(0.5 0 0)", cursor: "pointer" }}
               >
                 ✕
               </span>
@@ -1012,7 +1012,7 @@ export default function TradeIdeas({
                 </div>
               )}
               {idea.reason.trim() && (
-                <div style={{ fontSize: 13, color: "oklch(0.85 0.01 290)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                <div style={{ fontSize: 13, color: "oklch(0.85 0 0)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
                   {idea.reason}
                 </div>
               )}
@@ -1022,7 +1022,7 @@ export default function TradeIdeas({
                     Risk management
                   </div>
                   {parseTagArray(idea.cancelIf).map((line) => (
-                    <div key={line} style={{ display: "flex", gap: 7, fontSize: 12.5, color: "oklch(0.75 0.01 290)", lineHeight: 1.5 }}>
+                    <div key={line} style={{ display: "flex", gap: 7, fontSize: 12.5, color: "oklch(0.75 0 0)", lineHeight: 1.5 }}>
                       <span style={{ color: lossColor, flex: "none" }}>—</span>
                       <span>{line}</span>
                     </div>

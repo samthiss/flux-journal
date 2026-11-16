@@ -105,11 +105,11 @@ function grilleEt(colonnes: typeof COLONNES, avecSetup: boolean, avecCases: bool
 }
 
 const selectStyle: React.CSSProperties = {
-  background: "oklch(0.18 0.02 290)",
-  border: "1px solid oklch(0.32 0.03 290 / 0.6)",
+  background: "oklch(0.1 0 0)",
+  border: "1px solid oklch(0.32 0 0 / 0.6)",
   borderRadius: 8,
   padding: "10px 14px",
-  color: "oklch(0.96 0.004 290)",
+  color: "oklch(0.96 0 0)",
   fontFamily: "var(--font-space-grotesk), sans-serif",
   fontSize: 13,
 };
@@ -132,7 +132,7 @@ function Case({ cochee, partielle = false }: { cochee: boolean; partielle?: bool
         width: 14,
         height: 14,
         borderRadius: 4,
-        border: `1px solid ${actif ? accentColor : "oklch(0.42 0.0235 290)"}`,
+        border: `1px solid ${actif ? accentColor : "oklch(0.42 0 0)"}`,
         background: actif ? accentColor : "transparent",
         position: "relative",
       }}
@@ -145,7 +145,7 @@ function Case({ cochee, partielle = false }: { cochee: boolean; partielle?: bool
             top: 1,
             width: 4,
             height: 8,
-            border: "solid oklch(0.15 0.02 290)",
+            border: "solid oklch(0.07 0 0)",
             borderWidth: "0 1.6px 1.6px 0",
             transform: "rotate(45deg)",
           }}
@@ -159,7 +159,7 @@ function Case({ cochee, partielle = false }: { cochee: boolean; partielle?: bool
             top: 5.5,
             width: 7,
             height: 1.6,
-            background: "oklch(0.15 0.02 290)",
+            background: "oklch(0.07 0 0)",
           }}
         />
       )}
@@ -464,14 +464,14 @@ export default function TradesClient({
       <div className="trades-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <PageTitle>Trades</PageTitle>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>{visibles.length} trades</div>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0 0)", marginTop: 4 }}>{visibles.length} trades</div>
         </div>
         {/* Not offered to a shared account, which may read these rows and
             write none of them. */}
         {proprietaire && (
           <Link
             href="/trade/new"
-            style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.01 290)", textDecoration: "none" }}
+            style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 9, background: accentColor, color: "oklch(0.04 0 0)", textDecoration: "none" }}
           >
             + Add Trade
           </Link>
@@ -590,9 +590,9 @@ export default function TradesClient({
             display: "flex",
             alignItems: "center",
             gap: 9,
-            border: `1px solid ${openInNewTab ? "oklch(0.68 0.19 293 / 0.5)" : "oklch(0.32 0.03 290 / 0.6)"}`,
-            background: openInNewTab ? "oklch(0.68 0.19 293 / 0.12)" : "oklch(0.18 0.02 290)",
-            color: openInNewTab ? accentColor : "oklch(0.7 0.0176 290)",
+            border: `1px solid ${openInNewTab ? "oklch(0.79 0.17 66 / 0.5)" : "oklch(0.32 0 0 / 0.6)"}`,
+            background: openInNewTab ? "oklch(0.79 0.17 66 / 0.12)" : "oklch(0.1 0 0)",
+            color: openInNewTab ? accentColor : "oklch(0.7 0 0)",
           }}
         >
           <span
@@ -601,7 +601,7 @@ export default function TradesClient({
               height: 16,
               borderRadius: 999,
               flex: "none",
-              background: openInNewTab ? accentColor : "oklch(0.3 0.0235 290)",
+              background: openInNewTab ? accentColor : "oklch(0.3 0 0)",
               position: "relative",
               transition: "background 0.15s ease",
             }}
@@ -614,7 +614,7 @@ export default function TradesClient({
                 width: 12,
                 height: 12,
                 borderRadius: "50%",
-                background: openInNewTab ? "oklch(0.12 0.01 290)" : "oklch(0.6 0.0176 290)",
+                background: openInNewTab ? "oklch(0.04 0 0)" : "oklch(0.6 0 0)",
                 transition: "left 0.15s ease",
               }}
             />
@@ -645,7 +645,7 @@ export default function TradesClient({
             label: "Win rate",
             valeur: visibles.length ? `${Math.round(totaux.tauxDeReussite * 100)}%` : "—",
             sous: `${totaux.gagnants}W / ${totaux.perdants}L`,
-            couleur: "oklch(0.96 0.004 290)",
+            couleur: "oklch(0.96 0 0)",
           },
           {
             label: "Average",
@@ -657,11 +657,11 @@ export default function TradesClient({
             label: "Risk / Reward",
             valeur: totaux.rr != null ? `1 : ${totaux.rr.toFixed(2)}` : "—",
             sous: totaux.rr != null ? "average, where risk is set" : "no risk recorded",
-            couleur: "oklch(0.96 0.004 290)",
+            couleur: "oklch(0.96 0 0)",
           },
         ].map((carte) => (
           <div key={carte.label} style={{ ...glassCard, padding: "12px 14px" }}>
-            <div style={{ fontSize: 11, color: "oklch(0.6 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <div style={{ fontSize: 11, color: "oklch(0.6 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {carte.label}
             </div>
             <div
@@ -675,7 +675,7 @@ export default function TradesClient({
             >
               {carte.valeur}
             </div>
-            <div style={{ fontSize: 11, color: "oklch(0.55 0.02 290)", marginTop: 3 }}>{carte.sous}</div>
+            <div style={{ fontSize: 11, color: "oklch(0.55 0 0)", marginTop: 3 }}>{carte.sous}</div>
           </div>
         ))}
       </div>
@@ -692,8 +692,8 @@ export default function TradesClient({
             marginBottom: 12,
             padding: "10px 14px",
             borderRadius: 9,
-            border: "1px solid oklch(0.68 0.19 293 / 0.35)",
-            background: "oklch(0.68 0.19 293 / 0.08)",
+            border: "1px solid oklch(0.79 0.17 66 / 0.35)",
+            background: "oklch(0.79 0.17 66 / 0.08)",
           }}
         >
           <span style={{ fontSize: 13 }}>
@@ -708,7 +708,7 @@ export default function TradesClient({
               borderRadius: 8,
               border: `1px solid ${lossColor}`,
               background: confirme ? lossColor : "transparent",
-              color: confirme ? "oklch(0.15 0.02 290)" : lossColor,
+              color: confirme ? "oklch(0.07 0 0)" : lossColor,
               fontSize: 12.5,
               fontWeight: 600,
               cursor: suppression ? "default" : "pointer",
@@ -727,12 +727,12 @@ export default function TradesClient({
               setDernier(null);
               setConfirme(false);
             }}
-            style={{ fontSize: 12.5, color: "oklch(0.62 0.02 290)", cursor: "pointer" }}
+            style={{ fontSize: 12.5, color: "oklch(0.62 0 0)", cursor: "pointer" }}
           >
             Clear
           </span>
           {confirme && (
-            <span style={{ fontSize: 12, color: "oklch(0.62 0.02 290)" }}>
+            <span style={{ fontSize: 12, color: "oklch(0.62 0 0)" }}>
               This cannot be undone.
             </span>
           )}
@@ -752,8 +752,8 @@ export default function TradesClient({
             fontSize: 11,
             textTransform: "uppercase",
             letterSpacing: "0.06em",
-            color: "oklch(0.55 0.02 290)",
-            borderBottom: "1px solid oklch(0.3 0.02 290 / 0.6)",
+            color: "oklch(0.55 0 0)",
+            borderBottom: "1px solid oklch(0.3 0 0 / 0.6)",
           }}
         >
           {/* Ticking the heading takes what is on screen, not what a filter
@@ -792,10 +792,10 @@ export default function TradesClient({
                 padding: "15px 20px",
                 fontSize: 13,
                 alignItems: "center",
-                borderBottom: "1px solid oklch(0.24 0.02 290 / 0.5)",
+                borderBottom: "1px solid oklch(0.16 0 0 / 0.5)",
                 textDecoration: "none",
                 color: "inherit",
-                background: coches.has(t.id) ? "oklch(0.68 0.19 293 / 0.08)" : undefined,
+                background: coches.has(t.id) ? "oklch(0.79 0.17 66 / 0.08)" : undefined,
           } as const;
           const cochee = coches.has(t.id);
           const cellules = (
@@ -818,22 +818,22 @@ export default function TradesClient({
               {/* The hour under the day rather than beside it: a trade is
                   looked up by its date, and the time is what tells two of the
                   same morning apart once it is found. */}
-              <div style={{ color: "oklch(0.62 0.02 290)", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12 }}>
+              <div style={{ color: "oklch(0.62 0 0)", fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12 }}>
                 {t.date.toISOString().slice(0, 10)}
                 {t.time && (
-                  <div style={{ fontSize: 11, color: "oklch(0.5 0.02 290)", marginTop: 2 }}>{t.time}</div>
+                  <div style={{ fontSize: 11, color: "oklch(0.5 0 0)", marginTop: 2 }}>{t.time}</div>
                 )}
               </div>
               <div style={{ fontWeight: 600 }}>{t.symbol}</div>
-              <div style={{ color: t.side === "Long" ? accentColor : "oklch(0.6 0.02 290)", fontSize: 12 }}>{t.side}</div>
-              {!lectureSeule && <div style={{ fontSize: 12, color: "oklch(0.65 0.01 290)" }}>{t.setup}</div>}
-              <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.72 0.01 290)" }}>
+              <div style={{ color: t.side === "Long" ? accentColor : "oklch(0.6 0 0)", fontSize: 12 }}>{t.side}</div>
+              {!lectureSeule && <div style={{ fontSize: 12, color: "oklch(0.65 0 0)" }}>{t.setup}</div>}
+              <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.72 0 0)" }}>
                 {t.size}
               </div>
               <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontWeight: 600, color: pnlColor }}>
                 {fmtMoney(t.pnl)}
               </div>
-              <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.6 0.02 290)" }}>
+              <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.6 0 0)" }}>
                 {t.rr != null ? `1 : ${t.rr.toFixed(1)}` : "—"}
               </div>
               <div>
@@ -843,7 +843,7 @@ export default function TradesClient({
                     fontWeight: 600,
                     padding: "4px 10px",
                     borderRadius: 20,
-                    background: outcome === "win" ? accentSoft : "oklch(0.74 0.02 290 / 0.16)",
+                    background: outcome === "win" ? accentSoft : "oklch(0.74 0 0 / 0.16)",
                     color: outcome === "win" ? winColor : lossColor,
                   }}
                 >
@@ -868,9 +868,9 @@ export default function TradesClient({
                       // body colour rather than being tinted by whichever
                       // word it happens to start with.
                       color: !valeur
-                        ? "oklch(0.4 0.0118 290)"
+                        ? "oklch(0.4 0 0)"
                         : c.cle === "post" || c.cle === "comments"
-                          ? "oklch(0.72 0.01 290)"
+                          ? "oklch(0.72 0 0)"
                           : tagTone(valeur).fg,
                     }}
                   >

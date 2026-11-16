@@ -46,7 +46,7 @@ export default function RapportClient({
       <div className="dash-header">
         <div>
           <PageTitle>Rapport</PageTitle>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0 0)", marginTop: 4 }}>
             {periodTrades.length} trades sur la période
           </div>
         </div>

@@ -39,7 +39,7 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 - **Ordre** : ordre limite **1 tick avant le niveau** (pour ZS : 7 ticks au-delà), 2 lots, avec le SL attaché à l'ordre. À 1 tick avant, l'ordre est rempli dès que le prix touche le niveau, quelle que soit ma place dans la file d'attente.
 - **Un trade par jour et par paire** : je pose un ordre par niveau valable. Dès que l'un d'eux est rempli, j'annule les autres ordres de cette paire pour la journée. Les autres paires gardent leurs ordres.
 - **Nouvelle touche** : un niveau déjà touché ne compte de nouveau que si le prix s'en éloigne de **30 ticks**, puis revient dessus.
-- **Déjà touché hors horaires** : pas d'ordre sur un niveau que le prix a déjà touché **en dehors des heures d'ordres** (la nuit avant 2h, pendant une heure exclue ou pendant le blackout d'une news), tant qu'il ne s'en est pas éloigné de 30 ticks. À vérifier sur le graphique à 2h, et en reposant les ordres après une news. Un prix qui traîne sur un niveau depuis des heures ne rebondit plus.
+- **Déjà touché hors horaires** : pas d'ordre sur un niveau que le prix a déjà touché **en dehors des heures d'ordres** (la nuit avant 2h, pendant une heure exclue ou pendant le blackout d'une news), tant qu'il ne s'en est pas éloigné de 30 ticks. Une touche la nuit compte même sans trade : par exemple, touché à 23h30, éloigné de 15 ticks, revenu à 3h → pas de trade, c'est la même touche ; il faut d'abord 30 ticks d'éloignement puis un retour pendant les horaires. À vérifier sur le graphique à 2h, et en reposant les ordres après une news. Un prix qui traîne sur un niveau depuis des heures ne rebondit plus.
 
 **Gérer le trade**
 

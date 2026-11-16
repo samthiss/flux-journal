@@ -7,8 +7,8 @@ import { signIn } from "./actions";
 const champ = {
   padding: "10px 12px",
   borderRadius: 9,
-  border: "1px solid oklch(0.34 0.02 290)",
-  background: "oklch(0.16 0.018 290)",
+  border: "1px solid oklch(0.34 0 0)",
+  background: "oklch(0.08 0 0)",
   color: "oklch(0.92 0 0)",
   fontSize: 13,
   outline: "none",
@@ -44,8 +44,8 @@ export default function LoginForm({ from }: { from: string }) {
           gap: 14,
           padding: 28,
           borderRadius: 16,
-          border: "1px solid oklch(0.36 0.03 290 / 0.45)",
-          background: "oklch(0.19 0.02 290 / 0.55)",
+          border: "1px solid oklch(0.36 0 0 / 0.45)",
+          background: "oklch(0.11 0 0 / 0.55)",
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.2 }}>
@@ -73,7 +73,7 @@ export default function LoginForm({ from }: { from: string }) {
             borderRadius: 9,
             border: "none",
             background: accentColor,
-            color: "oklch(0.15 0.02 290)",
+            color: "oklch(0.07 0 0)",
             fontSize: 13,
             fontWeight: 600,
             cursor: pending ? "default" : "pointer",
@@ -87,7 +87,7 @@ export default function LoginForm({ from }: { from: string }) {
 
         <div
           onClick={() => setPartage((p) => !p)}
-          style={{ fontSize: 11.5, color: "oklch(0.6 0.02 290)", cursor: "pointer", textAlign: "center" }}
+          style={{ fontSize: 11.5, color: "oklch(0.6 0 0)", cursor: "pointer", textAlign: "center" }}
         >
           {partage ? "I own this journal" : "I have a shared account"}
         </div>

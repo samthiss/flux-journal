@@ -30,8 +30,8 @@ const tabStyle = (active: boolean): CSSProperties => ({
   fontWeight: 600,
   cursor: "pointer",
   background: active ? accentColor : "transparent",
-  color: active ? "oklch(0.12 0.01 290)" : "oklch(0.7 0.02 290)",
-  border: `1px solid ${active ? accentColor : "oklch(0.4 0.02 290)"}`,
+  color: active ? "oklch(0.04 0 0)" : "oklch(0.7 0 0)",
+  border: `1px solid ${active ? accentColor : "oklch(0.4 0 0)"}`,
 });
 
 export default function VolumeAlertTabs({

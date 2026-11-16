@@ -76,7 +76,7 @@ export default function PartageClient({
     <div>
       <div style={{ marginBottom: 24 }}>
         <PageTitle>Sharing</PageTitle>
-        <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
+        <div style={{ fontSize: 14, color: "oklch(0.62 0 0)", marginTop: 4 }}>
           {/* An account cannot invite, so it is not told about invitations. */}
           {proprietaire
             ? "An invitation opens an empty journal, theirs to keep; a view link shows yours"
@@ -87,7 +87,7 @@ export default function PartageClient({
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {proprietaire && (
         <div style={glassCard}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0 0)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
             Invite
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -100,8 +100,8 @@ export default function PartageClient({
                 minWidth: 200,
                 padding: "9px 12px",
                 borderRadius: 8,
-                border: "1px solid oklch(0.34 0.02 290)",
-                background: "oklch(0.16 0.018 290)",
+                border: "1px solid oklch(0.34 0 0)",
+                background: "oklch(0.08 0 0)",
                 color: "oklch(0.92 0 0)",
                 fontSize: 13,
                 outline: "none",
@@ -120,7 +120,7 @@ export default function PartageClient({
                 borderRadius: 8,
                 border: "none",
                 background: accentColor,
-                color: "oklch(0.15 0.02 290)",
+                color: "oklch(0.07 0 0)",
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -140,14 +140,14 @@ export default function PartageClient({
                     alignItems: "center",
                     gap: 12,
                     padding: "10px 12px",
-                    border: "1px solid oklch(0.3 0.02 290)",
-                    background: "oklch(0.17 0.0176 290 / 0.6)",
+                    border: "1px solid oklch(0.3 0 0)",
+                    background: "oklch(0.09 0 0 / 0.6)",
                     borderRadius: 8,
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13 }}>{invitation.label || "Invitation"}</div>
-                    <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.0118 290)", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0 0)", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {lien(invitation.code)}
                     </div>
                   </div>
@@ -160,7 +160,7 @@ export default function PartageClient({
                   <span
                     onClick={() => startTransition(async () => void (await supprimerInvitation(invitation.code)))}
                     title="Cancel this invitation"
-                    style={{ fontSize: 12, color: "oklch(0.55 0.0176 290)", cursor: "pointer" }}
+                    style={{ fontSize: 12, color: "oklch(0.55 0 0)", cursor: "pointer" }}
                   >
                     ✕
                   </span>
@@ -172,10 +172,10 @@ export default function PartageClient({
         )}
 
         <div style={glassCard}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0 0)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
             View link
           </div>
-          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.0176 290)", marginBottom: 14 }}>
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0 0)", marginBottom: 14 }}>
             One address that shows your trades, with no account and no password. Just the one: the
             button hands back the same link rather than making another
           </div>
@@ -190,8 +190,8 @@ export default function PartageClient({
                 alignItems: "center",
                 gap: 12,
                 padding: "10px 12px",
-                border: "1px solid oklch(0.3 0.02 290)",
-                background: "oklch(0.17 0.0176 290 / 0.6)",
+                border: "1px solid oklch(0.3 0 0)",
+                background: "oklch(0.09 0 0 / 0.6)",
                 borderRadius: 8,
               }}
             >
@@ -199,7 +199,7 @@ export default function PartageClient({
                 <div style={{ ...mono, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {adresseDeVue(premier.token)}
                 </div>
-                <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.0118 290)", marginTop: 3 }}>
+                <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0 0)", marginTop: 3 }}>
                   {premier.seenAt ? `opened on ${jour(premier.seenAt)}` : "never opened"}
                 </div>
               </div>
@@ -230,7 +230,7 @@ export default function PartageClient({
                 borderRadius: 8,
                 border: "none",
                 background: accentColor,
-                color: "oklch(0.15 0.02 290)",
+                color: "oklch(0.07 0 0)",
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -246,7 +246,7 @@ export default function PartageClient({
           {autres.length > 0 && (
             <div style={{ marginTop: 14 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                <div style={{ fontSize: 12, color: "oklch(0.6 0.0176 290)" }}>
+                <div style={{ fontSize: 12, color: "oklch(0.6 0 0)" }}>
                   {autres.length} older address{autres.length > 1 ? "es" : ""} still open —{" "}
                   {autres.length > 1 ? "they still work" : "it still works"}
                 </div>
@@ -264,7 +264,7 @@ export default function PartageClient({
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {autres.map((l) => (
                   <div key={l.token} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ ...mono, flex: 1, minWidth: 0, fontSize: 10.5, color: "oklch(0.55 0.0118 290)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ ...mono, flex: 1, minWidth: 0, fontSize: 10.5, color: "oklch(0.55 0 0)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {adresseDeVue(l.token)}
                     </div>
                     <span
@@ -288,11 +288,11 @@ export default function PartageClient({
 
         {proprietaire && (
         <div style={glassCard}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0 0)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
             Accounts
           </div>
           {comptes.length === 0 ? (
-            <div style={{ fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>
+            <div style={{ fontSize: 12.5, color: "oklch(0.6 0 0)" }}>
               Nobody yet. An invitation opens an account, and an account keeps a journal of its own — its trades, its dashboard, its own sharing. Not yours: to show yours, that is what a view link is for.
             </div>
           ) : (
@@ -305,15 +305,15 @@ export default function PartageClient({
                     alignItems: "center",
                     gap: 12,
                     padding: "10px 12px",
-                    border: "1px solid oklch(0.3 0.02 290)",
-                    background: "oklch(0.17 0.0176 290 / 0.6)",
+                    border: "1px solid oklch(0.3 0 0)",
+                    background: "oklch(0.09 0 0 / 0.6)",
                     borderRadius: 8,
                     opacity: compte.revoque ? 0.55 : 1,
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13 }}>{compte.email}</div>
-                    <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.0118 290)" }}>
+                    <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0 0)" }}>
                       since {jour(compte.createdAt)}
                       {compte.revoque ? " · access withdrawn" : ""}
                     </div>

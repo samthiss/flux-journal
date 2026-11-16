@@ -96,9 +96,9 @@ export default function ChipDropdown({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-                border: "1px solid oklch(0.32 0.03 290 / 0.6)",
-                background: "oklch(0.18 0.02 290)",
-                color: selected.length ? (tone ? tone.fg : "oklch(0.96 0.004 290)") : "oklch(0.5 0.0118 290)",
+                border: "1px solid oklch(0.32 0 0 / 0.6)",
+                background: "oklch(0.1 0 0)",
+                color: selected.length ? (tone ? tone.fg : "oklch(0.96 0 0)") : "oklch(0.5 0 0)",
               }
             : {
                 display: "inline-flex",
@@ -113,9 +113,9 @@ export default function ChipDropdown({
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                border: `1px ${selected.length ? "solid" : "dashed"} ${tone ? tone.line : "oklch(0.34 0.0118 290)"}`,
+                border: `1px ${selected.length ? "solid" : "dashed"} ${tone ? tone.line : "oklch(0.34 0 0)"}`,
                 background: tone ? tone.bg : "transparent",
-                color: tone ? tone.fg : "oklch(0.6 0.0118 290)",
+                color: tone ? tone.fg : "oklch(0.6 0 0)",
               }
         }
       >
@@ -135,8 +135,8 @@ export default function ChipDropdown({
             overflowY: "auto",
             padding: 4,
             borderRadius: 8,
-            border: "1px solid oklch(0.34 0.02 290)",
-            background: "oklch(0.21 0.02 290)",
+            border: "1px solid oklch(0.34 0 0)",
+            background: "oklch(0.13 0 0)",
             boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
           }}
         >
@@ -161,7 +161,7 @@ export default function ChipDropdown({
                   cursor: "pointer",
                   fontFamily: "var(--font-jetbrains-mono), monospace",
                   fontSize: 10.5,
-                  color: on ? optionTone.fg : "oklch(0.72 0.0118 290)",
+                  color: on ? optionTone.fg : "oklch(0.72 0 0)",
                   background: on ? optionTone.bg : "transparent",
                 }}
               >
@@ -190,8 +190,8 @@ export default function ChipDropdown({
                       padding: "2px 5px",
                       borderRadius: 4,
                       border: `1px solid ${accentColor}`,
-                      background: "oklch(0.68 0.19 293 / 0.1)",
-                      color: "oklch(0.92 0.01 290)",
+                      background: "oklch(0.79 0.17 66 / 0.1)",
+                      color: "oklch(0.92 0 0)",
                       outline: "none",
                     }}
                   />
@@ -241,7 +241,7 @@ export default function ChipDropdown({
                   edited: given to one, it is offered under that one alone. */}
               {renaming === option && setupsConnus.length > 0 && onSetup && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", padding: "2px 8px 6px 26px" }}>
-                  <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 8.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.55 0.0118 290)" }}>
+                  <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 8.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.55 0 0)" }}>
                     Setup
                   </span>
                   {[null, ...setupsConnus].map((choix) => (
@@ -259,9 +259,9 @@ export default function ChipDropdown({
                         padding: "2px 8px",
                         borderRadius: 999,
                         cursor: "pointer",
-                        border: `1px ${choix === setupActuel ? "solid" : "dashed"} ${choix === setupActuel ? accentColor : "oklch(0.34 0.0118 290)"}`,
-                        background: choix === setupActuel ? "oklch(0.68 0.19 293 / 0.14)" : "transparent",
-                        color: choix === setupActuel ? accentColor : "oklch(0.62 0.0118 290)",
+                        border: `1px ${choix === setupActuel ? "solid" : "dashed"} ${choix === setupActuel ? accentColor : "oklch(0.34 0 0)"}`,
+                        background: choix === setupActuel ? "oklch(0.79 0.17 66 / 0.14)" : "transparent",
+                        color: choix === setupActuel ? accentColor : "oklch(0.62 0 0)",
                       }}
                     >
                       {choix ?? "Tous"}
@@ -295,9 +295,9 @@ export default function ChipDropdown({
                 fontSize: 10,
                 padding: "5px 8px",
                 borderRadius: 5,
-                border: "1px dashed oklch(0.34 0.0118 290)",
+                border: "1px dashed oklch(0.34 0 0)",
                 background: "transparent",
-                color: "oklch(0.8 0.0118 290)",
+                color: "oklch(0.8 0 0)",
                 outline: "none",
               }}
             />

@@ -58,7 +58,7 @@ export default function AgentConversation({ compact = false }: { compact?: boole
       <div style={{ display: "flex", flexDirection: "column", gap: 14, overflowY: compact ? "auto" : "visible", flex: 1, minHeight: 0 }}>
         {messages.length === 0 && (
           <div style={{ ...glassCard }}>
-            <div style={{ fontSize: 13, marginBottom: 12, color: "oklch(0.75 0.0118 290)" }}>
+            <div style={{ fontSize: 13, marginBottom: 12, color: "oklch(0.75 0 0)" }}>
               Il ne connaît que ton journal : tes notes, tes captures, tes trades, tes heures de Volume Alert.
               Il cite d&apos;où vient chaque réponse, et dit quand une chose n&apos;y est pas écrite.
             </div>
@@ -73,9 +73,9 @@ export default function AgentConversation({ compact = false }: { compact?: boole
                     padding: "5px 11px",
                     borderRadius: 999,
                     cursor: "pointer",
-                    border: "1px dashed oklch(0.34 0.0118 290)",
+                    border: "1px dashed oklch(0.34 0 0)",
                     background: "transparent",
-                    color: "oklch(0.62 0.0118 290)",
+                    color: "oklch(0.62 0 0)",
                     textAlign: "left",
                   }}
                 >
@@ -96,7 +96,7 @@ export default function AgentConversation({ compact = false }: { compact?: boole
             }
           >
             {message.role === "agent" && (message.etapes?.length ?? 0) > 0 && (
-              <div style={{ ...mono, fontSize: 10, color: "oklch(0.5 0.0118 290)", marginBottom: 10 }}>
+              <div style={{ ...mono, fontSize: 10, color: "oklch(0.5 0 0)", marginBottom: 10 }}>
                 {message.etapes!.map((nom, j) => (
                   <span key={j}>
                     {j > 0 && " → "}
@@ -124,11 +124,11 @@ export default function AgentConversation({ compact = false }: { compact?: boole
                   marginTop: 14,
                   padding: "12px 14px",
                   borderRadius: 8,
-                  border: `1px dashed ${brouillon.etat === "attente" ? accentColor : "oklch(0.34 0.0118 290)"}`,
-                  background: "oklch(0.16 0.0118 290 / 0.6)",
+                  border: `1px dashed ${brouillon.etat === "attente" ? accentColor : "oklch(0.34 0 0)"}`,
+                  background: "oklch(0.08 0 0 / 0.6)",
                 }}
               >
-                <div style={{ ...mono, fontSize: 10, color: "oklch(0.55 0.0118 290)", marginBottom: 6 }}>
+                <div style={{ ...mono, fontSize: 10, color: "oklch(0.55 0 0)", marginBottom: 6 }}>
                   {brouillon.note} › {brouillon.section}
                 </div>
                 <div style={{ fontSize: 13.5, marginBottom: 10 }}>• {brouillon.ligne}</div>
@@ -158,16 +158,16 @@ export default function AgentConversation({ compact = false }: { compact?: boole
                         padding: "4px 12px",
                         borderRadius: 6,
                         cursor: "pointer",
-                        border: "1px solid oklch(0.32 0.0118 290)",
+                        border: "1px solid oklch(0.32 0 0)",
                         background: "transparent",
-                        color: "oklch(0.55 0.0118 290)",
+                        color: "oklch(0.55 0 0)",
                       }}
                     >
                       Non
                     </button>
                   </div>
                 ) : (
-                  <div style={{ ...mono, fontSize: 11, color: brouillon.etat.startsWith("Ajouté") ? winColor : "oklch(0.55 0.0118 290)" }}>
+                  <div style={{ ...mono, fontSize: 11, color: brouillon.etat.startsWith("Ajouté") ? winColor : "oklch(0.55 0 0)" }}>
                     {brouillon.etat}
                   </div>
                 )}
@@ -190,12 +190,12 @@ export default function AgentConversation({ compact = false }: { compact?: boole
             flex: 1,
             minWidth: 0,
             boxSizing: "border-box",
-            background: "oklch(0.18 0.02 290)",
-            border: "1px solid oklch(0.32 0.03 290 / 0.6)",
+            background: "oklch(0.1 0 0)",
+            border: "1px solid oklch(0.32 0 0 / 0.6)",
             borderRadius: 8,
             padding: "11px 14px",
             fontSize: compact ? 13 : 14,
-            color: "oklch(0.96 0.004 290)",
+            color: "oklch(0.96 0 0)",
             fontFamily: "var(--font-space-grotesk), sans-serif",
           }}
         />
@@ -226,9 +226,9 @@ export default function AgentConversation({ compact = false }: { compact?: boole
               padding: "0 12px",
               borderRadius: 8,
               cursor: "pointer",
-              border: "1px solid oklch(0.32 0.0118 290)",
+              border: "1px solid oklch(0.32 0 0)",
               background: "transparent",
-              color: "oklch(0.55 0.0118 290)",
+              color: "oklch(0.55 0 0)",
               flex: "none",
             }}
           >

@@ -17,7 +17,7 @@ import { accentColor, lossColor } from "@/lib/theme";
  */
 
 const ETATS = [
-  { valeur: "plan", texte: "Trading plan", couleur: "oklch(0.62 0.0118 290)" },
+  { valeur: "plan", texte: "Trading plan", couleur: "oklch(0.62 0 0)" },
   { valeur: "position", texte: "Trading", couleur: accentColor },
   { valeur: "closed", texte: "Position closed", couleur: lossColor },
 ] as const;
@@ -105,7 +105,7 @@ export default function StatutTrade({
           cursor: "pointer",
           whiteSpace: "nowrap",
           border: `1px ${courant.valeur === "plan" ? "dashed" : "solid"} ${
-            courant.valeur === "plan" ? "oklch(0.34 0.0118 290)" : courant.couleur.replace(")", " / 0.55)")
+            courant.valeur === "plan" ? "oklch(0.34 0 0)" : courant.couleur.replace(")", " / 0.55)")
           }`,
           background: courant.valeur === "plan" ? "transparent" : courant.couleur.replace(")", " / 0.12)"),
           color: courant.couleur,
@@ -139,9 +139,9 @@ export default function StatutTrade({
             minWidth: 150,
             padding: 4,
             borderRadius: 8,
-            border: "1px solid oklch(0.32 0.02 290)",
-            background: "oklch(0.17 0.0176 290)",
-            boxShadow: "0 8px 24px oklch(0.08 0.0118 290 / 0.6)",
+            border: "1px solid oklch(0.32 0 0)",
+            background: "oklch(0.09 0 0)",
+            boxShadow: "0 8px 24px oklch(0 0 0 / 0.6)",
           }}
         >
           {ETATS.map((etat) => (
@@ -160,7 +160,7 @@ export default function StatutTrade({
                 cursor: "pointer",
                 fontFamily: "var(--font-jetbrains-mono), monospace",
                 fontSize: 10.5,
-                color: etat.valeur === courant.valeur ? etat.couleur : "oklch(0.72 0.0118 290)",
+                color: etat.valeur === courant.valeur ? etat.couleur : "oklch(0.72 0 0)",
                 background: etat.valeur === courant.valeur ? etat.couleur.replace(")", " / 0.1)") : "transparent",
               }}
             >

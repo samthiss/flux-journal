@@ -11,9 +11,9 @@
 
 /* The palette: violet on a near-black faintly tinted the same way. */
 :root {
-  --neon: oklch(0.68 0.19 293);
-  --neon-dim: oklch(0.68 0.19 293 / 0.35);
-  --void: oklch(0.13 0.014 290);
+  --neon: oklch(0.79 0.17 66);
+  --neon-dim: oklch(0.79 0.17 66 / 0.35);
+  --void: #000;
 
   /* The gutter every note block, category and example is pushed in by. Held as
      a variable because on a phone 75px of empty left margin is a fifth of the
@@ -47,8 +47,18 @@
 body {
   margin: 0;
   background: var(--void);
-  color: oklch(0.96 0.004 290);
-  font-family: var(--font-space-grotesk), sans-serif;
+  color: #e6e6e6;
+  /* A terminal reads in one face: mono everywhere, figures in columns. */
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Square corners everywhere. Nearly every radius in this app is written inline
+   on the element, so it is undone here rather than in every component. */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -70,7 +80,7 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.35 0.03 290);
+  background: oklch(0.35 0 0);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-track {
@@ -131,8 +141,8 @@ body {
 /* The section a click in the sidebar just landed on. */
 @keyframes noteLanded {
   from {
-    background: oklch(0.68 0.19 293 / 0.13);
-    box-shadow: inset 3px 0 0 var(--neon), 0 0 30px -10px oklch(0.68 0.19 293 / 0.6);
+    background: oklch(0.79 0.17 66 / 0.13);
+    box-shadow: inset 3px 0 0 var(--neon), 0 0 30px -10px oklch(0.79 0.17 66 / 0.6);
   }
   to {
     background: transparent;
@@ -267,11 +277,9 @@ body {
   flex-direction: column;
   padding: 24px 16px;
   margin: 16px 0 16px 16px;
-  background: oklch(0.19 0.02 290 / 0.55);
-  backdrop-filter: blur(16px);
-  border: 1px solid oklch(0.36 0.03 290 / 0.45);
+  background: #000;
+  border: 1px solid #2E2E2E;
   border-radius: 16px;
-  box-shadow: 0 10px 40px -16px oklch(0.68 0.19 293 / 0.25);
   position: relative;
 }
 .sidebar-scroll {
@@ -303,7 +311,8 @@ body {
   z-index: 0;
   border-radius: 9px;
   pointer-events: none;
-  background: oklch(0.68 0.19 293 / 0.14);
+  background: oklch(0.79 0.17 66 / 0.14);
+  box-shadow: inset 2px 0 0 oklch(0.79 0.17 66);
   transition: top 0.22s cubic-bezier(0.22, 1, 0.36, 1), left 0.22s cubic-bezier(0.22, 1, 0.36, 1),
     width 0.22s cubic-bezier(0.22, 1, 0.36, 1), height 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -336,10 +345,12 @@ body {
   transition: background 0.14s ease;
 }
 .sidebar-nav-item:hover {
-  background: oklch(0.68 0.19 293 / 0.08);
+  background: oklch(0.79 0.17 66 / 0.08);
 }
 .sidebar-nav-label {
-  font-size: 14px;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .sidebar-note-add {
   opacity: 0;
@@ -358,9 +369,9 @@ body {
     border-radius: 0 !important;
     backdrop-filter: none !important;
     box-shadow: none !important;
-    background: oklch(0.15 0.016 290) !important;
+    background: oklch(0.07 0 0) !important;
     border-right: none !important;
-    border-top: 1px solid oklch(0.32 0.03 290 / 0.5) !important;
+    border-top: 1px solid oklch(0.32 0 0 / 0.5) !important;
   }
   /* The width a mouse drags is a desktop measurement. */
   .sidebar-resizer {
@@ -574,7 +585,7 @@ textarea:focus {
 }
 
 ::selection {
-  background: oklch(0.68 0.19 293 / 0.3);
+  background: oklch(0.79 0.17 66 / 0.3);
 }
 
 /* ---- Entrances ----
@@ -636,4 +647,16 @@ textarea:focus {
 .note-landed {
   border-radius: 10px;
   animation: noteLanded 0.8s ease-out;
+}
+
+/* A terminal row that opens something lights up under the pointer. */
+.term-row:hover {
+  background: #121212 !important;
+}
+
+/* The terminal's panels sit side by side on a desk, one under another on a phone. */
+@media (max-width: 1100px) {
+  .term-cols {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }

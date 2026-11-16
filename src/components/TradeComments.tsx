@@ -73,14 +73,14 @@ export default function TradeComments({
     }
   }
 
-  const corpsStyle = { fontSize: 14, lineHeight: 1.6, color: "oklch(0.8 0.01 290)" } as const;
+  const corpsStyle = { fontSize: 14, lineHeight: 1.6, color: "oklch(0.8 0 0)" } as const;
 
   const bouton = (principal: boolean) => ({
     padding: "7px 14px",
     borderRadius: 8,
-    border: principal ? "none" : "1px solid oklch(0.34 0.02 290)",
+    border: principal ? "none" : "1px solid oklch(0.34 0 0)",
     background: principal ? accentColor : "transparent",
-    color: principal ? "oklch(0.15 0.02 290)" : "oklch(0.7 0.0176 290)",
+    color: principal ? "oklch(0.07 0 0)" : "oklch(0.7 0 0)",
     fontSize: 12.5,
     fontWeight: principal ? 600 : 500,
     cursor: "pointer",
@@ -88,7 +88,7 @@ export default function TradeComments({
 
   return (
     <div style={{ ...glassCard, marginBottom: 18 }}>
-      <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+      <div style={{ fontSize: 13, color: "oklch(0.62 0 0)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
         Comments
       </div>
 
@@ -111,9 +111,9 @@ export default function TradeComments({
               boxSizing: "border-box",
               padding: "11px 13px",
               borderRadius: 8,
-              border: "1px solid oklch(0.34 0.02 290)",
-              background: "oklch(0.16 0.0176 290)",
-              color: "oklch(0.9 0.01 290)",
+              border: "1px solid oklch(0.34 0 0)",
+              background: "oklch(0.08 0 0)",
+              color: "oklch(0.9 0 0)",
               fontFamily: "inherit",
               outline: "none",
               resize: "vertical",
@@ -138,7 +138,7 @@ export default function TradeComments({
             setOuvert(true);
           }}
           title="Click to write"
-          style={{ ...corpsStyle, whiteSpace: "pre-wrap", cursor: "text", color: texte ? corpsStyle.color : "oklch(0.55 0.0176 290)" }}
+          style={{ ...corpsStyle, whiteSpace: "pre-wrap", cursor: "text", color: texte ? corpsStyle.color : "oklch(0.55 0 0)" }}
         >
           {texte || "Nothing said about this trade yet. Click to write."}
         </div>

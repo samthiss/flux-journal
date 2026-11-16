@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { accentColor, accentSoft, glassCard, lossColor, neonGlow, winColor } from "@/lib/theme";
-import { MOIS, fieldStyle, fmtOffset, fmtUsd, label, mono, monthLabel, td, th, tone } from "@/components/BacktestUi";
-import { PageTitle } from "@/components/NeonText";
+import { accentColor, lossColor, winColor } from "@/lib/theme";
+import { fieldStyle, fmtOffset, fmtUsd, mono, tone } from "@/components/BacktestUi";
 import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, feeRoundTrip, firmShares, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
@@ -45,7 +44,6 @@ const DD_MODE_TEXT = { eod: "suiveur fin de journée", intraday: "suiveur intrad
 const spanMonths = (r: { from: number; to: number }) => Math.max(1, (r.to - r.from) / (30.44 * 86400000));
 
 const fmtDay = (t: number) => new Date(t).toISOString().slice(0, 10);
-const pct = (x: number) => `${(x * 100).toFixed(0)} %`;
 const fmtPfOrInf = (pf: number | null) => (pf === null ? "∞" : pf.toFixed(2));
 /** The way out, short. */
 const exitShort = (c: ConfigStats["cfg"]) => {
@@ -135,7 +133,6 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
   // ---- Reports ------------------------------------------------------------------
   const analysed = entries.filter((e) => retained(e)).sort((a, b) => a.symbol.localeCompare(b.symbol));
   const [view, setView] = useState<string>("general");
-  const [detail, setDetail] = useState(false);
 
   const general = useMemo(() => {
     const per = analysed.map((e) => {
@@ -194,58 +191,68 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
   const sel = analysed.find((e) => e.symbol === view) ?? null;
   const selCfg = sel ? retained(sel) : null;
 
-  const [tab, setTab] = useState<"results" | "rules">("results");
-  const [rulesDetail, setRulesDetail] = useState(true);
   const months = monthsBetween(
     Math.min(...analysed.map((e) => e.result!.from)),
     Math.max(...analysed.map((e) => e.result!.to))
   );
-  const lots = general.per[0]?.e.result!.settings.lots ?? 2;
+  const copies = account.copies ?? 1;
   const perMonth = general.pnl / general.span;
   const ddRun = general.accountRuns[0]?.run.propDD ?? 0;
   const positiveMonths = general.months.filter((m) => general.cell(m, null).pnl > 0).length;
+  const screen = view === "rules" ? "rules" : sel && selCfg ? sel.symbol : "all";
+  const keys = [{ id: "all", label: "VUE" }, ...analysed.map((e) => ({ id: e.symbol, label: e.symbol })), { id: "rules", label: "RÈGLES" }];
+
+  const kpis: { label: string; value: string; color: string; sub: string }[] =
+    screen === "all"
+      ? [
+          { label: "P&L/MOIS · 1 CPTE", value: short(perMonth), color: tone(perMonth), sub: `${positiveMonths}/${general.months.length} MOIS POSITIFS` },
+          ...(copies > 1
+            ? [{ label: `SUR ${copies} CPTES`, value: short(perMonth * copies), color: tone(perMonth), sub: `RÉALISTE ${short(perMonth * copies * 0.5)} À ${short(perMonth * copies * 0.65)}` }]
+            : []),
+          { label: "WIN%", value: (general.winRate * 100).toFixed(1).replace(".", ","), color: TXT, sub: `${(general.trades.length / general.span).toFixed(0)} TRADES / MOIS` },
+          {
+            label: "MAX DD",
+            value: short(-ddRun),
+            color: LOSS,
+            sub: account.ddLimit ? `${Math.round((ddRun / account.ddLimit) * 100)}% DE LA LIMITE ${account.ddLimit}` : DD_MODE_TEXT[account.ddMode ?? "eod"].toUpperCase(),
+          },
+          { label: "PIRE JOUR", value: short(general.accountRuns[0]?.run.worstDay ?? 0), color: LOSS, sub: `LIMITE ${account.dailyStop ?? "—"}` },
+          { label: `TOTAL ${general.months.length} MOIS`, value: short(general.pnl), color: tone(general.pnl), sub: `${general.trades.length} TRADES · FRAIS DÉDUITS` },
+        ]
+      : [];
 
   return (
-    <div>
-      {/* ---- Title, and the account the reports are read on ---- */}
-      <header style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 20, marginBottom: 22 }}>
-        <div style={{ minWidth: 0 }}>
-          <PageTitle>Backtesting</PageTitle>
-          <div style={{ fontSize: 14, color: muted, marginTop: 4 }}>
-            Tes niveaux rejoués sur l&apos;historique Databento · meilleure entrée, meilleur SL, meilleurs TP
-          </div>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "8px 8px 8px 14px", borderRadius: 10, border: "1px solid oklch(0.68 0.19 293 / 0.22)", background: "oklch(0.17 0.0176 290 / 0.62)" }}>
-          <span style={{ ...label, fontSize: 11, marginRight: 4 }}>Ton compte</span>
+    <div style={{ fontSize: 12.5, display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* ---- The command strip: where you are, the account, the clock ---- */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch", background: ORANGE, color: "#000", fontWeight: 700, fontSize: 12 }}>
+        <span style={{ padding: "5px 12px", background: "#000", color: ORANGE }}>FLUX</span>
+        <span style={{ padding: "5px 12px", borderRight: "1px solid #000" }}>
+          {screen === "all" ? "BT ALL <GO>" : screen === "rules" ? "RULES <GO>" : `${screen} CURNCY BT <GO>`}
+        </span>
+        <span style={{ padding: "5px 12px" }}>BACKTEST DATABENTO</span>
+        <span style={{ padding: "5px 12px", marginLeft: "auto" }}>
           {[
-            `${account.copies ?? 1} compte${(account.copies ?? 1) > 1 ? "s" : ""}`,
-            account.ddLimit ? `DD ${account.ddLimit} $` : null,
-            account.dailyStop !== null ? `−${account.dailyStop} $ / jour` : null,
-            account.maxContracts ? `${account.maxContracts} contrats` : null,
-            account.maxLossPerTrade ? `${account.maxLossPerTrade} $ max / trade` : null,
+            `${copies} CPTE${copies > 1 ? "S" : ""}`,
+            account.ddLimit ? `DD ${account.ddLimit}` : null,
+            account.dailyStop !== null ? `−${account.dailyStop}/J` : null,
+            account.maxContracts ? `${account.maxContracts} CTR` : null,
+            account.maxLossPerTrade ? `${account.maxLossPerTrade}/TRADE` : null,
           ]
             .filter(Boolean)
-            .map((p) => (
-              <span key={p} style={{ ...mono, fontSize: 12, padding: "5px 9px", borderRadius: 6, background: "oklch(0.23 0.0176 290)", color: "oklch(0.88 0.0118 290)" }}>
-                {p}
-              </span>
-            ))}
-          <button
-            type="button"
-            onClick={() => setRulesOpen((o) => !o)}
-            style={{ cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "7px 12px", borderRadius: 7, border: `1px solid ${accentColor}`, background: rulesOpen ? accentSoft : "transparent", color: accentColor }}
-          >
-            {rulesOpen ? "Fermer" : "Modifier"}
-          </button>
-        </div>
-      </header>
+            .join(" · ")}
+        </span>
+        <button
+          type="button"
+          onClick={() => setRulesOpen((o) => !o)}
+          style={{ cursor: "pointer", padding: "5px 12px", border: 0, background: "#000", color: ORANGE, fontWeight: 700, fontSize: 12, fontFamily: "inherit" }}
+        >
+          {rulesOpen ? "FERMER" : "MODIFIER"}
+        </button>
+      </div>
 
       {rulesOpen && (
-        <div style={{ ...glassCard, marginBottom: 22 }}>
-          <div style={{ fontSize: 12.5, color: muted }}>
-            Les règles de ton compte prop firm, appliquées aux rapports sur les trades de toutes les paires ensemble. Les règles de séance (horaires,
-            news, heures exclues, 1 trade par jour) sont appliquées pendant l&apos;analyse.
-          </div>
+        <Panel title="COMPTE · RÉGLAGES" right="APPLIQUÉS À TOUS LES RAPPORTS">
+          <div style={{ padding: "8px 10px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14, marginTop: 14, fontSize: 13 }}>
           <RuleRow on={account.tiers !== null} onToggle={(v) => updateAccount({ ...account, tiers: v ? parseTiers(tiersDraft) : null })} label="Paliers de lots (gain du compte : lots)">
             <input
@@ -286,7 +293,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               onChange={(e) => updateAccount({ ...account, copies: Math.max(1, Math.round(Number(e.target.value))) })}
               style={smallField}
             />
-            <span style={{ fontSize: 11.5, color: "oklch(0.55 0.0176 290)", alignSelf: "center" }}>mêmes trades sur chaque compte · les limites restent celles d&apos;un compte</span>
+            <span style={{ fontSize: 11.5, color: "oklch(0.55 0 0)", alignSelf: "center" }}>mêmes trades sur chaque compte · les limites restent celles d&apos;un compte</span>
           </RuleRow>
           <RuleRow on={!!account.split} onToggle={(v) => updateAccount({ ...account, split: v ? { from: 30000, firm: 10 } : null })} label="Partage des gains : la firme prend (%) au-delà de ($) par compte">
             <input type="number" min={0} max={100} value={account.split?.firm ?? 10} disabled={!account.split} onChange={(e) => updateAccount({ ...account, split: { from: account.split?.from ?? 30000, firm: Number(e.target.value) } })} style={smallField} />
@@ -324,7 +331,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
             </span>
           </RuleRow>
           <RuleRow on={!!account.wholeLots} onToggle={(v) => updateAccount({ ...account, wholeLots: v })} label="Lots entiers, pas de micros">
-            <span style={{ fontSize: 11.5, color: "oklch(0.55 0.0176 290)" }}>le plan propose 1, 2 ou 3 lots par paire</span>
+            <span style={{ fontSize: 11.5, color: "oklch(0.55 0 0)" }}>le plan propose 1, 2 ou 3 lots par paire</span>
           </RuleRow>
           <RuleRow on={!!account.maxLossPerTrade} onToggle={(v) => updateAccount({ ...account, maxLossPerTrade: v ? 500 : null })} label="Perte max par trade, stop touché ($)">
             <input type="number" min={1} value={account.maxLossPerTrade ?? 500} disabled={!account.maxLossPerTrade} onChange={(e) => updateAccount({ ...account, maxLossPerTrade: Number(e.target.value) })} style={{ ...smallField, width: 80 }} />
@@ -333,274 +340,290 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
             <input type="number" min={1} value={account.dailyStop ?? 500} disabled={account.dailyStop === null} onChange={(e) => updateAccount({ ...account, dailyStop: Number(e.target.value) })} style={smallField} />
           </RuleRow>
         </div>
-        </div>
+          </div>
+        </Panel>
       )}
 
-      {/* ---- Results or rules ---- */}
-      <div role="tablist" style={{ display: "flex", gap: 4, borderBottom: "1px solid oklch(0.3 0.0176 290 / 0.7)", marginBottom: 22 }}>
-        {(
-          [
-            ["results", "Résultats"],
-            ["rules", "Règles"],
-          ] as const
-        ).map(([k, text]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            onClick={() => setTab(k)}
-            style={{
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: 600,
-              padding: "10px 16px",
-              marginBottom: -1,
-              background: "transparent",
-              border: 0,
-              borderBottom: `2px solid ${tab === k ? accentColor : "transparent"}`,
-              color: tab === k ? "oklch(0.96 0.004 290)" : muted,
-              textShadow: tab === k ? "0 0 12px oklch(0.68 0.19 293 / 0.4)" : undefined,
-            }}
-          >
-            {text}
-          </button>
-        ))}
+      {/* ---- The screens, as function keys ---- */}
+      <div role="toolbar" aria-label="Écrans" style={{ display: "flex", flexWrap: "wrap", border: "1px solid #2E2E2E" }}>
+        {keys.map((k, i) => {
+          const on = screen === k.id;
+          return (
+            <button
+              key={k.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => setView(k.id === "all" ? "general" : k.id)}
+              style={{
+                cursor: "pointer",
+                padding: "6px 12px",
+                border: 0,
+                borderRight: "1px solid #1A1A1A",
+                fontFamily: "inherit",
+                fontSize: 12,
+                fontWeight: 700,
+                background: on ? ORANGE : "#000",
+                color: on ? "#000" : "#CCC",
+              }}
+            >
+              <span style={{ color: on ? "#000" : ORANGE }}>F{i + 1}</span> {k.label}
+            </button>
+          );
+        })}
       </div>
 
       {analysed.length === 0 && (
-        <div style={{ ...glassCard, fontSize: 13.5, color: muted }}>
-          Aucun rapport pour l&apos;instant. L&apos;analyse se fait hors du site (scripts/databento-analyse.ts) et ses rapports sont chargés au
-          démarrage du serveur.
-        </div>
-      )}
-
-      {analysed.length > 0 && tab === "rules" && (
-        <section>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Règles communes</h2>
-              <div style={{ fontSize: 12, color: muted, marginTop: 3 }}>Les mêmes pour toutes les paires</div>
-            </div>
-            <button type="button" onClick={() => setRulesDetail((o) => !o)} aria-expanded={rulesDetail} style={ghostButton}>
-              {rulesDetail ? "Masquer les détails" : "Afficher les détails"}
-            </button>
+        <Panel title="AUCUN RAPPORT">
+          <div style={{ padding: "10px", color: DIM }}>
+            L&apos;analyse se fait hors du site (scripts/databento-analyse.ts) et ses rapports sont chargés au démarrage du serveur.
           </div>
-          <GeneralRules r={general.per[0].e.result!} account={account} symbols={general.per.map(({ e }) => e.symbol)} detail={rulesDetail} />
-          <PairRules per={general.per} />
-        </section>
+        </Panel>
       )}
 
-      {analysed.length > 0 && tab === "results" && (
+      {analysed.length > 0 && screen === "rules" && (
         <>
-          <div role="tablist" style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 4, borderRadius: 10, background: "oklch(0.16 0.0176 290 / 0.7)", border: "1px solid oklch(0.3 0.0176 290 / 0.6)", width: "fit-content", maxWidth: "100%", marginBottom: 22 }}>
-            {[{ k: "general", text: "Vue d’ensemble" }, ...analysed.map((e) => ({ k: e.symbol, text: e.symbol }))].map(({ k, text }) => {
-              const on = view === k || (k === "general" && !sel);
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => setView(k)}
-                  style={{
-                    cursor: "pointer",
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    padding: "7px 13px",
-                    borderRadius: 7,
-                    border: 0,
-                    ...(k === "general" ? {} : mono),
-                    background: on ? accentColor : "transparent",
-                    color: on ? "oklch(0.14 0.0176 290)" : "oklch(0.78 0.0118 290)",
-                    boxShadow: on ? neonGlow(accentColor, 1) : undefined,
-                  }}
-                >
-                  {text}
-                </button>
-              );
-            })}
-          </div>
-
-          {view === "general" || !sel || !selCfg ? (
-            <>
-              <section style={kpiGrid}>
-                <Kpi
-                  title="P&L par mois"
-                  value={general.months.length ? fmtUsd(perMonth) : "—"}
-                  color={tone(general.pnl)}
-                  hint={`par compte · ${positiveMonths} / ${general.months.length} mois positifs`}
-                  bar={general.months.length ? { pct: (positiveMonths / general.months.length) * 100, color: winColor } : undefined}
-                />
-                {(account.copies ?? 1) > 1 && general.months.length > 0 && (
-                  <Kpi
-                    title={`Sur ${account.copies} comptes`}
-                    value={fmtUsd(perMonth * account.copies!)}
-                    color={tone(general.pnl)}
-                    hint={`réaliste : ${fmtUsd(perMonth * account.copies! * 0.5)} à ${fmtUsd(perMonth * account.copies! * 0.65)}`}
-                  />
-                )}
-                <Kpi
-                  title="Gagnants"
-                  value={pct(general.winRate)}
-                  hint={`${(general.trades.length / general.span).toFixed(0)} trades par mois`}
-                  bar={{ pct: general.winRate * 100, color: winColor }}
-                />
-                <Kpi
-                  title="Drawdown max"
-                  value={fmtUsd(-ddRun)}
-                  color={lossColor}
-                  hint={account.ddLimit ? `${Math.round((ddRun / account.ddLimit) * 100)} % de la limite de ${account.ddLimit} $ · ${DD_MODE_TEXT[account.ddMode ?? "eod"]}` : DD_MODE_TEXT[account.ddMode ?? "eod"]}
-                  bar={account.ddLimit ? { pct: (ddRun / account.ddLimit) * 100, color: lossColor } : undefined}
-                />
-                <Kpi title="Pire journée" value={fmtUsd(general.accountRuns[0]?.run.worstDay ?? 0)} color={lossColor} hint={`limite ${account.dailyStop ?? "—"} $`} />
-              </section>
-
-              <section style={{ ...card, marginBottom: 22 }}>
-                <h2 style={cardTitle}>P&amp;L par mois</h2>
-                <div style={{ fontSize: 12, color: muted, marginTop: 3, marginBottom: 18 }}>
-                  Toutes paires, par compte, à {lots} lots · frais déduits
-                </div>
-                <MonthBars
-                  bars={months.map((m) => {
-                    const c = general.cell(m, null);
-                    return {
-                      key: m,
-                      value: c.n ? c.pnl : null,
-                      tip: c.n ? `${monthLabel(m)} : ${fmtUsd(c.pnl)} · ${c.n} trades · ${pct(c.wins / c.n)}` : `${monthLabel(m)} : aucun trade`,
-                    };
-                  })}
-                />
-              </section>
-
-              <button type="button" onClick={() => setDetail((o) => !o)} style={ghostButton}>
-                {detail ? "Masquer le détail" : "Voir le détail par paire et par mois"}
-              </button>
-              {detail && (
-                <section style={{ ...card, marginTop: 14 }}>
-                  <h2 style={cardTitle}>Par paire</h2>
-                  <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 10 }}>
-                    <thead>
-                      <tr>
-                        <th style={th}>Paire</th>
-                        <th style={th}>PnL par mois</th>
-                        <th style={th}>Trades par mois</th>
-                        <th style={th}>Gagnants</th>
-                        <th style={th}>Drawdown</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {general.per.map(({ e, c }) => {
-                        const n = spanMonths(e.result!);
-                        return (
-                          <tr key={e.symbol} style={{ cursor: "pointer" }} onClick={() => setView(e.symbol)}>
-                            <td style={{ ...td, fontWeight: 700 }}>{e.symbol}</td>
-                            <td style={{ ...td, color: tone(c.pnl), fontWeight: 700 }}>{fmtUsd(c.pnl / n)}</td>
-                            <td style={td}>{(c.n / n).toFixed(1)}</td>
-                            <td style={td}>{pct(c.winRate)}</td>
-                            <td style={{ ...td, color: lossColor }}>{fmtUsd(-(c.propDD ?? c.maxDD))}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-
-                  <h2 style={{ ...cardTitle, marginTop: 24 }}>Mois par mois</h2>
-                  <div style={{ overflowX: "auto", marginTop: 10 }}>
-                    <table style={{ borderCollapse: "collapse", width: "100%" }}>
-                      <thead>
-                        <tr>
-                          <th style={th}>Mois</th>
-                          {general.per.map(({ e }) => (
-                            <th key={e.symbol} style={th}>{e.symbol}</th>
-                          ))}
-                          <th style={{ ...th, color: accentColor }}>Combiné</th>
-                          {(account.copies ?? 1) > 1 && <th style={{ ...th, color: accentColor }}>Sur {account.copies} comptes</th>}
-                          {account.split && <th style={{ ...th, color: accentColor }}>Pour toi, après partage</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...general.months, null].map((m) => {
-                          const tot = general.cell(m, null);
-                          return (
-                            <tr key={m ?? "total"} style={m === null ? { background: "oklch(0.68 0.19 293 / 0.07)" } : undefined}>
-                              <td style={{ ...td, fontFamily: "inherit", fontWeight: m === null ? 700 : undefined }}>{m ? monthLabel(m) : "Total"}</td>
-                              {general.per.map(({ e }) => {
-                                const c = general.cell(m, e.symbol);
-                                return (
-                                  <td key={e.symbol} style={td}>
-                                    {c.n ? (
-                                      <>
-                                        <div style={{ color: tone(c.pnl), fontWeight: 700 }}>{fmtUsd(c.pnl)}</div>
-                                        <div style={{ fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>{c.n} trades · {pct(c.wins / c.n)}</div>
-                                      </>
-                                    ) : (
-                                      <span style={{ color: "oklch(0.4 0.0118 290)" }}>—</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                              <td style={td}>
-                                <div style={{ color: tone(tot.pnl), fontWeight: 700, fontSize: 14 }}>{fmtUsd(tot.pnl)}</div>
-                                <div style={{ fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>{tot.n} trades · {tot.n ? pct(tot.wins / tot.n) : "—"}</div>
-                              </td>
-                              {(account.copies ?? 1) > 1 && (
-                                <td style={td}>
-                                  <div style={{ color: tone(tot.pnl), fontWeight: 700, fontSize: 14 }}>{fmtUsd(tot.pnl * account.copies!)}</div>
-                                  <div style={{ fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>{fmtUsd(tot.pnl)} × {account.copies}</div>
-                                </td>
-                              )}
-                              {account.split &&
-                                (() => {
-                                  const cut = m === null ? shares.total : shares.byMonth.get(m) ?? 0;
-                                  const copies = account.copies ?? 1;
-                                  return (
-                                    <td style={td}>
-                                      <div style={{ color: tone(tot.pnl - cut), fontWeight: 700, fontSize: 14 }}>{fmtUsd((tot.pnl - cut) * copies)}</div>
-                                      <div style={{ fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>{cut > 0 ? `firme −${fmtUsd(cut * copies).replace("+", "")}` : "100 % pour toi"}</div>
-                                    </td>
-                                  );
-                                })()}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              )}
-            </>
-          ) : (
-            <SymbolReport key={sel.symbol} entry={sel} cfg={selCfg} account={account} onChoose={(k) => choisir(sel.symbol, k)} />
-          )}
+          <GeneralRules r={general.per[0].e.result!} account={account} symbols={general.per.map(({ e }) => e.symbol)} detail />
+          <PairRules per={general.per} />
         </>
       )}
+
+      {analysed.length > 0 && screen === "all" && (
+        <>
+          <KpiStrip kpis={kpis} />
+          <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)", gap: 8 }}>
+            <Panel title="PAIRES · CLASSÉES PAR P&L/MOIS" right="CLIC = FICHE">
+              <div style={{ overflowX: "auto" }}>
+                <div style={{ minWidth: 640 }}>
+                  <Row head cols={PAIR_COLS}>
+                    <span>PAIRE</span>
+                    <span style={R}>P&L/M</span>
+                    <span style={R}>TR/M</span>
+                    <span style={R}>WIN</span>
+                    <span>DD / LIM {account.ddLimit ?? "—"}</span>
+                    <span style={R}>STOP</span>
+                    <span style={R}>TP1</span>
+                    <span style={R}>TP2</span>
+                    <span>BLACKOUT CT</span>
+                  </Row>
+                  {[...general.per]
+                    .sort((a, b) => b.c.pnl / spanMonths(b.e.result!) - a.c.pnl / spanMonths(a.e.result!))
+                    .map(({ e, c }) => {
+                      const n = spanMonths(e.result!);
+                      const dd = c.propDD ?? c.maxDD;
+                      const hours = e.result!.rules?.excludeHours ?? [];
+                      return (
+                        <Row key={e.symbol} cols={PAIR_COLS} onClick={() => setView(e.symbol)}>
+                          <span style={{ color: "#FFF", fontWeight: 700 }}>{e.symbol}</span>
+                          <span style={{ ...R, color: tone(c.pnl) }}>{short(c.pnl / n)}</span>
+                          <span style={R}>{(c.n / n).toFixed(1)}</span>
+                          <span style={R}>{Math.round(c.winRate * 100)}%</span>
+                          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ color: LOSS, width: 42 }}>{short(-dd)}</span>
+                            <span style={{ flex: 1, height: 6, background: "#1A1A1A" }}>
+                              <span style={bar(account.ddLimit ? (dd / account.ddLimit) * 100 : 0, account.ddLimit && dd / account.ddLimit > 0.45 ? LOSS : "#7A3A3A", 6)} />
+                            </span>
+                          </span>
+                          <span style={{ ...R, color: DIM }}>{c.cfg.sl}TK</span>
+                          <span style={{ ...R, color: DIM }}>{c.cfg.tp1}TK</span>
+                          <span style={{ ...R, color: DIM }}>{kindOf(c.cfg) === "tp1trail" && c.cfg.tp2 > c.cfg.tp1 ? `${c.cfg.tp2}TK` : "—"}</span>
+                          <span style={{ color: DIM }}>{hours.length ? hoursText(hours).toUpperCase() : "—"}</span>
+                        </Row>
+                      );
+                    })}
+                </div>
+              </div>
+            </Panel>
+
+            <Panel title="P&L COMBINÉ · PAR COMPTE" right={`${general.months.length} MOIS · FRAIS DÉDUITS`}>
+              {(() => {
+                const cols = `64px 36px 44px 1fr 64px${copies > 1 ? " 72px" : ""}${account.split ? " 72px" : ""}`;
+                const max = Math.max(1, ...general.months.map((m) => Math.abs(general.cell(m, null).pnl)));
+                const tot = general.cell(null, null);
+                return (
+                  <div style={{ overflowX: "auto" }}>
+                    <div style={{ minWidth: 380 }}>
+                      <Row head cols={cols}>
+                        <span>MOIS</span>
+                        <span style={R}>TR</span>
+                        <span style={R}>WIN</span>
+                        <span />
+                        <span style={R}>P&L</span>
+                        {copies > 1 && <span style={R}>×{copies}</span>}
+                        {account.split && <span style={R}>POUR TOI</span>}
+                      </Row>
+                      {general.months.map((m) => {
+                        const c = general.cell(m, null);
+                        const cut = shares.byMonth.get(m) ?? 0;
+                        return (
+                          <Row key={m} cols={cols}>
+                            <span style={{ color: DIM }}>{termMonth(m)}</span>
+                            <span style={R}>{c.n}</span>
+                            <span style={{ ...R, color: DIM }}>{c.n ? `${Math.round((c.wins / c.n) * 100)}%` : "—"}</span>
+                            <span style={bar((Math.abs(c.pnl) / max) * 100, tone(c.pnl))} />
+                            <span style={{ ...R, color: tone(c.pnl), fontWeight: 600 }}>{short(c.pnl)}</span>
+                            {copies > 1 && <span style={{ ...R, color: tone(c.pnl) }}>{short(c.pnl * copies)}</span>}
+                            {account.split && <span style={{ ...R, color: tone(c.pnl - cut) }}>{short((c.pnl - cut) * copies)}</span>}
+                          </Row>
+                        );
+                      })}
+                      <Row cols={cols} style={{ borderTop: "1px solid #2E2E2E", padding: "6px 10px" }}>
+                        <span style={{ color: ORANGE, fontWeight: 700, gridColumn: "span 4" }}>
+                          TOTAL · {tot.n} TR · {tot.n ? Math.round((tot.wins / tot.n) * 100) : 0}%
+                        </span>
+                        <span style={{ ...R, color: tone(tot.pnl), fontWeight: 700 }}>{short(tot.pnl)}</span>
+                        {copies > 1 && <span style={{ ...R, color: tone(tot.pnl), fontWeight: 700 }}>{short(tot.pnl * copies)}</span>}
+                        {account.split && <span style={{ ...R, color: tone(tot.pnl - shares.total), fontWeight: 700 }}>{short((tot.pnl - shares.total) * copies)}</span>}
+                      </Row>
+                    </div>
+                  </div>
+                );
+              })()}
+            </Panel>
+          </div>
+
+          <Panel title="MATRICE P&L · PAIRE × MOIS" right="SURVOL = TRADES / WIN%">
+            <div style={{ overflowX: "auto" }}>
+              <div style={{ minWidth: 1100 }}>
+                <Row head cols={`44px repeat(${months.length}, minmax(0, 1fr)) 72px`}>
+                  <span>PAIRE</span>
+                  {months.map((m) => (
+                    <span key={m} style={R}>
+                      {termMonth(m).replace(" ", "")}
+                    </span>
+                  ))}
+                  <span style={{ ...R, color: ORANGE }}>TOTAL</span>
+                </Row>
+                {[...general.per]
+                  .sort((a, b) => b.c.pnl - a.c.pnl)
+                  .map(({ e }) => {
+                    const tot = general.cell(null, e.symbol);
+                    return (
+                      <Row key={e.symbol} cols={`44px repeat(${months.length}, minmax(0, 1fr)) 72px`}>
+                        <span style={{ color: "#FFF", fontWeight: 700 }}>{e.symbol}</span>
+                        {months.map((m) => {
+                          const c = general.cell(m, e.symbol);
+                          return c.n ? (
+                            <span
+                              key={m}
+                              title={`${e.symbol} ${termMonth(m)} : ${c.n} trades · ${Math.round((c.wins / c.n) * 100)}%`}
+                              style={{
+                                ...R,
+                                color: tone(c.pnl),
+                                ...(Math.abs(c.pnl) >= 900 ? { background: c.pnl >= 0 ? "rgba(63,212,122,0.16)" : "rgba(255,77,77,0.18)", fontWeight: 700 } : {}),
+                              }}
+                            >
+                              {short(c.pnl)}
+                            </span>
+                          ) : (
+                            <span key={m} title={`${e.symbol} ${termMonth(m)} : aucun trade`} style={{ ...R, color: "#444" }}>
+                              ·
+                            </span>
+                          );
+                        })}
+                        <span style={{ ...R, color: tone(tot.pnl), fontWeight: 700 }}>{short(tot.pnl)}</span>
+                      </Row>
+                    );
+                  })}
+              </div>
+            </div>
+          </Panel>
+        </>
+      )}
+
+      {analysed.length > 0 && sel && selCfg && screen === sel.symbol && (
+        <SymbolReport key={sel.symbol} entry={sel} cfg={selCfg} account={account} onChoose={(k) => choisir(sel.symbol, k)} />
+      )}
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, padding: "4px 12px", border: "1px solid #2E2E2E", color: DIM, fontSize: 11 }}>
+        <span>
+          <span style={{ color: GAIN }}>●</span> DATABENTO
+        </span>
+        {analysed[0] && (
+          <span>
+            {fmtDay(Math.min(...analysed.map((e) => e.result!.from)))} → {fmtDay(Math.max(...analysed.map((e) => e.result!.to)))}
+          </span>
+        )}
+        <span>{analysed[0]?.result!.settings.lots ?? 2} LOTS · REMPLI SI DÉPASSÉ DE 1 TICK</span>
+        <span style={{ marginLeft: "auto" }}>F1–F{keys.length} = ÉCRANS</span>
+      </div>
     </div>
   );
 }
 
-/* ---- Pieces of the page ------------------------------------------------------ */
+/* ---- The terminal's pieces ------------------------------------------------------ */
 
-const muted = "oklch(0.62 0.02 290)";
-const card: React.CSSProperties = { ...glassCard, padding: 20 };
-const cardTitle: React.CSSProperties = { fontSize: 15, fontWeight: 700, margin: 0 };
-const kpiGrid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, marginBottom: 22 };
-const ghostButton: React.CSSProperties = {
-  cursor: "pointer",
-  fontSize: 12,
-  fontWeight: 600,
-  padding: "8px 14px",
-  borderRadius: 7,
-  border: "1px solid oklch(0.34 0.0235 290)",
-  background: "oklch(0.18 0.0176 290)",
-  color: "oklch(0.85 0.0118 290)",
-};
+const ORANGE = accentColor;
+const GAIN = winColor;
+const LOSS = lossColor;
+const DIM = "#8A8A8A";
+const TXT = "#FFF";
 /** The two ways into a level: buying a fall onto it, selling a rise onto it. */
-const buyColor = accentColor;
-const sellColor = "oklch(0.8 0.14 55)";
-/** Losing months as bars, and stops as prices: warmer than the grey of a losing figure, so they read at a glance. */
-const lossBarColor = "oklch(0.74 0.15 55)";
-const stopColor = "oklch(0.75 0.1 25)";
+const buyColor = "#4FC3F7";
+const sellColor = "#E879F9";
+const R: React.CSSProperties = { textAlign: "right" };
+const PAIR_COLS = "44px 70px 44px 50px 1fr 64px 56px 64px 1fr";
+
+/** A month the terminal way: "NOV 25". */
+const termMonth = (key: string) =>
+  `${["JAN", "FÉV", "MAR", "AVR", "MAI", "JUN", "JUL", "AOÛ", "SEP", "OCT", "NOV", "DÉC"][Number(key.slice(5, 7)) - 1]} ${key.slice(2, 4)}`;
+
+/** A bar inside a cell, as wide as its share. */
+const bar = (pct: number, color: string, height = 8): React.CSSProperties => ({
+  display: "block",
+  height,
+  width: `${Math.max(1, Math.min(100, pct)).toFixed(1)}%`,
+  background: color,
+});
+
+/** A panel: its title on a grey band in orange, what it says about itself on the right. */
+function Panel({ title, right, children, style }: { title: string; right?: string; children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <section style={{ border: "1px solid #2E2E2E", background: "#000", minWidth: 0, ...style }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 10px", background: "#1A1A1A", color: ORANGE, fontWeight: 700, fontSize: 11, letterSpacing: "0.04em" }}>
+        <span>{title}</span>
+        {right && <span style={{ color: DIM, fontWeight: 500 }}>{right}</span>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** One line of a table: a grid of cells, a header in grey, a button when it opens something. */
+function Row({ cols, head, onClick, children, style }: { cols: string; head?: boolean; onClick?: () => void; children: React.ReactNode; style?: React.CSSProperties }) {
+  const s: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: cols,
+    gap: 8,
+    alignItems: "center",
+    padding: head ? "5px 10px" : "3px 10px",
+    whiteSpace: "nowrap",
+    borderBottom: `1px solid ${head ? "#2E2E2E" : "#141414"}`,
+    ...(head ? { color: DIM, fontSize: 10.5 } : {}),
+    ...style,
+  };
+  return onClick ? (
+    <button type="button" onClick={onClick} className="term-row" style={{ background: "transparent", color: "inherit", ...s, cursor: "pointer", width: "100%", textAlign: "left", border: 0, borderBottom: s.borderBottom, font: "inherit" }}>
+      {children}
+    </button>
+  ) : (
+    <div style={s}>{children}</div>
+  );
+}
+
+/** The figures a screen opens on, in a row of cells. */
+function KpiStrip({ kpis }: { kpis: { label: string; value: string; color: string; sub: string }[] }) {
+  return (
+    <div style={{ border: "1px solid #2E2E2E", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+      {kpis.map((k) => (
+        <div key={k.label} style={{ padding: "8px 12px", borderRight: "1px solid #2E2E2E" }}>
+          <div style={{ color: ORANGE, fontSize: 10.5, fontWeight: 700 }}>{k.label}</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: k.color, lineHeight: 1.25 }}>{k.value}</div>
+          <div style={{ color: DIM, fontSize: 10.5 }}>{k.sub}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** Every month from the first to the last, the empty ones included: a month without a trade is still a month. */
 function monthsBetween(from: number, to: number) {
@@ -615,97 +638,23 @@ function monthsBetween(from: number, to: number) {
 /** A sum without the dollar, spaced by thousands: the figures over the bars. */
 const short = (v: number) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.round(Math.abs(v)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
-function Kpi({ title, value, hint, color, bar }: { title: string; value: string; hint?: string; color?: string; bar?: { pct: number; color: string } }) {
-  return (
-    <div style={card}>
-      <div style={{ ...label, fontSize: 11.5 }}>{title}</div>
-      <div style={{ ...mono, fontSize: 26, fontWeight: 600, marginTop: 10, color: color ?? "oklch(0.96 0.004 290)", fontVariantNumeric: "tabular-nums" }}>{value}</div>
-      {bar && (
-        <div style={{ height: 5, borderRadius: 4, background: "oklch(0.26 0.0176 290)", overflow: "hidden", marginTop: 12 }}>
-          <div style={{ height: "100%", width: `${Math.max(2, Math.min(100, bar.pct)).toFixed(1)}%`, background: bar.color, borderRadius: "inherit", boxShadow: neonGlow(bar.color, 1) }} />
-        </div>
-      )}
-      {hint && <div style={{ fontSize: 12, color: muted, marginTop: 8 }}>{hint}</div>}
-    </div>
-  );
-}
-
-/** Months as bars, gains up and losses down from one line; clickable when a month opens onto its trades. */
-function MonthBars({ bars, selected, onPick }: { bars: { key: string; value: number | null; tip: string }[]; selected?: string | null; onPick?: (key: string) => void }) {
-  const up = Math.max(0, ...bars.map((b) => b.value ?? 0));
-  const down = Math.max(0, ...bars.map((b) => -(b.value ?? 0)));
-  const scale = 130 / Math.max(1, up + down);
-  const value = (v: number) => <span style={{ ...mono, fontSize: 10, color: "oklch(0.86 0.0118 290)", whiteSpace: "nowrap" }}>{short(v)}</span>;
-  return (
-    <div style={{ overflowX: "auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${bars.length}, minmax(34px, 1fr))`, gap: 5 }}>
-        {bars.map((b) => {
-          const v = b.value;
-          const on = selected === b.key;
-          const style: React.CSSProperties = {
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            padding: "4px 0 6px",
-            borderRadius: 7,
-            border: 0,
-            font: "inherit",
-            color: "inherit",
-            cursor: onPick && v !== null ? "pointer" : "default",
-            background: on ? accentSoft : "transparent",
-          };
-          const inner = (
-            <>
-              <span style={{ height: up * scale + 16, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 3, width: "100%" }}>
-                {v !== null && v >= 0 && value(v)}
-                {v !== null && v > 0 && <span style={{ display: "block", width: "60%", maxWidth: 30, height: Math.max(2, v * scale), borderRadius: "3px 3px 0 0", background: accentColor }} />}
-              </span>
-              <span style={{ display: "block", width: "100%", height: 1, background: "oklch(0.4 0.0176 290)" }} />
-              <span style={{ height: down * scale + 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: "100%" }}>
-                {v !== null && v < 0 && <span style={{ display: "block", width: "60%", maxWidth: 30, height: Math.max(2, -v * scale), borderRadius: "0 0 3px 3px", background: lossBarColor }} />}
-                {v !== null && v < 0 && value(v)}
-              </span>
-              <span style={{ fontSize: 10.5, marginTop: 4, color: on ? "oklch(0.96 0.004 290)" : muted, whiteSpace: "nowrap" }}>{MOIS[Number(b.key.slice(5, 7)) - 1]}</span>
-            </>
-          );
-          return onPick ? (
-            <button key={b.key} type="button" title={b.tip} aria-pressed={on} disabled={v === null} onClick={() => onPick(b.key)} style={style}>
-              {inner}
-            </button>
-          ) : (
-            <div key={b.key} title={b.tip} style={style}>
-              {inner}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 /** One rule: what to do, in a few words, and the detail under it. */
 type Rule = { k: string; main: React.ReactNode; detail?: React.ReactNode };
 
-/** A group of rules on its own card: the moment of the day they belong to. */
+/** A group of rules on its own panel: the moment of the day they belong to. */
 function RuleCard({ num, title, rules, detail }: { num: number; title: string; rules: (Rule | null | false | undefined)[]; detail: boolean }) {
   return (
-    <div style={{ ...card, padding: "18px 18px 8px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        <span aria-hidden style={{ ...mono, width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, background: accentSoft, color: accentColor }}>
-          {num}
-        </span>
-        <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>{title}</h3>
-      </div>
+    <Panel title={`${num} · ${title.toUpperCase()}`}>
       {rules
         .filter((x): x is Rule => !!x)
         .map((x) => (
-          <div key={x.k} style={{ padding: "10px 0", borderTop: "1px solid oklch(0.27 0.0176 290 / 0.8)" }}>
-            <div style={{ fontSize: 10.5, letterSpacing: "0.07em", textTransform: "uppercase", color: muted }}>{x.k}</div>
-            <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.4, marginTop: 3 }}>{x.main}</div>
-            {detail && x.detail && <div style={{ fontSize: 12, color: "oklch(0.7 0.0118 290)", lineHeight: 1.45, marginTop: 3 }}>{x.detail}</div>}
+          <div key={x.k} style={{ padding: "7px 10px", borderBottom: "1px solid #141414" }}>
+            <div style={{ color: ORANGE, fontSize: 10.5, fontWeight: 700 }}>{x.k.toUpperCase()}</div>
+            <div style={{ color: TXT, marginTop: 2, lineHeight: 1.45 }}>{x.main}</div>
+            {detail && x.detail && <div style={{ color: DIM, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>{x.detail}</div>}
           </div>
         ))}
-    </div>
+    </Panel>
   );
 }
 
@@ -718,7 +667,7 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
   const positions = account.maxContracts ? Math.floor(account.maxContracts / lots) : null;
   const fill = r.settings.fill;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 8 }}>
       <RuleCard
         num={1}
         title="Préparer la séance"
@@ -756,11 +705,15 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
             main: `${perDay} trade par jour et par paire`,
             detail: "Un ordre par niveau valable : dès que l'un est rempli, annule les autres de cette paire pour la journée. Les autres paires gardent les leurs.",
           },
-          { k: "Nouvelle touche", main: `Le prix doit s'éloigner de ${fmtDistBySymbol(r.settings.rearm, symbols)} puis revenir`, detail: "Avant qu'un niveau déjà touché compte de nouveau" },
+          {
+            k: "Nouvelle touche",
+            main: `Le prix doit s'éloigner de ${fmtDistBySymbol(r.settings.rearm, symbols)} puis revenir`,
+            detail: `Avant qu'un niveau déjà touché compte de nouveau. Moins loin, même pendant des heures, c'est toujours la même touche. Le prix à atteindre est dans la colonne « 2e rebond » des prix par niveau.`,
+          },
           {
             k: "Déjà touché hors horaires",
             main: "Pas d'ordre sur un niveau déjà touché la nuit, à une heure exclue ou pendant une news",
-            detail: `Tant que le prix ne s'en est pas éloigné de ${fmtDistBySymbol(r.settings.rearm, symbols)}. Backtest : ces trades gagnent 1 fois sur 3 et perdent ≈ 13 500 $ par an.`,
+            detail: `Une touche la nuit compte : le niveau est utilisé, même sans trade. Exemple : touché à 23h30, le prix s'en éloigne de 15 ticks puis revient à 3h — pas de trade, c'est la même touche. Il le redevient seulement après un éloignement de ${fmtDistBySymbol(r.settings.rearm, symbols)} puis un retour pendant tes horaires. Backtest : ces trades gagnent 1 fois sur 3 et perdent ≈ 13 500 $ par an.`,
           },
         ]}
       />
@@ -796,50 +749,47 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
 
 /** Every pair's own settings on one table. */
 function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
+  const cols = "44px minmax(0, 3fr) 120px 140px 1fr";
   return (
-    <section style={{ ...card, marginTop: 22, overflowX: "auto" }}>
-      <h2 style={cardTitle}>Règles par paire</h2>
-      <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 10 }}>
-        <thead>
-          <tr>
-            <th style={th}>Paire</th>
-            <th style={th}>Niveaux</th>
-            <th style={th}>Stop</th>
-            <th style={th}>TP1 = trailing · TP2</th>
-            <th style={th}>Pas d&apos;ordre</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Panel title="RÈGLES PAR PAIRE">
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 760 }}>
+          <Row head cols={cols}>
+            <span>PAIRE</span>
+            <span>NIVEAUX</span>
+            <span>STOP</span>
+            <span>TP1 = TRAILING · TP2</span>
+            <span>PAS D&apos;ORDRE</span>
+          </Row>
           {per.map(({ e, c }) => {
             const r = e.result!;
             const hours = r.rules?.excludeHours ?? [];
             const levels = Object.entries(c.zones).sort(([a], [b]) => Number(a) - Number(b));
             return (
-              <tr key={e.symbol}>
-                <td style={{ ...td, fontWeight: 700 }}>{e.symbol}</td>
-                <td style={{ ...td, whiteSpace: "normal" }}>
+              <Row key={e.symbol} cols={cols} style={{ padding: "6px 10px" }}>
+                <span style={{ color: TXT, fontWeight: 700 }}>{e.symbol}</span>
+                <span>
                   {levels.map(([z, b], i) => (
-                    <span key={z} style={{ color: b.pnl > 0 ? undefined : lossColor }}>
+                    <span key={z} style={{ color: b.pnl > 0 ? TXT : LOSS }}>
                       {i ? " · " : ""}
                       {fmtZone(Number(z), e.symbol)}
-                      {b.pnl > 0 ? "" : " ✗"}
+                      {b.pnl > 0 ? "" : "✗"}
                     </span>
                   ))}
-                </td>
-                <td style={td}>
-                  {fmtDist(e.symbol, c.cfg.sl)} ({(c.cfg.sl * r.tickValue * r.settings.lots).toFixed(0)} $)
-                </td>
-                <td style={td}>
-                  {fmtDist(e.symbol, c.cfg.tp1)}
-                  {kindOf(c.cfg) === "tp1trail" && c.cfg.tp2 > c.cfg.tp1 && <div style={{ color: muted }}>TP2 {fmtDist(e.symbol, c.cfg.tp2)}</div>}
-                </td>
-                <td style={td}>{hours.length ? hoursText(hours) : "—"}</td>
-              </tr>
+                </span>
+                <span style={{ color: LOSS }}>
+                  {c.cfg.sl} TK <span style={{ color: DIM }}>· {(c.cfg.sl * r.tickValue * r.settings.lots).toFixed(0)} $</span>
+                </span>
+                <span style={{ color: GAIN }}>
+                  +{c.cfg.tp1} TK{kindOf(c.cfg) === "tp1trail" && c.cfg.tp2 > c.cfg.tp1 ? ` · +${c.cfg.tp2} TK` : ""}
+                </span>
+                <span style={{ color: DIM }}>{hours.length ? hoursText(hours).toUpperCase() : "—"}</span>
+              </Row>
             );
           })}
-        </tbody>
-      </table>
-    </section>
+        </div>
+      </div>
+    </Panel>
   );
 }
 
@@ -851,60 +801,24 @@ function hoursText(hours: number[]) {
     if (last && last[1] === h) last[1] = h + 1;
     else spans.push([h, h + 1]);
   }
-  return spans.map(([a, b]) => `${a}h–${b}h`).join(", ");
+  return spans.map(([a, b]) => `${a}h–${b}h`).join(" · ");
 }
 
-const chicagoTime = new Intl.DateTimeFormat("fr-CH", { timeZone: "America/Chicago", weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+/** A time on Chicago's clock, the terminal way: "04.11 09:16". */
+const ctParts = new Intl.DateTimeFormat("fr-CH", { timeZone: "America/Chicago", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+const ctTime = (t: number) => {
+  const p = Object.fromEntries(ctParts.formatToParts(t).map((x) => [x.type, x.value]));
+  return { date: `${p.day}.${p.month}`, time: `${p.hour}:${p.minute}` };
+};
 
 /** How a trade ended, for the runner-trailed exit the plan uses. */
 const OUT_TEXT: Record<string, string> = {
-  SL: "Stop",
-  TP1: "TP1, runner sorti à l'entrée",
-  TR: "TP1 + trailing",
+  SL: "STOP",
+  TP1: "TP1 · RUNNER À L'ENTRÉE",
+  TR: "TP1 + TRAILING",
   TP2: "TP1 + TP2",
-  TO: "Clôturé (durée max)",
+  TO: "CLÔTURÉ (DURÉE MAX)",
 };
-
-/** The order on a line: stop under the entry, TP1 and TP2 over it, each at its distance. */
-function Ladder({ sl, tp1, tp2, trail }: { sl: number; tp1: number; tp2: number | null; trail: number }) {
-  const range = sl + Math.max(tp1, tp2 ?? 0);
-  const at = (x: number) => `${(((x + sl) / range) * 100).toFixed(1)}%`;
-  const marks: [number, string, boolean][] = [
-    [-sl, `SL −${sl}`, true],
-    [0, "Entrée", false],
-    [tp1, `TP1 +${tp1} · trailing ${trail}`, true],
-    ...(tp2 ? [[tp2, `TP2 +${tp2}`, false] as [number, string, boolean]] : []),
-  ];
-  const text = (s: string) => <span style={{ ...mono, fontSize: 11, color: "oklch(0.86 0.0118 290)", whiteSpace: "nowrap" }}>{s}</span>;
-  return (
-    <div role="img" aria-label={`Stop ${sl} ticks sous l'entrée, TP1 à ${tp1} ticks${tp2 ? `, TP2 à ${tp2} ticks` : ""}`} style={{ position: "relative", height: 58, margin: "22px 30px 20px" }}>
-      <div style={{ position: "absolute", top: 25, left: 0, width: at(0), height: 8, borderRadius: "4px 0 0 4px", background: "oklch(0.74 0.15 55 / 0.5)" }} />
-      <div style={{ position: "absolute", top: 25, left: at(0), right: 0, height: 8, borderRadius: "0 4px 4px 0", background: "oklch(0.68 0.19 293 / 0.4)" }} />
-      {marks.map(([x, s, above], i) => (
-        <div
-          key={s}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: at(x),
-            display: "flex",
-            flexDirection: "column",
-            // The two ends hang inward, so their labels stay on the card.
-            ...(i === 0
-              ? { transform: "translateX(-1px)", alignItems: "flex-start" }
-              : i === marks.length - 1
-                ? { transform: "translateX(calc(-100% + 1px))", alignItems: "flex-end" }
-                : { transform: "translateX(-50%)", alignItems: "center" }),
-          }}
-        >
-          <div style={{ height: 22, display: "flex", alignItems: "flex-end" }}>{above && text(s)}</div>
-          <div style={{ width: 2, height: 14, borderRadius: 1, background: "oklch(0.92 0.0059 290)" }} />
-          <div style={{ height: 22, display: "flex", alignItems: "flex-start" }}>{!above && text(s)}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: ConfigStats; account: AccountRules; onChoose: (key: string) => void }) {
   const r = entry.result!;
@@ -921,327 +835,265 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
   const hours = r.rules?.excludeHours ?? [];
   const hasTp2 = kindOf(c) === "tp1trail" && c.tp2 > c.tp1;
   const dd = cfg.propDD ?? cfg.maxDD;
-  const entryText = c.offset === 0 ? "sur le niveau" : `${fmtDist(r.symbol, Math.abs(c.offset))} ${c.offset > 0 ? "avant le" : "au-delà du"} niveau`;
+  const entryText = c.offset === 0 ? "SUR LE NIVEAU" : `${Math.abs(c.offset)} TICK${Math.abs(c.offset) > 1 ? "S" : ""} ${c.offset > 0 ? "AVANT LE" : "AU-DELÀ DU"} NIVEAU`;
   const rows = month ? cfg.trades.filter((t) => monthOf(t[0] * 60000) === month) : [];
   const mb = month ? cfg.months[month] : null;
+  const ms = Object.values(cfg.months);
+  const far = hasTp2 ? c.tp2 : c.tp1;
+  const range = c.sl + far;
+  const monthMax = Math.max(1, ...months.map((m) => Math.abs(cfg.months[m]?.pnl ?? 0)));
   const priceCols = hasTp2 ? 5 : 4;
-  const priceGrid = `96px repeat(${priceCols * 2}, minmax(0, 1fr))`;
-  const tradeGrid = "1.3fr 0.7fr 1.4fr 0.8fr 0.8fr 1.6fr 0.6fr 0.5fr 0.7fr";
-  const cfgGrid = "96px 0.6fr 1.6fr 0.8fr 1.5fr 0.8fr 0.6fr 0.7fr 0.6fr";
-  const cfgMax = Math.max(1, ...r.top.map((x) => x.pnl));
+  const priceGrid = `72px repeat(${priceCols}, minmax(0, 1fr)) 12px repeat(${priceCols}, minmax(0, 1fr))`;
+  const tradeCols = "92px 46px 22px 70px 70px 70px 70px 1fr 40px 60px";
+  const cfgCols = "40px 34px 1.6fr 44px 64px 50px 48px 44px 48px";
+  const kpis = [
+    { label: `P&L/MOIS · ${r.symbol}`, value: short(cfg.pnl / nMonths), color: tone(cfg.pnl), sub: `${short(cfg.pnl)} SUR LA PÉRIODE` },
+    { label: "TRADES/MOIS", value: (cfg.n / nMonths).toFixed(1).replace(".", ","), color: TXT, sub: entryText },
+    { label: "WIN%", value: (cfg.winRate * 100).toFixed(1).replace(".", ","), color: TXT, sub: `${ms.filter((m) => m.pnl > 0).length}/${ms.length} MOIS POSITIFS` },
+    { label: "MAX DD", value: short(-dd), color: LOSS, sub: account.ddLimit ? `${Math.round((dd / account.ddLimit) * 100)}% DE LA LIMITE` : "FIN DE JOURNÉE" },
+    { label: "STOP", value: `${c.sl} TK`, color: LOSS, sub: `${(c.sl * r.tickValue * lots).toFixed(0)} $ À ${lots} LOTS` },
+    { label: hasTp2 ? "TP1 → TP2" : "TP1", value: hasTp2 ? `${c.tp1}→${c.tp2}` : `${c.tp1}`, color: GAIN, sub: kindOf(c) === "tp1trail" ? `TRAILING ${c.dist} TK` : exitShort(c).toUpperCase() },
+  ];
 
   return (
     <>
-      <section style={kpiGrid}>
-        <Kpi title={`P&L par mois · ${r.symbol}`} value={fmtUsd(cfg.pnl / nMonths)} color={tone(cfg.pnl)} hint={`${fmtUsd(cfg.pnl)} sur la période`} />
-        <Kpi title="Trades par mois" value={(cfg.n / nMonths).toFixed(1).replace(".", ",")} hint={`ordre ${entryText}`} />
-        <Kpi title="Gagnants" value={pct(cfg.winRate)} hint={`TP1 → TP2 : ${c.tp1}${hasTp2 ? ` → ${c.tp2}` : ""} ticks`} bar={{ pct: cfg.winRate * 100, color: winColor }} />
-        <Kpi
-          title="Drawdown max"
-          value={fmtUsd(-dd)}
-          color={lossColor}
-          hint={account.ddLimit ? `${Math.round((dd / account.ddLimit) * 100)} % de la limite de ${account.ddLimit} $` : "fin de journée"}
-          bar={account.ddLimit ? { pct: (dd / account.ddLimit) * 100, color: lossColor } : undefined}
-        />
-      </section>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 16 }}>
-        <article style={{ ...card, flex: "1 1 380px", minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <h2 style={cardTitle}>Ta règle {r.symbol}</h2>
-            <span style={{ fontSize: 12, color: muted }}>
-              Backtest du {fmtDay(r.from)} au {fmtDay(r.to)} · {lots} lots
-            </span>
+      <KpiStrip kpis={kpis} />
+      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1.5fr)", gap: 8 }}>
+        <Panel title={`RÈGLE ${r.symbol}`} right={`${fmtDay(r.from)} → ${fmtDay(r.to)}`}>
+          <div style={{ padding: "8px 10px", lineHeight: 1.9 }}>
+            <div>
+              <span style={{ color: DIM }}>NIVEAUX </span>
+              {levels.map(([z, b]) => (
+                <span key={z} title={`${fmtUsd(b.pnl)} sur ${b.n} trades`} style={{ color: b.pnl > 0 ? TXT : LOSS, marginRight: 10 }}>
+                  {fmtZone(Number(z), r.symbol)}
+                  {b.pnl > 0 ? "" : "✗"}
+                </span>
+              ))}
+            </div>
+            <div>
+              <span style={{ color: DIM }}>ENTRÉE </span>
+              <span style={{ color: TXT }}>LIMITE {entryText}</span>
+            </div>
+            <div>
+              <span style={{ color: DIM }}>LOTS </span>
+              <span style={{ color: TXT }}>50K : {lots} LOTS</span>
+              {kindOf(c) === "tp1trail" && lots >= 2 && <span style={{ color: DIM }}> · {lots / 2} À TP1, L&apos;AUTRE EN TRAILING</span>}
+            </div>
+            <div>
+              <span style={{ color: DIM }}>STOP </span>
+              <span style={{ color: LOSS }}>
+                {c.sl} TK · {(c.sl * r.tickValue * lots).toFixed(0)} $ À {lots} LOTS
+              </span>
+            </div>
+            <div>
+              <span style={{ color: DIM }}>TP1 </span>
+              <span style={{ color: GAIN }}>+{c.tp1} TK</span>
+              <span style={{ color: DIM }}> · 1 LOT · STOP → ENTRÉE</span>
+            </div>
+            {hasTp2 && (
+              <div>
+                <span style={{ color: DIM }}>TP2 </span>
+                <span style={{ color: GAIN }}>+{c.tp2} TK</span>
+                <span style={{ color: DIM }}> · RUNNER EN TRAILING {c.dist} TK</span>
+              </div>
+            )}
+            <div>
+              <span style={{ color: DIM }}>BLACKOUT </span>
+              <span style={{ color: TXT }}>{hours.length ? `${hoursText(hours).toUpperCase()} CT` : "AUCUN"}</span>
+            </div>
           </div>
-          {kindOf(c) === "tp1trail" ? (
-            <Ladder sl={c.sl} tp1={c.tp1} tp2={hasTp2 ? c.tp2 : null} trail={c.dist} />
-          ) : (
-            <div style={{ fontSize: 13, margin: "14px 0" }}>{exitShort(c)}</div>
-          )}
-          <div style={{ display: "grid", gridTemplateColumns: "110px minmax(0, 1fr)", rowGap: 12, columnGap: 12, fontSize: 13, paddingTop: 14, borderTop: "1px solid oklch(0.3 0.0176 290 / 0.7)" }}>
-            <div style={{ color: muted }}>Niveaux</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {levels.map(([z, b]) => {
-                const bad = b.pnl <= 0;
+          <div style={{ padding: "2px 10px 10px" }}>
+            <div style={{ color: DIM, fontSize: 10.5, marginBottom: 4 }}>RISQUE / GAIN EN TICKS</div>
+            <div style={{ display: "flex", height: 10 }}>
+              <span style={{ display: "block", width: `${((c.sl / range) * 100).toFixed(1)}%`, background: LOSS }} />
+              <span style={{ width: 2, background: "#FFF" }} />
+              <span style={{ display: "block", width: `${((c.tp1 / range) * 100).toFixed(1)}%`, background: GAIN }} />
+              {hasTp2 && <span style={{ width: 1, background: "#000" }} />}
+              {hasTp2 && <span style={{ display: "block", flex: 1, background: "rgba(63,212,122,0.4)" }} />}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, marginTop: 3 }}>
+              <span style={{ color: LOSS }}>−{c.sl}</span>
+              <span>ENTRÉE</span>
+              <span style={{ color: GAIN }}>
+                TP1 +{c.tp1}
+                {hasTp2 ? ` · TP2 +${c.tp2}` : ""}
+              </span>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel title="MOIS" right="CLIC = TRADES">
+          <Row head cols="62px 28px 40px 1fr 54px">
+            <span>MOIS</span>
+            <span style={R}>TR</span>
+            <span style={R}>WIN</span>
+            <span />
+            <span style={R}>P&L</span>
+          </Row>
+          {[...months].reverse().map((m) => {
+            const b = cfg.months[m];
+            const on = m === month;
+            return (
+              <Row
+                key={m}
+                cols="62px 28px 40px 1fr 54px"
+                onClick={b ? () => setMonth(m) : undefined}
+                style={on ? { background: ORANGE, color: "#000" } : undefined}
+              >
+                <span style={{ color: on ? "#000" : DIM }}>{termMonth(m)}</span>
+                <span style={R}>{b ? b.n : "–"}</span>
+                <span style={{ ...R, color: on ? "#000" : DIM }}>{b ? `${Math.round((b.wins / b.n) * 100)}%` : ""}</span>
+                <span style={b ? bar((Math.abs(b.pnl) / monthMax) * 100, tone(b.pnl)) : { display: "block" }} />
+                <span style={{ ...R, color: on ? "#000" : b ? tone(b.pnl) : "#444", fontWeight: 600 }}>{b ? short(b.pnl) : "–"}</span>
+              </Row>
+            );
+          })}
+        </Panel>
+
+        <Panel title={`TRADES · ${month ? termMonth(month) : "—"}`} right={mb ? `${mb.n} TR · ${Math.round((mb.wins / mb.n) * 100)}% · ${short(mb.pnl)} $` : "AUCUN TRADE"} style={{ gridColumn: "span 1" }}>
+          <div style={{ overflowX: "auto" }}>
+            <div style={{ minWidth: 680 }}>
+              <Row head cols={tradeCols}>
+                <span>OUVERT</span>
+                <span>FERMÉ</span>
+                <span>S</span>
+                <span style={R}>NIVEAU</span>
+                <span style={R}>ENTRÉE</span>
+                <span style={R}>SL</span>
+                <span style={R}>TP1</span>
+                <span>SORTIE</span>
+                <span style={R}>TK</span>
+                <span style={R}>P&L</span>
+              </Row>
+              {rows.map((t) => {
+                const [m, ticks, end, , , , zone, dir, out] = t;
+                const known = zone !== undefined && dir !== undefined && tick;
+                const e = known ? zone + dir * c.offset * tick : null;
+                const outcome = out === undefined ? null : OUTCOMES[out];
+                const runner = outcome === "TR" && lots === 2 ? Math.round(ticks * 2 - c.tp1) : null;
+                const color = tone(ticks);
+                const o = ctTime(m * 60000);
                 return (
-                  <span
-                    key={z}
-                    title={`${fmtUsd(b.pnl)} sur ${b.n} trades`}
-                    style={{
-                      ...mono,
-                      fontSize: 12,
-                      padding: "4px 8px",
-                      borderRadius: 6,
-                      background: bad ? "oklch(0.7 0.15 20 / 0.12)" : "oklch(0.23 0.0176 290)",
-                      color: bad ? lossColor : "oklch(0.88 0.0118 290)",
-                      border: bad ? "1px dashed oklch(0.7 0.15 20 / 0.5)" : "1px solid transparent",
-                    }}
-                  >
-                    {fmtZone(Number(z), r.symbol)}
-                    {bad ? " ✗" : ""}
-                  </span>
+                  <Row key={m} cols={tradeCols}>
+                    <span style={{ color: DIM }}>
+                      {o.date} {o.time}
+                    </span>
+                    <span style={{ color: DIM }}>{end === undefined ? "—" : ctTime(end * 60000).time}</span>
+                    <span style={{ color: dir === 1 ? buyColor : sellColor, fontWeight: 700 }}>{dir === undefined ? "—" : dir === 1 ? "B" : "S"}</span>
+                    <span style={R}>{zone === undefined ? "—" : price(zone)}</span>
+                    <span style={{ ...R, color: TXT }}>{e === null ? "—" : price(e)}</span>
+                    <span style={{ ...R, color: LOSS }}>{e === null ? "—" : price(e - dir! * c.sl * tick!)}</span>
+                    <span style={{ ...R, color: GAIN }}>{e === null ? "—" : price(e + dir! * c.tp1 * tick!)}</span>
+                    <span style={{ color: "#CCC", fontSize: 11.5 }}>
+                      {outcome === null ? "—" : runner !== null ? `TP1 + TRAIL ${runner >= 0 ? "+" : "−"}${Math.abs(runner)}` : OUT_TEXT[outcome] ?? outcome}
+                    </span>
+                    <span style={{ ...R, color }}>
+                      {ticks > 0 ? "+" : ticks < 0 ? "−" : ""}
+                      {String(Math.round(Math.abs(ticks) * 100) / 100).replace(".", ",")}
+                    </span>
+                    <span style={{ ...R, color, fontWeight: 700 }}>{short(ticks * money)}</span>
+                  </Row>
                 );
               })}
-            </div>
-            <div style={{ color: muted }}>Entrée</div>
-            <div>Limite {entryText}</div>
-            <div style={{ color: muted }}>Lots</div>
-            <div>
-              50k : {lots} lots{kindOf(c) === "tp1trail" && lots >= 2 ? ` · ${lots / 2} sort à TP1, ${lots / 2 > 1 ? "les autres suivent" : "l'autre suit"} le trailing` : ""}
-            </div>
-            <div style={{ color: muted }}>Stop</div>
-            <div>
-              {fmtDist(r.symbol, c.sl)} <span style={{ color: muted }}>· {(c.sl * r.tickValue * lots).toFixed(0)} $ à {lots} lots</span>
-            </div>
-            <div style={{ color: muted }}>Pas d&apos;ordre</div>
-            <div>
-              {hours.length ? hoursText(hours) : "—"} <span style={{ color: muted }}>· Chicago</span>
+              {!rows.length && <div style={{ color: DIM, padding: "12px 10px" }}>AUCUN TRADE CE MOIS</div>}
             </div>
           </div>
-        </article>
-
-        <article style={{ ...card, flex: "1.3 1 460px", minWidth: 0 }}>
-          <h2 style={cardTitle}>P&amp;L par mois</h2>
-          <div style={{ fontSize: 12, color: muted, marginTop: 3, marginBottom: 16 }}>Clique un mois pour voir ses trades</div>
-          <MonthBars
-            selected={month}
-            onPick={setMonth}
-            bars={months.map((m) => {
-              const b = cfg.months[m];
-              return { key: m, value: b ? b.pnl : null, tip: b ? `${monthLabel(m)} : ${fmtUsd(b.pnl)} · ${b.n} trade${b.n > 1 ? "s" : ""} · ${pct(b.wins / b.n)}` : `${monthLabel(m)} : aucun trade` };
-            })}
-          />
-        </article>
+          <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>
+            HEURES CT · TK = TICKS/CONTRAT (MOY. {lots} LOTS) · P&L À {lots} LOTS, AVANT FRAIS
+          </div>
+        </Panel>
       </div>
 
-      {tick && (
-        <article style={{ ...card, marginBottom: 16 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
-            <h2 style={cardTitle}>Prix par niveau</h2>
-            <span style={{ fontSize: 12, color: muted }}>2e rebond : le prix doit s&apos;éloigner jusqu&apos;à ce prix avant que le niveau compte de nouveau</span>
-          </div>
+      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: 8 }}>
+        {tick && (
+          <Panel title="PRIX PAR NIVEAU" right="REB = 2E REBOND (S'ÉLOIGNER JUSQU'À)">
+            <div style={{ overflowX: "auto" }}>
+              <div style={{ minWidth: hasTp2 ? 760 : 640 }}>
+                <Row head cols={priceGrid}>
+                  <span />
+                  <span style={{ gridColumn: `span ${priceCols}`, color: buyColor, fontWeight: 700 }}>ACHAT · PRIX DESCEND</span>
+                  <span />
+                  <span style={{ gridColumn: `span ${priceCols}`, color: sellColor, fontWeight: 700 }}>VENTE · PRIX MONTE</span>
+                </Row>
+                <Row head cols={priceGrid}>
+                  <span>NIVEAU</span>
+                  {[0, 1].flatMap((side) => [
+                    ...(side ? [<span key="gap" />] : []),
+                    ...["ENTR", "SL", "TP1", ...(hasTp2 ? ["TP2"] : []), "REB"].map((h) => (
+                      <span key={`${side}${h}`} style={R}>
+                        {h}
+                      </span>
+                    )),
+                  ])}
+                </Row>
+                {levels.map(([zs, b]) => {
+                  const z = Number(zs);
+                  const bad = b.pnl <= 0;
+                  const side = (dir: 1 | -1) => {
+                    const e = z + dir * c.offset * tick;
+                    return [e, e - dir * c.sl * tick, e + dir * c.tp1 * tick, ...(hasTp2 ? [e + dir * c.tp2 * tick] : []), z + dir * r.settings.rearm * tick];
+                  };
+                  const colors = [TXT, LOSS, GAIN, ...(hasTp2 ? [GAIN] : []), DIM];
+                  const cells = (dir: 1 | -1) =>
+                    side(dir).map((p, k) => (
+                      <span key={`${dir}${k}`} style={{ ...R, color: colors[k] }}>
+                        {price(p)}
+                      </span>
+                    ));
+                  return (
+                    <Row key={zs} cols={priceGrid} style={bad ? { opacity: 0.45 } : undefined}>
+                      <span style={{ color: TXT, fontWeight: 700 }}>
+                        {fmtZone(z, r.symbol)}
+                        {bad ? "✗" : ""}
+                      </span>
+                      {cells(1)}
+                      <span />
+                      {cells(-1)}
+                    </Row>
+                  );
+                })}
+              </div>
+            </div>
+          </Panel>
+        )}
+
+        <Panel title="CONFIGS TESTÉES" right={`ENTRÉE ${fmtOffset(c.offset)} · CLIC = RETENIR`}>
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: hasTp2 ? 900 : 760, display: "flex", flexDirection: "column", gap: 4, ...mono, fontSize: 12.5 }}>
-              <div style={{ display: "grid", gridTemplateColumns: priceGrid, gap: "0 8px", padding: "0 10px" }}>
-                <div />
-                <div style={{ gridColumn: `span ${priceCols}`, fontFamily: "inherit", fontSize: 12, fontWeight: 600, paddingBottom: 6, borderBottom: `2px solid ${buyColor}`, color: buyColor }}>
-                  Achat · le prix descend sur le niveau
-                </div>
-                <div style={{ gridColumn: `span ${priceCols}`, fontSize: 12, fontWeight: 600, padding: "0 0 6px 12px", borderBottom: `2px solid ${sellColor}`, color: sellColor }}>
-                  Vente · le prix monte sur le niveau
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: priceGrid, gap: "0 8px", padding: "6px 10px 4px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: muted }}>
-                <div>Niveau</div>
-                {[0, 1].flatMap((side) =>
-                  ["Entrée", "SL", "TP1", ...(hasTp2 ? ["TP2"] : []), "2e rebond"].map((h, i) => (
-                    <div key={`${side}${h}`} style={side && !i ? { paddingLeft: 12 } : undefined}>
-                      {h}
-                    </div>
-                  ))
-                )}
-              </div>
-              {levels.map(([zs, b], i) => {
-                const z = Number(zs);
-                const bad = b.pnl <= 0;
-                const side = (dir: 1 | -1) => {
-                  const e = z + dir * c.offset * tick;
-                  return [e, e - dir * c.sl * tick, e + dir * c.tp1 * tick, ...(hasTp2 ? [e + dir * c.tp2 * tick] : []), z + dir * r.settings.rearm * tick];
-                };
-                const cells = (dir: 1 | -1) =>
-                  side(dir).map((p, k) => (
-                    <div
-                      key={`${dir}${k}`}
-                      style={{
-                        fontWeight: k === 0 ? 600 : undefined,
-                        color: k === 1 ? stopColor : k === priceCols - 1 ? muted : undefined,
-                        ...(dir === -1 && k === 0 ? { paddingLeft: 12, borderLeft: "1px solid oklch(0.32 0.0176 290)" } : {}),
-                      }}
-                    >
-                      {price(p)}
-                    </div>
-                  ));
+            <div style={{ minWidth: 580 }}>
+              <Row head cols={cfgCols}>
+                <span>#</span>
+                <span style={R}>SL</span>
+                <span>SORTIE</span>
+                <span style={R}>WIN</span>
+                <span style={R}>P&L</span>
+                <span style={R}>DD</span>
+                <span style={R}>PF</span>
+                <span style={R}>P/DD</span>
+                <span style={R}>M+</span>
+              </Row>
+              {r.top.map((x, i) => {
+                const xm = Object.values(x.months);
+                const on = x.key === cfg.key;
                 return (
-                  <div
-                    key={zs}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: priceGrid,
-                      gap: "0 8px",
-                      alignItems: "center",
-                      padding: "11px 10px",
-                      borderRadius: 8,
-                      color: "oklch(0.92 0.0059 290)",
-                      background: i % 2 ? "transparent" : "oklch(0.15 0.0176 290 / 0.8)",
-                      opacity: bad ? 0.55 : 1,
-                    }}
-                  >
-                    <div style={{ fontWeight: 700 }}>
-                      {fmtZone(z, r.symbol)}
-                      {bad ? " ✗" : ""}
-                    </div>
-                    {cells(1)}
-                    {cells(-1)}
-                  </div>
+                  <Row key={x.key} cols={cfgCols} onClick={() => onChoose(x.key)} style={on ? { background: "#1F1608", boxShadow: `inset 2px 0 0 ${ORANGE}` } : undefined}>
+                    <span style={{ color: i === 0 ? ORANGE : DIM, fontWeight: 700 }}>{i === 0 ? "TOI" : `#${i + 1}`}</span>
+                    <span style={R}>{x.cfg.sl}</span>
+                    <span style={{ color: "#CCC" }}>{exitShort(x.cfg).toUpperCase()}</span>
+                    <span style={R}>{Math.round(x.winRate * 100)}%</span>
+                    <span style={{ ...R, color: tone(x.pnl) }}>{short(x.pnl)}</span>
+                    <span style={{ ...R, color: LOSS }}>{short(-(x.propDD ?? x.maxDD))}</span>
+                    <span style={R}>{fmtPfOrInf(x.pf)}</span>
+                    <span style={R}>{ratioOf(x).toFixed(1)}</span>
+                    <span style={R}>
+                      {xm.filter((mm) => mm.pnl > 0).length}/{xm.length}
+                    </span>
+                  </Row>
                 );
               })}
             </div>
           </div>
-        </article>
-      )}
-
-      <article style={{ ...card, marginBottom: 16 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
-          <h2 style={cardTitle}>Trades · {month ? monthLabel(month) : "—"}</h2>
-          <span style={{ fontSize: 12, color: muted }}>{mb ? `${mb.n} trade${mb.n > 1 ? "s" : ""} · ${pct(mb.wins / mb.n)} gagnants · ${fmtUsd(mb.pnl)}` : "Aucun trade"}</span>
-        </div>
-        {rows.length ? (
-          <>
-            <div style={{ overflowX: "auto" }}>
-              <div style={{ minWidth: 880 }}>
-                <div style={{ display: "grid", gridTemplateColumns: tradeGrid, gap: 10, padding: "0 10px 8px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: muted }}>
-                  <div>Ouvert</div>
-                  <div>Sens</div>
-                  <div>Niveau → entrée</div>
-                  <div>SL</div>
-                  <div>TP1</div>
-                  <div>Sortie</div>
-                  <div>Fermé</div>
-                  <div style={{ textAlign: "right" }}>Ticks</div>
-                  <div style={{ textAlign: "right" }}>P&amp;L</div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {rows.map((t) => {
-                    const [m, ticks, end, , , , zone, dir, out] = t;
-                    const known = zone !== undefined && dir !== undefined && tick;
-                    const e = known ? zone + dir * c.offset * tick : null;
-                    const outcome = out === undefined ? null : OUTCOMES[out];
-                    const runner = outcome === "TR" && lots === 2 ? Math.round(ticks * 2 - c.tp1) : null;
-                    const color = tone(ticks);
-                    return (
-                      <div key={m} style={{ display: "grid", gridTemplateColumns: tradeGrid, gap: 10, alignItems: "center", padding: "12px 10px", borderRadius: 8, background: "oklch(0.15 0.0176 290 / 0.8)", ...mono, fontSize: 12.5 }}>
-                        <div>{chicagoTime.format(m * 60000)}</div>
-                        <div>
-                          {dir === undefined ? (
-                            "—"
-                          ) : (
-                            <span
-                              style={{
-                                fontFamily: "var(--font-space-grotesk), sans-serif",
-                                fontSize: 12,
-                                fontWeight: 600,
-                                padding: "3px 9px",
-                                borderRadius: 20,
-                                background: dir === 1 ? accentSoft : "oklch(0.8 0.14 55 / 0.14)",
-                                color: dir === 1 ? buyColor : sellColor,
-                              }}
-                            >
-                              {dir === 1 ? "Achat" : "Vente"}
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          {zone === undefined ? "—" : price(zone)} <span style={{ color: muted }}>→</span> {e === null ? "—" : price(e)}
-                        </div>
-                        <div style={{ color: "oklch(0.78 0.0118 290)" }}>{e === null ? "—" : price(e - dir! * c.sl * tick!)}</div>
-                        <div style={{ color: "oklch(0.78 0.0118 290)" }}>{e === null ? "—" : price(e + dir! * c.tp1 * tick!)}</div>
-                        <div style={{ fontFamily: "var(--font-space-grotesk), sans-serif", fontSize: 13 }}>
-                          {outcome === null ? "—" : runner !== null ? `TP1 + trailing (${runner >= 0 ? "+" : "−"}${Math.abs(runner)})` : OUT_TEXT[outcome] ?? outcome}
-                        </div>
-                        <div style={{ color: "oklch(0.78 0.0118 290)" }}>{end === undefined ? "—" : chicagoTime.format(end * 60000).split(" ").pop()}</div>
-                        <div style={{ textAlign: "right", color }}>
-                          {ticks > 0 ? "+" : ticks < 0 ? "−" : ""}
-                          {String(Math.round(Math.abs(ticks) * 100) / 100).replace(".", ",")}
-                        </div>
-                        <div style={{ textAlign: "right", fontWeight: 600, color }}>{fmtUsd(ticks * money)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-            <div style={{ fontSize: 11.5, color: muted, marginTop: 10 }}>
-              Heures de Chicago · ticks par contrat en moyenne sur les {lots} lots · P&amp;L à {lots} lots, avant frais
-            </div>
-          </>
-        ) : (
-          <div style={{ fontSize: 13, color: muted, padding: "18px 0" }}>Aucun trade ce mois-ci.</div>
-        )}
-      </article>
-
-      <article style={card}>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
-          <h2 style={cardTitle}>Configs testées</h2>
-          <span style={{ fontSize: 12, color: muted }}>Ta config et les {r.top.length - 1} meilleures autres · entrée {fmtOffset(c.offset)} tick · clique pour en retenir une</span>
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <div style={{ minWidth: 840, display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "grid", gridTemplateColumns: cfgGrid, gap: 10, padding: "0 12px 4px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: muted }}>
-              <div />
-              <div>Stop</div>
-              <div>Sortie</div>
-              <div>Gagnants</div>
-              <div>P&amp;L</div>
-              <div>DD</div>
-              <div>PF</div>
-              <div>P&amp;L / DD</div>
-              <div>Mois +</div>
-            </div>
-            {r.top.map((x, i) => {
-              const ms = Object.values(x.months);
-              const on = x.key === cfg.key;
-              return (
-                <button
-                  key={x.key}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => onChoose(x.key)}
-                  style={{
-                    cursor: "pointer",
-                    display: "grid",
-                    gridTemplateColumns: cfgGrid,
-                    gap: 10,
-                    alignItems: "center",
-                    textAlign: "left",
-                    padding: 12,
-                    borderRadius: 8,
-                    ...mono,
-                    fontSize: 12.5,
-                    color: "oklch(0.92 0.0059 290)",
-                    border: `1px solid ${on ? "oklch(0.68 0.19 293 / 0.6)" : "transparent"}`,
-                    background: on ? "oklch(0.68 0.19 293 / 0.1)" : "oklch(0.15 0.0176 290 / 0.8)",
-                  }}
-                >
-                  <span>
-                    {i === 0 ? (
-                      <span style={{ fontFamily: "var(--font-space-grotesk), sans-serif", fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 20, background: accentColor, color: "oklch(0.14 0.0176 290)" }}>
-                        Ta config
-                      </span>
-                    ) : (
-                      <span style={{ color: muted }}>#{i + 1}</span>
-                    )}
-                  </span>
-                  <span>{x.cfg.sl} ticks</span>
-                  <span style={{ fontFamily: "var(--font-space-grotesk), sans-serif" }}>{exitShort(x.cfg)}</span>
-                  <span>{pct(x.winRate)}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 64, fontWeight: 600, color: tone(x.pnl) }}>{fmtUsd(x.pnl)}</span>
-                    <span style={{ flex: 1, height: 4, borderRadius: 2, background: "oklch(0.26 0.0176 290)", overflow: "hidden" }}>
-                      <span style={{ display: "block", height: "100%", width: `${Math.max(0, (x.pnl / cfgMax) * 100).toFixed(1)}%`, background: winColor }} />
-                    </span>
-                  </span>
-                  <span style={{ color: lossColor }}>{fmtUsd(-(x.propDD ?? x.maxDD))}</span>
-                  <span>{fmtPfOrInf(x.pf)}</span>
-                  <span>{ratioOf(x).toFixed(1).replace(".", ",")}</span>
-                  <span>
-                    {ms.filter((mm) => mm.pnl > 0).length} / {ms.length}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </article>
+        </Panel>
+      </div>
     </>
   );
 }

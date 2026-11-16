@@ -59,7 +59,7 @@ const DEFAULTS: Settings = {
  */
 const money = (n: number) => `$${Math.abs(n).toFixed(2)}`;
 
-const label = { fontSize: 12, color: "oklch(0.6 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" } as const;
+const label = { fontSize: 12, color: "oklch(0.6 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" } as const;
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
 const fieldStyle: React.CSSProperties = {
@@ -69,9 +69,9 @@ const fieldStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   borderRadius: 6,
-  border: "1px solid oklch(0.34 0.0235 290)",
-  background: "oklch(0.16 0.0176 290)",
-  color: "oklch(0.9 0.01 290)",
+  border: "1px solid oklch(0.34 0 0)",
+  background: "oklch(0.08 0 0)",
+  color: "oklch(0.9 0 0)",
   outline: "none",
 };
 
@@ -95,7 +95,7 @@ function Field({
         {suffix && <span style={{ textTransform: "none", letterSpacing: 0 }}> {suffix}</span>}
       </div>
       <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} style={fieldStyle} />
-      {hint && <div style={{ fontSize: 11, color: "oklch(0.5 0.0176 290)", marginTop: 5 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 11, color: "oklch(0.5 0 0)", marginTop: 5 }}>{hint}</div>}
     </label>
   );
 }
@@ -104,10 +104,10 @@ function Figure({ title, value, hint, color }: { title: string; value: string; h
   return (
     <div>
       <div style={{ ...label, fontSize: 11 }}>{title}</div>
-      <div style={{ ...mono, fontSize: 22, fontWeight: 700, marginTop: 6, color: color ?? "oklch(0.96 0.004 290)" }}>
+      <div style={{ ...mono, fontSize: 22, fontWeight: 700, marginTop: 6, color: color ?? "oklch(0.96 0 0)" }}>
         {value}
       </div>
-      {hint && <div style={{ fontSize: 11.5, color: "oklch(0.55 0.0176 290)", marginTop: 4 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 11.5, color: "oklch(0.55 0 0)", marginTop: 4 }}>{hint}</div>}
     </div>
   );
 }
@@ -247,7 +247,7 @@ export default function RiskCalculator({ initialSettings }: { initialSettings: P
             hint={r.total > 0 ? `${((r.feesTotal / r.total) * 100).toFixed(1)} % du risque` : undefined}
           />
         </div>
-        <div style={{ fontSize: 13, color: "oklch(0.72 0.0118 290)", marginTop: 16, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 13, color: "oklch(0.72 0 0)", marginTop: 16, lineHeight: 1.6 }}>
           Un stop de {settings.stopTicks} ticks à {money(settings.tickValue)} le tick coûte {money(r.stopLossPerLot)} par
           lot, {money(settings.feePerLot)} de frais en plus, soit{" "}
           <span style={{ color: accentColor, fontWeight: 600 }}>{money(r.perLot)} par lot</span>. C&apos;est aussi ce que
@@ -290,7 +290,7 @@ export default function RiskCalculator({ initialSettings }: { initialSettings: P
             hint="moitié de la position à chaque cible, frais compris"
           />
         </div>
-        <div style={{ fontSize: 13, color: "oklch(0.72 0.0118 290)", marginTop: 16, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 13, color: "oklch(0.72 0 0)", marginTop: 16, lineHeight: 1.6 }}>
           Pour {settings.lots} lot(s) à {money(settings.tickValue)} le tick, TP1 à {r.cibles[0].ticks} ticks rapporte{" "}
           <span style={{ color: winColor, fontWeight: 600 }}>{money(r.cibles[0].net)}</span> net et TP2 à{" "}
           {r.cibles[1].ticks} ticks{" "}

@@ -80,8 +80,8 @@ export default function MoveCategoryMenu({
           fontSize: 10,
           padding: "3px 10px",
           borderRadius: 999,
-          border: "1px dashed oklch(0.34 0.0118 290)",
-          color: "oklch(0.6 0.0118 290)",
+          border: "1px dashed oklch(0.34 0 0)",
+          color: "oklch(0.6 0 0)",
           cursor: "pointer",
           whiteSpace: "nowrap",
         }}
@@ -99,8 +99,8 @@ export default function MoveCategoryMenu({
             width: 280,
             maxHeight: 340,
             overflowY: "auto",
-            background: "oklch(0.21 0.02 290)",
-            border: "1px solid oklch(0.34 0.02 290)",
+            background: "oklch(0.13 0 0)",
+            border: "1px solid oklch(0.34 0 0)",
             borderRadius: 10,
             boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
             padding: 8,
@@ -116,17 +116,17 @@ export default function MoveCategoryMenu({
               fontSize: 12.5,
               padding: "7px 9px",
               borderRadius: 7,
-              border: "1px solid oklch(0.32 0.02 290)",
-              background: "oklch(0.16 0.0176 290)",
-              color: "oklch(0.9 0.005 290)",
+              border: "1px solid oklch(0.32 0 0)",
+              background: "oklch(0.08 0 0)",
+              color: "oklch(0.9 0 0)",
               outline: "none",
               marginBottom: 6,
               boxSizing: "border-box",
             }}
           />
-          {loading && <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", padding: "6px 4px" }}>Chargement...</div>}
+          {loading && <div style={{ fontSize: 12, color: "oklch(0.55 0 0)", padding: "6px 4px" }}>Chargement...</div>}
           {!loading && rows.length === 0 && (
-            <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", padding: "6px 4px" }}>Aucune note.</div>
+            <div style={{ fontSize: 12, color: "oklch(0.55 0 0)", padding: "6px 4px" }}>Aucune note.</div>
           )}
           {!loading &&
             rows.map(({ node, depth }) => {
@@ -145,7 +145,7 @@ export default function MoveCategoryMenu({
                     padding: `7px 8px 7px ${8 + depth * 14}px`,
                     borderRadius: 6,
                     cursor: here ? "default" : "pointer",
-                    color: here ? "oklch(0.45 0.0176 290)" : "oklch(0.85 0.01 290)",
+                    color: here ? "oklch(0.45 0 0)" : "oklch(0.85 0 0)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",

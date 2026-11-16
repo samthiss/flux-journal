@@ -26,7 +26,7 @@ export default async function RisquePage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <PageTitle>Risque</PageTitle>
-        <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
+        <div style={{ fontSize: 14, color: "oklch(0.62 0 0)", marginTop: 4 }}>
           Ce qu&apos;un trade risque, et la taille que ce risque autorise
         </div>
       </div>

@@ -52,7 +52,7 @@ const DEFAULTS: Settings = {
   breakevenAfterTp1: true,
 };
 
-const label = { fontSize: 12, color: "oklch(0.6 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" } as const;
+const label = { fontSize: 12, color: "oklch(0.6 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" } as const;
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 const pct = (n: number) => `${(n * 100).toFixed(1)} %`;
 
@@ -63,9 +63,9 @@ const fieldStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   borderRadius: 6,
-  border: "1px solid oklch(0.34 0.0235 290)",
-  background: "oklch(0.16 0.0176 290)",
-  color: "oklch(0.9 0.01 290)",
+  border: "1px solid oklch(0.34 0 0)",
+  background: "oklch(0.08 0 0)",
+  color: "oklch(0.9 0 0)",
   outline: "none",
 };
 
@@ -95,10 +95,10 @@ function Figure({ title, value, hint, color }: { title: string; value: string; h
   return (
     <div>
       <div style={{ ...label, fontSize: 11 }}>{title}</div>
-      <div style={{ ...mono, fontSize: 20, fontWeight: 600, marginTop: 6, color: color ?? "oklch(0.96 0.004 290)" }}>
+      <div style={{ ...mono, fontSize: 20, fontWeight: 600, marginTop: 6, color: color ?? "oklch(0.96 0 0)" }}>
         {value}
       </div>
-      {hint && <div style={{ fontSize: 11.5, color: "oklch(0.55 0.0176 290)", marginTop: 3 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 11.5, color: "oklch(0.55 0 0)", marginTop: 3 }}>{hint}</div>}
     </div>
   );
 }
@@ -184,7 +184,7 @@ export default function ChallengeCard({ initialSettings }: { initialSettings: Pa
   return (
     <div style={{ ...glassCard, marginBottom: 20 }}>
       <div style={label}>Challenge prop firm</div>
-      <div style={{ fontSize: 12.5, color: "oklch(0.62 0.0176 290)", marginTop: 8, maxWidth: 760 }}>
+      <div style={{ fontSize: 12.5, color: "oklch(0.62 0 0)", marginTop: 8, maxWidth: 760 }}>
         {settings.splitExit
           ? "La position sort en deux fois : une part à TP1, le reste à TP2. Les trois issues ci-dessous sont rejouées 3 000 fois."
           : "Un gain vaut RR fois le risque, une perte vaut le risque. La séquence est rejouée 3 000 fois."}{" "}
@@ -213,7 +213,7 @@ export default function ChallengeCard({ initialSettings }: { initialSettings: Pa
       </div>
 
       {settings.accountSize > 0 && (
-        <div style={{ ...mono, fontSize: 11.5, color: "oklch(0.55 0.0176 290)", marginBottom: 16 }}>
+        <div style={{ ...mono, fontSize: 11.5, color: "oklch(0.55 0 0)", marginBottom: 16 }}>
           objectif {ofAccount(settings.target)} du compte · drawdown {ofAccount(settings.trailingDrawdown)} · perte
           journalière {ofAccount(settings.dailyLossLimit)}
         </div>
@@ -233,9 +233,9 @@ export default function ChallengeCard({ initialSettings }: { initialSettings: Pa
               padding: "5px 12px",
               borderRadius: 999,
               cursor: "pointer",
-              border: `1px solid ${settings.splitExit === value ? "oklch(0.68 0.19 293 / 0.5)" : "oklch(0.32 0.0176 290)"}`,
-              background: settings.splitExit === value ? "oklch(0.68 0.19 293 / 0.14)" : "transparent",
-              color: settings.splitExit === value ? accentColor : "oklch(0.6 0.0176 290)",
+              border: `1px solid ${settings.splitExit === value ? "oklch(0.79 0.17 66 / 0.5)" : "oklch(0.32 0 0)"}`,
+              background: settings.splitExit === value ? "oklch(0.79 0.17 66 / 0.14)" : "transparent",
+              color: settings.splitExit === value ? accentColor : "oklch(0.6 0 0)",
             }}
           >
             {text as string}
@@ -296,10 +296,10 @@ export default function ChallengeCard({ initialSettings }: { initialSettings: Pa
                   borderRadius: 999,
                   cursor: "pointer",
                   border: `1px solid ${
-                    settings.breakevenAfterTp1 === value ? "oklch(0.68 0.19 293 / 0.5)" : "oklch(0.32 0.0176 290)"
+                    settings.breakevenAfterTp1 === value ? "oklch(0.79 0.17 66 / 0.5)" : "oklch(0.32 0 0)"
                   }`,
-                  background: settings.breakevenAfterTp1 === value ? "oklch(0.68 0.19 293 / 0.14)" : "transparent",
-                  color: settings.breakevenAfterTp1 === value ? accentColor : "oklch(0.6 0.0176 290)",
+                  background: settings.breakevenAfterTp1 === value ? "oklch(0.79 0.17 66 / 0.14)" : "transparent",
+                  color: settings.breakevenAfterTp1 === value ? accentColor : "oklch(0.6 0 0)",
                 }}
               >
                 {text as string}
@@ -328,12 +328,12 @@ export default function ChallengeCard({ initialSettings }: { initialSettings: Pa
                   justifyContent: "space-between",
                   gap: 12,
                   padding: "9px 12px",
-                  borderTop: "1px solid oklch(0.26 0.0176 290)",
+                  borderTop: "1px solid oklch(0.26 0 0)",
                 }}
               >
-                <div style={{ fontSize: 13, color: "oklch(0.8 0.0118 290)" }}>{title as string}</div>
+                <div style={{ fontSize: 13, color: "oklch(0.8 0 0)" }}>{title as string}</div>
                 <div style={{ ...mono, fontSize: 13, display: "flex", gap: 16, alignItems: "baseline" }}>
-                  <span style={{ color: "oklch(0.55 0.0176 290)" }}>{pct(outcome.probability)}</span>
+                  <span style={{ color: "oklch(0.55 0 0)" }}>{pct(outcome.probability)}</span>
                   <span
                     style={{
                       fontWeight: 600,
@@ -388,11 +388,11 @@ export default function ChallengeCard({ initialSettings }: { initialSettings: Pa
               title="Réussite"
               value={pct(result.challenge.passRate)}
               hint={`compte perdu ${pct(result.challenge.bustRate)}`}
-              color={result.challenge.passRate >= 0.7 ? winColor : "oklch(0.96 0.004 290)"}
+              color={result.challenge.passRate >= 0.7 ? winColor : "oklch(0.96 0 0)"}
             />
           </div>
 
-          <div style={{ fontSize: 13, color: "oklch(0.72 0.0118 290)", lineHeight: 1.6 }}>
+          <div style={{ fontSize: 13, color: "oklch(0.72 0 0)", lineHeight: 1.6 }}>
             {result.tradesToTarget ? (
               <>
                 Sans accroc, l&apos;objectif demande{" "}
@@ -417,7 +417,7 @@ export default function ChallengeCard({ initialSettings }: { initialSettings: Pa
         </>
       )}
 
-      <div style={{ fontSize: 11.5, color: "oklch(0.5 0.0176 290)", marginTop: 14, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 11.5, color: "oklch(0.5 0 0)", marginTop: 14, lineHeight: 1.6 }}>
         Le modèle suppose des trades indépendants et un risque constant. Il ne connaît ni les séries liées à un régime de
         marché, ni le tilt après une mauvaise journée, ni le slippage. C&apos;est un ordre de grandeur, pas une promesse.
       </div>

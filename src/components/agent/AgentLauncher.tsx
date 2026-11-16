@@ -57,8 +57,8 @@ export default function AgentLauncher() {
             flexDirection: "column",
             padding: 16,
             borderRadius: 14,
-            border: "1px solid oklch(0.34 0.02 290)",
-            background: "oklch(0.13 0.0118 290 / 0.97)",
+            border: "1px solid oklch(0.34 0 0)",
+            background: "oklch(0.05 0 0 / 0.97)",
             boxShadow: "0 24px 60px -18px oklch(0 0 0 / 0.7)",
           }}
         >
@@ -70,7 +70,7 @@ export default function AgentLauncher() {
                 marginLeft: "auto",
                 background: "none",
                 border: "none",
-                color: "oklch(0.6 0.0118 290)",
+                color: "oklch(0.6 0 0)",
                 fontSize: 16,
                 cursor: "pointer",
                 lineHeight: 1,
@@ -96,7 +96,7 @@ export default function AgentLauncher() {
           borderRadius: "50%",
           cursor: "pointer",
           border: `1px solid ${accentColor}`,
-          background: "oklch(0.16 0.0176 290)",
+          background: "oklch(0.08 0 0)",
           boxShadow: `0 0 18px -4px ${accentColor}`,
           display: "flex",
           alignItems: "center",
