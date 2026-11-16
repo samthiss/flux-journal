@@ -320,10 +320,11 @@ export default async function TradeDetail({
               ["Zone", trade.level != null ? fmtZone(trade.level, trade.symbol) : null, null],
               ["SL", trade.slPrice != null ? fmtPrice(trade.slPrice, trade.symbol, CONTRACTS[trade.symbol]?.tickSize) : null, null],
               ["TP1", trade.tp1Price != null ? fmtPrice(trade.tp1Price, trade.symbol, CONTRACTS[trade.symbol]?.tickSize) : null, null],
+              ["Trailing stop", trade.trailPrice != null ? fmtPrice(trade.trailPrice, trade.symbol, CONTRACTS[trade.symbol]?.tickSize) : null, null],
               ["TP2", trade.tp2Price != null ? fmtPrice(trade.tp2Price, trade.symbol, CONTRACTS[trade.symbol]?.tickSize) : null, null],
               [
                 "Résultat",
-                trade.outcome === "SL" ? "SL" : trade.outcome === "TRAIL" ? "BE / trailing stop" : trade.outcome === "TP2" ? "TP2" : null,
+                trade.outcome === "SL" ? "SL" : trade.outcome === "TP1" ? "TP1" : trade.outcome === "TRAIL" ? "TP1 + trailing stop" : trade.outcome === "TP2" ? "TP2" : null,
                 trade.outcome === "SL" ? lossColor : accentColor,
               ],
             ]

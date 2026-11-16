@@ -138,13 +138,16 @@ model Trade {
   /**
    * A Jahreswiderstand trade's own plan: the yearly level it was taken at,
    * its stop, TP1 and TP2 as prices — offered from the backtested plan of the
-   * symbol and kept as they were written — and how it ended: "SL", "TRAIL"
-   * (TP1 then the runner out at break-even or on its trailing stop) or "TP2".
+   * symbol and kept as they were written — and how it ended: "SL", "TP1" (the runner
+   * out at the entry), "TRAIL" (TP1, then the runner out on its trailing stop)
+   * or "TP2".
    */
   level          Float?
   slPrice        Float?
   tp1Price       Float?
   tp2Price       Float?
+  /** Where the trailing stop took the runner out, on a "TRAIL" trade. */
+  trailPrice     Float?
   outcome        String?
 
   emotion        String?

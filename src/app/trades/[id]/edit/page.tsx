@@ -84,6 +84,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         slPrice: trade.slPrice != null ? String(trade.slPrice) : "",
         tp1Price: trade.tp1Price != null ? String(trade.tp1Price) : "",
         tp2Price: trade.tp2Price != null ? String(trade.tp2Price) : "",
+        trailPrice: trade.trailPrice != null ? String(trade.trailPrice) : "",
         outcome: trade.outcome ?? "",
         planFollowed: trade.planFollowed === null ? "" : trade.planFollowed ? "oui" : "non",
       }}

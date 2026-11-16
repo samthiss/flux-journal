@@ -155,6 +155,7 @@ export default async function NewTradePage({
         slPrice: "",
         tp1Price: "",
         tp2Price: "",
+        trailPrice: "",
         outcome: "",
         planFollowed: "",
       }}

@@ -23,12 +23,13 @@ const JAHRES = "Jahreswiderstand";
 
 /**
  * How a Jahreswiderstand trade ends, and the take-profit level each one means,
- * so the journal's TP counts stay right: stopped out, TP1 then the runner out
- * at break-even or on its trail, or the runner at TP2.
+ * so the journal's TP counts stay right: stopped out, TP1 with the runner out
+ * at the entry, TP1 with the runner out on its trail, or the runner at TP2.
  */
 const OUTCOMES = [
   { value: "SL", label: "SL", tp: "" },
-  { value: "TRAIL", label: "BE / trailing stop", tp: "1" },
+  { value: "TP1", label: "TP1", tp: "1" },
+  { value: "TRAIL", label: "TP1 + trailing stop", tp: "1" },
   { value: "TP2", label: "TP2", tp: "2" },
 ] as const;
 
@@ -92,7 +93,8 @@ export type TradeFormValues = {
   slPrice: string;
   tp1Price: string;
   tp2Price: string;
-  /** "SL", "TRAIL", "TP2" or "". */
+  trailPrice: string;
+  /** "SL", "TP1", "TRAIL", "TP2" or "". */
   outcome: string;
 };
 
@@ -327,6 +329,8 @@ export default function TradeForm({
   const [slPrice, setSlPrice] = useState(shown(initial.slPrice));
   const [tp1Price, setTp1Price] = useState(shown(initial.tp1Price));
   const [tp2Price, setTp2Price] = useState(shown(initial.tp2Price));
+  // Where the trailing stop took the runner out: typed, the plan cannot know it.
+  const [trailPrice, setTrailPrice] = useState(shown(initial.trailPrice));
   const [outcome, setOutcome] = useState(initial.outcome);
   const jahres = strategy === JAHRES;
   const fill = (nextLevel: string, nextSide: string, nextSymbol: string) => {
@@ -719,18 +723,34 @@ export default function TradeForm({
                         : `SL ${plan.sl} / TP1 ${plan.tp1}${plan.tp2 ? ` / TP2 ${plan.tp2}` : ""} ticks — choisis la zone et le sens`}
                   </div>
                 </div>
+                {/* The prices the result picked above is read with: the stop
+                    for a stop-out, TP1 — and where the trail took the runner
+                    out — for a TP1, TP2 for a TP2. The others are still filled
+                    in from the plan and posted, just not shown. */}
                 {(
                   [
-                    ["SL", "slPrice", slPrice, setSlPrice],
-                    ["TP1", "tp1Price", tp1Price, setTp1Price],
-                    ["TP2", "tp2Price", tp2Price, setTp2Price],
+                    ["SL", "slPrice", slPrice, setSlPrice, !outcome || outcome === "SL"],
+                    ["TP1", "tp1Price", tp1Price, setTp1Price, !outcome || outcome === "TP1" || outcome === "TRAIL"],
+                    ["Trailing stop", "trailPrice", trailPrice, setTrailPrice, outcome === "TRAIL"],
+                    ["TP2", "tp2Price", tp2Price, setTp2Price, outcome === "TP2"],
                   ] as const
-                ).map(([text, name, value, set]) => (
-                  <div key={name}>
-                    {fieldLabel(text)}
-                    <input type="text" name={name} value={value} onChange={(e) => set(e.target.value)} style={monoInputStyle} />
-                  </div>
-                ))}
+                ).map(([text, name, value, set, visible]) =>
+                  visible ? (
+                    <div key={name}>
+                      {fieldLabel(text)}
+                      <input
+                        type="text"
+                        name={name}
+                        value={value}
+                        onChange={(e) => set(e.target.value)}
+                        placeholder={name === "trailPrice" ? "prix de sortie" : undefined}
+                        style={monoInputStyle}
+                      />
+                    </div>
+                  ) : (
+                    <input key={name} type="hidden" name={name} value={value} />
+                  )
+                )}
               </div>
             )}
 

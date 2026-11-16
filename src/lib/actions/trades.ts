@@ -124,13 +124,15 @@ function parseTradeForm(formData: FormData) {
   const tp1Price = priceOf("tp1Price");
   const tp2Price = priceOf("tp2Price");
   const said = String(formData.get("outcome") ?? "");
-  const outcome = jahres && ["SL", "TRAIL", "TP2"].includes(said) ? said : null;
+  const outcome = jahres && ["SL", "TP1", "TRAIL", "TP2"].includes(said) ? said : null;
+  // Only a runner that went out on its trail has a trailing exit.
+  const trailPrice = outcome === "TRAIL" ? priceOf("trailPrice") : null;
 
   return {
     date, time, symbol, market, side, size, pnl, risk, rr,
     tpReached, tradeTypes, zone, confirmations, confirmationsBox, confirmationsReverse, validity, invalidReasons, planCharts, planFollowed,
     setup, strategy, entryType, emotion, preTradeNotes, postTradeNotes,
-    level, slPrice, tp1Price, tp2Price, outcome,
+    level, slPrice, tp1Price, tp2Price, trailPrice, outcome,
   };
 }
 
