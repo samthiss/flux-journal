@@ -31,9 +31,9 @@ const stepButton = {
   height: 22,
   borderRadius: 4,
   cursor: "pointer",
-  border: "1px solid oklch(0.34 0.02 250)",
+  border: "1px solid oklch(0.34 0.0118 290)",
   background: "transparent",
-  color: "oklch(0.7 0.02 250)",
+  color: "oklch(0.7 0.0118 290)",
 } as const;
 
 /**
@@ -100,7 +100,7 @@ const label = {
   fontSize: 10,
   letterSpacing: "0.1em",
   textTransform: "uppercase" as const,
-  color: "oklch(0.55 0.03 250)",
+  color: "oklch(0.55 0.0176 290)",
   marginBottom: 5,
 };
 
@@ -109,9 +109,9 @@ const field = {
   fontSize: 12.5,
   padding: "6px 9px",
   borderRadius: 4,
-  border: "1px solid oklch(0.34 0.03 250)",
-  background: "oklch(0.16 0.02 250)",
-  color: "oklch(0.88 0.02 250)",
+  border: "1px solid oklch(0.34 0.0176 290)",
+  background: "oklch(0.16 0.0118 290)",
+  color: "oklch(0.88 0.0118 290)",
   width: "100%",
   colorScheme: "dark" as const,
 };
@@ -355,7 +355,7 @@ function advice(stat: Stat, ceiling: number, floor: number): { text: string; ton
   // on the strength of it.
   if (stat.days < ENOUGH_DAYS) {
     return {
-      tone: "oklch(0.5 0.02 250)",
+      tone: "oklch(0.5 0.0118 290)",
       text: `${stat.days} jour${stat.days > 1 ? "s" : ""} sur ${ENOUGH_DAYS} — pas encore de quoi juger`,
     };
   }
@@ -380,7 +380,7 @@ function advice(stat: Stat, ceiling: number, floor: number): { text: string; ton
     };
   }
 
-  return { tone: "oklch(0.62 0.03 250)", text: `dans la fourchette — garde ${stat.threshold}` };
+  return { tone: "oklch(0.62 0.0176 290)", text: `dans la fourchette — garde ${stat.threshold}` };
 }
 
 /** "lundi 07.09" — the weekday first, because the weekday is what is compared. */
@@ -647,9 +647,9 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                 padding: "3px 10px",
                 borderRadius: 999,
                 cursor: "pointer",
-                border: `1px solid ${m === market ? accentColor : "oklch(0.32 0.02 250)"}`,
+                border: `1px solid ${m === market ? accentColor : "oklch(0.32 0.0118 290)"}`,
                 background: m === market ? "oklch(0.72 0.14 195 / 0.14)" : "transparent",
-                color: m === market ? accentColor : "oklch(0.6 0.02 250)",
+                color: m === market ? accentColor : "oklch(0.6 0.0118 290)",
               }}
             >
               {m}
@@ -706,7 +706,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
 
         {/* What was understood, before it is written down. A mistyped separator
             shows up here as a 1 and a 36 rather than in next week's reading. */}
-        <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginTop: 8 }}>
+        <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)", marginTop: 8 }}>
           {values.length ? (
             <>
               {values.length} alerte{values.length > 1 ? "s" : ""} ·{" "}
@@ -729,7 +729,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
       <div style={{ ...glassCard }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Par session</div>
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>de</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>de</div>
           <NumberField
             value={session.start}
             onChange={(start) => {
@@ -741,7 +741,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
             max={23}
             width={52}
           />
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>h à</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>h à</div>
           <NumberField
             value={session.end}
             onChange={(end) => {
@@ -753,7 +753,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
             max={23}
             width={52}
           />
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)", marginRight: 8 }}>h, pour</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.0176 290)", marginRight: 8 }}>h, pour</div>
           <NumberField
             value={floor}
             onChange={(next) => {
@@ -764,7 +764,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
             max={99}
             width={52}
           />
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>à</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>à</div>
           <NumberField
             value={ceiling}
             onChange={(next) => {
@@ -775,7 +775,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
             max={99}
             width={52}
           />
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>alertes par heure</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>alertes par heure</div>
           <select
             value={zone}
             onChange={(e) => {
@@ -812,9 +812,9 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
               padding: "2px 8px",
               borderRadius: 999,
               cursor: "pointer",
-              border: `1px solid ${skipNews ? newsColor : "oklch(0.3 0.02 250)"}`,
+              border: `1px solid ${skipNews ? newsColor : "oklch(0.3 0.0118 290)"}`,
               background: skipNews ? newsColor.replace(")", " / 0.14)") : "transparent",
-              color: skipNews ? newsColor : "oklch(0.55 0.02 250)",
+              color: skipNews ? newsColor : "oklch(0.55 0.0118 290)",
             }}
           >
             sans les news
@@ -822,7 +822,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
           <div style={{ display: "flex", gap: 5, marginLeft: "auto", alignItems: "center" }}>
             {/* A threshold is judged over a week, not over a morning: the
                 reading looks back rather than piling up every day ever kept. */}
-            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginRight: 3 }}>sur</span>
+            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)", marginRight: 3 }}>sur</span>
             {([7, 14, null] as const).map((days) => (
               <button
                 key={String(days)}
@@ -833,9 +833,9 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                   padding: "2px 8px",
                   borderRadius: 999,
                   cursor: "pointer",
-                  border: `1px solid ${window === days ? accentColor : "oklch(0.3 0.02 250)"}`,
+                  border: `1px solid ${window === days ? accentColor : "oklch(0.3 0.0118 290)"}`,
                   background: window === days ? "oklch(0.72 0.14 195 / 0.14)" : "transparent",
-                  color: window === days ? accentColor : "oklch(0.55 0.02 250)",
+                  color: window === days ? accentColor : "oklch(0.55 0.0118 290)",
                 }}
               >
                 {days === null ? "tout" : `${days} j`}
@@ -853,7 +853,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
         )}
 
         {bySession.length === 0 && (
-          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>
             Aucune heure enregistrée ne tombe dans cette plage.
           </div>
         )}
@@ -864,16 +864,16 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
           return (
             <div
               key={sessionLabel(stat.session)}
-              style={{ padding: "10px 0", borderTop: "1px solid oklch(0.28 0.03 250 / 0.5)" }}
+              style={{ padding: "10px 0", borderTop: "1px solid oklch(0.28 0.0176 290 / 0.5)" }}
             >
               <div
                 title={sampleOf(stat)}
                 style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}
               >
-                <span style={{ ...mono, fontSize: 13, color: "oklch(0.88 0.02 250)", width: 76, flex: "none" }}>
+                <span style={{ ...mono, fontSize: 13, color: "oklch(0.88 0.0118 290)", width: 76, flex: "none" }}>
                   {sessionLabel(stat.session)}
                 </span>
-                <span style={{ ...mono, fontSize: 12, flex: "none", color: "oklch(0.75 0.02 250)" }}>
+                <span style={{ ...mono, fontSize: 12, flex: "none", color: "oklch(0.75 0.0118 290)" }}>
                   {stat.threshold} → {stat.rate.toFixed(1)}/h
                 </span>
                 <span style={{ ...mono, fontSize: 12, flex: 1, minWidth: 240, color: said.tone }}>{said.text}</span>
@@ -885,7 +885,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                   is chosen. Recounted, never estimated: a threshold no hour can
                   answer for says nothing rather than zero. */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>essayer</span>
+                <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)" }}>essayer</span>
                 <button
                   onClick={() => setNudge((n) => n - 1)}
                   style={stepButton}
@@ -917,7 +917,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                     fontSize: 12,
                     color:
                       triedRate === null
-                        ? "oklch(0.45 0.02 250)"
+                        ? "oklch(0.45 0.0118 290)"
                         : triedRate > ceiling || triedRate < floor
                           ? "oklch(0.8 0.14 85)"
                           : accentColor,
@@ -931,13 +931,13 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                 {nudge !== 0 && (
                   <button
                     onClick={() => setNudge(0)}
-                    style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.5 0.02 250)", cursor: "pointer" }}
+                    style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.5 0.0118 290)", cursor: "pointer" }}
                   >
                     revenir à {advised}
                   </button>
                 )}
                 {nudge === 0 && (
-                  <span style={{ ...mono, fontSize: 10, color: "oklch(0.45 0.02 250)" }}>
+                  <span style={{ ...mono, fontSize: 10, color: "oklch(0.45 0.0118 290)" }}>
                     {stat.recommended !== null ? "recommandé" : "le réglage en place"}
                   </span>
                 )}
@@ -956,7 +956,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
         <div style={{ ...glassCard }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>Découpage proposé</div>
-            <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>
+            <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)" }}>
               là où les heures ne demandent pas la même chose
             </div>
           </div>
@@ -970,38 +970,38 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                 alignItems: "baseline",
                 gap: 12,
                 padding: "8px 0",
-                borderTop: "1px solid oklch(0.28 0.03 250 / 0.5)",
+                borderTop: "1px solid oklch(0.28 0.0176 290 / 0.5)",
                 flexWrap: "wrap",
               }}
             >
-              <span style={{ ...mono, fontSize: 12.5, color: "oklch(0.88 0.02 250)", width: 96, flex: "none" }}>
+              <span style={{ ...mono, fontSize: 12.5, color: "oklch(0.88 0.0118 290)", width: 96, flex: "none" }}>
                 {sessionLabel({ start: part.start, end: part.end })}
               </span>
-              <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.45 0.02 250)", flex: "none" }}>→</span>
+              <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.45 0.0118 290)", flex: "none" }}>→</span>
               <span
                 style={{
                   ...mono,
                   fontSize: 13,
                   fontWeight: 600,
                   flex: "none",
-                  color: part.threshold === null ? "oklch(0.5 0.02 250)" : accentColor,
+                  color: part.threshold === null ? "oklch(0.5 0.0118 290)" : accentColor,
                   textShadow: part.threshold === null ? "none" : neonGlow(accentColor, 1),
                 }}
               >
                 {part.threshold ?? "aucun seuil ne tient"}
               </span>
               {part.rate !== null && (
-                <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.6 0.02 250)", flex: 1, minWidth: 140 }}>
+                <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.6 0.0118 290)", flex: 1, minWidth: 140 }}>
                   {part.rate.toFixed(1)} alerte{part.rate >= 2 ? "s" : ""} par heure
                 </span>
               )}
-              <span style={{ ...mono, fontSize: 10, marginLeft: "auto", flex: "none", color: "oklch(0.45 0.02 250)" }}>
+              <span style={{ ...mono, fontSize: 10, marginLeft: "auto", flex: "none", color: "oklch(0.45 0.0118 290)" }}>
                 {part.days} jour{part.days > 1 ? "s" : ""}
               </span>
             </div>
           ))}
 
-          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginTop: 10, lineHeight: 1.5 }}>
+          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)", marginTop: 10, lineHeight: 1.5 }}>
             Chaque tranche prend le plus haut des seuils que ses heures demandent, pour que l&apos;heure la plus
             bruyante y tienne aussi — et non la moyenne, qui laisserait une heure inonder.
           </div>
@@ -1015,7 +1015,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
       <div style={{ ...glassCard }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Heure par heure</div>
-          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>
+          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)" }}>
             le détail sous les plages, quand une heure porte la session à elle seule
           </div>
           {tried > 0 && (
@@ -1026,7 +1026,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
         </div>
 
         {stats.length === 0 && (
-          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>
             Rien d&apos;enregistré entre {sessionLabel(session)} sur {market}.
           </div>
         )}
@@ -1039,11 +1039,11 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
               alignItems: "baseline",
               gap: 12,
               padding: "9px 0",
-              borderTop: "1px solid oklch(0.28 0.03 250 / 0.5)",
+              borderTop: "1px solid oklch(0.28 0.0176 290 / 0.5)",
               flexWrap: "wrap",
             }}
           >
-            <span style={{ ...mono, fontSize: 12, color: "oklch(0.85 0.02 250)", width: 62, flex: "none" }}>
+            <span style={{ ...mono, fontSize: 12, color: "oklch(0.85 0.0118 290)", width: 62, flex: "none" }}>
               {bandLabel(band.hour)}
             </span>
             <span
@@ -1051,7 +1051,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                 ...mono,
                 fontSize: 11.5,
                 flex: "none",
-                color: band.rate > ceiling ? lossColor : band.rate < floor ? "oklch(0.8 0.14 85)" : "oklch(0.7 0.02 250)",
+                color: band.rate > ceiling ? lossColor : band.rate < floor ? "oklch(0.8 0.14 85)" : "oklch(0.7 0.0118 290)",
               }}
             >
               {band.threshold} → {band.rate.toFixed(1)}/h
@@ -1063,7 +1063,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                   ...mono,
                   fontSize: 11.5,
                   flex: "none",
-                  color: bandTried(band.hour) === null ? "oklch(0.42 0.02 250)" : simColor,
+                  color: bandTried(band.hour) === null ? "oklch(0.42 0.0118 290)" : simColor,
                 }}
               >
                 {tried} →{" "}
@@ -1083,9 +1083,9 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
       <div style={{ ...glassCard }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Heures enregistrées</div>
-          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>{sessionLabel(session)}</div>
+          <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)" }}>{sessionLabel(session)}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>simulation d&apos;alerte</span>
+            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)" }}>simulation d&apos;alerte</span>
             <NumberField
               value={sim}
               onChange={(next) => {
@@ -1102,7 +1102,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                   setSim(0);
                   saveSim(0);
                 }}
-                style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.5 0.02 250)", cursor: "pointer" }}
+                style={{ ...mono, fontSize: 10, background: "none", border: "none", color: "oklch(0.5 0.0118 290)", cursor: "pointer" }}
               >
                 ✕
               </button>
@@ -1110,7 +1110,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
           </div>
         </div>
         {bands.length === 0 && (
-          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>
             Rien d&apos;enregistré entre {sessionLabel(session)} sur {market}.
           </div>
         )}
@@ -1127,7 +1127,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
               fontSize: 9.5,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              color: "oklch(0.48 0.02 250)",
+              color: "oklch(0.48 0.0118 290)",
             }}
           >
             <span style={col.day}>jour</span>
@@ -1155,8 +1155,8 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
               >
                 {bandLabel(bandHour)}
               </span>
-              <span style={{ flex: 1, height: 1, background: "oklch(0.84 0.17 196 / 0.18)" }} />
-              <span style={{ ...mono, fontSize: 10, color: "oklch(0.5 0.02 250)" }}>
+              <span style={{ flex: 1, height: 1, background: "oklch(0.68 0.19 293 / 0.18)" }} />
+              <span style={{ ...mono, fontSize: 10, color: "oklch(0.5 0.0118 290)" }}>
                 {rows.length} {rows.length > 1 ? "jours" : "jour"}
               </span>
             </div>
@@ -1167,7 +1167,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
               // when the hour fired, magenta past the ceiling, unlit at zero.
               const tone =
                 count === 0
-                  ? "oklch(0.45 0.02 250)"
+                  ? "oklch(0.45 0.0118 290)"
                   : count > ceiling
                     ? lossColor
                     : count < floor
@@ -1181,7 +1181,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                     alignItems: "center",
                     gap: 12,
                     padding: "5px 0",
-                    borderTop: "1px solid oklch(0.26 0.03 250 / 0.35)",
+                    borderTop: "1px solid oklch(0.26 0.0176 290 / 0.35)",
                   }}
                 >
                   <span
@@ -1192,7 +1192,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
-                      color: row.day === today(zone) ? accentColor : "oklch(0.72 0.02 250)",
+                      color: row.day === today(zone) ? accentColor : "oklch(0.72 0.0118 290)",
                       opacity: skipNews && released.length > 0 ? 0.5 : 1,
                     }}
                   >
@@ -1230,7 +1230,7 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                       textAlign: "center",
                       padding: "2px 0",
                       color: tone,
-                      border: `1px solid ${count === 0 ? "oklch(0.32 0.02 250)" : tone.replace(")", " / 0.5)")}`,
+                      border: `1px solid ${count === 0 ? "oklch(0.32 0.0118 290)" : tone.replace(")", " / 0.5)")}`,
                       background: count === 0 ? "none" : tone.replace(")", " / 0.1)"),
                       textShadow: count === 0 ? "none" : neonGlow(tone, 1),
                     }}
@@ -1251,8 +1251,8 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
                         fontWeight: 600,
                         textAlign: "center",
                         padding: "2px 0",
-                        color: canAnswer(row, sim) ? simColor : "oklch(0.45 0.02 250)",
-                        border: `1px dashed ${canAnswer(row, sim) ? simColor.replace(")", " / 0.55)") : "oklch(0.32 0.02 250)"}`,
+                        color: canAnswer(row, sim) ? simColor : "oklch(0.45 0.0118 290)",
+                        border: `1px dashed ${canAnswer(row, sim) ? simColor.replace(")", " / 0.55)") : "oklch(0.32 0.0118 290)"}`,
                         background: canAnswer(row, sim) ? simColor.replace(")", " / 0.1)") : "none",
                         textShadow: canAnswer(row, sim) ? neonGlow(simColor, 1) : "none",
                       }}
@@ -1290,19 +1290,19 @@ export default function VolumeAlertClient({ hours, news }: { hours: AlertHour[];
               gap: 16,
               flexWrap: "wrap",
               paddingTop: 12,
-              borderTop: "1px solid oklch(0.84 0.17 196 / 0.18)",
+              borderTop: "1px solid oklch(0.68 0.19 293 / 0.18)",
             }}
           >
-            <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.02 250)" }}>
+            <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.0118 290)" }}>
               moyenne sur {totals.hours} heure{totals.hours > 1 ? "s" : ""}
             </span>
             <span style={{ ...mono, fontSize: 12, color: accentColor, textShadow: neonGlow(accentColor, 1) }}>
-              {totals.recorded.toFixed(1)}/h <span style={{ color: "oklch(0.5 0.02 250)", textShadow: "none" }}>tel qu&apos;encodé</span>
+              {totals.recorded.toFixed(1)}/h <span style={{ color: "oklch(0.5 0.0118 290)", textShadow: "none" }}>tel qu&apos;encodé</span>
             </span>
             {sim > 0 && (
-              <span style={{ ...mono, fontSize: 12, color: totals.simulated === null ? "oklch(0.45 0.02 250)" : "oklch(0.82 0.02 250)" }}>
+              <span style={{ ...mono, fontSize: 12, color: totals.simulated === null ? "oklch(0.45 0.0118 290)" : "oklch(0.82 0.0118 290)" }}>
                 {totals.simulated === null ? "—" : `${totals.simulated.toFixed(1)}/h`}{" "}
-                <span style={{ color: "oklch(0.5 0.02 250)" }}>
+                <span style={{ color: "oklch(0.5 0.0118 290)" }}>
                   à {sim}
                   {totals.readable < totals.hours &&
                     ` · sur ${totals.readable} heure${totals.readable > 1 ? "s" : ""} lisible${totals.readable > 1 ? "s" : ""}`}

@@ -53,8 +53,8 @@ function AjouterBloc({ types, onChoisir }: { types: TypeDeBloc[]; onChoisir: (ty
           fontSize: 10,
           padding: "3px 10px",
           borderRadius: 999,
-          border: "1px dashed oklch(0.34 0.034 250)",
-          color: "oklch(0.6 0.034 250)",
+          border: "1px dashed oklch(0.34 0.02 290)",
+          color: "oklch(0.6 0.02 290)",
           cursor: "pointer",
         }}
       >
@@ -67,8 +67,8 @@ function AjouterBloc({ types, onChoisir }: { types: TypeDeBloc[]; onChoisir: (ty
             top: "130%",
             left: 0,
             zIndex: 30,
-            background: "oklch(0.21 0.034 250)",
-            border: "1px solid oklch(0.34 0.034 250)",
+            background: "oklch(0.21 0.02 290)",
+            border: "1px solid oklch(0.34 0.02 290)",
             borderRadius: 8,
             padding: 4,
             display: "flex",
@@ -84,7 +84,7 @@ function AjouterBloc({ types, onChoisir }: { types: TypeDeBloc[]; onChoisir: (ty
                 onChoisir(bloc.type);
                 setOpen(false);
               }}
-              style={{ fontSize: 12.5, padding: "6px 10px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.034 250)", whiteSpace: "nowrap" }}
+              style={{ fontSize: 12.5, padding: "6px 10px", borderRadius: 6, cursor: "pointer", color: "oklch(0.85 0.02 290)", whiteSpace: "nowrap" }}
             >
               {bloc.label}
             </span>
@@ -533,7 +533,7 @@ export default function ChecklistClient({
               width: 96,
               height: 60,
               borderRadius: 4,
-              border: "1px solid oklch(0.32 0.034 250)",
+              border: "1px solid oklch(0.32 0.02 290)",
               backgroundImage: `url(${url})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
@@ -590,9 +590,9 @@ export default function ChecklistClient({
       width: "100%",
       boxSizing: "border-box" as const,
       fontSize: 13.5,
-      color: "oklch(0.88 0.017 250)",
-      background: "oklch(0.2 0.034 250)",
-      border: "1px solid oklch(0.35 0.034 250)",
+      color: "oklch(0.88 0.01 290)",
+      background: "oklch(0.2 0.02 290)",
+      border: "1px solid oklch(0.35 0.02 290)",
       borderRadius: 6,
       padding: "5px 8px",
       marginBottom: 6,
@@ -662,7 +662,7 @@ export default function ChecklistClient({
           </button>
           <button
             onClick={() => setBloc(null)}
-            style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: "1px solid oklch(0.4 0.034 250)", background: "transparent", color: "oklch(0.65 0.034 250)", cursor: "pointer" }}
+            style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, border: "1px solid oklch(0.4 0.02 290)", background: "transparent", color: "oklch(0.65 0.02 290)", cursor: "pointer" }}
           >
             Annuler
           </button>
@@ -675,7 +675,7 @@ export default function ChecklistClient({
     <div>
       <div style={{ marginBottom: 24 }}>
         <PageTitle>{title}</PageTitle>
-        <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
+        <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
           {subtitle} — {todayLabel} — {market}
         </div>
       </div>
@@ -684,7 +684,7 @@ export default function ChecklistClient({
         {!sansListe && (
         <div style={glassCard}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-            <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               Progression
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -697,9 +697,9 @@ export default function ChecklistClient({
                   fontSize: 12,
                   padding: "5px 10px",
                   borderRadius: 6,
-                  border: `1px solid ${editMode ? accentColor : "oklch(0.4 0.034 250)"}`,
+                  border: `1px solid ${editMode ? accentColor : "oklch(0.4 0.02 290)"}`,
                   background: editMode ? accentColor : "transparent",
-                  color: editMode ? "oklch(0.12 0.017 250)" : "oklch(0.75 0.034 250)",
+                  color: editMode ? "oklch(0.12 0.01 290)" : "oklch(0.75 0.02 290)",
                   cursor: "pointer",
                 }}
               >
@@ -707,7 +707,7 @@ export default function ChecklistClient({
               </button>
             </div>
           </div>
-          <div style={{ height: 6, borderRadius: 4, background: "oklch(0.26 0.034 250)", overflow: "hidden", marginBottom: 26 }}>
+          <div style={{ height: 6, borderRadius: 4, background: "oklch(0.26 0.02 290)", overflow: "hidden", marginBottom: 26 }}>
             <div
               style={{
                 height: "100%",
@@ -734,9 +734,9 @@ export default function ChecklistClient({
                       minWidth: 0,
                       fontSize: 13,
                       fontWeight: 600,
-                      color: "oklch(0.85 0.017 250)",
-                      background: "oklch(0.2 0.034 250)",
-                      border: "1px solid oklch(0.35 0.034 250)",
+                      color: "oklch(0.85 0.01 290)",
+                      background: "oklch(0.2 0.02 290)",
+                      border: "1px solid oklch(0.35 0.02 290)",
                       borderRadius: 6,
                       padding: "5px 8px",
                     }}
@@ -751,9 +751,9 @@ export default function ChecklistClient({
                       fontSize: 12,
                       padding: "5px 10px",
                       borderRadius: 6,
-                      border: `1px solid ${aConfirmer === g.title ? lossColor : "oklch(0.4 0.034 250)"}`,
+                      border: `1px solid ${aConfirmer === g.title ? lossColor : "oklch(0.4 0.02 290)"}`,
                       background: aConfirmer === g.title ? lossColor.replace(")", " / 0.12)") : "transparent",
-                      color: aConfirmer === g.title ? lossColor : "oklch(0.65 0.034 250)",
+                      color: aConfirmer === g.title ? lossColor : "oklch(0.65 0.02 290)",
                       cursor: "pointer",
                     }}
                   >
@@ -763,7 +763,7 @@ export default function ChecklistClient({
                   </button>
                 </div>
               ) : (
-                <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>{g.title}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.02 290)", marginBottom: 10 }}>{g.title}</div>
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {g.items.map((item, rang) => {
@@ -791,8 +791,8 @@ export default function ChecklistClient({
                           letterSpacing: "0.08em",
                           textTransform: "uppercase",
                           color: accentColor,
-                          background: "oklch(0.2 0.034 250)",
-                          border: "1px solid oklch(0.35 0.034 250)",
+                          background: "oklch(0.2 0.02 290)",
+                          border: "1px solid oklch(0.35 0.02 290)",
                           borderRadius: 6,
                           padding: "3px 8px",
                         }}
@@ -811,9 +811,9 @@ export default function ChecklistClient({
                           fontSize: 12,
                           padding: "2px 9px",
                           borderRadius: 6,
-                          border: `1px solid ${aConfirmer === `titre::${categorie}` ? lossColor : "oklch(0.4 0.034 250)"}`,
+                          border: `1px solid ${aConfirmer === `titre::${categorie}` ? lossColor : "oklch(0.4 0.02 290)"}`,
                           background: aConfirmer === `titre::${categorie}` ? lossColor.replace(")", " / 0.12)") : "transparent",
-                          color: aConfirmer === `titre::${categorie}` ? lossColor : "oklch(0.65 0.034 250)",
+                          color: aConfirmer === `titre::${categorie}` ? lossColor : "oklch(0.65 0.02 290)",
                           cursor: "pointer",
                         }}
                       >
@@ -829,7 +829,7 @@ export default function ChecklistClient({
                           fontWeight: 600,
                           letterSpacing: "0.08em",
                           textTransform: "uppercase",
-                          color: "oklch(0.6 0.034 250)",
+                          color: "oklch(0.6 0.02 290)",
                         }}
                       >
                         {categorie}
@@ -878,7 +878,7 @@ export default function ChecklistClient({
                         style={{
                           flexShrink: 0,
                           cursor: "grab",
-                          color: "oklch(0.45 0.02 250)",
+                          color: "oklch(0.45 0.0118 290)",
                           fontSize: 13,
                           lineHeight: 1,
                           userSelect: "none",
@@ -896,13 +896,13 @@ export default function ChecklistClient({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        border: `1.5px solid ${checkedMap[item.id] ? accentColor : "oklch(0.42 0.034 250)"}`,
+                        border: `1.5px solid ${checkedMap[item.id] ? accentColor : "oklch(0.42 0.02 290)"}`,
                         background: checkedMap[item.id] ? accentColor : "transparent",
                       }}
                     >
                       {checkedMap[item.id] && (
                         <svg width="12" height="12" viewBox="0 0 12 12">
-                          <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.017 250)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.01 290)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                     </div>
@@ -911,9 +911,9 @@ export default function ChecklistClient({
                       // a choice line is a label and its answers together, and
                       // an inline field could only ever correct half of it.
                       <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                        <span style={{ fontSize: 14, color: "oklch(0.88 0.017 250)" }}>{item.label}</span>
+                        <span style={{ fontSize: 14, color: "oklch(0.88 0.01 290)" }}>{item.label}</span>
                         {options.length > 0 && (
-                          <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.5 0.02 250)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.5 0.0118 290)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {options.join(" · ")}
                           </span>
                         )}
@@ -929,8 +929,8 @@ export default function ChecklistClient({
                             fontSize: 10,
                             padding: "3px 9px",
                             borderRadius: 999,
-                            border: "1px dashed oklch(0.34 0.034 250)",
-                            color: "oklch(0.6 0.034 250)",
+                            border: "1px dashed oklch(0.34 0.02 290)",
+                            color: "oklch(0.6 0.02 290)",
                             cursor: "pointer",
                             flex: "none",
                           }}
@@ -949,9 +949,9 @@ export default function ChecklistClient({
                         style={{
                           flex: 1,
                           fontSize: 14,
-                          color: "oklch(0.88 0.017 250)",
-                          background: "oklch(0.2 0.034 250)",
-                          border: "1px solid oklch(0.35 0.034 250)",
+                          color: "oklch(0.88 0.01 290)",
+                          background: "oklch(0.2 0.02 290)",
+                          border: "1px solid oklch(0.35 0.02 290)",
                           borderRadius: 6,
                           padding: "4px 8px",
                         }}
@@ -960,7 +960,7 @@ export default function ChecklistClient({
                       <div
                         style={{
                           fontSize: 14,
-                          color: checkedMap[item.id] ? "oklch(0.5 0.0255 250)" : "oklch(0.88 0.017 250)",
+                          color: checkedMap[item.id] ? "oklch(0.5 0.015 290)" : "oklch(0.88 0.01 290)",
                           textDecoration: checkedMap[item.id] ? "line-through" : "none",
                         }}
                       >
@@ -979,9 +979,9 @@ export default function ChecklistClient({
                           width: 22,
                           height: 22,
                           borderRadius: 6,
-                          border: "1px solid oklch(0.4 0.034 250)",
+                          border: "1px solid oklch(0.4 0.02 290)",
                           background: "transparent",
-                          color: "oklch(0.65 0.034 250)",
+                          color: "oklch(0.65 0.02 290)",
                           cursor: "pointer",
                           fontSize: 13,
                           lineHeight: 1,
@@ -997,7 +997,7 @@ export default function ChecklistClient({
                       are noise. */}
                   {editMode && (
                     <div style={{ padding: "0 8px 10px 40px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.5 0.02 250)" }}>
+                      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.5 0.0118 290)" }}>
                         Afficher
                       </span>
                       {/* And which setup it belongs to, if it belongs to one:
@@ -1020,9 +1020,9 @@ export default function ChecklistClient({
                             borderRadius: 999,
                             cursor: "pointer",
                             whiteSpace: "nowrap",
-                            border: `1px ${(item.setup ?? null) === choix ? "solid" : "dashed"} ${(item.setup ?? null) === choix ? accentColor : "oklch(0.34 0.034 250)"}`,
-                            background: (item.setup ?? null) === choix ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
-                            color: (item.setup ?? null) === choix ? accentColor : "oklch(0.55 0.03 250)",
+                            border: `1px ${(item.setup ?? null) === choix ? "solid" : "dashed"} ${(item.setup ?? null) === choix ? accentColor : "oklch(0.34 0.02 290)"}`,
+                            background: (item.setup ?? null) === choix ? "oklch(0.68 0.19 293 / 0.16)" : "transparent",
+                            color: (item.setup ?? null) === choix ? accentColor : "oklch(0.55 0.0176 290)",
                           }}
                         >
                           {choix ?? "toujours"}
@@ -1050,9 +1050,9 @@ export default function ChecklistClient({
                               padding: "4px 12px",
                               borderRadius: 999,
                               cursor: "pointer",
-                              border: `1px ${on ? "solid" : "dashed"} ${on ? accentColor : "oklch(0.38 0.034 250)"}`,
-                              background: on ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
-                              color: on ? accentColor : "oklch(0.62 0.034 250)",
+                              border: `1px ${on ? "solid" : "dashed"} ${on ? accentColor : "oklch(0.38 0.02 290)"}`,
+                              background: on ? "oklch(0.68 0.19 293 / 0.16)" : "transparent",
+                              color: on ? accentColor : "oklch(0.62 0.02 290)",
                             }}
                           >
                             {option}
@@ -1103,9 +1103,9 @@ export default function ChecklistClient({
                           borderRadius: 999,
                           cursor: "pointer",
                           whiteSpace: "nowrap",
-                          border: `1px ${item.allowsIdeas ? "solid" : "dashed"} ${item.allowsIdeas ? accentColor : "oklch(0.34 0.034 250)"}`,
-                          background: item.allowsIdeas ? "oklch(0.84 0.17 196 / 0.16)" : "transparent",
-                          color: item.allowsIdeas ? accentColor : "oklch(0.55 0.03 250)",
+                          border: `1px ${item.allowsIdeas ? "solid" : "dashed"} ${item.allowsIdeas ? accentColor : "oklch(0.34 0.02 290)"}`,
+                          background: item.allowsIdeas ? "oklch(0.68 0.19 293 / 0.16)" : "transparent",
+                          color: item.allowsIdeas ? accentColor : "oklch(0.55 0.0176 290)",
                         }}
                       >
                         idées de trade
@@ -1122,9 +1122,9 @@ export default function ChecklistClient({
                           minWidth: 0,
                           boxSizing: "border-box",
                           fontSize: 12,
-                          color: "oklch(0.8 0.017 250)",
+                          color: "oklch(0.8 0.01 290)",
                           background: "transparent",
-                          border: "1px dashed oklch(0.34 0.034 250)",
+                          border: "1px dashed oklch(0.34 0.02 290)",
                           borderRadius: 6,
                           padding: "4px 8px",
                         }}
@@ -1155,20 +1155,20 @@ export default function ChecklistClient({
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          border: `1.5px solid ${checkedMap[ligne.id] ? (ligne.annulation ? lossColor : accentColor) : "oklch(0.42 0.034 250)"}`,
+                          border: `1.5px solid ${checkedMap[ligne.id] ? (ligne.annulation ? lossColor : accentColor) : "oklch(0.42 0.02 290)"}`,
                           background: checkedMap[ligne.id] ? (ligne.annulation ? lossColor : accentColor) : "transparent",
                         }}
                       >
                         {checkedMap[ligne.id] && (
                           <svg width="12" height="12" viewBox="0 0 12 12">
-                            <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.017 250)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M2 6l3 3 5-6" fill="none" stroke="oklch(0.12 0.01 290)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         )}
                       </div>
                       <div
                         style={{
                           fontSize: 14,
-                          color: checkedMap[ligne.id] ? "oklch(0.5 0.0255 250)" : "oklch(0.88 0.017 250)",
+                          color: checkedMap[ligne.id] ? "oklch(0.5 0.015 290)" : "oklch(0.88 0.01 290)",
                           textDecoration: checkedMap[ligne.id] ? "line-through" : "none",
                         }}
                       >
@@ -1243,9 +1243,9 @@ export default function ChecklistClient({
                               width: "100%",
                               boxSizing: "border-box",
                               fontSize: 13.5,
-                              color: "oklch(0.88 0.017 250)",
+                              color: "oklch(0.88 0.01 290)",
                               background: "transparent",
-                              border: "1px dashed oklch(0.4 0.034 250)",
+                              border: "1px dashed oklch(0.4 0.02 290)",
                               borderRadius: 6,
                               padding: "4px 8px",
                             }}
@@ -1268,9 +1268,9 @@ export default function ChecklistClient({
                       style={{
                         flex: 1,
                         fontSize: 14,
-                        color: "oklch(0.88 0.017 250)",
+                        color: "oklch(0.88 0.01 290)",
                         background: "transparent",
-                        border: "1px dashed oklch(0.4 0.034 250)",
+                        border: "1px dashed oklch(0.4 0.02 290)",
                         borderRadius: 6,
                         padding: "4px 8px",
                       }}
@@ -1315,9 +1315,9 @@ export default function ChecklistClient({
                   flex: 1,
                   fontSize: 13,
                   fontWeight: 600,
-                  color: "oklch(0.85 0.017 250)",
+                  color: "oklch(0.85 0.01 290)",
                   background: "transparent",
-                  border: "1px dashed oklch(0.34 0.034 250)",
+                  border: "1px dashed oklch(0.34 0.02 290)",
                   borderRadius: 6,
                   padding: "5px 8px",
                 }}
@@ -1345,8 +1345,8 @@ export default function ChecklistClient({
           )}
 
           {editMode && !builder && (
-            <div style={{ paddingTop: 6, borderTop: "1px solid oklch(0.3 0.034 250 / 0.6)" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.034 250)", marginBottom: 10 }}>Nouveau groupe</div>
+            <div style={{ paddingTop: 6, borderTop: "1px solid oklch(0.3 0.02 290 / 0.6)" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "oklch(0.75 0.02 290)", marginBottom: 10 }}>Nouveau groupe</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
                   placeholder="Nom du groupe…"
@@ -1355,9 +1355,9 @@ export default function ChecklistClient({
                   style={{
                     flex: "1 1 140px",
                     fontSize: 14,
-                    color: "oklch(0.88 0.017 250)",
+                    color: "oklch(0.88 0.01 290)",
                     background: "transparent",
-                    border: "1px dashed oklch(0.4 0.034 250)",
+                    border: "1px dashed oklch(0.4 0.02 290)",
                     borderRadius: 6,
                     padding: "6px 8px",
                   }}
@@ -1372,9 +1372,9 @@ export default function ChecklistClient({
                   style={{
                     flex: "1 1 140px",
                     fontSize: 14,
-                    color: "oklch(0.88 0.017 250)",
+                    color: "oklch(0.88 0.01 290)",
                     background: "transparent",
-                    border: "1px dashed oklch(0.4 0.034 250)",
+                    border: "1px dashed oklch(0.4 0.02 290)",
                     borderRadius: 6,
                     padding: "6px 8px",
                   }}
@@ -1405,7 +1405,7 @@ export default function ChecklistClient({
           <div
             style={{
               fontSize: 13,
-              color: "oklch(0.62 0.034 250)",
+              color: "oklch(0.62 0.02 290)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               marginBottom: 8,
@@ -1414,7 +1414,7 @@ export default function ChecklistClient({
             Positions clôturées
           </div>
           {ideas.filter((idea) => idea.status === "closed").length === 0 ? (
-            <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+            <div style={{ fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>
               Rien à écrire. Une carte arrive ici quand tu la marques « Position closed » pendant le trade.
             </div>
           ) : (
@@ -1429,8 +1429,8 @@ export default function ChecklistClient({
                     gap: 12,
                     padding: "10px 12px",
                     marginBottom: 6,
-                    border: "1px solid oklch(0.3 0.034 250)",
-                    background: "oklch(0.17 0.03 250 / 0.6)",
+                    border: "1px solid oklch(0.3 0.02 290)",
+                    background: "oklch(0.17 0.0176 290 / 0.6)",
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1493,7 +1493,7 @@ export default function ChecklistClient({
                           {mot}
                         </span>
                       ))}
-                      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.02 250)" }}>
+                      <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 10, color: "oklch(0.55 0.0118 290)" }}>
                         {idea.day}
                       </span>
                     </div>
@@ -1543,7 +1543,7 @@ export default function ChecklistClient({
           <div
             style={{
               fontSize: 13,
-              color: "oklch(0.62 0.034 250)",
+              color: "oklch(0.62 0.02 290)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               marginBottom: 8,
@@ -1552,7 +1552,7 @@ export default function ChecklistClient({
             Trading
           </div>
           {ideas.filter((idea) => idea.status === "position").length === 0 ? (
-            <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+            <div style={{ fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>
               Aucun trade en cours. Une idée arrive ici quand tu la passes en « Trading » dans Trading Plan.
             </div>
           ) : (

@@ -13,9 +13,9 @@ const field = {
   width: "100%",
   padding: "6px 9px",
   borderRadius: 4,
-  border: "1px solid oklch(0.34 0.02 250)",
-  background: "oklch(0.15 0.02 250)",
-  color: "oklch(0.9 0.02 250)",
+  border: "1px solid oklch(0.34 0.0118 290)",
+  background: "oklch(0.15 0.0118 290)",
+  color: "oklch(0.9 0.0118 290)",
   fontSize: 12,
 } as const;
 
@@ -24,7 +24,7 @@ const label = {
   fontSize: 10,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
-  color: "oklch(0.5 0.02 250)",
+  color: "oklch(0.5 0.0118 290)",
   marginBottom: 5,
 } as const;
 
@@ -172,9 +172,9 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
                 padding: "3px 10px",
                 borderRadius: 999,
                 cursor: "pointer",
-                border: `1px solid ${m === market ? accentColor : "oklch(0.32 0.02 250)"}`,
+                border: `1px solid ${m === market ? accentColor : "oklch(0.32 0.0118 290)"}`,
                 background: m === market ? "oklch(0.72 0.14 195 / 0.14)" : "transparent",
-                color: m === market ? accentColor : "oklch(0.6 0.02 250)",
+                color: m === market ? accentColor : "oklch(0.6 0.0118 290)",
               }}
             >
               {m}
@@ -227,7 +227,7 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
           </button>
         </div>
 
-        <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginTop: 8 }}>
+        <div style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)", marginTop: 8 }}>
           {values.length ? (
             <>
               {values.length} cluster{values.length > 1 ? "s" : ""} ·{" "}
@@ -250,7 +250,7 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
       <div style={{ ...glassCard }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Par jour</div>
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>de</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>de</div>
           <input
             type="number"
             value={floor}
@@ -263,7 +263,7 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
             }}
             style={{ ...field, width: 52, padding: "3px 7px", fontSize: 11.5 }}
           />
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>à</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>à</div>
           <input
             type="number"
             value={ceiling}
@@ -276,9 +276,9 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
             }}
             style={{ ...field, width: 52, padding: "3px 7px", fontSize: 11.5 }}
           />
-          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.03 250)" }}>clusters par jour</div>
+          <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>clusters par jour</div>
           <div style={{ display: "flex", gap: 5, marginLeft: "auto", alignItems: "center" }}>
-            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)", marginRight: 3 }}>sur</span>
+            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)", marginRight: 3 }}>sur</span>
             {([7, 14, null] as const).map((n) => (
               <button
                 key={String(n)}
@@ -289,9 +289,9 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
                   padding: "2px 8px",
                   borderRadius: 999,
                   cursor: "pointer",
-                  border: `1px solid ${window === n ? accentColor : "oklch(0.3 0.02 250)"}`,
+                  border: `1px solid ${window === n ? accentColor : "oklch(0.3 0.0118 290)"}`,
                   background: window === n ? "oklch(0.72 0.14 195 / 0.14)" : "transparent",
-                  color: window === n ? accentColor : "oklch(0.55 0.02 250)",
+                  color: window === n ? accentColor : "oklch(0.55 0.0118 290)",
                 }}
               >
                 {n === null ? "tout" : `${n} j`}
@@ -301,13 +301,13 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
         </div>
 
         {stat === null ? (
-          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>
             Rien d&apos;enregistré sur {market}. Un jour suffit pour commencer.
           </div>
         ) : (
           <>
             <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
-              <span style={{ ...mono, fontSize: 13, color: "oklch(0.88 0.02 250)" }}>
+              <span style={{ ...mono, fontSize: 13, color: "oklch(0.88 0.0118 290)" }}>
                 {stat.threshold} → {stat.rate.toFixed(1)} cluster{stat.rate >= 2 ? "s" : ""} par jour
               </span>
               <span
@@ -316,12 +316,12 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
                   fontSize: 12,
                   color:
                     stat.days < ENOUGH_DAYS
-                      ? "oklch(0.5 0.02 250)"
+                      ? "oklch(0.5 0.0118 290)"
                       : stat.rate > ceiling
                         ? accentColor
                         : stat.rate < floor
                           ? "oklch(0.8 0.14 85)"
-                          : "oklch(0.62 0.03 250)",
+                          : "oklch(0.62 0.0176 290)",
                 }}
               >
                 {stat.days < ENOUGH_DAYS
@@ -345,7 +345,7 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Jours enregistrés</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.02 250)" }}>simulation d&apos;alerte</span>
+            <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.5 0.0118 290)" }}>simulation d&apos;alerte</span>
             <input
               type="number"
               value={sim || ""}
@@ -357,14 +357,14 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
         </div>
 
         {mine.length === 0 && (
-          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>Rien encore.</div>
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>Rien encore.</div>
         )}
 
         {mine.map((row) => {
           const count = countAt({ ...row, hour: 0 }, row.threshold);
           const tone =
             count === 0
-              ? "oklch(0.45 0.02 250)"
+              ? "oklch(0.45 0.0118 290)"
               : count > ceiling
                 ? lossColor
                 : count < floor
@@ -379,7 +379,7 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
                 alignItems: "center",
                 gap: 12,
                 padding: "6px 0",
-                borderTop: "1px solid oklch(0.26 0.03 250 / 0.35)",
+                borderTop: "1px solid oklch(0.26 0.0176 290 / 0.35)",
               }}
             >
               <span
@@ -389,7 +389,7 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
                   minWidth: 116,
                   flex: 1,
                   textTransform: "capitalize",
-                  color: row.day === today(zone) ? accentColor : "oklch(0.72 0.02 250)",
+                  color: row.day === today(zone) ? accentColor : "oklch(0.72 0.0118 290)",
                 }}
               >
                 {dayLabel(row.day)}
@@ -405,7 +405,7 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
                   textAlign: "center",
                   padding: "2px 0",
                   color: tone,
-                  border: `1px solid ${count === 0 ? "oklch(0.32 0.02 250)" : tone.replace(")", " / 0.5)")}`,
+                  border: `1px solid ${count === 0 ? "oklch(0.32 0.0118 290)" : tone.replace(")", " / 0.5)")}`,
                   background: count === 0 ? "none" : tone.replace(")", " / 0.1)"),
                   textShadow: count === 0 ? "none" : neonGlow(tone, 1),
                 }}
@@ -427,8 +427,8 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
                     fontWeight: 600,
                     textAlign: "center",
                     padding: "2px 0",
-                    color: answers ? "oklch(0.78 0.16 305)" : "oklch(0.45 0.02 250)",
-                    border: `1px dashed ${answers ? "oklch(0.78 0.16 305 / 0.55)" : "oklch(0.32 0.02 250)"}`,
+                    color: answers ? "oklch(0.78 0.16 305)" : "oklch(0.45 0.0118 290)",
+                    border: `1px dashed ${answers ? "oklch(0.78 0.16 305 / 0.55)" : "oklch(0.32 0.0118 290)"}`,
                     background: answers ? "oklch(0.78 0.16 305 / 0.1)" : "none",
                   }}
                 >
@@ -458,7 +458,7 @@ export default function StundenClusterClient({ days }: { days: AlertDay[] }) {
               color: "oklch(0.78 0.16 305)",
               paddingTop: 12,
               marginTop: 6,
-              borderTop: "1px solid oklch(0.84 0.17 196 / 0.18)",
+              borderTop: "1px solid oklch(0.68 0.19 293 / 0.18)",
             }}
           >
             à {sim} → {simRate.toFixed(1)} cluster{simRate >= 2 ? "s" : ""} par jour

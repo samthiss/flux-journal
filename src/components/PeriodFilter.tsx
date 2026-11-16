@@ -16,9 +16,9 @@ const controlStyle: React.CSSProperties = {
   fontSize: 13,
   padding: "10px 14px",
   borderRadius: 9,
-  border: "1px solid oklch(0.36 0.05 250 / 0.6)",
-  background: "oklch(0.18 0.034 250)",
-  color: "oklch(0.85 0.017 250)",
+  border: "1px solid oklch(0.36 0.0294 290 / 0.6)",
+  background: "oklch(0.18 0.02 290)",
+  color: "oklch(0.85 0.01 290)",
   cursor: "pointer",
   outline: "none",
 };
@@ -75,7 +75,7 @@ export default function PeriodFilter({
             aria-label="Start date"
             style={{ ...controlStyle, colorScheme: "dark", borderColor: `${accentColor.slice(0, -1)} / 0.35)` }}
           />
-          <span style={{ fontSize: 12, color: "oklch(0.55 0.03 250)" }}>→</span>
+          <span style={{ fontSize: 12, color: "oklch(0.55 0.0176 290)" }}>→</span>
           <input
             type="date"
             value={to}
@@ -88,7 +88,7 @@ export default function PeriodFilter({
             <span
               onClick={() => chooseCustom("", "")}
               title="Clear dates"
-              style={{ fontSize: 12, color: "oklch(0.55 0.03 250)", cursor: "pointer", padding: "0 2px" }}
+              style={{ fontSize: 12, color: "oklch(0.55 0.0176 290)", cursor: "pointer", padding: "0 2px" }}
             >
               ✕
             </span>

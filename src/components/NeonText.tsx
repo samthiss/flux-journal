@@ -85,11 +85,7 @@ export function DecodeText({ text, duration = 550 }: { text: string; duration?: 
   return <>{shown}</>;
 }
 
-/** The heading every page opens with, decoding into place. */
+/** The heading every page opens with. */
 export function PageTitle({ children }: { children: string }) {
-  return (
-    <div style={pageTitle}>
-      <DecodeText text={children} />
-    </div>
-  );
+  return <div style={pageTitle}>{children}</div>;
 }

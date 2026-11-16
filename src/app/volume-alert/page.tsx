@@ -34,7 +34,7 @@ export default async function VolumeAlertPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <PageTitle>Volume Alert</PageTitle>
-        <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
+        <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
           Ce que l&apos;alerte a tiré — et le seuil que ça recommande
         </div>
       </div>

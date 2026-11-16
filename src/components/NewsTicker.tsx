@@ -217,7 +217,7 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
           opacity: passe ? 0.45 : 1,
         }}
       >
-        <span style={{ color: "oklch(0.6 0.02 250)" }}>
+        <span style={{ color: "oklch(0.6 0.0118 290)" }}>
           {/* No hour where the source gives none: a day-long entry shown at an
               hour reads as a release nobody scheduled. */}
           {instant ? instant.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "all day"}
@@ -226,8 +226,8 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
           style={{
             padding: "1px 6px",
             borderRadius: 999,
-            border: "1px solid oklch(0.34 0.034 250)",
-            color: "oklch(0.78 0.02 250)",
+            border: "1px solid oklch(0.34 0.02 290)",
+            color: "oklch(0.78 0.0118 290)",
             fontSize: 9.5,
           }}
         >
@@ -236,16 +236,16 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
         <span style={{ color: ferme ? lossColor : newsColor, letterSpacing: "1px", fontSize: 12 }}>
           {ferme ? "●" : "★".repeat(etoiles)}
         </span>
-        <span style={{ color: "oklch(0.95 0.01 250)", fontWeight: 500 }}>{event.title}</span>
+        <span style={{ color: "oklch(0.95 0.0059 290)", fontWeight: 500 }}>{event.title}</span>
         {/* The figure once it is out, against what was expected of it: a band
             that only ever announced releases would be worth reading once. */}
         {event.actual ? (
-          <span style={{ color: "oklch(0.75 0.02 250)" }}>
+          <span style={{ color: "oklch(0.75 0.0118 290)" }}>
             {event.actual}
-            {event.forecast ? <span style={{ color: "oklch(0.5 0.02 250)" }}> / {event.forecast}</span> : null}
+            {event.forecast ? <span style={{ color: "oklch(0.5 0.0118 290)" }}> / {event.forecast}</span> : null}
           </span>
         ) : event.forecast ? (
-          <span style={{ color: "oklch(0.5 0.02 250)" }}>fcst {event.forecast}</span>
+          <span style={{ color: "oklch(0.5 0.0118 290)" }}>fcst {event.forecast}</span>
         ) : null}
       </span>
     );
@@ -368,7 +368,7 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
               {alerte.moment === "bientot" ? `In ${alerte.minutes || 1} min` : "Now"}
               <span style={{ marginLeft: "auto", color: "oklch(0.7 0.03 75)" }}>{alerte.event.currency}</span>
             </div>
-            <div style={{ marginTop: 8, fontSize: 14, fontWeight: 600, color: "oklch(0.97 0.01 250)", whiteSpace: "normal" }}>
+            <div style={{ marginTop: 8, fontSize: 14, fontWeight: 600, color: "oklch(0.97 0.0059 290)", whiteSpace: "normal" }}>
               {alerte.event.title}
             </div>
             {(alerte.event.forecast || alerte.event.previous) && (

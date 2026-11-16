@@ -1,49 +1,41 @@
 import type { CSSProperties } from "react";
 
-// Cyberpunk palette: electric cyan against a cold near-black, with magenta as
-// the second neon. Wins glow cyan, losses glow magenta — the two colours the
-// whole interface is lit by, so nothing else needs to compete with them.
-export const accentColor = "oklch(0.84 0.17 196)";
-export const accentSoft = "oklch(0.84 0.17 196 / 0.16)";
-export const magentaColor = "oklch(0.72 0.27 340)";
-export const winColor = accentColor;
-export const lossColor = magentaColor;
+// Violet on a near-black faintly tinted the same way: the accent marks what
+// worked and what can be clicked; a losing figure is not shouted, it is a
+// quiet grey beside it.
+export const accentColor = "oklch(0.68 0.19 293)";
+export const accentSoft = "oklch(0.68 0.19 293 / 0.16)";
+export const winColor = "oklch(0.76 0.15 293)";
+export const lossColor = "oklch(0.74 0.02 290)";
 
 /**
  * The third light, for the news band alone.
  *
- * Cyan and magenta already mean something here — a trade that worked and one
- * that did not — so a band lit in either would read as a verdict on the day.
+ * Violet and grey already mean something here — a trade that worked and one
+ * that did not — so a band in either would read as a verdict on the day.
  * Amber says wire service and belongs to nothing else in the journal.
  */
 export const newsColor = "oklch(0.82 0.16 75)";
 
-/** The halo every lit element carries, sized to how loud the element should be. */
+/** A soft halo in an element's own colour, sized to how much it should stand out. */
 export function neonGlow(color: string, strength: 1 | 2 | 3 = 2) {
-  const spread = { 1: 6, 2: 14, 3: 26 }[strength];
-  return `0 0 ${spread}px ${color.replace(")", " / 0.45)")}`;
+  const spread = { 1: 6, 2: 12, 3: 22 }[strength];
+  return `0 0 ${spread}px ${color.replace(")", " / 0.25)")}`;
 }
 
 export const glassCard: CSSProperties = {
-  background: "oklch(0.17 0.03 250 / 0.62)",
+  background: "oklch(0.19 0.02 290 / 0.55)",
   backdropFilter: "blur(16px)",
-  border: "1px solid oklch(0.84 0.17 196 / 0.22)",
-  // Corners cut on the diagonal rather than rounded — the panel edge of every
-  // console in the genre. 14px matches the radius this card used to carry.
-  clipPath: "polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px)",
+  border: "1px solid oklch(0.36 0.03 290 / 0.45)",
+  borderRadius: 16,
   padding: 24,
-  boxShadow:
-    "inset 0 0 0 1px oklch(0.84 0.17 196 / 0.06), 0 0 24px -6px oklch(0.84 0.17 196 / 0.28), 0 14px 44px -14px oklch(0 0 0 / 0.8)",
+  boxShadow: "0 10px 40px -16px oklch(0.68 0.19 293 / 0.25)",
 };
 
-/** Page headings: mono, spaced and lit, like a panel label rather than prose. */
+/** Page headings: plain and bold. */
 export const pageTitle: CSSProperties = {
-  fontFamily: "var(--font-jetbrains-mono), monospace",
-  fontSize: 22,
+  fontSize: 26,
   fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.12em",
-  textShadow: "0 0 14px oklch(0.84 0.17 196 / 0.35)",
 };
 
 export function fmtMoney(v: number) {

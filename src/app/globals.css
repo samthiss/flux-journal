@@ -9,13 +9,11 @@
   color-scheme: dark;
 }
 
-/* The palette the whole interface is lit by. Cyan is the primary neon, magenta
-   the second; everything else is a cold near-black the two can burn against. */
+/* The palette: violet on a near-black faintly tinted the same way. */
 :root {
-  --neon: oklch(0.84 0.17 196);
-  --neon-dim: oklch(0.84 0.17 196 / 0.35);
-  --neon-2: oklch(0.72 0.27 340);
-  --void: oklch(0.09 0.022 255);
+  --neon: oklch(0.68 0.19 293);
+  --neon-dim: oklch(0.68 0.19 293 / 0.35);
+  --void: oklch(0.13 0.014 290);
 
   /* The gutter every note block, category and example is pushed in by. Held as
      a variable because on a phone 75px of empty left margin is a fifth of the
@@ -49,55 +47,11 @@
 body {
   margin: 0;
   background: var(--void);
-  color: oklch(0.96 0.0068 250);
+  color: oklch(0.96 0.004 290);
   font-family: var(--font-space-grotesk), sans-serif;
 }
 
-/* ---- The two fixed overlays the whole app sits under ----
-   A grid on the floor and scanlines over the glass. Both are painted on <body>
-   pseudo-elements rather than a wrapper element, so nothing in the tree has to
-   know they exist, and both are click-through: they are lighting, not surface. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image: linear-gradient(oklch(0.84 0.17 196 / 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(0.84 0.17 196 / 0.045) 1px, transparent 1px);
-  background-size: 44px 44px;
-  /* Fades the grid out towards the bottom so it reads as a floor receding, not
-     as graph paper taped over the screen. */
-  mask-image: radial-gradient(ellipse 120% 90% at 50% 0%, black 10%, transparent 85%);
-}
-
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    oklch(0 0 0 / 0.16) 0px,
-    oklch(0 0 0 / 0.16) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  /* A single bright line sweeping down every 7s, the way a CRT refreshes. */
-  animation: crtSweep 7s linear infinite;
-}
-
-/* The shell has to sit above the grid, which is painted on the body itself. */
-.app-shell {
-  position: relative;
-  z-index: 1;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  body::after,
-  .sidebar-brand,
-  .sidebar-brand::after,
   .trade-row,
   .draw-stroke,
   .ring-fill,
@@ -116,59 +70,18 @@ body::after {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.35 0.051 250);
+  background: oklch(0.35 0.03 290);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-@keyframes crtSweep {
-  0% {
-    box-shadow: inset 0 -100vh 0 -99.6vh oklch(0.84 0.17 196 / 0.14);
-  }
-  100% {
-    box-shadow: inset 0 100vh 0 -99.6vh oklch(0.84 0.17 196 / 0.14);
-  }
-}
 
-/* Two hard jumps and back, so a hover reads as a signal breaking up rather than
-   as something sliding. */
-@keyframes glitch {
-  0%, 100% {
-    transform: translate(0, 0);
-    clip-path: none;
-  }
-  20% {
-    transform: translate(-1.5px, 1px);
-  }
-  40% {
-    transform: translate(1.5px, -1px);
-  }
-  60% {
-    transform: translate(-1px, 0);
-  }
-}
 
-@keyframes flicker {
-  0%, 19%, 21%, 55%, 57%, 100% {
-    opacity: 1;
-    text-shadow: 0 0 10px oklch(0.84 0.17 196 / 0.55);
-  }
-  20%, 56% {
-    opacity: 0.72;
-    text-shadow: none;
-  }
-}
 
-@keyframes caretBlink {
-  0%, 49% {
-    opacity: 1;
-  }
-  50%, 100% {
-    opacity: 0;
-  }
-}
+
+
 
 /* The equity curve and the win-rate ring both draw themselves on: their SVG
    carries pathLength="1", so one unit of dash covers the whole stroke whatever
@@ -218,8 +131,8 @@ body::after {
 /* The section a click in the sidebar just landed on. */
 @keyframes noteLanded {
   from {
-    background: oklch(0.84 0.17 196 / 0.13);
-    box-shadow: inset 3px 0 0 var(--neon), 0 0 30px -10px oklch(0.84 0.17 196 / 0.6);
+    background: oklch(0.68 0.19 293 / 0.13);
+    box-shadow: inset 3px 0 0 var(--neon), 0 0 30px -10px oklch(0.68 0.19 293 / 0.6);
   }
   to {
     background: transparent;
@@ -354,12 +267,11 @@ body::after {
   flex-direction: column;
   padding: 24px 16px;
   margin: 16px 0 16px 16px;
-  background: oklch(0.15 0.03 250 / 0.62);
+  background: oklch(0.19 0.02 290 / 0.55);
   backdrop-filter: blur(16px);
-  border: 1px solid oklch(0.84 0.17 196 / 0.22);
-  /* Cut corners rather than rounded ones, matching glassCard in lib/theme.ts. */
-  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
-  box-shadow: inset 0 0 0 1px oklch(0.84 0.17 196 / 0.06), 0 0 28px -8px oklch(0.84 0.17 196 / 0.3);
+  border: 1px solid oklch(0.36 0.03 290 / 0.45);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px -16px oklch(0.68 0.19 293 / 0.25);
   position: relative;
 }
 .sidebar-scroll {
@@ -374,17 +286,7 @@ body::after {
   align-items: center;
   gap: 10px;
   padding: 6px 10px 26px 10px;
-  font-family: var(--font-jetbrains-mono), monospace;
-  letter-spacing: 0.06em;
-  animation: flicker 6s steps(1, end) infinite;
-}
-/* The caret that never gets typed into. */
-.sidebar-brand::after {
-  content: "_";
-  color: var(--neon);
-  font-family: var(--font-jetbrains-mono), monospace;
-  margin-left: -4px;
-  animation: caretBlink 1.1s steps(1, end) infinite;
+  letter-spacing: 0.02em;
 }
 .sidebar-nav {
   display: flex;
@@ -399,10 +301,9 @@ body::after {
 .sidebar-active-pill {
   position: absolute;
   z-index: 0;
-  border-radius: 3px;
+  border-radius: 9px;
   pointer-events: none;
-  background: oklch(0.84 0.17 196 / 0.14);
-  box-shadow: inset 2px 0 0 var(--neon), 0 0 20px -8px oklch(0.84 0.17 196 / 0.7);
+  background: oklch(0.68 0.19 293 / 0.14);
   transition: top 0.22s cubic-bezier(0.22, 1, 0.36, 1), left 0.22s cubic-bezier(0.22, 1, 0.36, 1),
     width 0.22s cubic-bezier(0.22, 1, 0.36, 1), height 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -410,7 +311,6 @@ body::after {
    arrives a touch quicker than the one on the sections. */
 .sidebar-note-pill {
   border-radius: 6px;
-  box-shadow: inset 2px 0 0 var(--neon), 0 0 14px -8px oklch(0.84 0.17 196 / 0.7);
   transition-duration: 0.16s;
 }
 
@@ -430,21 +330,16 @@ body::after {
   align-items: center;
   gap: 12px;
   padding: 11px 12px;
-  border-radius: 3px;
+  border-radius: 9px;
   text-decoration: none;
   position: relative;
-  transition: background 0.14s ease, box-shadow 0.14s ease;
+  transition: background 0.14s ease;
 }
 .sidebar-nav-item:hover {
-  background: oklch(0.84 0.17 196 / 0.08);
-  box-shadow: inset 2px 0 0 var(--neon), 0 0 18px -6px oklch(0.84 0.17 196 / 0.6);
-  animation: glitch 0.28s steps(2, end) 1;
+  background: oklch(0.68 0.19 293 / 0.08);
 }
 .sidebar-nav-label {
-  font-size: 13px;
-  font-family: var(--font-jetbrains-mono), monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 14px;
 }
 .sidebar-note-add {
   opacity: 0;
@@ -463,9 +358,9 @@ body::after {
     border-radius: 0 !important;
     backdrop-filter: none !important;
     box-shadow: none !important;
-    background: oklch(0.15 0.0272 250) !important;
+    background: oklch(0.15 0.016 290) !important;
     border-right: none !important;
-    border-top: 1px solid oklch(0.32 0.051 250 / 0.5) !important;
+    border-top: 1px solid oklch(0.32 0.03 290 / 0.5) !important;
   }
   /* The width a mouse drags is a desktop measurement. */
   .sidebar-resizer {
@@ -499,7 +394,7 @@ body::after {
   /* On the tab bar the entries sit side by side, so the marker runs along the
      top of the active one rather than down its left edge. */
   .sidebar-active-pill {
-    box-shadow: inset 0 2px 0 var(--neon), 0 0 20px -8px oklch(0.84 0.17 196 / 0.7) !important;
+    box-shadow: none !important;
   }
   .sidebar-nav-label {
     font-size: 9px !important;
@@ -671,40 +566,15 @@ body::after {
   }
 }
 
-/* ---- Neon, applied to what the components already declare ----
-   Nearly every colour in this app is written inline on the element, so the
-   accent cannot be reached by a class here. It can be reached by what it is:
-   any element whose inline style mentions the accent colour is something meant
-   to be lit, and gets the halo of whatever colour it is drawn in. One rule
-   lights every chip, count, and accent label in the journal at once. */
-[style*="0.84 0.17 196"] {
-  text-shadow: 0 0 9px currentColor;
-}
-[style*="0.72 0.27 340"],
-[style*="0.7 0.25 18"] {
-  text-shadow: 0 0 9px currentColor;
-}
-
 /* Fields answer when they take focus. */
 input:focus,
 select:focus,
 textarea:focus {
-  box-shadow: 0 0 0 1px var(--neon-dim), 0 0 16px -4px oklch(0.84 0.17 196 / 0.55);
-}
-
-/* Anything clickable breaks up for a moment when the pointer lands on it. */
-button:hover,
-a:hover {
-  animation: glitch 0.26s steps(2, end) 1;
+  box-shadow: 0 0 0 1px var(--neon-dim);
 }
 
 ::selection {
-  background: oklch(0.84 0.17 196 / 0.3);
-}
-
-::-webkit-scrollbar-thumb {
-  background: oklch(0.84 0.17 196 / 0.35);
-  border-radius: 0;
+  background: oklch(0.68 0.19 293 / 0.3);
 }
 
 /* ---- Entrances ----

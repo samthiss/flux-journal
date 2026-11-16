@@ -72,14 +72,14 @@ export default async function TradeDetail({
 
   const outcome = trade.pnl > 0 ? "win" : "loss";
   const pnlColor = trade.pnl > 0 ? winColor : lossColor;
-  const sideColor = trade.side === "Long" ? accentColor : "oklch(0.6 0.034 250)";
+  const sideColor = trade.side === "Long" ? accentColor : "oklch(0.6 0.02 290)";
   const badgeStyle: React.CSSProperties = {
     fontSize: 11,
     fontWeight: 600,
     padding: "4px 10px",
     borderRadius: 20,
-    background: outcome === "win" ? accentSoft : "oklch(0.3 0.017 250)",
-    color: outcome === "win" ? winColor : "oklch(0.7 0.017 250)",
+    background: outcome === "win" ? accentSoft : "oklch(0.3 0.01 290)",
+    color: outcome === "win" ? winColor : "oklch(0.7 0.01 290)",
   };
 
   const statCards = [
@@ -154,13 +154,13 @@ export default async function TradeDetail({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            border: "1px solid oklch(0.36 0.051 250 / 0.6)",
-            background: "oklch(0.18 0.034 250)",
+            border: "1px solid oklch(0.36 0.03 290 / 0.6)",
+            background: "oklch(0.18 0.02 290)",
             flexShrink: 0,
           }}
         >
           <svg width="16" height="16" viewBox="0 0 16 16">
-            <path d="M10 3L5 8l5 5" fill="none" stroke="oklch(0.85 0.017 250)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 3L5 8l5 5" fill="none" stroke="oklch(0.85 0.01 290)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Link>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -169,7 +169,7 @@ export default async function TradeDetail({
             <span style={badgeStyle}>{outcome === "win" ? "Win" : "Loss"}</span>
             <span style={{ fontSize: 13, color: sideColor, fontWeight: 600 }}>{trade.side}</span>
           </div>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 2 }}>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 2 }}>
             {trade.date.toISOString().slice(0, 10)}
             {trade.time ? ` · ${trade.time}` : ""} &middot; {trade.setup}
           </div>
@@ -178,7 +178,7 @@ export default async function TradeDetail({
           <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 28, fontWeight: 700, color: pnlColor }}>
             {fmtMoney(trade.pnl)}
           </div>
-          <div style={{ fontSize: 12, color: "oklch(0.55 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <div style={{ fontSize: 12, color: "oklch(0.55 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Realized P&amp;L
           </div>
         </div>
@@ -198,13 +198,13 @@ export default async function TradeDetail({
               padding: "11px 18px",
               borderRadius: 9,
               background: accentColor,
-              color: "oklch(0.12 0.017 250)",
+              color: "oklch(0.12 0.01 290)",
               textDecoration: "none",
               flexShrink: 0,
             }}
           >
             <svg width="15" height="15" viewBox="0 0 15 15">
-              <path d="M10.5 1.5l3 3L5 13l-3.5.5L2 10z" fill="none" stroke="oklch(0.12 0.017 250)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10.5 1.5l3 3L5 13l-3.5.5L2 10z" fill="none" stroke="oklch(0.12 0.01 290)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Edit
           </Link>
@@ -247,7 +247,7 @@ export default async function TradeDetail({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 18 }}>
         {statCards.map((s) => (
           <div key={s.label} style={{ ...glassCard, padding: 16 }}>
-            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "oklch(0.55 0.034 250)" }}>{s.label}</div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "oklch(0.55 0.02 290)" }}>{s.label}</div>
             <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 18, fontWeight: 600, marginTop: 6 }}>{s.value}</div>
           </div>
         ))}
@@ -255,34 +255,34 @@ export default async function TradeDetail({
 
       <div className="trade-detail-columns">
         <div style={glassCard}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
             Details
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ color: "oklch(0.6 0.034 250)" }}>Setup</span>
+              <span style={{ color: "oklch(0.6 0.02 290)" }}>Setup</span>
               <span style={{ fontWeight: 600 }}>{trade.setup}</span>
             </div>
             {/* Under the setup, because it is the other half of the same
                 question: which pattern, and whose rules for taking it. */}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ color: "oklch(0.6 0.034 250)" }}>Strategy</span>
+              <span style={{ color: "oklch(0.6 0.02 290)" }}>Strategy</span>
               <span style={{ fontWeight: 600 }}>{trade.strategy ?? "—"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ color: "oklch(0.6 0.034 250)" }}>Entry type</span>
+              <span style={{ color: "oklch(0.6 0.02 290)" }}>Entry type</span>
               <span style={{ fontWeight: 600 }}>{trade.entryType ?? "—"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ color: "oklch(0.6 0.034 250)" }}>Market</span>
+              <span style={{ color: "oklch(0.6 0.02 290)" }}>Market</span>
               <span style={{ fontWeight: 600 }}>{trade.market ?? "—"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ color: "oklch(0.6 0.034 250)" }}>Direction</span>
+              <span style={{ color: "oklch(0.6 0.02 290)" }}>Direction</span>
               <span style={{ fontWeight: 600, color: sideColor }}>{trade.side}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ color: "oklch(0.6 0.034 250)" }}>Emotion</span>
+              <span style={{ color: "oklch(0.6 0.02 290)" }}>Emotion</span>
               <span style={{ fontWeight: 600 }}>{trade.emotion ?? "—"}</span>
             </div>
 
@@ -290,7 +290,7 @@ export default async function TradeDetail({
                 and four empty rows would push the ones that matter down. */}
             {trade.tpReached != null && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, gap: 12 }}>
-                <span style={{ color: "oklch(0.6 0.034 250)" }}>Take profit</span>
+                <span style={{ color: "oklch(0.6 0.02 290)" }}>Take profit</span>
                 <span style={{ display: "flex", gap: 5 }}>
                   {[1, 2, 3].map((level) => {
                     const reached = (trade.tpReached ?? 0) >= level;
@@ -302,9 +302,9 @@ export default async function TradeDetail({
                           fontSize: 10.5,
                           padding: "2px 8px",
                           borderRadius: 999,
-                          border: `1px solid ${reached ? accentColor : "oklch(0.32 0.02 250)"}`,
+                          border: `1px solid ${reached ? accentColor : "oklch(0.32 0.0118 290)"}`,
                           background: reached ? accentSoft : "transparent",
-                          color: reached ? accentColor : "oklch(0.45 0.02 250)",
+                          color: reached ? accentColor : "oklch(0.45 0.0118 290)",
                         }}
                       >
                         TP{level}
@@ -331,7 +331,7 @@ export default async function TradeDetail({
               .filter(([, v]) => v != null)
               .map(([k, v, color]) => (
                 <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-                  <span style={{ color: "oklch(0.6 0.034 250)" }}>{k}</span>
+                  <span style={{ color: "oklch(0.6 0.02 290)" }}>{k}</span>
                   <span style={{ fontWeight: 600, fontFamily: "var(--font-jetbrains-mono), monospace", color: color ?? undefined }}>{v}</span>
                 </div>
               ))}
@@ -341,7 +341,7 @@ export default async function TradeDetail({
                 key={row.label}
                 style={{ display: "flex", justifyContent: "space-between", fontSize: 14, gap: 12, alignItems: "flex-start" }}
               >
-                <span style={{ color: "oklch(0.6 0.034 250)", flex: "none" }}>{row.label}</span>
+                <span style={{ color: "oklch(0.6 0.02 290)", flex: "none" }}>{row.label}</span>
                 <span style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
                   {row.values.map((tag) => {
                     const tone = tagTone(tag);
@@ -368,20 +368,20 @@ export default async function TradeDetail({
           </div>
         </div>
         <div style={glassCard}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
             Pre trade analysis
           </div>
-          <div style={{ fontSize: 14, lineHeight: 1.6, color: "oklch(0.8 0.017 250)" }}>
+          <div style={{ fontSize: 14, lineHeight: 1.6, color: "oklch(0.8 0.01 290)" }}>
             {trade.preTradeNotes || "No pre trade analysis recorded for this trade."}
           </div>
         </div>
       </div>
 
       <div style={{ ...glassCard, marginBottom: 18 }}>
-        <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+        <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
           Post trade analysis
         </div>
-        <div style={{ fontSize: 14, lineHeight: 1.6, color: "oklch(0.8 0.017 250)" }}>
+        <div style={{ fontSize: 14, lineHeight: 1.6, color: "oklch(0.8 0.01 290)" }}>
           {trade.postTradeNotes || "No post trade analysis recorded for this trade."}
         </div>
       </div>
@@ -395,7 +395,7 @@ export default async function TradeDetail({
           the other. */}
       {planCharts.length > 0 && (
         <div style={glassCard}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
             Trading Plan screenshot
           </div>
           <TradeCharts charts={planCharts.map((url, i) => ({ key: url, label: `Plan ${i + 1}`, src: url }))} />
@@ -407,7 +407,7 @@ export default async function TradeDetail({
           trade with one capture they buried it. */}
       {captures.length > 0 && (
         <div style={glassCard}>
-          <div style={{ fontSize: 13, color: "oklch(0.62 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: "oklch(0.62 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
             Post Trade screenshots
           </div>
           {/* Numbered rather than named: the slots no longer stand for a

@@ -55,7 +55,7 @@ export default async function FicheDuJourPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <PageTitle>Fiche du jour</PageTitle>
-        <div style={{ fontSize: 14, color: "oklch(0.62 0.034 250)", marginTop: 4 }}>
+        <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 4 }}>
           Les ordres à poser selon le plan backtesté, paire par paire, et les news à éviter
         </div>
       </div>

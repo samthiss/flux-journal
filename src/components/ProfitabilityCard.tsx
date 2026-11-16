@@ -6,7 +6,7 @@ import { payoffTargets, projectPayoff, type computeDashboardStats, type computeS
 
 const pct = (n: number) => `${(n * 100).toFixed(1)} %`;
 
-const label = { fontSize: 12, color: "oklch(0.6 0.034 250)", textTransform: "uppercase", letterSpacing: "0.06em" } as const;
+const label = { fontSize: 12, color: "oklch(0.6 0.02 290)", textTransform: "uppercase", letterSpacing: "0.06em" } as const;
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
 
 /**
@@ -25,8 +25,8 @@ function BreakevenBar({ winRate, breakeven, height = 10 }: { winRate: number; br
         position: "relative",
         height,
         borderRadius: 2,
-        background: "oklch(0.24 0.03 250)",
-        border: "1px solid oklch(0.3 0.04 250)",
+        background: "oklch(0.24 0.0176 290)",
+        border: "1px solid oklch(0.3 0.0235 290)",
         overflow: "hidden",
       }}
     >
@@ -49,8 +49,8 @@ function BreakevenBar({ winRate, breakeven, height = 10 }: { winRate: number; br
             bottom: -1,
             left: `${Math.min(breakeven, 1) * 100}%`,
             width: 2,
-            background: "oklch(0.95 0.005 250)",
-            boxShadow: "0 0 8px oklch(0.95 0.005 250)",
+            background: "oklch(0.95 0.0029 290)",
+            boxShadow: "0 0 8px oklch(0.95 0.0029 290)",
           }}
         />
       )}
@@ -62,8 +62,8 @@ function Figure({ title, value, hint, color }: { title: string; value: string; h
   return (
     <div>
       <div style={label}>{title}</div>
-      <div style={{ ...mono, fontSize: 20, fontWeight: 600, marginTop: 6, color: color ?? "oklch(0.96 0.0068 250)" }}>{value}</div>
-      {hint && <div style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)", marginTop: 3 }}>{hint}</div>}
+      <div style={{ ...mono, fontSize: 20, fontWeight: 600, marginTop: 6, color: color ?? "oklch(0.96 0.004 290)" }}>{value}</div>
+      {hint && <div style={{ fontSize: 11.5, color: "oklch(0.55 0.0176 290)", marginTop: 3 }}>{hint}</div>}
     </div>
   );
 }
@@ -90,15 +90,15 @@ export default function ProfitabilityCard({
               Every trade counts as a win or a loss, so the two lists together
               are the period's whole population. */}
           <div style={{ ...mono, fontSize: 15, marginTop: 8, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontWeight: 600, color: "oklch(0.96 0.0068 250)" }}>
+            <span style={{ fontWeight: 600, color: "oklch(0.96 0.004 290)" }}>
               {stats.wins.length + stats.losses.length} trades
             </span>
-            <span style={{ color: "oklch(0.45 0.03 250)" }}>·</span>
-            <span style={{ color: "oklch(0.62 0.03 250)", fontSize: 13 }}>
+            <span style={{ color: "oklch(0.45 0.0176 290)" }}>·</span>
+            <span style={{ color: "oklch(0.62 0.0176 290)", fontSize: 13 }}>
               gain moyen <span style={{ color: winColor, fontWeight: 600, fontSize: 15 }}>{fmtMoney(avgWin)}</span>
             </span>
-            <span style={{ color: "oklch(0.45 0.03 250)" }}>·</span>
-            <span style={{ color: "oklch(0.62 0.03 250)", fontSize: 13 }}>
+            <span style={{ color: "oklch(0.45 0.0176 290)" }}>·</span>
+            <span style={{ color: "oklch(0.62 0.0176 290)", fontSize: 13 }}>
               perte moyenne <span style={{ color: lossColor, fontWeight: 600, fontSize: 15 }}>{fmtMoney(avgLoss)}</span>
             </span>
           </div>
@@ -142,7 +142,7 @@ export default function ProfitabilityCard({
       </div>
 
       <BreakevenBar winRate={winRate} breakeven={breakevenWinRate} height={12} />
-      <div style={{ fontSize: 12.5, color: "oklch(0.62 0.03 250)", marginTop: 10 }}>
+      <div style={{ fontSize: 12.5, color: "oklch(0.62 0.0176 290)", marginTop: 10 }}>
         {!stats.hasTrades ? (
           "Aucun trade sur la période."
         ) : (
@@ -159,9 +159,9 @@ export default function ProfitabilityCard({
       </div>
 
       {stats.hasTrades && payoff > 0 && (
-        <div style={{ marginTop: 22, borderTop: "1px solid oklch(0.28 0.04 250)", paddingTop: 16 }}>
+        <div style={{ marginTop: 22, borderTop: "1px solid oklch(0.28 0.0235 290)", paddingTop: 16 }}>
           <div style={{ ...label, marginBottom: 4 }}>Objectif</div>
-          <div style={{ fontSize: 12.5, color: "oklch(0.62 0.03 250)", marginBottom: 14 }}>
+          <div style={{ fontSize: 12.5, color: "oklch(0.62 0.0176 290)", marginBottom: 14 }}>
             Ce que rapporterait un meilleur ratio, à perte moyenne inchangée. La dernière colonne est le taux de réussite
             en dessous duquel le nouveau ratio ne rapporte plus que ce que tu gagnes aujourd&apos;hui.
           </div>
@@ -180,26 +180,26 @@ export default function ProfitabilityCard({
                     gap: 14,
                     padding: "10px 12px",
                     borderRadius: 3,
-                    background: "oklch(0.84 0.17 196 / 0.06)",
-                    border: "1px solid oklch(0.84 0.17 196 / 0.18)",
+                    background: "oklch(0.68 0.19 293 / 0.06)",
+                    border: "1px solid oklch(0.68 0.19 293 / 0.18)",
                   }}
                 >
                   <div style={{ ...mono, fontSize: 15, fontWeight: 700, color: accentColor }}>RR {target.toFixed(1)}</div>
-                  <div style={{ ...mono, fontSize: 12.5, color: "oklch(0.85 0.02 250)" }}>
+                  <div style={{ ...mono, fontSize: 12.5, color: "oklch(0.85 0.0118 290)" }}>
                     {fmtMoney(p.expectancy)} / trade
                     {factor > 1 && (
-                      <span style={{ color: "oklch(0.6 0.03 250)" }}> · ×{factor.toFixed(1)} ce que tu gagnes</span>
+                      <span style={{ color: "oklch(0.6 0.0176 290)" }}> · ×{factor.toFixed(1)} ce que tu gagnes</span>
                     )}
-                    <span style={{ color: "oklch(0.6 0.03 250)" }}> · {fmtMoney(p.expectancy * 100)} sur 100 trades</span>
+                    <span style={{ color: "oklch(0.6 0.0176 290)" }}> · {fmtMoney(p.expectancy * 100)} sur 100 trades</span>
                   </div>
-                  <div style={{ ...mono, fontSize: 12, color: "oklch(0.62 0.03 250)", whiteSpace: "nowrap" }}>
+                  <div style={{ ...mono, fontSize: 12, color: "oklch(0.62 0.0176 290)", whiteSpace: "nowrap" }}>
                     tenable jusqu&apos;à {pct(p.sustainableWinRate)}
                   </div>
                 </div>
               );
             })}
           </div>
-          <div style={{ fontSize: 12.5, color: "oklch(0.62 0.03 250)", marginTop: 12 }}>
+          <div style={{ fontSize: 12.5, color: "oklch(0.62 0.0176 290)", marginTop: 12 }}>
             Un objectif plus lointain est touché moins souvent : viser {payoffTargets(payoff)[0].toFixed(1)} te laisse
             perdre{" "}
             <span style={{ color: accentColor, fontWeight: 600 }}>
@@ -211,7 +211,7 @@ export default function ProfitabilityCard({
       )}
 
       {setups.length > 1 && (
-        <div style={{ marginTop: 22, borderTop: "1px solid oklch(0.28 0.04 250)", paddingTop: 16 }}>
+        <div style={{ marginTop: 22, borderTop: "1px solid oklch(0.28 0.0235 290)", paddingTop: 16 }}>
           <div style={{ ...label, marginBottom: 12 }}>Par setup</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {setups.map((s) => {
@@ -221,9 +221,9 @@ export default function ProfitabilityCard({
                 <div key={s.setup}>
                   <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600 }}>
-                      {s.setup} <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.03 250)" }}>n={s.count}</span>
+                      {s.setup} <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0.0176 290)" }}>n={s.count}</span>
                     </div>
-                    <div style={{ ...mono, fontSize: 11.5, color: "oklch(0.62 0.03 250)", display: "flex", gap: 14, flexWrap: "wrap" }}>
+                    <div style={{ ...mono, fontSize: 11.5, color: "oklch(0.62 0.0176 290)", display: "flex", gap: 14, flexWrap: "wrap" }}>
                       <span>RR {s.payoff > 0 ? s.payoff.toFixed(2) : "—"}</span>
                       <span>WR {pct(s.winRate)}</span>
                       <span>requis {s.breakevenWinRate > 0 ? pct(s.breakevenWinRate) : "—"}</span>

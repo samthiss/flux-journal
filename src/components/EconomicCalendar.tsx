@@ -98,9 +98,9 @@ function Chip({ on, label, title, onClick }: { on: boolean; label: ReactNode; ti
         padding: "3px 9px",
         borderRadius: 999,
         cursor: "pointer",
-        border: `1px solid ${on ? accentColor : "oklch(0.32 0.02 250)"}`,
+        border: `1px solid ${on ? accentColor : "oklch(0.32 0.0118 290)"}`,
         background: on ? "oklch(0.72 0.14 195 / 0.14)" : "transparent",
-        color: on ? accentColor : "oklch(0.6 0.02 250)",
+        color: on ? accentColor : "oklch(0.6 0.0118 290)",
         transition: "color 120ms, border-color 120ms, background 120ms",
       }}
     >
@@ -150,8 +150,8 @@ function RangePicker({ range, onPick }: { range: Range; onPick: (range: Range) =
             minWidth: 160,
             padding: 4,
             borderRadius: 8,
-            border: "1px solid oklch(0.34 0.034 250)",
-            background: "oklch(0.21 0.034 250)",
+            border: "1px solid oklch(0.34 0.02 290)",
+            background: "oklch(0.21 0.02 290)",
             boxShadow: "0 10px 28px -8px oklch(0 0 0 / 0.55)",
           }}
         >
@@ -173,7 +173,7 @@ function RangePicker({ range, onPick }: { range: Range; onPick: (range: Range) =
                   borderRadius: 5,
                   cursor: "pointer",
                   fontSize: 10.5,
-                  color: on ? accentColor : "oklch(0.72 0.02 250)",
+                  color: on ? accentColor : "oklch(0.72 0.0118 290)",
                   background: on ? "oklch(0.72 0.14 195 / 0.14)" : "transparent",
                 }}
               >
@@ -380,7 +380,7 @@ export default function EconomicCalendar({
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px 12px" }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor }} />
         <div style={{ fontSize: 13, fontWeight: 600 }}>Calendrier économique</div>
-        <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.034 250)", marginLeft: "auto" }}>{source}</div>
+        <div style={{ ...mono, fontSize: 11, color: "oklch(0.55 0.02 290)", marginLeft: "auto" }}>{source}</div>
       </div>
 
       <div
@@ -389,7 +389,7 @@ export default function EconomicCalendar({
           flexDirection: "column",
           gap: 8,
           padding: "0 18px 14px",
-          borderBottom: "1px solid oklch(0.3 0.034 250 / 0.6)",
+          borderBottom: "1px solid oklch(0.3 0.02 290 / 0.6)",
         }}
       >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -412,7 +412,7 @@ export default function EconomicCalendar({
               onClick={() => setIgnoreFocus((v) => !v)}
             />
           )}
-          {focus && <span style={{ width: 1, height: 14, background: "oklch(0.32 0.02 250)", margin: "0 3px" }} />}
+          {focus && <span style={{ width: 1, height: 14, background: "oklch(0.32 0.0118 290)", margin: "0 3px" }} />}
           {/* The same three stars the rows carry, so the filter and what it
               filters are read in one alphabet rather than two. */}
           {IMPACTS.map((i) => (
@@ -428,18 +428,18 @@ export default function EconomicCalendar({
       </div>
 
       {following && (
-        <div style={{ ...mono, fontSize: 10, color: "oklch(0.55 0.03 250)", padding: "8px 18px 0" }}>
+        <div style={{ ...mono, fontSize: 10, color: "oklch(0.55 0.0176 290)", padding: "8px 18px 0" }}>
           {market} · {focus.summary}
         </div>
       )}
 
       {!ok && (
-        <div style={{ padding: "16px 18px", fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+        <div style={{ padding: "16px 18px", fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>
           Le flux n&apos;a pas répondu — il limite les appels rapprochés. Il sera relu dans l&apos;heure.
         </div>
       )}
       {ok && shown === 0 && (
-        <div style={{ padding: "16px 18px", fontSize: 12.5, color: "oklch(0.6 0.03 250)" }}>
+        <div style={{ padding: "16px 18px", fontSize: 12.5, color: "oklch(0.6 0.0176 290)" }}>
           Aucune publication ne passe ces filtres.
         </div>
       )}
@@ -452,9 +452,9 @@ export default function EconomicCalendar({
               fontSize: 10,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
-              color: day === dayShifted(0) ? accentColor : "oklch(0.5 0.03 250)",
+              color: day === dayShifted(0) ? accentColor : "oklch(0.5 0.0176 290)",
               padding: "10px 18px 6px",
-              borderBottom: "1px solid oklch(0.28 0.03 250 / 0.5)",
+              borderBottom: "1px solid oklch(0.28 0.0176 290 / 0.5)",
             }}
           >
             {dayLabel(day)}
@@ -470,10 +470,10 @@ export default function EconomicCalendar({
                 alignItems: "baseline",
                 gap: 10,
                 padding: "8px 18px",
-                borderBottom: "1px solid oklch(0.26 0.03 250 / 0.35)",
+                borderBottom: "1px solid oklch(0.26 0.0176 290 / 0.35)",
               }}
             >
-              <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.72 0.02 250)", flex: "none", width: 56 }}>
+              <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.72 0.0118 290)", flex: "none", width: 56 }}>
                 {event.kind === "holiday" ? "journée" : (localTime(event) ?? "—")}
               </span>
               <span
@@ -483,8 +483,8 @@ export default function EconomicCalendar({
                   flex: "none",
                   padding: "1px 7px",
                   borderRadius: 999,
-                  border: "1px solid oklch(0.34 0.02 250)",
-                  color: "oklch(0.7 0.02 250)",
+                  border: "1px solid oklch(0.34 0.0118 290)",
+                  color: "oklch(0.7 0.0118 290)",
                 }}
               >
                 {event.currency}
@@ -507,9 +507,9 @@ export default function EconomicCalendar({
               ) : (
                 <Impact level={event.impact} onRate={(level) => rate(event, level)} />
               )}
-              <span style={{ fontSize: 12.5, color: "oklch(0.85 0.017 250)", flex: 1, minWidth: 0 }}>{event.title}</span>
+              <span style={{ fontSize: 12.5, color: "oklch(0.85 0.01 290)", flex: 1, minWidth: 0 }}>{event.title}</span>
               {(event.actual || event.forecast || event.previous) && (
-                <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.02 250)", flex: "none", whiteSpace: "nowrap" }}>
+                <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0.0118 290)", flex: "none", whiteSpace: "nowrap" }}>
                   {/* The published figure, once it exists, is the only number
                       on the row worth reading first — so it is the lit one. */}
                   {event.actual && (
@@ -523,7 +523,7 @@ export default function EconomicCalendar({
         </div>
       ))}
 
-      <div style={{ ...mono, fontSize: 9.5, color: "oklch(0.45 0.02 250)", padding: "8px 18px" }}>
+      <div style={{ ...mono, fontSize: 9.5, color: "oklch(0.45 0.0118 290)", padding: "8px 18px" }}>
         publié · prévision / précédent · heures locales · clic sur une étoile pour renoter
       </div>
     </div>
@@ -548,12 +548,12 @@ const LEVEL_NAME: Record<Impact, string> = { low: "faible", medium: "moyenne", h
 const LEVELS: Impact[] = ["low", "medium", "high"];
 
 function starColour(level: Impact, dim: boolean) {
-  if (dim) return "oklch(0.5 0.02 250)";
+  if (dim) return "oklch(0.5 0.0118 290)";
   // A single star is still a lit star: leaving it the colour of an unlit one
   // made a rated row look unrated.
   if (level === "high") return lossColor;
   if (level === "medium") return accentColor;
-  return "oklch(0.78 0.02 250)";
+  return "oklch(0.78 0.0118 290)";
 }
 
 function Stars({ level, dim = false }: { level: Impact; dim?: boolean }) {
@@ -567,7 +567,7 @@ function Stars({ level, dim = false }: { level: Impact; dim?: boolean }) {
           style={{
             fontSize: 12,
             lineHeight: 1,
-            color: i < lit ? colour : "oklch(0.32 0.02 250)",
+            color: i < lit ? colour : "oklch(0.32 0.0118 290)",
             textShadow: i < lit && !dim ? `0 0 7px ${colour}` : "none",
           }}
         >
@@ -606,7 +606,7 @@ function Impact({ level, onRate }: { level: Impact; onRate?: (level: Impact) => 
             border: "none",
             background: "transparent",
             cursor: "pointer",
-            color: i < lit ? colour : "oklch(0.32 0.02 250)",
+            color: i < lit ? colour : "oklch(0.32 0.0118 290)",
             textShadow: i < lit ? `0 0 7px ${colour}` : "none",
           }}
         >

@@ -215,7 +215,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
             Tes niveaux rejoués sur l&apos;historique Databento · meilleure entrée, meilleur SL, meilleurs TP
           </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "8px 8px 8px 14px", borderRadius: 10, border: "1px solid oklch(0.84 0.17 196 / 0.22)", background: "oklch(0.17 0.03 250 / 0.62)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "8px 8px 8px 14px", borderRadius: 10, border: "1px solid oklch(0.68 0.19 293 / 0.22)", background: "oklch(0.17 0.0176 290 / 0.62)" }}>
           <span style={{ ...label, fontSize: 11, marginRight: 4 }}>Ton compte</span>
           {[
             `${account.copies ?? 1} compte${(account.copies ?? 1) > 1 ? "s" : ""}`,
@@ -226,7 +226,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
           ]
             .filter(Boolean)
             .map((p) => (
-              <span key={p} style={{ ...mono, fontSize: 12, padding: "5px 9px", borderRadius: 6, background: "oklch(0.23 0.03 250)", color: "oklch(0.88 0.02 250)" }}>
+              <span key={p} style={{ ...mono, fontSize: 12, padding: "5px 9px", borderRadius: 6, background: "oklch(0.23 0.0176 290)", color: "oklch(0.88 0.0118 290)" }}>
                 {p}
               </span>
             ))}
@@ -286,7 +286,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               onChange={(e) => updateAccount({ ...account, copies: Math.max(1, Math.round(Number(e.target.value))) })}
               style={smallField}
             />
-            <span style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)", alignSelf: "center" }}>mêmes trades sur chaque compte · les limites restent celles d&apos;un compte</span>
+            <span style={{ fontSize: 11.5, color: "oklch(0.55 0.0176 290)", alignSelf: "center" }}>mêmes trades sur chaque compte · les limites restent celles d&apos;un compte</span>
           </RuleRow>
           <RuleRow on={!!account.split} onToggle={(v) => updateAccount({ ...account, split: v ? { from: 30000, firm: 10 } : null })} label="Partage des gains : la firme prend (%) au-delà de ($) par compte">
             <input type="number" min={0} max={100} value={account.split?.firm ?? 10} disabled={!account.split} onChange={(e) => updateAccount({ ...account, split: { from: account.split?.from ?? 30000, firm: Number(e.target.value) } })} style={smallField} />
@@ -324,7 +324,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
             </span>
           </RuleRow>
           <RuleRow on={!!account.wholeLots} onToggle={(v) => updateAccount({ ...account, wholeLots: v })} label="Lots entiers, pas de micros">
-            <span style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)" }}>le plan propose 1, 2 ou 3 lots par paire</span>
+            <span style={{ fontSize: 11.5, color: "oklch(0.55 0.0176 290)" }}>le plan propose 1, 2 ou 3 lots par paire</span>
           </RuleRow>
           <RuleRow on={!!account.maxLossPerTrade} onToggle={(v) => updateAccount({ ...account, maxLossPerTrade: v ? 500 : null })} label="Perte max par trade, stop touché ($)">
             <input type="number" min={1} value={account.maxLossPerTrade ?? 500} disabled={!account.maxLossPerTrade} onChange={(e) => updateAccount({ ...account, maxLossPerTrade: Number(e.target.value) })} style={{ ...smallField, width: 80 }} />
@@ -337,7 +337,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
       )}
 
       {/* ---- Results or rules ---- */}
-      <div role="tablist" style={{ display: "flex", gap: 4, borderBottom: "1px solid oklch(0.3 0.03 250 / 0.7)", marginBottom: 22 }}>
+      <div role="tablist" style={{ display: "flex", gap: 4, borderBottom: "1px solid oklch(0.3 0.0176 290 / 0.7)", marginBottom: 22 }}>
         {(
           [
             ["results", "Résultats"],
@@ -359,8 +359,8 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
               background: "transparent",
               border: 0,
               borderBottom: `2px solid ${tab === k ? accentColor : "transparent"}`,
-              color: tab === k ? "oklch(0.96 0.0068 250)" : muted,
-              textShadow: tab === k ? "0 0 12px oklch(0.84 0.17 196 / 0.4)" : undefined,
+              color: tab === k ? "oklch(0.96 0.004 290)" : muted,
+              textShadow: tab === k ? "0 0 12px oklch(0.68 0.19 293 / 0.4)" : undefined,
             }}
           >
             {text}
@@ -393,7 +393,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
 
       {analysed.length > 0 && tab === "results" && (
         <>
-          <div role="tablist" style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 4, borderRadius: 10, background: "oklch(0.16 0.03 250 / 0.7)", border: "1px solid oklch(0.3 0.03 250 / 0.6)", width: "fit-content", maxWidth: "100%", marginBottom: 22 }}>
+          <div role="tablist" style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 4, borderRadius: 10, background: "oklch(0.16 0.0176 290 / 0.7)", border: "1px solid oklch(0.3 0.0176 290 / 0.6)", width: "fit-content", maxWidth: "100%", marginBottom: 22 }}>
             {[{ k: "general", text: "Vue d’ensemble" }, ...analysed.map((e) => ({ k: e.symbol, text: e.symbol }))].map(({ k, text }) => {
               const on = view === k || (k === "general" && !sel);
               return (
@@ -412,7 +412,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                     border: 0,
                     ...(k === "general" ? {} : mono),
                     background: on ? accentColor : "transparent",
-                    color: on ? "oklch(0.14 0.03 250)" : "oklch(0.78 0.02 250)",
+                    color: on ? "oklch(0.14 0.0176 290)" : "oklch(0.78 0.0118 290)",
                     boxShadow: on ? neonGlow(accentColor, 1) : undefined,
                   }}
                 >
@@ -523,7 +523,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                         {[...general.months, null].map((m) => {
                           const tot = general.cell(m, null);
                           return (
-                            <tr key={m ?? "total"} style={m === null ? { background: "oklch(0.84 0.17 196 / 0.07)" } : undefined}>
+                            <tr key={m ?? "total"} style={m === null ? { background: "oklch(0.68 0.19 293 / 0.07)" } : undefined}>
                               <td style={{ ...td, fontFamily: "inherit", fontWeight: m === null ? 700 : undefined }}>{m ? monthLabel(m) : "Total"}</td>
                               {general.per.map(({ e }) => {
                                 const c = general.cell(m, e.symbol);
@@ -532,22 +532,22 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                                     {c.n ? (
                                       <>
                                         <div style={{ color: tone(c.pnl), fontWeight: 700 }}>{fmtUsd(c.pnl)}</div>
-                                        <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>{c.n} trades · {pct(c.wins / c.n)}</div>
+                                        <div style={{ fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>{c.n} trades · {pct(c.wins / c.n)}</div>
                                       </>
                                     ) : (
-                                      <span style={{ color: "oklch(0.4 0.02 250)" }}>—</span>
+                                      <span style={{ color: "oklch(0.4 0.0118 290)" }}>—</span>
                                     )}
                                   </td>
                                 );
                               })}
                               <td style={td}>
                                 <div style={{ color: tone(tot.pnl), fontWeight: 700, fontSize: 14 }}>{fmtUsd(tot.pnl)}</div>
-                                <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>{tot.n} trades · {tot.n ? pct(tot.wins / tot.n) : "—"}</div>
+                                <div style={{ fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>{tot.n} trades · {tot.n ? pct(tot.wins / tot.n) : "—"}</div>
                               </td>
                               {(account.copies ?? 1) > 1 && (
                                 <td style={td}>
                                   <div style={{ color: tone(tot.pnl), fontWeight: 700, fontSize: 14 }}>{fmtUsd(tot.pnl * account.copies!)}</div>
-                                  <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>{fmtUsd(tot.pnl)} × {account.copies}</div>
+                                  <div style={{ fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>{fmtUsd(tot.pnl)} × {account.copies}</div>
                                 </td>
                               )}
                               {account.split &&
@@ -557,7 +557,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
                                   return (
                                     <td style={td}>
                                       <div style={{ color: tone(tot.pnl - cut), fontWeight: 700, fontSize: 14 }}>{fmtUsd((tot.pnl - cut) * copies)}</div>
-                                      <div style={{ fontSize: 11, color: "oklch(0.55 0.03 250)" }}>{cut > 0 ? `firme −${fmtUsd(cut * copies).replace("+", "")}` : "100 % pour toi"}</div>
+                                      <div style={{ fontSize: 11, color: "oklch(0.55 0.0176 290)" }}>{cut > 0 ? `firme −${fmtUsd(cut * copies).replace("+", "")}` : "100 % pour toi"}</div>
                                     </td>
                                   );
                                 })()}
@@ -581,7 +581,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
 
 /* ---- Pieces of the page ------------------------------------------------------ */
 
-const muted = "oklch(0.62 0.034 250)";
+const muted = "oklch(0.62 0.02 290)";
 const card: React.CSSProperties = { ...glassCard, padding: 20 };
 const cardTitle: React.CSSProperties = { fontSize: 15, fontWeight: 700, margin: 0 };
 const kpiGrid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, marginBottom: 22 };
@@ -591,13 +591,16 @@ const ghostButton: React.CSSProperties = {
   fontWeight: 600,
   padding: "8px 14px",
   borderRadius: 7,
-  border: "1px solid oklch(0.34 0.04 250)",
-  background: "oklch(0.18 0.03 250)",
-  color: "oklch(0.85 0.02 250)",
+  border: "1px solid oklch(0.34 0.0235 290)",
+  background: "oklch(0.18 0.0176 290)",
+  color: "oklch(0.85 0.0118 290)",
 };
 /** The two ways into a level: buying a fall onto it, selling a rise onto it. */
 const buyColor = accentColor;
 const sellColor = "oklch(0.8 0.14 55)";
+/** Losing months as bars, and stops as prices: warmer than the grey of a losing figure, so they read at a glance. */
+const lossBarColor = "oklch(0.74 0.15 55)";
+const stopColor = "oklch(0.75 0.1 25)";
 
 /** Every month from the first to the last, the empty ones included: a month without a trade is still a month. */
 function monthsBetween(from: number, to: number) {
@@ -616,9 +619,9 @@ function Kpi({ title, value, hint, color, bar }: { title: string; value: string;
   return (
     <div style={card}>
       <div style={{ ...label, fontSize: 11.5 }}>{title}</div>
-      <div style={{ ...mono, fontSize: 26, fontWeight: 600, marginTop: 10, color: color ?? "oklch(0.96 0.0068 250)", fontVariantNumeric: "tabular-nums" }}>{value}</div>
+      <div style={{ ...mono, fontSize: 26, fontWeight: 600, marginTop: 10, color: color ?? "oklch(0.96 0.004 290)", fontVariantNumeric: "tabular-nums" }}>{value}</div>
       {bar && (
-        <div style={{ height: 5, borderRadius: 4, background: "oklch(0.26 0.03 250)", overflow: "hidden", marginTop: 12 }}>
+        <div style={{ height: 5, borderRadius: 4, background: "oklch(0.26 0.0176 290)", overflow: "hidden", marginTop: 12 }}>
           <div style={{ height: "100%", width: `${Math.max(2, Math.min(100, bar.pct)).toFixed(1)}%`, background: bar.color, borderRadius: "inherit", boxShadow: neonGlow(bar.color, 1) }} />
         </div>
       )}
@@ -632,7 +635,7 @@ function MonthBars({ bars, selected, onPick }: { bars: { key: string; value: num
   const up = Math.max(0, ...bars.map((b) => b.value ?? 0));
   const down = Math.max(0, ...bars.map((b) => -(b.value ?? 0)));
   const scale = 130 / Math.max(1, up + down);
-  const value = (v: number) => <span style={{ ...mono, fontSize: 10, color: "oklch(0.86 0.02 250)", whiteSpace: "nowrap" }}>{short(v)}</span>;
+  const value = (v: number) => <span style={{ ...mono, fontSize: 10, color: "oklch(0.86 0.0118 290)", whiteSpace: "nowrap" }}>{short(v)}</span>;
   return (
     <div style={{ overflowX: "auto" }}>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${bars.length}, minmax(34px, 1fr))`, gap: 5 }}>
@@ -655,14 +658,14 @@ function MonthBars({ bars, selected, onPick }: { bars: { key: string; value: num
             <>
               <span style={{ height: up * scale + 16, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 3, width: "100%" }}>
                 {v !== null && v >= 0 && value(v)}
-                {v !== null && v > 0 && <span style={{ display: "block", width: "60%", maxWidth: 30, height: Math.max(2, v * scale), borderRadius: "3px 3px 0 0", background: winColor, boxShadow: neonGlow(winColor, 1) }} />}
+                {v !== null && v > 0 && <span style={{ display: "block", width: "60%", maxWidth: 30, height: Math.max(2, v * scale), borderRadius: "3px 3px 0 0", background: accentColor }} />}
               </span>
-              <span style={{ display: "block", width: "100%", height: 1, background: "oklch(0.4 0.03 250)" }} />
+              <span style={{ display: "block", width: "100%", height: 1, background: "oklch(0.4 0.0176 290)" }} />
               <span style={{ height: down * scale + 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: "100%" }}>
-                {v !== null && v < 0 && <span style={{ display: "block", width: "60%", maxWidth: 30, height: Math.max(2, -v * scale), borderRadius: "0 0 3px 3px", background: lossColor, boxShadow: neonGlow(lossColor, 1) }} />}
+                {v !== null && v < 0 && <span style={{ display: "block", width: "60%", maxWidth: 30, height: Math.max(2, -v * scale), borderRadius: "0 0 3px 3px", background: lossBarColor }} />}
                 {v !== null && v < 0 && value(v)}
               </span>
-              <span style={{ fontSize: 10.5, marginTop: 4, color: on ? "oklch(0.96 0.0068 250)" : muted, whiteSpace: "nowrap" }}>{MOIS[Number(b.key.slice(5, 7)) - 1]}</span>
+              <span style={{ fontSize: 10.5, marginTop: 4, color: on ? "oklch(0.96 0.004 290)" : muted, whiteSpace: "nowrap" }}>{MOIS[Number(b.key.slice(5, 7)) - 1]}</span>
             </>
           );
           return onPick ? (
@@ -696,10 +699,10 @@ function RuleCard({ num, title, rules, detail }: { num: number; title: string; r
       {rules
         .filter((x): x is Rule => !!x)
         .map((x) => (
-          <div key={x.k} style={{ padding: "10px 0", borderTop: "1px solid oklch(0.27 0.03 250 / 0.8)" }}>
+          <div key={x.k} style={{ padding: "10px 0", borderTop: "1px solid oklch(0.27 0.0176 290 / 0.8)" }}>
             <div style={{ fontSize: 10.5, letterSpacing: "0.07em", textTransform: "uppercase", color: muted }}>{x.k}</div>
             <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.4, marginTop: 3 }}>{x.main}</div>
-            {detail && x.detail && <div style={{ fontSize: 12, color: "oklch(0.7 0.02 250)", lineHeight: 1.45, marginTop: 3 }}>{x.detail}</div>}
+            {detail && x.detail && <div style={{ fontSize: 12, color: "oklch(0.7 0.0118 290)", lineHeight: 1.45, marginTop: 3 }}>{x.detail}</div>}
           </div>
         ))}
     </div>
@@ -872,11 +875,11 @@ function Ladder({ sl, tp1, tp2, trail }: { sl: number; tp1: number; tp2: number 
     [tp1, `TP1 +${tp1} · trailing ${trail}`, true],
     ...(tp2 ? [[tp2, `TP2 +${tp2}`, false] as [number, string, boolean]] : []),
   ];
-  const text = (s: string) => <span style={{ ...mono, fontSize: 11, color: "oklch(0.86 0.02 250)", whiteSpace: "nowrap" }}>{s}</span>;
+  const text = (s: string) => <span style={{ ...mono, fontSize: 11, color: "oklch(0.86 0.0118 290)", whiteSpace: "nowrap" }}>{s}</span>;
   return (
     <div role="img" aria-label={`Stop ${sl} ticks sous l'entrée, TP1 à ${tp1} ticks${tp2 ? `, TP2 à ${tp2} ticks` : ""}`} style={{ position: "relative", height: 58, margin: "22px 30px 20px" }}>
-      <div style={{ position: "absolute", top: 25, left: 0, width: at(0), height: 8, borderRadius: "4px 0 0 4px", background: "oklch(0.72 0.27 340 / 0.5)" }} />
-      <div style={{ position: "absolute", top: 25, left: at(0), right: 0, height: 8, borderRadius: "0 4px 4px 0", background: "oklch(0.84 0.17 196 / 0.4)" }} />
+      <div style={{ position: "absolute", top: 25, left: 0, width: at(0), height: 8, borderRadius: "4px 0 0 4px", background: "oklch(0.74 0.15 55 / 0.5)" }} />
+      <div style={{ position: "absolute", top: 25, left: at(0), right: 0, height: 8, borderRadius: "0 4px 4px 0", background: "oklch(0.68 0.19 293 / 0.4)" }} />
       {marks.map(([x, s, above], i) => (
         <div
           key={s}
@@ -895,7 +898,7 @@ function Ladder({ sl, tp1, tp2, trail }: { sl: number; tp1: number; tp2: number 
           }}
         >
           <div style={{ height: 22, display: "flex", alignItems: "flex-end" }}>{above && text(s)}</div>
-          <div style={{ width: 2, height: 14, borderRadius: 1, background: "oklch(0.92 0.01 250)" }} />
+          <div style={{ width: 2, height: 14, borderRadius: 1, background: "oklch(0.92 0.0059 290)" }} />
           <div style={{ height: 22, display: "flex", alignItems: "flex-start" }}>{!above && text(s)}</div>
         </div>
       ))}
@@ -955,7 +958,7 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
           ) : (
             <div style={{ fontSize: 13, margin: "14px 0" }}>{exitShort(c)}</div>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: "110px minmax(0, 1fr)", rowGap: 12, columnGap: 12, fontSize: 13, paddingTop: 14, borderTop: "1px solid oklch(0.3 0.03 250 / 0.7)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "110px minmax(0, 1fr)", rowGap: 12, columnGap: 12, fontSize: 13, paddingTop: 14, borderTop: "1px solid oklch(0.3 0.0176 290 / 0.7)" }}>
             <div style={{ color: muted }}>Niveaux</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {levels.map(([z, b]) => {
@@ -969,9 +972,9 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
                       fontSize: 12,
                       padding: "4px 8px",
                       borderRadius: 6,
-                      background: bad ? "oklch(0.72 0.27 340 / 0.12)" : "oklch(0.23 0.03 250)",
-                      color: bad ? lossColor : "oklch(0.88 0.02 250)",
-                      border: bad ? "1px dashed oklch(0.72 0.27 340 / 0.5)" : "1px solid transparent",
+                      background: bad ? "oklch(0.7 0.15 20 / 0.12)" : "oklch(0.23 0.0176 290)",
+                      color: bad ? lossColor : "oklch(0.88 0.0118 290)",
+                      border: bad ? "1px dashed oklch(0.7 0.15 20 / 0.5)" : "1px solid transparent",
                     }}
                   >
                     {fmtZone(Number(z), r.symbol)}
@@ -1051,8 +1054,8 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
                       key={`${dir}${k}`}
                       style={{
                         fontWeight: k === 0 ? 600 : undefined,
-                        color: k === 1 ? lossColor : k === priceCols - 1 ? muted : undefined,
-                        ...(dir === -1 && k === 0 ? { paddingLeft: 12, borderLeft: "1px solid oklch(0.32 0.03 250)" } : {}),
+                        color: k === 1 ? stopColor : k === priceCols - 1 ? muted : undefined,
+                        ...(dir === -1 && k === 0 ? { paddingLeft: 12, borderLeft: "1px solid oklch(0.32 0.0176 290)" } : {}),
                       }}
                     >
                       {price(p)}
@@ -1068,8 +1071,8 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
                       alignItems: "center",
                       padding: "11px 10px",
                       borderRadius: 8,
-                      color: "oklch(0.92 0.01 250)",
-                      background: i % 2 ? "transparent" : "oklch(0.15 0.03 250 / 0.8)",
+                      color: "oklch(0.92 0.0059 290)",
+                      background: i % 2 ? "transparent" : "oklch(0.15 0.0176 290 / 0.8)",
                       opacity: bad ? 0.55 : 1,
                     }}
                   >
@@ -1116,7 +1119,7 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
                     const runner = outcome === "TR" && lots === 2 ? Math.round(ticks * 2 - c.tp1) : null;
                     const color = tone(ticks);
                     return (
-                      <div key={m} style={{ display: "grid", gridTemplateColumns: tradeGrid, gap: 10, alignItems: "center", padding: "12px 10px", borderRadius: 8, background: "oklch(0.15 0.03 250 / 0.8)", ...mono, fontSize: 12.5 }}>
+                      <div key={m} style={{ display: "grid", gridTemplateColumns: tradeGrid, gap: 10, alignItems: "center", padding: "12px 10px", borderRadius: 8, background: "oklch(0.15 0.0176 290 / 0.8)", ...mono, fontSize: 12.5 }}>
                         <div>{chicagoTime.format(m * 60000)}</div>
                         <div>
                           {dir === undefined ? (
@@ -1140,12 +1143,12 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
                         <div>
                           {zone === undefined ? "—" : price(zone)} <span style={{ color: muted }}>→</span> {e === null ? "—" : price(e)}
                         </div>
-                        <div style={{ color: "oklch(0.78 0.02 250)" }}>{e === null ? "—" : price(e - dir! * c.sl * tick!)}</div>
-                        <div style={{ color: "oklch(0.78 0.02 250)" }}>{e === null ? "—" : price(e + dir! * c.tp1 * tick!)}</div>
+                        <div style={{ color: "oklch(0.78 0.0118 290)" }}>{e === null ? "—" : price(e - dir! * c.sl * tick!)}</div>
+                        <div style={{ color: "oklch(0.78 0.0118 290)" }}>{e === null ? "—" : price(e + dir! * c.tp1 * tick!)}</div>
                         <div style={{ fontFamily: "var(--font-space-grotesk), sans-serif", fontSize: 13 }}>
                           {outcome === null ? "—" : runner !== null ? `TP1 + trailing (${runner >= 0 ? "+" : "−"}${Math.abs(runner)})` : OUT_TEXT[outcome] ?? outcome}
                         </div>
-                        <div style={{ color: "oklch(0.78 0.02 250)" }}>{end === undefined ? "—" : chicagoTime.format(end * 60000).split(" ").pop()}</div>
+                        <div style={{ color: "oklch(0.78 0.0118 290)" }}>{end === undefined ? "—" : chicagoTime.format(end * 60000).split(" ").pop()}</div>
                         <div style={{ textAlign: "right", color }}>
                           {ticks > 0 ? "+" : ticks < 0 ? "−" : ""}
                           {String(Math.round(Math.abs(ticks) * 100) / 100).replace(".", ",")}
@@ -1204,14 +1207,14 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
                     borderRadius: 8,
                     ...mono,
                     fontSize: 12.5,
-                    color: "oklch(0.92 0.01 250)",
-                    border: `1px solid ${on ? "oklch(0.84 0.17 196 / 0.6)" : "transparent"}`,
-                    background: on ? "oklch(0.84 0.17 196 / 0.1)" : "oklch(0.15 0.03 250 / 0.8)",
+                    color: "oklch(0.92 0.0059 290)",
+                    border: `1px solid ${on ? "oklch(0.68 0.19 293 / 0.6)" : "transparent"}`,
+                    background: on ? "oklch(0.68 0.19 293 / 0.1)" : "oklch(0.15 0.0176 290 / 0.8)",
                   }}
                 >
                   <span>
                     {i === 0 ? (
-                      <span style={{ fontFamily: "var(--font-space-grotesk), sans-serif", fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 20, background: accentColor, color: "oklch(0.14 0.03 250)" }}>
+                      <span style={{ fontFamily: "var(--font-space-grotesk), sans-serif", fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 20, background: accentColor, color: "oklch(0.14 0.0176 290)" }}>
                         Ta config
                       </span>
                     ) : (
@@ -1223,7 +1226,7 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
                   <span>{pct(x.winRate)}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ width: 64, fontWeight: 600, color: tone(x.pnl) }}>{fmtUsd(x.pnl)}</span>
-                    <span style={{ flex: 1, height: 4, borderRadius: 2, background: "oklch(0.26 0.03 250)", overflow: "hidden" }}>
+                    <span style={{ flex: 1, height: 4, borderRadius: 2, background: "oklch(0.26 0.0176 290)", overflow: "hidden" }}>
                       <span style={{ display: "block", height: "100%", width: `${Math.max(0, (x.pnl / cfgMax) * 100).toFixed(1)}%`, background: winColor }} />
                     </span>
                   </span>

@@ -7,8 +7,8 @@ import { signUp } from "../login/actions";
 const champ = {
   padding: "10px 12px",
   borderRadius: 9,
-  border: "1px solid oklch(0.34 0.034 250)",
-  background: "oklch(0.16 0.0306 250)",
+  border: "1px solid oklch(0.34 0.02 290)",
+  background: "oklch(0.16 0.018 290)",
   color: "oklch(0.92 0 0)",
   fontSize: 13,
   outline: "none",
@@ -29,14 +29,14 @@ export default function SignUpForm({ code }: { code: string }) {
           gap: 14,
           padding: 28,
           borderRadius: 16,
-          border: "1px solid oklch(0.36 0.051 250 / 0.45)",
-          background: "oklch(0.19 0.034 250 / 0.55)",
+          border: "1px solid oklch(0.36 0.03 290 / 0.45)",
+          background: "oklch(0.19 0.02 290 / 0.55)",
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.2 }}>
           TRADING <span style={{ color: accentColor }}>JOURNAL</span>
         </div>
-        <div style={{ fontSize: 12, color: "oklch(0.62 0.034 250)", lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12, color: "oklch(0.62 0.02 290)", lineHeight: 1.5 }}>
           {/* Said plainly, because it decides what the person expects to find
               on the other side of the button: their own empty journal, not
               the journal of whoever invited them. */}
@@ -62,7 +62,7 @@ export default function SignUpForm({ code }: { code: string }) {
             borderRadius: 9,
             border: "none",
             background: accentColor,
-            color: "oklch(0.15 0.034 250)",
+            color: "oklch(0.15 0.02 290)",
             fontSize: 13,
             fontWeight: 600,
             cursor: pending ? "default" : "pointer",

@@ -97,7 +97,7 @@ export default function FicheDuJour({
     <div style={{ display: "grid", gap: 20 }}>
       <div style={glassCard}>
         <div style={{ ...label }}>Séance du {dayText}</div>
-        <div style={{ fontSize: 12, marginTop: 6, color: "oklch(0.62 0.034 250)" }}>{tickNote(pairs.map((p) => p.symbol), (s) => CONTRACTS[s]?.tickSize)}</div>
+        <div style={{ fontSize: 12, marginTop: 6, color: "oklch(0.62 0.02 290)" }}>{tickNote(pairs.map((p) => p.symbol), (s) => CONTRACTS[s]?.tickSize)}</div>
         <ol style={{ margin: "12px 0 0", paddingLeft: 20, lineHeight: 1.7, fontSize: 13.5 }}>
           <li>
             Avant {firstHour}h Chicago ({hm(at(firstHour))} chez toi) : entre pour chaque paire le prix d&apos;ouverture de 17h
@@ -232,7 +232,7 @@ export default function FicheDuJour({
                       return (
                         <tr key={z}>
                           <td style={td}>{fmtZone(z, p.symbol)}</td>
-                          <td style={{ ...td, fontFamily: "inherit", color: "oklch(0.6 0.03 250)" }} colSpan={5}>
+                          <td style={{ ...td, fontFamily: "inherit", color: "oklch(0.6 0.0176 290)" }} colSpan={5}>
                             entre le prix de 17h
                           </td>
                           <td style={td}>
