@@ -673,7 +673,7 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
         title="Préparer la séance"
         detail={detail}
         rules={[
-          h && { k: "Horaires", main: `Ordres de ${h[0]}h à ${h[1]}h Chicago`, detail: "Sauf les heures exclues indiquées pour la paire" },
+          h && { k: "Horaires", main: `Ordres de ${h[0]}h à ${h[1]}h Chicago`, detail: "Sauf les heures exclues de la paire. Elles ne concernent que les nouveaux ordres : un ordre non rempli à l'heure exclue s'annule, un trade déjà rempli se gère jusqu'au bout (SL, TP1, trailing, 4 h max)." },
           {
             k: "News",
             main: bo ? `Pas d'ordre ${bo.before} min avant → ${bo.after} min après` : "Pas de blackout",
@@ -901,6 +901,12 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
               <span style={{ color: DIM }}>BLACKOUT </span>
               <span style={{ color: TXT }}>{hours.length ? `${hoursText(hours).toUpperCase()} CT` : "AUCUN"}</span>
             </div>
+            {hours.length > 0 && (
+              <div style={{ color: DIM, fontSize: 11.5, lineHeight: 1.5, marginTop: 2 }}>
+                PAS DE NOUVEL ORDRE PENDANT CES HEURES : UN ORDRE NON REMPLI QUAND ELLES COMMENCENT S&apos;ANNULE. UN TRADE REMPLI AVANT SE GÈRE
+                JUSQU&apos;AU BOUT (SL, TP1, TRAILING, 4 H MAX){r.symbol === "6B" ? " — EX. ENTRÉ À 7H40 : FERMÉ AU PLUS TARD À 11H40." : "."}
+              </div>
+            )}
           </div>
           <div style={{ padding: "2px 10px 10px" }}>
             <div style={{ color: DIM, fontSize: 10.5, marginBottom: 4 }}>RISQUE / GAIN EN TICKS</div>

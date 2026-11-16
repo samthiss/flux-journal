@@ -29,7 +29,7 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 
 **Préparer la séance**
 
-- **Horaires** : ordres de **2h à 14h** (9h à 21h en Suisse), sauf les heures exclues de chaque paire (voir §3).
+- **Horaires** : ordres de **2h à 14h** (9h à 21h en Suisse), sauf les heures exclues de chaque paire (voir §3). Les heures exclues ne concernent que les **nouveaux ordres** : un ordre pas encore rempli à l'heure exclue s'annule ; un trade déjà rempli se gère jusqu'au bout (SL, TP1, trailing, 4 h max). Exemple 6B : entré à 7h40, il continue après 8h et se ferme au plus tard à 11h40.
 - **News** : pas d'ordre de **10 min avant à 10 min après** chaque news 3 étoiles des devises de la paire.
 - **Approche** : je n'entre sur un niveau que si le prix a fait **au moins 15 ticks vers lui** depuis l'ouverture de 17h. Un niveau traversé pendant la séance ne se trade donc plus dans l'autre sens.
 
@@ -51,7 +51,7 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 
 | Paire | Niveaux | SL | TP1 = trailing | TP2 | Ordres | Risque (2 lots) |
 |---|---|---|---|---|---|---|
-| 6B | 1,3186 · 1,3316 · 1,3477 · 1,3651 | 25 | 20 | 75 | 2h–8h seulement | 312 $ |
+| 6B | 1,3186 · 1,3316 · 1,3477 · 1,3651 | 25 | 18 | 75 | 2h–8h seulement | 312 $ |
 | 6E | 1,1187 · 1,15065 · 1,1591 · 1,16595 · 1,18435 | 12 | 15 | 60 | 2h–14h | 150 $ |
 | 6J | 0,006286 · 0,0063545 · 0,006429 · 0,006555 | 15 | 10 | 40 | 3h–14h | 187 $ |
 | 6N | 0,60785 · 0,59635 · 0,5930 · 0,58855 · 0,58515 · 0,57865 · 0,56795 · 0,5596 | 25 | 20 | 130 | 3h–7h, 9h–14h | 250 $ |
@@ -76,7 +76,7 @@ Le backtest porte sur un an de données Databento, de novembre 2025 à novembre 
 
 | Paire | Trades par an | Gagnants | $/mois brut | $/mois net de commissions | DD de la paire |
 |---|---|---|---|---|---|
-| 6B | 33 | 91 % | 537 | 519 | 350 |
+| 6B | 33 | 91 % | 519 | 501 | 350 |
 | 6E | 66 | 62 % | 364 | 329 | 981 |
 | 6J | 45 | 71 % | 163 | 139 | 531 |
 | 6N | 79 | 68 % | 476 | 434 | 630 |
@@ -116,6 +116,7 @@ On ne refait pas ces tests sans raison nouvelle.
 - Config 90 % de gagnants, config « gros gains », trailing serré, règle en R unique, TP1 atteint dans au moins 80 % des cas : moins bien.
 - **TP2 serré** (2 fois le TP1) : ça coûte, jusqu'à 80 $/mois sur 6N. Il doit rester loin.
 - **Demi-pips / pips entiers** : la question ne se pose plus depuis qu'on compte en ticks.
+- **TP1 de 6B** (10 à 20 ticks, testé le 16.11) : 20 faisait le plus sur l'année (537 $/mois), mais depuis juillet le prix s'arrête souvent à 17–19 ticks. **Passé à 18** : 519 $/mois sur l'année (−18), mieux sur la seconde moitié (+69 $) et depuis juillet (+94 $) ; 17 et en dessous coûtent plus (15 : 421 $/mois). Les trades fermés à 4 h sont surtout des runners après TP1, pas des TP1 ratés.
 - **Distance du trailing** (3, 5, 8, 10, 15 ticks, = TP1 ou 1,5 × TP1, testé le 16.11) : trailing = TP1 reste le meilleur au total. Un trailing moyen (10–15 ticks sur 6B) est le pire des deux : il rend une partie du gain sans garder les grosses courses (6B à 10 : 502 $/mois au lieu de 537). Seul 6E à 23 ticks fait mieux sur les deux moitiés de l'année (+61 $/mois, DD 1 025 au lieu de 981) : pas retenu, même règle partout.
 - **Stop du runner à l'entrée +1 tick** au lieu de l'entrée (testé le 16.11) : +5 $/mois, dans le bruit, car le trailing passe au-dessus de l'entrée dès 1 tick après TP1. **+2 ticks** : moins bien (2 438 $/mois au lieu de 2 512, surtout ZS et ZN). 1 tick couvre déjà les frais d'un contrat sur toutes les paires.
 - **TP1 placé 1 tick avant la VWAP de la séance** quand elle se trouve entre l'entrée et le TP1 (testé le 16.11, VWAP depuis 17h Chicago calculée sur les volumes) : la règle ne joue que sur 20 à 45 trades par an, et elle coûte sur toutes les paires concernées, de −1 à −31 $/mois (−20 à −100 $/mois au total selon l'écart retenu). Le prix traverse la VWAP plus souvent qu'il n'y bute. Pas retenu.
@@ -186,3 +187,4 @@ On ne refait pas ces tests sans raison nouvelle.
   - journal : sous « Support / Resistance Yearly » (ex-Jahreswiderstand), un trade a sa zone, son SL, TP1 et TP2 proposés par le plan, et son résultat (SL, TP1, TP1 + trailing stop, TP2) ; le formulaire ne montre que les prix de ce résultat, et le prix de sortie du trailing.
   - TP1 avant la VWAP de la séance testé : ça coûte, pas retenu.
   - VWAP mensuelle et annuelle comme niveaux testées : la mensuelle perd, l'annuelle est nulle, pas retenu.
+  - 6B : TP1 (et trailing) de 20 à 18 ticks.

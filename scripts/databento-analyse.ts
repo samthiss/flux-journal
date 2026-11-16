@@ -56,7 +56,9 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // American session runs the pound through its levels and only 5-tick
   // targets held. On the morning alone a 25-tick stop and a TP1 of 20 make
   // five times as much a trade, on half as many, for a lower drawdown.
-  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3477, 1.3651], excludeHours: [8, 9, 10, 11, 12, 13], tp1s: FX_TP1, pick: { sl: 25, tp1: 20, tp2: 75 } },
+  // TP1 18 rather than 20 (2026-11-16): since July price often stopped at
+  // 17–19 ticks; 18 gives up 18 a month on the year and does better since.
+  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3477, 1.3651], excludeHours: [8, 9, 10, 11, 12, 13], tp1s: FX_TP1, pick: { sl: 25, tp1: 18, tp2: 75 } },
   // Set by the trader: a TP1 of 15 wins three trades in five rather than
   // under one in two, for the same drawdown, and held on the last months —
   // where 30, the most profitable on the year, had stopped working.
