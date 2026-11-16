@@ -698,7 +698,13 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
           {
             k: "Ordre",
             main: `Limite 1 tick avant le niveau · ${lots} lots · SL attaché`,
-            detail: "Rempli dès que le prix touche le niveau, quelle que soit ta place dans la file (écart propre à la paire s'il est indiqué)",
+            detail:
+              "Rempli dès que le prix touche le niveau, quelle que soit ta place dans la file (écart propre à la paire s'il est indiqué). Le prix exact est dans la colonne « Entrée » des prix par niveau. Posé sur le niveau même, l'ordre peut être touché sans être pris.",
+          },
+          {
+            k: "Ordre pas rempli",
+            main: "Le prix touche ton entrée sans te prendre puis repart : laisse l'ordre posé",
+            detail: `Tant que le prix ne s'est pas éloigné de ${fmtDistBySymbol(r.settings.rearm, symbols)}, c'est la même touche et l'ordre reste valable. S'il est rempli au retour pendant tes horaires, c'est le trade. Exemple 6B le 14.09 : touché vers 4h15, remonté de 21 ticks, revenu et rempli à 7h53, avant 8h : TP1 à 10h54.`,
           },
           {
             k: "Un trade par paire",
