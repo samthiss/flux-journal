@@ -801,9 +801,6 @@ function Fiche({ r, cfg }: { r: SymbolResult; cfg: ConfigStats }) {
         <span>
           <b>50k : {lots} lots</b>
           {kindOf(c) === "tp1trail" && lots >= 2 ? ` — ${lots / 2} sort à TP1, ${lots / 2 > 1 ? "les autres suivent" : "l'autre suit"} le trailing` : ""}
-          {/* Not worked out yet: it takes LMI's drawdown, daily limit and
-              contracts for those accounts, which have not been given. */}
-          <span style={{ color: "oklch(0.55 0.03 250)" }}> · 100k et 150k : à calculer avec les règles LMI de ces comptes</span>
         </span>
       )}
       {c.offset !== 0 && ruleRow("Entrée", `${fmtDist(r.symbol, Math.abs(c.offset))} ${c.offset > 0 ? "avant le" : "au-delà du"} niveau`)}

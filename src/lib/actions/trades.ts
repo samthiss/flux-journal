@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { monJournal } from "@/lib/session";
 import { parseTagArray } from "@/lib/tags";
 import { parsePrice } from "@/lib/databento/format";
+import { PLANNED_STRATEGIES, YEARLY_LEVELS } from "@/lib/strategies";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
@@ -115,13 +116,13 @@ function parseTradeForm(formData: FormData) {
   const preTradeNotes = String(formData.get("preTradeNotes") ?? "") || null;
   const postTradeNotes = String(formData.get("postTradeNotes") ?? "") || null;
 
-  // A Jahreswiderstand trade's level and prices, as typed — "1,3186" or, for
+  // A yearly-levels trade's level and prices, as typed — "1,3186" or, for
   // the Treasuries, "107'015" — and how it ended. Nothing under another strategy.
-  // The VWAP strategies have the same prices and result, and no level: the
-  // VWAP is the level.
-  const jahres = ["Jahreswiderstand", "VWAP (Monthly)", "VWAP (Yearly)"].includes(strategy ?? "");
+  // The VWAP and last-days strategies have the same prices and result, and no
+  // level to keep: theirs moves.
+  const jahres = PLANNED_STRATEGIES.includes(strategy ?? "");
   const priceOf = (name: string) => (jahres ? parsePrice(String(formData.get(name) ?? "")) : null);
-  const level = strategy === "Jahreswiderstand" ? priceOf("level") : null;
+  const level = strategy === YEARLY_LEVELS ? priceOf("level") : null;
   const slPrice = priceOf("slPrice");
   const tp1Price = priceOf("tp1Price");
   const tp2Price = priceOf("tp2Price");

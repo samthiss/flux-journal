@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { CONTRACTS } from "@/lib/contracts";
 import type { SymbolResult } from "@/lib/databento/engine";
 
-/** What a Jahreswiderstand trade is planned from: the symbol's levels and its backtested setting, in ticks. */
+/** What a yearly-levels trade is planned from: the symbol's levels and its backtested setting, in ticks. */
 export type LevelPlan = {
   levels: number[];
   tickSize: number;

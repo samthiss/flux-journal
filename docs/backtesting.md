@@ -179,4 +179,4 @@ On ne refait pas ces tests sans raison nouvelle.
   - distance de nouvelle touche et approche depuis le point le plus éloigné testées : on garde 30 ticks et l'approche depuis 17h.
 - **16.11.2026** :
   - distance du trailing, stop du runner à +1 ou +2 ticks, et tout à TP1 testés : on garde trailing = TP1, stop à l'entrée ;
-  - journal : sous Jahreswiderstand, un trade a sa zone, son SL, TP1 et TP2 proposés par le plan, et son résultat (SL, TP1, TP1 + trailing stop, TP2) ; le formulaire ne montre que les prix de ce résultat, et le prix de sortie du trailing.
+  - journal : sous « Support / Resistance Yearly » (ex-Jahreswiderstand), un trade a sa zone, son SL, TP1 et TP2 proposés par le plan, et son résultat (SL, TP1, TP1 + trailing stop, TP2) ; le formulaire ne montre que les prix de ce résultat, et le prix de sortie du trailing.

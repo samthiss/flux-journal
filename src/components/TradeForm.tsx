@@ -9,27 +9,19 @@ import { parseTagArray } from "@/lib/tags";
 import { CHART_SLOTS } from "@/lib/chartSlots";
 import { fmtPrice, fmtZone } from "@/lib/databento/format";
 import type { LevelPlan } from "@/lib/databento/plans";
+import { PLANNED_STRATEGIES, STRATEGY_OPTIONS, YEARLY_LEVELS } from "@/lib/strategies";
 
 const SYMBOL_OPTIONS = ["6E", "6B", "6J", "6N", "6C", "ZN", "ZS", "ZW"] as const;
 
 /** What a trade can be filed under. */
 const SETUP_OPTIONS = ["Backtest reverse", "Trend run"] as const;
 
-/** And whose rules it was taken under. */
-const STRATEGY_OPTIONS = ["Volume academy", "Jahreswiderstand", "VWAP (Monthly)", "VWAP (Yearly)"] as const;
-
-/** The strategy traded on the yearly levels, whose trades carry a level, a stop, TP1, TP2 and a result. */
-const JAHRES = "Jahreswiderstand";
+/** And whose rules it was taken under: see `@/lib/strategies`. */
+const JAHRES = YEARLY_LEVELS;
+const PLANNED = PLANNED_STRATEGIES;
 
 /**
- * The strategies a trade is written with a stop, TP1, TP2 and a result:
- * the yearly levels, and the monthly and yearly VWAP — where the level is the
- * VWAP itself, so there is no zone to pick and nothing to fill in from.
- */
-const PLANNED = [JAHRES, "VWAP (Monthly)", "VWAP (Yearly)"];
-
-/**
- * How a Jahreswiderstand trade ends, and the take-profit level each one means,
+ * How a yearly-levels trade ends, and the take-profit level each one means,
  * so the journal's TP counts stay right: stopped out, TP1 with the runner out
  * at the entry, TP1 with the runner out on its trail, or the runner at TP2.
  */
@@ -95,7 +87,7 @@ export type TradeFormValues = {
   emotion: string;
   preTradeNotes: string;
   postTradeNotes: string;
-  /** A Jahreswiderstand trade's level and prices, as numbers in text; "" when none. */
+  /** A yearly-levels trade's level and prices, as numbers in text; "" when none. */
   level: string;
   slPrice: string;
   tp1Price: string;
@@ -308,7 +300,7 @@ export default function TradeForm({
   closedAt?: string;
   title: string;
   subtitle: string;
-  /** Each symbol's levels and backtested setting, to fill a Jahreswiderstand trade in from. */
+  /** Each symbol's levels and backtested setting, to fill a yearly-levels trade in from. */
   plans?: Record<string, LevelPlan>;
 }) {
   const [side, setSide] = useState(initial.side);

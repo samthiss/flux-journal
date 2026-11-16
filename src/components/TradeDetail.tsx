@@ -315,7 +315,7 @@ export default async function TradeDetail({
               </div>
             )}
 
-            {/* A Jahreswiderstand trade's plan, as it was written, and how it ended. */}
+            {/* A yearly-levels trade's plan, as it was written, and how it ended. */}
             {[
               ["Zone", trade.level != null ? fmtZone(trade.level, trade.symbol) : null, null],
               ["SL", trade.slPrice != null ? fmtPrice(trade.slPrice, trade.symbol, CONTRACTS[trade.symbol]?.tickSize) : null, null],
