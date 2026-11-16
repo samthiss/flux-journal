@@ -28,7 +28,6 @@ const NAV_ITEMS = [
   { href: "/trades", label: "Trades", match: (p: string) => p.startsWith("/trades") },
   { href: "/rapport", label: "Rapport", match: (p: string) => p.startsWith("/rapport") },
   { href: "/risque", label: "Risque", match: (p: string) => p.startsWith("/risque") },
-  { href: "/backtesting", label: "Backtesting", match: (p: string) => p === "/backtesting" || p.startsWith("/backtesting/") },
   { href: "/backtesting-databento", label: "Backtesting Databento", match: (p: string) => p.startsWith("/backtesting-databento") },
   { href: "/fiche-du-jour", label: "Fiche du jour", match: (p: string) => p.startsWith("/fiche-du-jour") },
   { href: "/checklist", label: "Checklist & News", match: (p: string) => p.startsWith("/checklist") },

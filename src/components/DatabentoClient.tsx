@@ -318,6 +318,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
       {analysed.length > 0 && (
         <>
           <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+            <Pill active={view === "rules"} onClick={() => setView("rules")}>Règles</Pill>
             <Pill active={view === "general"} onClick={() => setView("general")}>Rapport général</Pill>
             {analysed.map((e) => (
               <Pill key={e.symbol} active={view === e.symbol} onClick={() => setView(e.symbol)}>
@@ -326,11 +327,17 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
             ))}
           </div>
 
-          {view === "general" || !sel || !selCfg ? (
+          {/* The rules on a tab of their own: read before the session,
+              where the report is read after a run. */}
+          {view === "rules" ? (
             <div style={glassCard}>
-              <div style={label}>Rapport général — par compte, {general.per.length} paires à {general.per[0]?.e.result!.settings.lots ?? 2} lots</div>
+              <div style={label}>Règles — les mêmes pour toutes les paires, puis celles de chaque paire</div>
               {general.per[0] && <GeneralRules r={general.per[0].e.result!} account={account} symbols={general.per.map(({ e }) => e.symbol)} />}
               {general.per.length > 0 && <PairRules per={general.per} />}
+            </div>
+          ) : view === "general" || !sel || !selCfg ? (
+            <div style={glassCard}>
+              <div style={label}>Rapport général — par compte, {general.per.length} paires à {general.per[0]?.e.result!.settings.lots ?? 2} lots</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 20, marginTop: 16 }}>
                 <Figure
                   title="PnL par mois"
