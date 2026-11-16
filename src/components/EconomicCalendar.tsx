@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { accentColor, glassCard, lossColor } from "@/lib/theme";
+import { accentColor, glassCard, lossColor, winColor } from "@/lib/theme";
 import type { EconomicEvent } from "@/lib/economicCalendar";
 import { setEventRating } from "@/lib/actions/eventRatings";
 import { currenciesOf, focusFor, underFocus } from "@/lib/marketFocus";
@@ -62,10 +62,55 @@ function rangeBounds(range: Range): [string, string] {
   }
 }
 
+/** A row of the day: a release, or a line of the plan's hours. */
+type Item = { event: EconomicEvent } | { mark: PlanMark };
+
 /** Local YYYY-MM-DD for an instant, in the reader's own timezone. */
 function localDay(event: EconomicEvent) {
   return event.at ? new Date(event.at).toLocaleDateString("en-CA") : event.date;
 }
+
+/** A pair's order hours in Chicago time: from the first to the last, less the excluded ones. */
+export type Session = { symbol: string; hours: [number, number]; exclude: number[] };
+
+/** The instant a Chicago hour falls at, on a day of the reader's calendar. */
+function chicagoInstant(day: string, hour: number) {
+  const [y, m, d] = day.split("-").map(Number);
+  const guess = Date.UTC(y, m - 1, d, hour);
+  const there = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", hour: "2-digit", hourCycle: "h23" }).format(guess));
+  return new Date(guess + ((hour - there + 24) % 24) * 3600000).toISOString();
+}
+
+/** A line of the plan in the calendar: from this hour, these pairs are not to be traded. */
+type PlanMark = { at: string; blocked: string[]; closed: boolean };
+
+/**
+ * Where the plan's hours change on a weekday: one mark each time the pairs not
+ * to be traded change, and one when orders stop for every pair.
+ */
+function planMarks(day: string, sessions: Session[]): PlanMark[] {
+  if (!sessions.length) return [];
+  const weekday = new Date(`${day}T12:00:00`).getDay();
+  if (weekday === 0 || weekday === 6) return [];
+  const first = Math.min(...sessions.map((s) => s.hours[0]));
+  const last = Math.max(...sessions.map((s) => s.hours[1]));
+  const marks: PlanMark[] = [];
+  let before = "";
+  for (let h = first; h < last; h++) {
+    const blocked = sessions.filter((s) => h < s.hours[0] || h >= s.hours[1] || s.exclude.includes(h)).map((s) => s.symbol);
+    if (blocked.join() !== before || h === first) marks.push({ at: chicagoInstant(day, h), blocked, closed: false });
+    before = blocked.join();
+  }
+  marks.push({ at: chicagoInstant(day, last), blocked: sessions.map((s) => s.symbol), closed: true });
+  return marks;
+}
+
+/** The window no order may be filled in around a blocking release, ±10 min, on both clocks. */
+const noOrders = (at: string) => {
+  const t = new Date(at).getTime();
+  const span = (tz: string) => `${hourIn(new Date(t - 600000).toISOString(), tz)}–${hourIn(new Date(t + 600000).toISOString(), tz)}`;
+  return `${span("Europe/Berlin")} Berlin · ${span("America/Chicago")} CT`;
+};
 
 /** An hour on a given clock: the trader's, Berlin, and the plan's, Chicago. */
 const hourIn = (at: string, timeZone: string) => new Date(at).toLocaleTimeString("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" });
@@ -286,6 +331,7 @@ export default function EconomicCalendar({
   market,
   pairs = [],
   blackout = [],
+  sessions = [],
 }: {
   events: EconomicEvent[];
   ok: boolean;
@@ -296,6 +342,8 @@ export default function EconomicCalendar({
   pairs?: string[];
   /** The releases that block an order in the plan, as "at|currency|title". */
   blackout?: string[];
+  /** The plan's order hours per pair, marked in the day's rows. */
+  sessions?: Session[];
 }) {
   const blocking = new Set(blackout);
   /** The pairs a release concerns: the dollar's concern every one of them, the others their own pair. */
@@ -377,14 +425,27 @@ export default function EconomicCalendar({
       const impact = following ? underFocus({ ...event, impact: rated }, focus) : rated;
       if (event.kind !== "holiday" && rerated[key] === undefined && !impacts.includes(impact)) continue;
       if (shownCurrencies && !shownCurrencies.includes(event.currency)) continue;
+      // A release none of the plan's pairs follows blocks nothing and moves nothing traded: left out.
+      if (pairs.length && !pairs.some((p) => newsCurrencies(p).includes(event.currency))) continue;
       const day = localDay(event);
       if (day < from || day > to) continue;
       (byDay.get(day) ?? byDay.set(day, []).get(day)!).push(impact === event.impact ? event : { ...event, impact });
     }
-    return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [events, range, shownCurrencies, impacts, rerated, following, focus]);
+    // The plan's hours, laid among the releases of every weekday shown.
+    const days = new Set(byDay.keys());
+    for (let d = new Date(`${from}T12:00:00`); ymd(d) <= to; d.setDate(d.getDate() + 1)) days.add(ymd(d));
+    const at = (i: Item) => ("mark" in i ? i.mark.at : i.event.at) ?? "";
+    return [...days]
+      .sort()
+      .map((day): [string, Item[]] => {
+        const items: Item[] = [...(byDay.get(day) ?? []).map((event) => ({ event })), ...planMarks(day, sessions).map((mark) => ({ mark }))];
+        // A mark goes before a release at the same minute; releases keep the feed's order.
+        return [day, items.sort((a, b) => at(a).localeCompare(at(b)) || Number("event" in a) - Number("event" in b))];
+      })
+      .filter(([, items]) => items.length > 0);
+  }, [events, range, shownCurrencies, impacts, rerated, following, focus, sessions, pairs]);
 
-  const shown = grouped.reduce((n, [, rows]) => n + rows.length, 0);
+  const shown = grouped.reduce((n, [, rows]) => n + rows.filter((r) => "event" in r).length, 0);
 
   return (
     <div style={{ ...glassCard, padding: 0, maxWidth: 620, marginInline: "auto" }}>
@@ -470,7 +531,11 @@ export default function EconomicCalendar({
           >
             {dayLabel(day)}
           </div>
-          {rows.map((event, i) => (
+          {rows.map((item, i) =>
+            "mark" in item ? (
+              <PlanRow key={`plan-${item.mark.at}`} mark={item.mark} all={sessions.length} />
+            ) : (
+              ((event) => (
             <div
               // The index as well as the name: the same release lands twice at
               // the same minute — a ZEW for Germany and one for the euro area —
@@ -532,12 +597,18 @@ export default function EconomicCalendar({
                 {event.title}
                 {pairs.length > 0 && event.kind !== "holiday" && (
                   <span style={{ display: "block", ...mono, fontSize: 10, marginTop: 2 }}>
-                    {blocking.has(`${event.at}|${event.currency}|${event.title}`) && (
-                      <span style={{ color: "#000", background: "oklch(0.79 0.17 66)", padding: "0 5px", marginRight: 6, fontWeight: 700 }}>BLACKOUT</span>
+                    {blocking.has(`${event.at}|${event.currency}|${event.title}`) && event.at ? (
+                      <>
+                        <span style={{ color: "#000", background: lossColor, padding: "0 5px", marginRight: 6, fontWeight: 700 }}>
+                          NE PAS TRADER {pairsFor(event.currency).length === pairs.length ? "TOUTES TES PAIRES" : pairsFor(event.currency).join(" · ")}
+                        </span>
+                        <span style={{ color: lossColor }}>{noOrders(event.at)}</span>
+                      </>
+                    ) : (
+                      <span style={{ color: "oklch(0.6 0 0)" }}>
+                        {pairsFor(event.currency).length === pairs.length ? "toutes les paires" : pairsFor(event.currency).join(" · ") || "aucune de tes paires"}
+                      </span>
                     )}
-                    <span style={{ color: "oklch(0.6 0 0)" }}>
-                      {pairsFor(event.currency).length === pairs.length ? "toutes les paires" : pairsFor(event.currency).join(" · ") || "aucune de tes paires"}
-                    </span>
                   </span>
                 )}
               </span>
@@ -552,12 +623,14 @@ export default function EconomicCalendar({
                 </span>
               )}
             </div>
-          ))}
+              ))(item.event)
+            ),
+          )}
         </div>
       ))}
 
       <div style={{ ...mono, fontSize: 9.5, color: "oklch(0.45 0 0)", padding: "8px 18px" }}>
-        publié · prévision / précédent · heures de Berlin et de Chicago (CT) · BLACKOUT = bloque tes ordres ±10 min · clic sur une étoile pour renoter
+        publié · prévision / précédent · heures de Berlin et de Chicago (CT) · NE PAS TRADER = aucun ordre sur ces paires 10 min avant → 10 min après (news 3 étoiles TradingView) · PLAN = heures où une paire ne se trade pas · seules les news qui touchent tes paires · clic sur une étoile pour renoter
       </div>
     </div>
   );
@@ -647,5 +720,28 @@ function Impact({ level, onRate }: { level: Impact; onRate?: (level: Impact) => 
         </button>
       ))}
     </span>
+  );
+}
+
+/** A line of the plan's hours: from this hour, the pairs not to be traded. */
+function PlanRow({ mark, all }: { mark: PlanMark; all: number }) {
+  const text = mark.closed
+    ? "FIN DES ORDRES · TOUTES TES PAIRES"
+    : mark.blocked.length === 0
+      ? "TOUTES TES PAIRES TRADABLES"
+      : mark.blocked.length === all
+        ? "NE PAS TRADER · TOUTES TES PAIRES"
+        : `NE PAS TRADER ${mark.blocked.join(" · ")}`;
+  const color = mark.closed || mark.blocked.length ? lossColor : winColor;
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 10, padding: "6px 18px", borderBottom: "1px solid oklch(0.26 0 0 / 0.35)", background: "oklch(0.16 0 0)" }}>
+      <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.72 0 0)", flex: "none", width: 92, lineHeight: 1.3 }}>
+        {hourIn(mark.at, "Europe/Berlin")} <span style={{ fontSize: 9.5, color: "oklch(0.55 0 0)" }}>BER</span>
+        <br />
+        <span style={{ color: accentColor }}>{hourIn(mark.at, "America/Chicago")}</span> <span style={{ fontSize: 9.5, color: "oklch(0.55 0 0)" }}>CT</span>
+      </span>
+      <span style={{ ...mono, fontSize: 10, flex: "none", padding: "1px 7px", border: "1px solid oklch(0.34 0 0)", color: "oklch(0.7 0 0)" }}>PLAN</span>
+      <span style={{ ...mono, fontSize: 11, fontWeight: 700, color }}>{text}</span>
+    </div>
   );
 }
