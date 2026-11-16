@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { monJournal } from "@/lib/session";
 import TradeForm from "@/components/TradeForm";
+import { levelPlans } from "@/lib/databento/plans";
 import { createTrade } from "@/lib/actions/trades";
 
 export const dynamic = "force-dynamic";
@@ -105,9 +106,10 @@ export default async function NewTradePage({
   const today = new Date().toISOString().slice(0, 10);
   const { idea } = await searchParams;
   const ownerId = await monJournal();
-  const [riskPerLot, prealable] = await Promise.all([
+  const [riskPerLot, prealable, plans] = await Promise.all([
     lastRiskPerLot(ownerId),
     ideePrealable(idea, ownerId),
+    levelPlans(ownerId),
   ]);
 
   return (
@@ -116,6 +118,7 @@ export default async function NewTradePage({
       title="Add Trade"
       subtitle="Log a new entry to your journal"
       riskPerLot={riskPerLot}
+      plans={plans}
       // The plan's captures, kept as their own section rather than laid into
       // the trade's four slots: those are for the charts taken afterwards.
       planCharts={prealable?.urls ?? []}
@@ -148,6 +151,11 @@ export default async function NewTradePage({
         emotion: "Calm",
         preTradeNotes: prealable?.notes ?? "",
         postTradeNotes: "",
+        level: "",
+        slPrice: "",
+        tp1Price: "",
+        tp2Price: "",
+        outcome: "",
         planFollowed: "",
       }}
     />

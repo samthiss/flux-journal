@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { monJournal } from "@/lib/session";
 import { CHART_SLOTS } from "@/lib/chartSlots";
+import { CONTRACTS } from "@/lib/contracts";
+import { fmtPrice, fmtZone } from "@/lib/databento/format";
 import { parseTagArray, tagTone } from "@/lib/tags";
 
 /** The three verdicts, worded as the trades list words them. */
@@ -312,6 +314,26 @@ export default async function TradeDetail({
                 </span>
               </div>
             )}
+
+            {/* A Jahreswiderstand trade's plan, as it was written, and how it ended. */}
+            {[
+              ["Zone", trade.level != null ? fmtZone(trade.level, trade.symbol) : null, null],
+              ["SL", trade.slPrice != null ? fmtPrice(trade.slPrice, trade.symbol, CONTRACTS[trade.symbol]?.tickSize) : null, null],
+              ["TP1", trade.tp1Price != null ? fmtPrice(trade.tp1Price, trade.symbol, CONTRACTS[trade.symbol]?.tickSize) : null, null],
+              ["TP2", trade.tp2Price != null ? fmtPrice(trade.tp2Price, trade.symbol, CONTRACTS[trade.symbol]?.tickSize) : null, null],
+              [
+                "Résultat",
+                trade.outcome === "SL" ? "SL" : trade.outcome === "TRAIL" ? "BE / trailing stop" : trade.outcome === "TP2" ? "TP2" : null,
+                trade.outcome === "SL" ? lossColor : accentColor,
+              ],
+            ]
+              .filter(([, v]) => v != null)
+              .map(([k, v, color]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                  <span style={{ color: "oklch(0.6 0.034 250)" }}>{k}</span>
+                  <span style={{ fontWeight: 600, fontFamily: "var(--font-jetbrains-mono), monospace", color: color ?? undefined }}>{v}</span>
+                </div>
+              ))}
 
             {tagRows.map((row) => (
               <div

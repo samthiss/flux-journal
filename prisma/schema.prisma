@@ -135,6 +135,18 @@ model Trade {
    */
   entryType      String?
 
+  /**
+   * A Jahreswiderstand trade's own plan: the yearly level it was taken at,
+   * its stop, TP1 and TP2 as prices — offered from the backtested plan of the
+   * symbol and kept as they were written — and how it ended: "SL", "TRAIL"
+   * (TP1 then the runner out at break-even or on its trailing stop) or "TP2".
+   */
+  level          Float?
+  slPrice        Float?
+  tp1Price       Float?
+  tp2Price       Float?
+  outcome        String?
+
   emotion        String?
   preTradeNotes  String?
   postTradeNotes String?

@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { monJournal } from "@/lib/session";
 import { parseTagArray } from "@/lib/tags";
+import { parsePrice } from "@/lib/databento/format";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
@@ -79,8 +80,8 @@ function parseTradeForm(formData: FormData) {
   const risk = riskInput && Number.isFinite(riskInput) && riskInput !== 0 ? Math.abs(riskInput) : null;
   const rr = risk ? Number((pnl / risk).toFixed(2)) : null;
   // How far the market went, 1 to 3, or nothing.
-  const level = parseInt(String(formData.get("tpReached") ?? ""), 10);
-  const tpReached = level >= 1 && level <= 3 ? level : null;
+  const reached = parseInt(String(formData.get("tpReached") ?? ""), 10);
+  const tpReached = reached >= 1 && reached <= 3 ? reached : null;
 
   // Kept as they are posted: a JSON array for the lists, a plain word for the
   // zone, empty meaning nothing was picked rather than an empty list.
@@ -114,10 +115,22 @@ function parseTradeForm(formData: FormData) {
   const preTradeNotes = String(formData.get("preTradeNotes") ?? "") || null;
   const postTradeNotes = String(formData.get("postTradeNotes") ?? "") || null;
 
+  // A Jahreswiderstand trade's level and prices, as typed — "1,3186" or, for
+  // the Treasuries, "107'015" — and how it ended. Nothing under another strategy.
+  const jahres = strategy === "Jahreswiderstand";
+  const priceOf = (name: string) => (jahres ? parsePrice(String(formData.get(name) ?? "")) : null);
+  const level = priceOf("level");
+  const slPrice = priceOf("slPrice");
+  const tp1Price = priceOf("tp1Price");
+  const tp2Price = priceOf("tp2Price");
+  const said = String(formData.get("outcome") ?? "");
+  const outcome = jahres && ["SL", "TRAIL", "TP2"].includes(said) ? said : null;
+
   return {
     date, time, symbol, market, side, size, pnl, risk, rr,
     tpReached, tradeTypes, zone, confirmations, confirmationsBox, confirmationsReverse, validity, invalidReasons, planCharts, planFollowed,
     setup, strategy, entryType, emotion, preTradeNotes, postTradeNotes,
+    level, slPrice, tp1Price, tp2Price, outcome,
   };
 }
 

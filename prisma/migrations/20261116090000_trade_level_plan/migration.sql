@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Trade" ADD COLUMN "level" REAL;
+ALTER TABLE "Trade" ADD COLUMN "slPrice" REAL;
+ALTER TABLE "Trade" ADD COLUMN "tp1Price" REAL;
+ALTER TABLE "Trade" ADD COLUMN "tp2Price" REAL;
+ALTER TABLE "Trade" ADD COLUMN "outcome" TEXT;

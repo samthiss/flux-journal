@@ -7,14 +7,30 @@ import { PageTitle } from "@/components/NeonText";
 import { removeChartSlot } from "@/lib/actions/trades";
 import { parseTagArray } from "@/lib/tags";
 import { CHART_SLOTS } from "@/lib/chartSlots";
+import { fmtPrice, fmtZone } from "@/lib/databento/format";
+import type { LevelPlan } from "@/lib/databento/plans";
 
-const SYMBOL_OPTIONS = ["6E", "6B", "6J", "6N", "ZS", "ZW"] as const;
+const SYMBOL_OPTIONS = ["6E", "6B", "6J", "6N", "6C", "ZN", "ZS", "ZW"] as const;
 
 /** What a trade can be filed under. */
 const SETUP_OPTIONS = ["Backtest reverse", "Trend run"] as const;
 
 /** And whose rules it was taken under. */
 const STRATEGY_OPTIONS = ["Volume academy", "Jahreswiderstand"] as const;
+
+/** The strategy traded on the yearly levels, whose trades carry a level, a stop, TP1, TP2 and a result. */
+const JAHRES = "Jahreswiderstand";
+
+/**
+ * How a Jahreswiderstand trade ends, and the take-profit level each one means,
+ * so the journal's TP counts stay right: stopped out, TP1 then the runner out
+ * at break-even or on its trail, or the runner at TP2.
+ */
+const OUTCOMES = [
+  { value: "SL", label: "SL", tp: "" },
+  { value: "TRAIL", label: "BE / trailing stop", tp: "1" },
+  { value: "TP2", label: "TP2", tp: "2" },
+] as const;
 
 /** And how the entry was taken: by hand on a confirmation, or by a resting order. */
 const ENTRY_TYPE_OPTIONS = ["Confirmation", "Automatique"] as const;
@@ -71,6 +87,13 @@ export type TradeFormValues = {
   emotion: string;
   preTradeNotes: string;
   postTradeNotes: string;
+  /** A Jahreswiderstand trade's level and prices, as numbers in text; "" when none. */
+  level: string;
+  slPrice: string;
+  tp1Price: string;
+  tp2Price: string;
+  /** "SL", "TRAIL", "TP2" or "". */
+  outcome: string;
 };
 
 export type ExistingCharts = Partial<Record<(typeof CHART_SLOTS)[number]["key"], string>>;
@@ -249,6 +272,7 @@ export default function TradeForm({
   riskPerLot,
   planCharts: planChartsInitial = [],
   closedAt,
+  plans = {},
 }: {
   action: (formData: FormData) => void;
   deleteAction?: (formData: FormData) => void;
@@ -275,6 +299,8 @@ export default function TradeForm({
   closedAt?: string;
   title: string;
   subtitle: string;
+  /** Each symbol's levels and backtested setting, to fill a Jahreswiderstand trade in from. */
+  plans?: Record<string, LevelPlan>;
 }) {
   const [side, setSide] = useState(initial.side);
   const [emotion, setEmotion] = useState(initial.emotion);
@@ -287,6 +313,34 @@ export default function TradeForm({
   // Empty for the same reason: the trades already written were taken before
   // the question existed.
   const [entryType, setEntryType] = useState(initial.entryType || "");
+  const [symbol, setSymbol] = useState(initial.symbol || SYMBOL_OPTIONS[0]);
+
+  /**
+   * The level and its prices. Picking a level, or changing the side or the
+   * symbol, fills the stop, TP1 and TP2 in from the backtested plan; they stay
+   * editable, and what is typed is what is kept.
+   */
+  const plan: LevelPlan | undefined = plans[symbol];
+  const price = (x: number) => (plan ? fmtPrice(x, symbol, plan.tickSize) : String(x));
+  const shown = (v: string) => (v && Number.isFinite(Number(v)) ? price(Number(v)) : v);
+  const [level, setLevel] = useState(initial.level);
+  const [slPrice, setSlPrice] = useState(shown(initial.slPrice));
+  const [tp1Price, setTp1Price] = useState(shown(initial.tp1Price));
+  const [tp2Price, setTp2Price] = useState(shown(initial.tp2Price));
+  const [outcome, setOutcome] = useState(initial.outcome);
+  const jahres = strategy === JAHRES;
+  const fill = (nextLevel: string, nextSide: string, nextSymbol: string) => {
+    const p = plans[nextSymbol];
+    const z = Number(nextLevel);
+    if (!p || !nextLevel || !Number.isFinite(z)) return;
+    const dir = nextSide === "Short" ? -1 : 1;
+    const entry = z + dir * p.offset * p.tickSize;
+    const at = (ticks: number) => fmtPrice(entry + dir * ticks * p.tickSize, nextSymbol, p.tickSize);
+    setSlPrice(at(-p.sl));
+    setTp1Price(at(p.tp1));
+    setTp2Price(p.tp2 ? at(p.tp2) : "");
+  };
+  const entryPrice = plan && level ? Number(level) + (side === "Short" ? -1 : 1) * plan.offset * plan.tickSize : null;
 
   const [planCharts, setPlanCharts] = useState<string[]>(planChartsInitial);
   const [planFollowed, setPlanFollowed] = useState<string | null>(initial.planFollowed || null);
@@ -427,7 +481,19 @@ export default function TradeForm({
             </div>
             <div>
               {fieldLabel("Symbol")}
-              <select name="symbol" defaultValue={initial.symbol || SYMBOL_OPTIONS[0]} style={inputStyle}>
+              <select
+                name="symbol"
+                value={symbol}
+                onChange={(e) => {
+                  setSymbol(e.target.value);
+                  // Another symbol's levels: the one picked is not among them.
+                  setLevel("");
+                  setSlPrice("");
+                  setTp1Price("");
+                  setTp2Price("");
+                }}
+                style={inputStyle}
+              >
                 {/* A trade already recorded on something else keeps its symbol
                     in the list rather than being silently switched to 6E. */}
                 {(SYMBOL_OPTIONS as readonly string[]).includes(initial.symbol) || !initial.symbol
@@ -544,8 +610,33 @@ export default function TradeForm({
                   TP2 lights TP1 too, because there is no reaching the second
                   without passing the first; picking the highest one lit again
                   clears the answer. */}
-              {fieldLabel("Take profit reached")}
+              {fieldLabel(jahres ? "Résultat" : "Take profit reached")}
               <input type="hidden" name="tpReached" value={tpReached} />
+              <input type="hidden" name="outcome" value={jahres ? outcome : ""} />
+              {/* On the yearly levels the plan has one TP1, one runner and a
+                  TP2: what is asked is how the trade ended, which says how
+                  far it went as well. */}
+              {jahres ? (
+                <div style={{ display: "flex", gap: 10 }}>
+                  {OUTCOMES.map((o) => (
+                    <div
+                      key={o.value}
+                      onClick={() => {
+                        const off = outcome === o.value;
+                        setOutcome(off ? "" : o.value);
+                        setTpReached(off ? "" : o.tp);
+                      }}
+                      style={
+                        o.value === "SL" && outcome === "SL"
+                          ? { ...toggleBtnStyle(true), background: lossColor, border: `1px solid ${lossColor}` }
+                          : toggleBtnStyle(outcome === o.value)
+                      }
+                    >
+                      {o.label}
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <div style={{ display: "flex", gap: 10 }}>
                 {[1, 2, 3].map((level) => (
                   <div
@@ -557,6 +648,7 @@ export default function TradeForm({
                   </div>
                 ))}
               </div>
+              )}
             </div>
 
             {/* The annotations this form no longer asks for: the type, the
@@ -580,14 +672,67 @@ export default function TradeForm({
               {fieldLabel("Side")}
               <input type="hidden" name="side" value={side} />
               <div style={{ display: "flex", gap: 10 }}>
-                <div onClick={() => setSide("Long")} style={toggleBtnStyle(side === "Long")}>
-                  Long
-                </div>
-                <div onClick={() => setSide("Short")} style={toggleBtnStyle(side === "Short")}>
-                  Short
-                </div>
+                {(["Long", "Short"] as const).map((s) => (
+                  <div
+                    key={s}
+                    onClick={() => {
+                      setSide(s);
+                      if (jahres) fill(level, s, symbol);
+                    }}
+                    style={toggleBtnStyle(side === s)}
+                  >
+                    {s}
+                  </div>
+                ))}
               </div>
             </div>
+
+            {/* The yearly level and its prices, offered from the symbol's
+                backtested plan. Posted only under this strategy, so a trade
+                moved to another one does not keep a plan it was not taken on. */}
+            {jahres && (
+              <div style={{ gridColumn: "span 2", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12 }}>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  {fieldLabel("Zone")}
+                  <select
+                    name="level"
+                    value={level}
+                    onChange={(e) => {
+                      setLevel(e.target.value);
+                      fill(e.target.value, side, symbol);
+                    }}
+                    style={monoInputStyle}
+                  >
+                    <option value="">—</option>
+                    {level && !plan?.levels.some((z) => String(z) === level) && <option value={level}>{fmtZone(Number(level), symbol)}</option>}
+                    {plan?.levels.map((z) => (
+                      <option key={z} value={String(z)}>
+                        {fmtZone(z, symbol)}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: 11.5, color: "oklch(0.55 0.03 250)", marginTop: 5, fontFamily: "var(--font-jetbrains-mono), monospace" }}>
+                    {!plan
+                      ? `Pas de plan backtesté pour ${symbol} : les prix sont à écrire.`
+                      : entryPrice != null
+                        ? `Entrée ${price(entryPrice)} · ${plan.offset >= 0 ? `${plan.offset} tick${plan.offset > 1 ? "s" : ""} avant` : `${-plan.offset} ticks au-delà de`} la zone · SL ${plan.sl} / TP1 ${plan.tp1}${plan.tp2 ? ` / TP2 ${plan.tp2}` : ""} ticks`
+                        : `SL ${plan.sl} / TP1 ${plan.tp1}${plan.tp2 ? ` / TP2 ${plan.tp2}` : ""} ticks — choisis la zone et le sens`}
+                  </div>
+                </div>
+                {(
+                  [
+                    ["SL", "slPrice", slPrice, setSlPrice],
+                    ["TP1", "tp1Price", tp1Price, setTp1Price],
+                    ["TP2", "tp2Price", tp2Price, setTp2Price],
+                  ] as const
+                ).map(([text, name, value, set]) => (
+                  <div key={name}>
+                    {fieldLabel(text)}
+                    <input type="text" name={name} value={value} onChange={(e) => set(e.target.value)} style={monoInputStyle} />
+                  </div>
+                ))}
+              </div>
+            )}
 
 
             <div style={{ gridColumn: "span 2" }}>

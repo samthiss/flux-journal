@@ -116,6 +116,9 @@ On ne refait pas ces tests sans raison nouvelle.
 - Config 90 % de gagnants, config « gros gains », trailing serré, règle en R unique, TP1 atteint dans au moins 80 % des cas : moins bien.
 - **TP2 serré** (2 fois le TP1) : ça coûte, jusqu'à 80 $/mois sur 6N. Il doit rester loin.
 - **Demi-pips / pips entiers** : la question ne se pose plus depuis qu'on compte en ticks.
+- **Distance du trailing** (3, 5, 8, 10, 15 ticks, = TP1 ou 1,5 × TP1, testé le 16.11) : trailing = TP1 reste le meilleur au total. Un trailing moyen (10–15 ticks sur 6B) est le pire des deux : il rend une partie du gain sans garder les grosses courses (6B à 10 : 502 $/mois au lieu de 537). Seul 6E à 23 ticks fait mieux sur les deux moitiés de l'année (+61 $/mois, DD 1 025 au lieu de 981) : pas retenu, même règle partout.
+- **Stop du runner à l'entrée +1 tick** au lieu de l'entrée (testé le 16.11) : +5 $/mois, dans le bruit, car le trailing passe au-dessus de l'entrée dès 1 tick après TP1. **+2 ticks** : moins bien (2 438 $/mois au lieu de 2 512, surtout ZS et ZN). 1 tick couvre déjà les frais d'un contrat sur toutes les paires.
+- **Les deux lots à TP1, sans runner** (testé le 16.11) : ≈ 2 090 $/mois net au lieu de ≈ 2 315 avec le trailing, même taux de gagnants, drawdown pas plus bas. Le trailing gagne sur 7 paires sur 8 (ZN fait l'inverse, +29 $/mois, pas sur les deux moitiés).
 
 **Filtres**
 
@@ -125,7 +128,7 @@ On ne refait pas ces tests sans raison nouvelle.
 - Règles « niveau traversé » et « ouverture proche » : moins bien.
 - **Grosse bougie d'1 h sur 6E** (≥ 60 pips) : seulement 2 trades par an, j'ai annulé la règle.
 - **Approche comptée depuis le point le plus éloigné** et non plus depuis l'ouverture de 17h (testé le 15.11) : une séance qui ouvre près du niveau puis s'en éloigne avant de revenir compterait. Résultat : 100 trades de plus par an, 2 246 $/mois au lieu de 2 513, avec moins de gagnants. Seul 6B fait mieux sur les deux moitiés de l'année (621 au lieu de 537 $/mois) ; 6N, 6J et ZS font nettement moins bien.
-- **Distance pour une nouvelle touche** (15, 20, 30, 40 ou 60 ticks, testé le 15.11) : 30 est le meilleur au total. Quelques paires font un peu mieux à une autre valeur, mais jamais sur les deux moitiés de l'année. Au-dessus de 30, c'est nettement moins bien. En pratique, 25 à 30 ticks suffisent.
+- **Distance pour une nouvelle touche** (15, 20, 25, 30, 40 ou 60 ticks, testé le 15.11) : 30 est le meilleur au total (2 513 $/mois, contre 2 483 à 20 et 2 435 à 25) et sur les deux moitiés de l'année. Quelques paires font un peu mieux à une autre valeur, mais jamais sur les deux moitiés de l'année. Au-dessus de 30, c'est nettement moins bien. En pratique, 25 à 30 ticks suffisent.
 - **Durée** : 4 h fait mieux que 1 à 3 h, et mieux que 6 h ou sans limite.
 - **6E de 2h à 8h seulement** : n'apporte rien. **6J de 9h à 14h en 25/10** : +87 $/mois, refusé pour l'instant.
 
@@ -174,3 +177,6 @@ On ne refait pas ces tests sans raison nouvelle.
   - ZN affiché au format CME (107'015) ;
   - règle « déjà touché hors horaires » écrite : le backtest l'appliquait déjà sans le dire ;
   - distance de nouvelle touche et approche depuis le point le plus éloigné testées : on garde 30 ticks et l'approche depuis 17h.
+- **16.11.2026** :
+  - distance du trailing, stop du runner à +1 ou +2 ticks, et tout à TP1 testés : on garde trailing = TP1, stop à l'entrée ;
+  - journal : sous Jahreswiderstand, un trade a sa zone, son SL, TP1 et TP2 proposés par le plan, et son résultat (SL, BE / trailing, TP2).

@@ -4,6 +4,7 @@ import { monJournal } from "@/lib/session";
 import { parseTagArray } from "@/lib/tags";
 import TradeForm, { type ExistingCharts } from "@/components/TradeForm";
 import { updateTrade } from "@/lib/actions/trades";
+import { levelPlans } from "@/lib/databento/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,9 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
   if (!trade) notFound();
 
   const updateTradeWithId = updateTrade.bind(null, trade.id);
-  const [riskPerLot] = await Promise.all([
+  const [riskPerLot, plans] = await Promise.all([
     lastRiskPerLot(ownerId),
+    levelPlans(ownerId),
   ]);
 
   const existingCharts: ExistingCharts = {
@@ -48,6 +50,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
       action={updateTradeWithId}
       tradeId={trade.id}
       riskPerLot={riskPerLot}
+      plans={plans}
       // Carried through the form, or editing a trade would drop the plan it
       // was written from.
       planCharts={parseTagArray(trade.planCharts)}
@@ -77,6 +80,11 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         emotion: trade.emotion ?? "Calm",
         preTradeNotes: trade.preTradeNotes ?? "",
         postTradeNotes: trade.postTradeNotes ?? "",
+        level: trade.level != null ? String(trade.level) : "",
+        slPrice: trade.slPrice != null ? String(trade.slPrice) : "",
+        tp1Price: trade.tp1Price != null ? String(trade.tp1Price) : "",
+        tp2Price: trade.tp2Price != null ? String(trade.tp2Price) : "",
+        outcome: trade.outcome ?? "",
         planFollowed: trade.planFollowed === null ? "" : trade.planFollowed ? "oui" : "non",
       }}
     />
