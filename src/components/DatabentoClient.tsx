@@ -682,10 +682,15 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
           r.rules?.minApproach
             ? {
                 k: "Approche",
-                main: `Au moins ${fmtDistBySymbol(r.rules.minApproach, symbols)} vers le niveau depuis 17h`,
-                detail: "Sinon pas d'ordre sur ce niveau. Un niveau traversé dans la séance ne se trade plus dans l'autre sens.",
+                main: `Séance ouverte à au moins ${fmtDistBySymbol(r.rules.minApproach, symbols)} du niveau — sinon pas de trade sur ce niveau de la séance, même après un rebond de 30 ticks`,
+                detail: `La séance doit ouvrir (17h, 19h pour les grains) à au moins ${fmtDistBySymbol(r.rules.minApproach, symbols)} du niveau — le niveau lui-même, pas le prix de l'ordre (ZS : ordre 7 ticks au-delà) —, sinon pas d'ordre sur ce niveau de toute la séance — même si le prix s'en éloigne ensuite de 30 ticks ou plus puis revient (ZS le 11.11 : ouvert à 9 ticks, parti de 44 ticks, revenu : pas de trade). Il redevient tradable à la séance suivante, si elle ouvre à au moins ${fmtDistBySymbol(r.rules.minApproach, symbols)} du niveau. Un niveau traversé dans la séance ne se trade plus dans l'autre sens.`,
               }
             : null,
+          {
+            k: "Niveau tradable",
+            main: `Deux conditions ensemble : ouverture à au moins ${fmtDistBySymbol(r.rules?.minApproach ?? 15, symbols)} du niveau, et niveau pas encore utilisé`,
+            detail: `Utilisé = déjà touché (par un trade ou hors horaires) sans s'en être éloigné de ${fmtDistBySymbol(r.settings.rearm, symbols)} depuis. Exemples — ouvert à 40 tk, vient sur le niveau à 9h : oui. Ouvert à 9 tk, part de 44 tk puis revient : non (approche). Ouvert à 40 tk, touché la nuit, repart de 15 tk, revient à 9h : non (même touche). Pareil mais repart de 35 tk : oui (nouvelle touche).`,
+          },
           { k: "Ticks", main: "1 tick = une ligne du DOM", detail: tickNote(symbols, (s) => CONTRACTS[s]?.tickSize).replace(/^1 tick = une ligne du DOM — /, "") },
         ]}
       />
