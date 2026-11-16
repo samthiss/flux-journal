@@ -220,7 +220,9 @@ export default function NewsTicker({ events, notees = [] }: { events: EconomicEv
         <span style={{ color: "oklch(0.6 0 0)" }}>
           {/* No hour where the source gives none: a day-long entry shown at an
               hour reads as a release nobody scheduled. */}
-          {instant ? instant.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "all day"}
+          {instant
+            ? `${instant.toLocaleTimeString("en-GB", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" })} Berlin · ${instant.toLocaleTimeString("en-GB", { timeZone: "America/Chicago", hour: "2-digit", minute: "2-digit" })} CT`
+            : "all day"}
         </span>
         <span
           style={{

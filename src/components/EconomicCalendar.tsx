@@ -5,6 +5,7 @@ import { accentColor, glassCard, lossColor } from "@/lib/theme";
 import type { EconomicEvent } from "@/lib/economicCalendar";
 import { setEventRating } from "@/lib/actions/eventRatings";
 import { currenciesOf, focusFor, underFocus } from "@/lib/marketFocus";
+import { newsCurrencies } from "@/lib/contracts";
 import { useMenuDismiss } from "@/components/useMenuDismiss";
 
 const mono = { fontFamily: "var(--font-jetbrains-mono), monospace" } as const;
@@ -66,10 +67,11 @@ function localDay(event: EconomicEvent) {
   return event.at ? new Date(event.at).toLocaleDateString("en-CA") : event.date;
 }
 
+/** An hour on a given clock: the trader's, Berlin, and the plan's, Chicago. */
+const hourIn = (at: string, timeZone: string) => new Date(at).toLocaleTimeString("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" });
+
 function localTime(event: EconomicEvent) {
-  return event.at
-    ? new Date(event.at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-    : null;
+  return event.at ? { berlin: hourIn(event.at, "Europe/Berlin"), chicago: hourIn(event.at, "America/Chicago") } : null;
 }
 
 function dayLabel(day: string) {
@@ -282,13 +284,22 @@ export default function EconomicCalendar({
   ok,
   source,
   market,
+  pairs = [],
+  blackout = [],
 }: {
   events: EconomicEvent[];
   ok: boolean;
   source: string;
   /** The contract selected above the card, which decides what is relevant. */
   market: string;
+  /** The plan's pairs: each release says which of them it concerns. */
+  pairs?: string[];
+  /** The releases that block an order in the plan, as "at|currency|title". */
+  blackout?: string[];
 }) {
+  const blocking = new Set(blackout);
+  /** The pairs a release concerns: the dollar's concern every one of them, the others their own pair. */
+  const pairsFor = (currency: string) => pairs.filter((p) => newsCurrencies(p).includes(currency));
   const focus = focusFor(market);
 
   /**
@@ -473,8 +484,18 @@ export default function EconomicCalendar({
                 borderBottom: "1px solid oklch(0.26 0 0 / 0.35)",
               }}
             >
-              <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.72 0 0)", flex: "none", width: 56 }}>
-                {event.kind === "holiday" ? "journée" : (localTime(event) ?? "—")}
+              <span style={{ ...mono, fontSize: 11.5, color: "oklch(0.72 0 0)", flex: "none", width: 92, lineHeight: 1.3 }}>
+                {event.kind === "holiday" ? (
+                  "journée"
+                ) : localTime(event) ? (
+                  <>
+                    {localTime(event)!.berlin} <span style={{ fontSize: 9.5, color: "oklch(0.55 0 0)" }}>BER</span>
+                    <br />
+                    <span style={{ color: "oklch(0.79 0.17 66)" }}>{localTime(event)!.chicago}</span> <span style={{ fontSize: 9.5, color: "oklch(0.55 0 0)" }}>CT</span>
+                  </>
+                ) : (
+                  "—"
+                )}
               </span>
               <span
                 style={{
@@ -507,7 +528,19 @@ export default function EconomicCalendar({
               ) : (
                 <Impact level={event.impact} onRate={(level) => rate(event, level)} />
               )}
-              <span style={{ fontSize: 12.5, color: "oklch(0.85 0 0)", flex: 1, minWidth: 0 }}>{event.title}</span>
+              <span style={{ fontSize: 12.5, color: "oklch(0.85 0 0)", flex: 1, minWidth: 0 }}>
+                {event.title}
+                {pairs.length > 0 && event.kind !== "holiday" && (
+                  <span style={{ display: "block", ...mono, fontSize: 10, marginTop: 2 }}>
+                    {blocking.has(`${event.at}|${event.currency}|${event.title}`) && (
+                      <span style={{ color: "#000", background: "oklch(0.79 0.17 66)", padding: "0 5px", marginRight: 6, fontWeight: 700 }}>BLACKOUT</span>
+                    )}
+                    <span style={{ color: "oklch(0.6 0 0)" }}>
+                      {pairsFor(event.currency).length === pairs.length ? "toutes les paires" : pairsFor(event.currency).join(" · ") || "aucune de tes paires"}
+                    </span>
+                  </span>
+                )}
+              </span>
               {(event.actual || event.forecast || event.previous) && (
                 <span style={{ ...mono, fontSize: 10.5, color: "oklch(0.55 0 0)", flex: "none", whiteSpace: "nowrap" }}>
                   {/* The published figure, once it exists, is the only number
@@ -524,7 +557,7 @@ export default function EconomicCalendar({
       ))}
 
       <div style={{ ...mono, fontSize: 9.5, color: "oklch(0.45 0 0)", padding: "8px 18px" }}>
-        publié · prévision / précédent · heures locales · clic sur une étoile pour renoter
+        publié · prévision / précédent · heures de Berlin et de Chicago (CT) · BLACKOUT = bloque tes ordres ±10 min · clic sur une étoile pour renoter
       </div>
     </div>
   );

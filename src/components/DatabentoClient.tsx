@@ -6,7 +6,7 @@ import { fieldStyle, fmtOffset, fmtUsd, mono, tone } from "@/components/Backtest
 import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, feeRoundTrip, firmShares, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
-import { CONTRACTS } from "@/lib/contracts";
+import { CONTRACTS, newsCurrencies } from "@/lib/contracts";
 import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, tickNote } from "@/lib/databento/format";
 
 type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
@@ -88,7 +88,10 @@ function RuleRow({ on, onToggle, label: text, children }: { on: boolean; onToggl
 
 
 
-export default function DatabentoClient({ initial }: { initial: Saved[] }) {
+/** A release that blocks orders: when, whose, what. */
+type News = { at: number; currency: string; title: string };
+
+export default function DatabentoClient({ initial, news, now, berlinShift }: { initial: Saved[]; news: News[] | null; now: number; berlinShift: number }) {
   const [entries, setEntries] = useState<Entry[]>(() =>
     initial.map((s) => ({ symbol: s.symbol, zones: s.zones, result: parseResult(s.result), chosenKey: s.chosenKey }))
   );
@@ -383,7 +386,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
       {analysed.length > 0 && screen === "rules" && (
         <>
           <GeneralRules r={general.per[0].e.result!} account={account} symbols={general.per.map(({ e }) => e.symbol)} detail />
-          <PairRules per={general.per} />
+          <PairRules per={general.per} berlinShift={berlinShift} />
         </>
       )}
 
@@ -531,7 +534,7 @@ export default function DatabentoClient({ initial }: { initial: Saved[] }) {
       )}
 
       {analysed.length > 0 && sel && selCfg && screen === sel.symbol && (
-        <SymbolReport key={sel.symbol} entry={sel} cfg={selCfg} account={account} onChoose={(k) => choisir(sel.symbol, k)} />
+        <SymbolReport key={sel.symbol} entry={sel} cfg={selCfg} account={account} news={news} now={now} berlinShift={berlinShift} onChoose={(k) => choisir(sel.symbol, k)} />
       )}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 18, padding: "4px 12px", border: "1px solid #2E2E2E", color: DIM, fontSize: 11 }}>
@@ -677,7 +680,11 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
           {
             k: "News",
             main: bo ? `Pas d'ordre ${bo.before} min avant → ${bo.after} min après` : "Pas de blackout",
-            detail: bo ? (bo.all ? "Chaque news 3 étoiles des devises de la paire" : "CPI, NFP, Fed et la banque centrale de la paire") : undefined,
+            detail: bo
+              ? bo.all
+                ? "Chaque news 3 étoiles des devises de la paire, selon la note de TradingView : ce sont celles listées sur la Fiche du jour. Pas toutes les 3 étoiles d'investing.com — Initial Jobless Claims, ADP, JOLTS ou les stocks de pétrole n'en font pas partie (les bloquer aussi coûte ≈ 120 $/mois au backtest)."
+                : "CPI, NFP, Fed et la banque centrale de la paire"
+              : undefined,
           },
           r.rules?.minApproach
             ? {
@@ -719,7 +726,7 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
           {
             k: "Nouvelle touche",
             main: `Le prix doit s'éloigner de ${fmtDistBySymbol(r.settings.rearm, symbols)} puis revenir`,
-            detail: `Avant qu'un niveau déjà touché compte de nouveau. Moins loin, même pendant des heures, c'est toujours la même touche. Le prix à atteindre est dans la colonne « 2e rebond » des prix par niveau.`,
+            detail: `Avant qu'un niveau déjà touché compte de nouveau. Moins loin, même pendant des heures, c'est toujours la même touche. Le prix à atteindre est dans la colonne « 2e rebond » des prix par niveau. Exemple 6E le 06.11.26, niveau 1,1187 : séance ouverte 100 ticks au-dessus, touché à 1h32 (avant 2h, hors horaires), remonté de 43 ticks à 2h37, revenu à 3h19 → achat rempli à 3h34, +8,5 ticks. À l'inverse, 6J le 02.11.26 : touché à 20h, reparti de 23 ticks seulement, revenu le matin → pas de trade.`,
           },
           {
             k: "Déjà touché hors horaires",
@@ -759,8 +766,8 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
 }
 
 /** Every pair's own settings on one table. */
-function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
-  const cols = "44px minmax(0, 3fr) 120px 140px 1fr";
+function PairRules({ per, berlinShift }: { per: { e: Entry; c: ConfigStats }[]; berlinShift: number }) {
+  const cols = "44px minmax(0, 3fr) 120px 140px 1.3fr 80px";
   return (
     <Panel title="RÈGLES PAR PAIRE">
       <div style={{ overflowX: "auto" }}>
@@ -770,7 +777,8 @@ function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
             <span>NIVEAUX</span>
             <span>STOP</span>
             <span>TP1 = TRAILING · TP2</span>
-            <span>PAS D&apos;ORDRE</span>
+            <span>HORAIRES CT · BERLIN</span>
+            <span>NEWS</span>
           </Row>
           {per.map(({ e, c }) => {
             const r = e.result!;
@@ -794,7 +802,11 @@ function PairRules({ per }: { per: { e: Entry; c: ConfigStats }[] }) {
                 <span style={{ color: GAIN }}>
                   +{c.cfg.tp1} TK{kindOf(c.cfg) === "tp1trail" && c.cfg.tp2 > c.cfg.tp1 ? ` · +${c.cfg.tp2} TK` : ""}
                 </span>
-                <span style={{ color: DIM }}>{hours.length ? hoursText(hours).toUpperCase() : "—"}</span>
+                <span>
+                  <span style={{ color: ORANGE }}>{spansText(orderSpans(r.rules?.hours ?? [2, 14], hours))}</span>
+                  <span style={{ color: DIM }}> · {spansText(orderSpans(r.rules?.hours ?? [2, 14], hours), berlinShift)}</span>
+                </span>
+                <span style={{ color: TXT }}>{newsCurrencies(e.symbol).join(" + ")}</span>
               </Row>
             );
           })}
@@ -831,7 +843,7 @@ const OUT_TEXT: Record<string, string> = {
   TO: "CLÔTURÉ (DURÉE MAX)",
 };
 
-function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: ConfigStats; account: AccountRules; onChoose: (key: string) => void }) {
+function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }: { entry: Entry; cfg: ConfigStats; account: AccountRules; news: News[] | null; now: number; berlinShift: number; onChoose: (key: string) => void }) {
   const r = entry.result!;
   const c = cfg.cfg;
   const lots = r.settings.lots;
@@ -908,6 +920,13 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
                 <span style={{ color: DIM }}> · RUNNER EN TRAILING {c.dist} TK</span>
               </div>
             )}
+            <div>
+              <span style={{ color: DIM }}>HORAIRES </span>
+              <span style={{ color: ORANGE }}>{spansText(orderSpans(r.rules?.hours ?? [2, 14], hours))} CT</span>
+              <span style={{ color: DIM }}> · </span>
+              <span style={{ color: TXT }}>{spansText(orderSpans(r.rules?.hours ?? [2, 14], hours), berlinShift)} BERLIN</span>
+            </div>
+            {HOURS_WHY[r.symbol] && <div style={{ color: DIM, fontSize: 11.5, lineHeight: 1.5 }}>{HOURS_WHY[r.symbol].toUpperCase()}</div>}
             <div>
               <span style={{ color: DIM }}>BLACKOUT </span>
               <span style={{ color: TXT }}>{hours.length ? `${hoursText(hours).toUpperCase()} CT` : "AUCUN"}</span>
@@ -1021,6 +1040,8 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
         </Panel>
       </div>
 
+      <NewsPanel symbol={r.symbol} news={news} now={now} before={r.rules?.blackout?.before ?? 10} after={r.rules?.blackout?.after ?? 10} />
+
       <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: 8 }}>
         {tick && (
           <Panel title="PRIX PAR NIVEAU" right="REB = 2E REBOND (S'ÉLOIGNER JUSQU'À)">
@@ -1114,3 +1135,68 @@ function SymbolReport({ entry, cfg, account, onChoose }: { entry: Entry; cfg: Co
     </>
   );
 }
+
+/** An hour on a given clock. */
+const clock = (t: number, timeZone: string) => new Date(t).toLocaleTimeString("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" });
+const dayIn = (t: number) => new Date(t).toLocaleDateString("fr-FR", { timeZone: "Europe/Berlin", weekday: "short", day: "2-digit", month: "2-digit" }).toUpperCase();
+
+/** The coming week's releases that block this pair's orders: its own currency's and the dollar's three-star ones. */
+function NewsPanel({ symbol, news, now, before, after }: { symbol: string; news: News[] | null; now: number; before: number; after: number }) {
+  const cur = newsCurrencies(symbol);
+  const list = (news ?? []).filter((e) => cur.includes(e.currency));
+  const cols = "92px 54px 54px 44px 1fr";
+  return (
+    <Panel title={`NEWS QUI BLOQUENT ${symbol} · 7 JOURS`} right={`${cur.join(" + ")} · 3 ÉTOILES TRADINGVIEW · −${before} → +${after} MIN`}>
+      {news === null ? (
+        <div style={{ color: DIM, padding: "10px" }}>CALENDRIER INDISPONIBLE POUR L&apos;INSTANT</div>
+      ) : list.length === 0 ? (
+        <div style={{ color: DIM, padding: "10px" }}>AUCUNE NEWS BLOQUANTE CES 7 PROCHAINS JOURS</div>
+      ) : (
+        <>
+          <Row head cols={cols}>
+            <span>JOUR</span>
+            <span>BERLIN</span>
+            <span>CT</span>
+            <span>DEV.</span>
+            <span>NEWS</span>
+          </Row>
+          {list.map((e) => (
+            <Row key={`${e.at}${e.currency}${e.title}`} cols={cols} style={e.at < now ? { opacity: 0.45 } : undefined}>
+              <span style={{ color: DIM }}>{dayIn(e.at)}</span>
+              <span>{clock(e.at, "Europe/Berlin")}</span>
+              <span style={{ color: ORANGE }}>{clock(e.at, "America/Chicago")}</span>
+              <span style={{ color: e.currency === "USD" ? DIM : TXT, fontWeight: 700 }}>{e.currency}</span>
+              <span style={{ color: TXT }}>{e.title}</span>
+            </Row>
+          ))}
+        </>
+      )}
+    </Panel>
+  );
+}
+
+/** Why each pair keeps the hours it keeps, in a line. */
+const HOURS_WHY: Record<string, string> = {
+  "6B": "La livre tient ses niveaux pendant Londres ; New York les lui fait traverser.",
+  "6E": "L'euro respecte ses niveaux toute la journée.",
+  "6J": "L'ouverture de Londres secoue le yen sa première heure.",
+  "6N": "Ouverture de Londres, puis chiffres US de 7h30 et ouverture américaine.",
+  "6C": "Aucune heure ne fait mieux sans elle.",
+  ZN: "Le T-Note est calme, 5 à 10 ticks l'heure.",
+  ZS: "La nuit des grains est trop mince : seule la séance du jour compte.",
+  ZW: "La réouverture des grains à 8h30 est trop brutale.",
+};
+
+/** The hours orders go in, as spans: 2h–14h less the hours kept out. */
+function orderSpans(hours: [number, number], excluded: number[]): [number, number][] {
+  const spans: [number, number][] = [];
+  for (let h = hours[0]; h < hours[1]; h++) {
+    if (excluded.includes(h)) continue;
+    const last = spans[spans.length - 1];
+    if (last && last[1] === h) last[1] = h + 1;
+    else spans.push([h, h + 1]);
+  }
+  return spans;
+}
+const spansText = (spans: [number, number][], shift = 0) =>
+  spans.map(([a, b]) => `${String((a + shift + 24) % 24).padStart(2, "0")}H–${String((b + shift + 24) % 24).padStart(2, "0")}H`).join(" · ");

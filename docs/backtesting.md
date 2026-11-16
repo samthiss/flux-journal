@@ -6,7 +6,7 @@ Ce fichier contient le plan de trading en vigueur, les chiffres qui le justifien
 - La table `PAIRS` de ce script contient les niveaux et les réglages de chaque paire ; c'est elle qui fait foi.
 - Les résultats vont dans `prisma/databento-results.json`, que l'appli charge au démarrage.
 
-Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur VolFix. Les heures sont en heure de **Chicago** ; en Suisse, c'est +7 h (+6 h entre fin octobre et début novembre).
+Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur VolFix. Les heures sont en heure de **Chicago** ; à Berlin, c'est +7 h (+6 h entre fin octobre et début novembre).
 
 ---
 
@@ -29,8 +29,8 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 
 **Préparer la séance**
 
-- **Horaires** : ordres de **2h à 14h** (9h à 21h en Suisse), sauf les heures exclues de chaque paire (voir §3). Les heures exclues ne concernent que les **nouveaux ordres** : un ordre pas encore rempli à l'heure exclue s'annule ; un trade déjà rempli se gère jusqu'au bout (SL, TP1, trailing, 4 h max). Exemple 6B : entré à 7h40, il continue après 8h et se ferme au plus tard à 11h40.
-- **News** : pas d'ordre de **10 min avant à 10 min après** chaque news 3 étoiles des devises de la paire.
+- **Horaires** : ordres de **2h à 14h** (9h à 21h à Berlin), sauf les heures exclues de chaque paire (voir §3). Les heures exclues ne concernent que les **nouveaux ordres** : un ordre pas encore rempli à l'heure exclue s'annule ; un trade déjà rempli se gère jusqu'au bout (SL, TP1, trailing, 4 h max). Exemple 6B : entré à 7h40, il continue après 8h et se ferme au plus tard à 11h40.
+- **News** : pas d'ordre de **10 min avant à 10 min après** chaque news 3 étoiles des devises de la paire, **selon la note de TradingView** — ce sont celles de la Fiche du jour. Les 3 étoiles d'investing.com en plus (Initial Jobless Claims, ADP, JOLTS, stocks de pétrole, ventes de logements…) ne bloquent pas : testé le 16.11, les bloquer aussi coûte ≈ 120 $/mois (2 374 au lieu de 2 494), surtout sur 6E et ZS.
 - **Approche** : je n'entre sur un niveau que si le prix a fait **au moins 15 ticks vers lui** depuis l'ouverture de 17h (19h pour les grains). Elle se mesure **depuis l'ouverture seulement**, et **jusqu'au niveau lui-même**, pas jusqu'au prix de l'ordre (sur ZS, l'ordre est 7 ticks au-delà : mesurer jusqu'à l'ordre ajoute 2 trades par an et coûte 15 $/mois, testé le 16.11) : une séance ouverte à moins de 15 ticks du niveau ne le trade pas, même si le prix s'en éloigne ensuite de 30 ticks ou plus puis revient ; il redevient tradable à la séance suivante si elle ouvre à au moins 15 ticks (ZS le 11.11 : ouvert à 9 ticks, parti de 44, revenu — pas de trade, et le stop aurait sauté). Un niveau traversé pendant la séance ne se trade donc plus dans l'autre sens.
 - **Niveau tradable = deux conditions ensemble** : l'approche ci-dessus, et un niveau pas encore « utilisé » (déjà touché, par un trade ou hors horaires, sans s'en être éloigné de 30 ticks depuis). Les 30 ticks ne remplacent pas les 15 : ouvert à 40 ticks, touché la nuit, reparti de 15, revenu à 9h → non ; reparti de 35 → oui.
 
@@ -39,7 +39,7 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 - **Sens** : achat quand le prix descend sur le niveau, vente quand il monte dessus.
 - **Ordre** : ordre limite **1 tick avant le niveau** (pour ZS : 7 ticks au-delà), 2 lots, avec le SL attaché à l'ordre. À 1 tick avant, l'ordre est rempli dès que le prix touche le niveau, quelle que soit ma place dans la file d'attente.
 - **Un trade par jour et par paire** : je pose un ordre par niveau valable. Dès que l'un d'eux est rempli, j'annule les autres ordres de cette paire pour la journée. Les autres paires gardent leurs ordres.
-- **Nouvelle touche** : un niveau déjà touché ne compte de nouveau que si le prix s'en éloigne de **30 ticks**, puis revient dessus.
+- **Nouvelle touche** : un niveau déjà touché ne compte de nouveau que si le prix s'en éloigne de **30 ticks**, puis revient dessus. Exemple 6E le 06.11.26, niveau 1,1187 : séance ouverte 100 ticks au-dessus, touché à 1h32 (avant 2h, hors horaires), remonté de 43 ticks à 2h37, revenu à 3h19 → achat rempli à 3h34, +8,5 ticks. À l'inverse, 6J le 02.11.26 : touché à 20h, reparti de 23 ticks seulement → pas de trade le lendemain matin.
 - **Ordre pas rempli** : si le prix touche l'entrée sans me prendre puis repart de moins de 30 ticks, c'est la même touche : l'ordre reste posé, et s'il est rempli au retour pendant mes horaires, c'est le trade. Exemple 6B le 14.09 : touché vers 4h15, remonté de 21 ticks, revenu et rempli à 7h53 (avant 8h), TP1 à 10h54. L'ordre se pose au prix de la colonne « Entrée » (1 tick avant le niveau) : posé sur le niveau même, il peut être touché sans être pris.
 - **Déjà touché hors horaires** : pas d'ordre sur un niveau que le prix a déjà touché **en dehors des heures d'ordres** (la nuit avant 2h, pendant une heure exclue ou pendant le blackout d'une news), tant qu'il ne s'en est pas éloigné de 30 ticks. Une touche la nuit compte même sans trade : par exemple, touché à 23h30, éloigné de 15 ticks, revenu à 3h → pas de trade, c'est la même touche ; il faut d'abord 30 ticks d'éloignement puis un retour pendant les horaires. À vérifier sur le graphique à 2h, et en reposant les ordres après une news. Un prix qui traîne sur un niveau depuis des heures ne rebondit plus.
 

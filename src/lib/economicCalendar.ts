@@ -335,7 +335,13 @@ export async function getEventsOver(days: string[]): Promise<EconomicEvent[]> {
 export async function getHighImpactBetween(
   from: Date,
   to: Date,
-  currencies: string[]
+  currencies: string[],
+  /**
+   * The journal's own ratings, "currency|title" → impact, laid over the
+   * source's: what the news band calls three stars is what the backtest and
+   * the day sheet keep clear of.
+   */
+  ratings: Record<string, string> = {}
 ): Promise<{ at: number; currency: string; title: string }[] | null> {
   const wanted = new Set(currencies);
   const out: { at: number; currency: string; title: string }[] = [];
@@ -345,7 +351,7 @@ export async function getHighImpactBetween(
     const chunk = await readRange(start, end < to ? end : to);
     if (!chunk) return null;
     for (const e of chunk)
-      if (e.kind === "release" && e.impact === "high" && e.at && wanted.has(e.currency))
+      if (e.kind === "release" && (ratings[`${e.currency}|${e.title}`] ?? e.impact) === "high" && e.at && wanted.has(e.currency))
         out.push({ at: Date.parse(e.at), currency: e.currency, title: e.title });
     start = end;
   }
