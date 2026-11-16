@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Sidebar from "@/components/Sidebar";
 import { AgentProvider } from "@/components/agent/AgentProvider";
-import AgentLauncher from "@/components/agent/AgentLauncher";
 import { SESSION_COOKIE, authConfig, verifySessionToken } from "@/lib/auth";
 import { estProprietaire } from "@/lib/session";
 import { getNoteTree } from "@/lib/actions/notes";
@@ -130,7 +129,7 @@ export default async function RootLayout({
             {children}
           </div>
           {modal}
-          {await estProprietaire() && <AgentLauncher />}
+          {/* The chat button is off for now (2026-11-16): put <AgentLauncher /> back here, for the owner, to bring it back. */}
         </AgentProvider>
       </body>
     </html>
