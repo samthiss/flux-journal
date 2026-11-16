@@ -798,3 +798,44 @@ model DatabentoSymbol {
 
   @@unique([ownerId, symbol])
 }
+
+/**
+ * A phone or browser that asked for the reminders: the address the push
+ * service gave it, and the keys a message to it is sealed with.
+ */
+model PushDevice {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
+
+/**
+ * The journal's own pair of keys for web push, made on first use and kept:
+ * a phone's subscription is tied to the public one, so new keys would silence
+ * every phone already signed up.
+ */
+model PushKeys {
+  id         Int    @id @default(1)
+  publicKey  String
+  privateKey String
+}
+
+/**
+ * A trade on, from the minute it was filled: what the reminder to close it
+ * after four hours is counted from. Closed by hand, or forgotten after a day.
+ */
+model OpenPosition {
+  id        String    @id @default(cuid())
+  symbol    String
+  filledAt  DateTime
+  closedAt  DateTime?
+  createdAt DateTime  @default(now())
+}
+
+/** A reminder already sent, so a restart or a second tick does not send it twice. */
+model PushSent {
+  key    String   @id
+  sentAt DateTime @default(now())
+}

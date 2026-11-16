@@ -23,6 +23,12 @@ function PartageIcon({ color }: { color: string }) {
   );
 }
 
+/**
+ * Taken out of the menu (2026-11-16): the pages still answer at their address,
+ * but the menu keeps to what is used every day.
+ */
+const HIDDEN = new Set(["/rapport", "/risque", "/volume-alert", "/notes", "/agent", "/partage"]);
+
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", match: (p: string) => p === "/" },
   { href: "/trades", label: "Trades", match: (p: string) => p.startsWith("/trades") },
@@ -625,6 +631,7 @@ export default function Sidebar({
         {NAV_ITEMS.map((item, i) => [item, i] as const)
           // An account has three pages: its dashboard, its trades, and the
           // sharing of its own journal.
+          .filter(([item]) => !HIDDEN.has(item.href))
           .filter(([item]) => proprietaire || ["/", "/trades", "/partage"].includes(item.href))
           .map(([item, i]) => {
           const active = item.match(pathname);

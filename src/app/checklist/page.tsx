@@ -13,8 +13,9 @@ export default async function ChecklistPage() {
   // Read here rather than in the browser: the feed sets no CORS headers, and
   // its own cache means one read serves every visit for the hour.
   const ownerId = await monJournal();
-  const [calendar, rows] = await Promise.all([
+  const [calendar, open, rows] = await Promise.all([
     getEconomicEvents(),
+    prisma.openPosition.findMany({ where: { closedAt: null }, orderBy: { filledAt: "asc" } }),
     prisma.databentoSymbol.findMany({ where: { ownerId }, select: { symbol: true, result: true }, orderBy: { symbol: "asc" } }),
   ]);
   const pairs = rows.map((r) => r.symbol);
@@ -39,6 +40,7 @@ export default async function ChecklistPage() {
       calendarOk={calendar.ok}
       sessions={sessions}
       now={readNow()}
+      open={open.map((p) => ({ id: p.id, symbol: p.symbol, filledAt: p.filledAt.toISOString() }))}
     />
   );
 }

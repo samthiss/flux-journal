@@ -27,6 +27,9 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Flux Journal",
   description: "Personal day trading journal",
+  // On the iPhone's home screen, as an app: the only way it gets notifications.
+  appleWebApp: { capable: true, title: "Journal", statusBarStyle: "black" },
+  icons: { apple: "/apple-touch-icon.png" },
 };
 
 /**

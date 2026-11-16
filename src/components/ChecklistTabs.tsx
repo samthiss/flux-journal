@@ -2,6 +2,7 @@
 
 import { PageTitle } from "@/components/NeonText";
 import PairDay, { type Release, type Session } from "@/components/PairDay";
+import Reminders from "@/components/Reminders";
 
 /**
  * The news page: the day's order hours for each pair, with the releases that
@@ -15,11 +16,14 @@ export default function ChecklistTabs({
   releases,
   calendarOk,
   sessions,
+  open,
   now,
 }: {
   releases: Release[];
   calendarOk: boolean;
   sessions: Session[];
+  /** The trades on, whose four hours are being counted. */
+  open: { id: string; symbol: string; filledAt: string }[];
   /** When the page was read: the day the grid shows. */
   now: number;
 }) {
@@ -31,6 +35,7 @@ export default function ChecklistTabs({
           Quand trader chaque paire aujourd&apos;hui, et les news qui bloquent tes ordres
         </div>
       </div>
+      <Reminders pairs={sessions.map((s) => s.symbol)} open={open} now={now} />
       <PairDay sessions={sessions} releases={releases} ok={calendarOk} now={now} />
     </div>
   );

@@ -30,6 +30,8 @@ const POUR_INVITE = [
  * token is still good; what happens here is only that the door does not ask
  * for a password first.
  */
+const INSTALL = ["/manifest.webmanifest", "/sw.js", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+
 const PUBLIC = /^\/v\/[A-Za-z0-9_-]+(\/|$)/;
 
 // Named Proxy rather than Middleware: Next 16 renamed the file and the export,
@@ -64,6 +66,10 @@ export function proxy(request: NextRequest) {
    * included. Who may comment is decided there, not here.
    */
   if (pathname === "/api/comments") return NextResponse.next();
+
+  // What a phone fetches to install the journal on its home screen, without
+  // the session cookie: the manifest and its icons. Nothing of the journal.
+  if (INSTALL.includes(pathname)) return NextResponse.next();
 
   // A share link is readable without signing in, and only ever read.
   if (PUBLIC.test(pathname)) {
