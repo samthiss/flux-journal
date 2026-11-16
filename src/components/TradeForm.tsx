@@ -23,13 +23,15 @@ const PLANNED = PLANNED_STRATEGIES;
 /**
  * How a yearly-levels trade ends, and the take-profit level each one means,
  * so the journal's TP counts stay right: stopped out, TP1 with the runner out
- * at the entry, TP1 with the runner out on its trail, or the runner at TP2.
+ * at the entry, TP1 with the runner out on its trail, the runner at TP2, or
+ * closed at market when the four hours ran out.
  */
 const OUTCOMES = [
   { value: "SL", label: "SL", tp: "" },
   { value: "TP1", label: "TP1", tp: "1" },
   { value: "TRAIL", label: "TP1 + trailing stop", tp: "1" },
   { value: "TP2", label: "TP2", tp: "2" },
+  { value: "TIME", label: "Clôturé (durée max)", tp: "" },
 ] as const;
 
 /** And how the entry was taken: by hand on a confirmation, or by a resting order. */
@@ -93,7 +95,7 @@ export type TradeFormValues = {
   tp1Price: string;
   tp2Price: string;
   trailPrice: string;
-  /** "SL", "TP1", "TRAIL", "TP2" or "". */
+  /** "SL", "TP1", "TRAIL", "TP2", "TIME" or "". */
   outcome: string;
 };
 
@@ -102,11 +104,11 @@ export type ExistingCharts = Partial<Record<(typeof CHART_SLOTS)[number]["key"],
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  background: "oklch(0.18 0.02 290)",
-  border: "1px solid oklch(0.32 0.03 290 / 0.6)",
+  background: "oklch(0.1 0 0)",
+  border: "1px solid oklch(0.32 0 0 / 0.6)",
   borderRadius: 8,
   padding: "10px 12px",
-  color: "oklch(0.96 0.004 290)",
+  color: "oklch(0.96 0 0)",
   fontFamily: "var(--font-space-grotesk), sans-serif",
   fontSize: 13,
   outline: "none",
@@ -119,7 +121,7 @@ const monoInputStyle: React.CSSProperties = { ...inputStyle, fontFamily: "var(--
 const ACCEPTED_CHART_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 function fieldLabel(text: string) {
-  return <div style={{ fontSize: 12, color: "oklch(0.6 0.02 290)", marginBottom: 6 }}>{text}</div>;
+  return <div style={{ fontSize: 12, color: "oklch(0.6 0 0)", marginBottom: 6 }}>{text}</div>;
 }
 
 function ChartSlotInput({
@@ -188,10 +190,10 @@ function ChartSlotInput({
       }}
       style={{
         display: "block",
-        border: `1.5px dashed ${dragOver ? accentColor : "oklch(0.36 0.03 290 / 0.6)"}`,
+        border: `1.5px dashed ${dragOver ? accentColor : "oklch(0.36 0 0 / 0.6)"}`,
         borderRadius: 10,
         padding: 14,
-        background: "oklch(0.16 0.018 290)",
+        background: "oklch(0.08 0 0)",
         cursor: "pointer",
         opacity: isPending ? 0.5 : 1,
       }}
@@ -201,7 +203,7 @@ function ChartSlotInput({
           a name over an empty box is an instruction to find that exact
           capture. They take whatever is worth keeping, in the order it is
           dropped. */}
-      {!preview && <div style={{ fontSize: 11, color: "oklch(0.5 0.02 290)" }}>Drag &amp; drop or click</div>}
+      {!preview && <div style={{ fontSize: 11, color: "oklch(0.5 0 0)" }}>Drag &amp; drop or click</div>}
       {preview && (
         <div style={{ position: "relative", marginTop: 8 }}>
           <div
@@ -212,7 +214,7 @@ function ChartSlotInput({
               backgroundImage: `url(${preview})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
-              border: "1px solid oklch(0.32 0.03 290 / 0.5)",
+              border: "1px solid oklch(0.32 0 0 / 0.5)",
             }}
           />
           {(tradeId || carried) && (
@@ -228,7 +230,7 @@ function ChartSlotInput({
                 width: 22,
                 height: 22,
                 borderRadius: "50%",
-                background: "oklch(0.15 0.02 290 / 0.85)",
+                background: "oklch(0.07 0 0 / 0.85)",
                 color: "oklch(0.9 0 0)",
                 fontSize: 13,
                 display: "flex",
@@ -426,8 +428,8 @@ export default function TradeForm({
     fontSize: 13,
     fontWeight: 600,
     background: active ? accentColor : "transparent",
-    color: active ? "oklch(0.12 0.01 290)" : "oklch(0.7 0.02 290)",
-    border: `1px solid ${active ? accentColor : "oklch(0.36 0.03 290 / 0.6)"}`,
+    color: active ? "oklch(0.04 0 0)" : "oklch(0.7 0 0)",
+    border: `1px solid ${active ? accentColor : "oklch(0.36 0 0 / 0.6)"}`,
   });
 
   return (
@@ -443,17 +445,17 @@ export default function TradeForm({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            border: "1px solid oklch(0.36 0.03 290 / 0.6)",
-            background: "oklch(0.18 0.02 290)",
+            border: "1px solid oklch(0.36 0 0 / 0.6)",
+            background: "oklch(0.1 0 0)",
           }}
         >
           <svg width="16" height="16" viewBox="0 0 16 16">
-            <path d="M10 3L5 8l5 5" fill="none" stroke="oklch(0.85 0.01 290)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 3L5 8l5 5" fill="none" stroke="oklch(0.85 0 0)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Link>
         <div>
           <PageTitle>{title}</PageTitle>
-          <div style={{ fontSize: 14, color: "oklch(0.62 0.02 290)", marginTop: 2 }}>{subtitle}</div>
+          <div style={{ fontSize: 14, color: "oklch(0.62 0 0)", marginTop: 2 }}>{subtitle}</div>
         </div>
       </div>
 
@@ -580,7 +582,7 @@ export default function TradeForm({
               <div
                 style={{
                   fontSize: 11.5,
-                  color: "oklch(0.55 0.0176 290)",
+                  color: "oklch(0.55 0 0)",
                   marginTop: 5,
                   fontFamily: "var(--font-jetbrains-mono), monospace",
                 }}
@@ -621,7 +623,7 @@ export default function TradeForm({
                   TP2: what is asked is how the trade ended, which says how
                   far it went as well. */}
               {planned ? (
-                <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                   {OUTCOMES.map((o) => (
                     <div
                       key={o.value}
@@ -716,7 +718,7 @@ export default function TradeForm({
                       </option>
                     ))}
                   </select>
-                  <div style={{ fontSize: 11.5, color: "oklch(0.55 0.0176 290)", marginTop: 5, fontFamily: "var(--font-jetbrains-mono), monospace" }}>
+                  <div style={{ fontSize: 11.5, color: "oklch(0.55 0 0)", marginTop: 5, fontFamily: "var(--font-jetbrains-mono), monospace" }}>
                     {!plan
                       ? `Pas de plan backtesté pour ${symbol} : les prix sont à écrire.`
                       : entryPrice != null
@@ -733,7 +735,8 @@ export default function TradeForm({
                   [
                     ["SL", "slPrice", slPrice, setSlPrice, !outcome || outcome === "SL"],
                     ["TP1", "tp1Price", tp1Price, setTp1Price, !outcome || outcome === "TP1" || outcome === "TRAIL"],
-                    ["Trailing stop", "trailPrice", trailPrice, setTrailPrice, outcome === "TRAIL"],
+                    // Where the position actually went out, when the plan cannot say: on the trail, or at market when time ran out.
+                    [outcome === "TIME" ? "Prix de clôture" : "Trailing stop", "trailPrice", trailPrice, setTrailPrice, outcome === "TRAIL" || outcome === "TIME"],
                     ["TP2", "tp2Price", tp2Price, setTp2Price, outcome === "TP2"],
                   ] as const
                 ).map(([text, name, value, set, visible]) =>
@@ -802,9 +805,9 @@ export default function TradeForm({
                       padding: "9px 22px",
                       borderRadius: 8,
                       textAlign: "center",
-                      border: `1px solid ${planFollowed === valeur ? couleur : "oklch(0.32 0.03 290 / 0.6)"}`,
-                      background: planFollowed === valeur ? couleur.replace(")", " / 0.14)") : "oklch(0.18 0.02 290)",
-                      color: planFollowed === valeur ? couleur : "oklch(0.7 0.0118 290)",
+                      border: `1px solid ${planFollowed === valeur ? couleur : "oklch(0.32 0 0 / 0.6)"}`,
+                      background: planFollowed === valeur ? couleur.replace(")", " / 0.14)") : "oklch(0.1 0 0)",
+                      color: planFollowed === valeur ? couleur : "oklch(0.7 0 0)",
                     }}
                   >
                     {texte}
@@ -844,7 +847,7 @@ export default function TradeForm({
                           backgroundImage: `url(${url})`,
                           backgroundSize: "cover",
                           backgroundPosition: "center",
-                          border: "1px solid oklch(0.32 0.03 290 / 0.5)",
+                          border: "1px solid oklch(0.32 0 0 / 0.5)",
                         }}
                       />
                       <div
@@ -857,7 +860,7 @@ export default function TradeForm({
                           width: 22,
                           height: 22,
                           borderRadius: "50%",
-                          background: "oklch(0.15 0.02 290 / 0.85)",
+                          background: "oklch(0.07 0 0 / 0.85)",
                           color: "oklch(0.9 0 0)",
                           fontSize: 13,
                           display: "flex",
@@ -892,7 +895,7 @@ export default function TradeForm({
           <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
             <button
               type="submit"
-              style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "11px 20px", borderRadius: 9, background: accentColor, color: "oklch(0.12 0.01 290)", border: "none" }}
+              style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "11px 20px", borderRadius: 9, background: accentColor, color: "oklch(0.04 0 0)", border: "none" }}
             >
               Save Trade
             </button>
@@ -904,8 +907,8 @@ export default function TradeForm({
                 fontWeight: 600,
                 padding: "11px 20px",
                 borderRadius: 9,
-                border: "1px solid oklch(0.36 0.03 290 / 0.6)",
-                color: "oklch(0.75 0.02 290)",
+                border: "1px solid oklch(0.36 0 0 / 0.6)",
+                color: "oklch(0.75 0 0)",
                 textDecoration: "none",
               }}
             >
