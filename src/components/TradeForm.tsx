@@ -16,10 +16,17 @@ const SYMBOL_OPTIONS = ["6E", "6B", "6J", "6N", "6C", "ZN", "ZS", "ZW"] as const
 const SETUP_OPTIONS = ["Backtest reverse", "Trend run"] as const;
 
 /** And whose rules it was taken under. */
-const STRATEGY_OPTIONS = ["Volume academy", "Jahreswiderstand"] as const;
+const STRATEGY_OPTIONS = ["Volume academy", "Jahreswiderstand", "VWAP (Monthly)", "VWAP (Yearly)"] as const;
 
 /** The strategy traded on the yearly levels, whose trades carry a level, a stop, TP1, TP2 and a result. */
 const JAHRES = "Jahreswiderstand";
+
+/**
+ * The strategies a trade is written with a stop, TP1, TP2 and a result:
+ * the yearly levels, and the monthly and yearly VWAP — where the level is the
+ * VWAP itself, so there is no zone to pick and nothing to fill in from.
+ */
+const PLANNED = [JAHRES, "VWAP (Monthly)", "VWAP (Yearly)"];
 
 /**
  * How a Jahreswiderstand trade ends, and the take-profit level each one means,
@@ -333,6 +340,7 @@ export default function TradeForm({
   const [trailPrice, setTrailPrice] = useState(shown(initial.trailPrice));
   const [outcome, setOutcome] = useState(initial.outcome);
   const jahres = strategy === JAHRES;
+  const planned = PLANNED.includes(strategy);
   const fill = (nextLevel: string, nextSide: string, nextSymbol: string) => {
     const p = plans[nextSymbol];
     const z = Number(nextLevel);
@@ -614,13 +622,13 @@ export default function TradeForm({
                   TP2 lights TP1 too, because there is no reaching the second
                   without passing the first; picking the highest one lit again
                   clears the answer. */}
-              {fieldLabel(jahres ? "Résultat" : "Take profit reached")}
+              {fieldLabel(planned ? "Résultat" : "Take profit reached")}
               <input type="hidden" name="tpReached" value={tpReached} />
-              <input type="hidden" name="outcome" value={jahres ? outcome : ""} />
+              <input type="hidden" name="outcome" value={planned ? outcome : ""} />
               {/* On the yearly levels the plan has one TP1, one runner and a
                   TP2: what is asked is how the trade ended, which says how
                   far it went as well. */}
-              {jahres ? (
+              {planned ? (
                 <div style={{ display: "flex", gap: 10 }}>
                   {OUTCOMES.map((o) => (
                     <div
@@ -694,8 +702,9 @@ export default function TradeForm({
             {/* The yearly level and its prices, offered from the symbol's
                 backtested plan. Posted only under this strategy, so a trade
                 moved to another one does not keep a plan it was not taken on. */}
-            {jahres && (
+            {planned && (
               <div style={{ gridColumn: "span 2", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12 }}>
+                {jahres && (
                 <div style={{ gridColumn: "1 / -1" }}>
                   {fieldLabel("Zone")}
                   <select
@@ -723,6 +732,7 @@ export default function TradeForm({
                         : `SL ${plan.sl} / TP1 ${plan.tp1}${plan.tp2 ? ` / TP2 ${plan.tp2}` : ""} ticks — choisis la zone et le sens`}
                   </div>
                 </div>
+                )}
                 {/* The prices the result picked above is read with: the stop
                     for a stop-out, TP1 — and where the trail took the runner
                     out — for a TP1, TP2 for a TP2. The others are still filled

@@ -117,9 +117,11 @@ function parseTradeForm(formData: FormData) {
 
   // A Jahreswiderstand trade's level and prices, as typed — "1,3186" or, for
   // the Treasuries, "107'015" — and how it ended. Nothing under another strategy.
-  const jahres = strategy === "Jahreswiderstand";
+  // The VWAP strategies have the same prices and result, and no level: the
+  // VWAP is the level.
+  const jahres = ["Jahreswiderstand", "VWAP (Monthly)", "VWAP (Yearly)"].includes(strategy ?? "");
   const priceOf = (name: string) => (jahres ? parsePrice(String(formData.get(name) ?? "")) : null);
-  const level = priceOf("level");
+  const level = strategy === "Jahreswiderstand" ? priceOf("level") : null;
   const slPrice = priceOf("slPrice");
   const tp1Price = priceOf("tp1Price");
   const tp2Price = priceOf("tp2Price");
