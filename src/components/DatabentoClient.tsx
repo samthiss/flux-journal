@@ -1176,7 +1176,7 @@ function NewsPanel({ symbol, news, now, before, after }: { symbol: string; news:
 }
 
 /** Why each pair keeps the hours it keeps, in a line. */
-const HOURS_WHY: Record<string, string> = {
+export const HOURS_WHY: Record<string, string> = {
   "6B": "La livre tient ses niveaux pendant Londres ; New York les lui fait traverser.",
   "6E": "L'euro respecte ses niveaux toute la journée.",
   "6J": "L'ouverture de Londres secoue le yen sa première heure.",

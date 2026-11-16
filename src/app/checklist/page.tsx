@@ -7,6 +7,9 @@ import ChecklistTabs from "@/components/ChecklistTabs";
 
 export const dynamic = "force-dynamic";
 
+/** When the page is read, outside the render. */
+const readNow = () => Date.now();
+
 export default async function ChecklistPage() {
   // Read here rather than in the browser: the feed sets no CORS headers, and
   // its own cache means one read serves every visit for the hour.
@@ -40,6 +43,7 @@ export default async function ChecklistPage() {
       pairs={pairs}
       blackout={blackout}
       sessions={sessions}
+      now={readNow()}
     />
   );
 }

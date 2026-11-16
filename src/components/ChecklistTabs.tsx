@@ -1,7 +1,8 @@
 "use client";
 
 import { PageTitle } from "@/components/NeonText";
-import EconomicCalendar, { type Session } from "@/components/EconomicCalendar";
+import EconomicCalendar from "@/components/EconomicCalendar";
+import PairDay, { type Session } from "@/components/PairDay";
 import type { EconomicEvent } from "@/lib/economicCalendar";
 
 /**
@@ -19,6 +20,7 @@ export default function ChecklistTabs({
   pairs,
   blackout,
   sessions,
+  now,
 }: {
   events: EconomicEvent[];
   calendarOk: boolean;
@@ -26,6 +28,8 @@ export default function ChecklistTabs({
   pairs: string[];
   blackout: string[];
   sessions: Session[];
+  /** When the page was read: the day the hours grid shows. */
+  now: number;
 }) {
   return (
     <div>
@@ -35,7 +39,8 @@ export default function ChecklistTabs({
           Publications de la semaine — pour chacune, les paires concernées et si elle bloque tes ordres
         </div>
       </div>
-      <EconomicCalendar events={events} ok={calendarOk} source={calendarSource} market="" pairs={pairs} blackout={blackout} sessions={sessions} />
+      <EconomicCalendar events={events} ok={calendarOk} source={calendarSource} market="" pairs={pairs} blackout={blackout} />
+      <PairDay sessions={sessions} blackout={blackout} now={now} />
     </div>
   );
 }
