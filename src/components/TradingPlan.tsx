@@ -233,10 +233,15 @@ export default function TradingPlan({
 
   // ---- News ----
   // Which stars the news list shows: the three-star only, or the two-star as well. Kept in the browser.
+  // Each a switch of its own: a second click turns it off.
   const [starsRaw, setStars] = useLocal("trading-plan-news-stars");
-  const onlyThree = starsRaw === "3";
+  const stars = { three: (starsRaw ?? "23").includes("3"), two: (starsRaw ?? "23").includes("2") };
+  const toggleStars = (k: "two" | "three") => {
+    const next = { ...stars, [k]: !stars[k] };
+    setStars(`${next.two ? "2" : ""}${next.three ? "3" : ""}`);
+  };
   const relevant = news
-    .filter((n) => n.kind === "release" && (n.impact === "high" || (!onlyThree && n.impact === "medium")))
+    .filter((n) => n.kind === "release" && ((stars.three && n.impact === "high") || (stars.two && n.impact === "medium")))
     .filter((n) => pairs.some((p) => blocksFor(p.symbol, [{ at: 0, currency: n.currency, title: "" }]).length))
     // The two-star ones once they are out tell nothing more: only the three-star stay all day.
     .filter((n) => n.impact === "high" || !n.at || new Date(n.at).getTime() >= now);
@@ -900,7 +905,7 @@ export default function TradingPlan({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-          <Panel title="NEWS DU JOUR" right={<StarFilter onlyThree={onlyThree} set={(v) => setStars(v ? "3" : "23")} />}>
+          <Panel title="NEWS DU JOUR" right={<StarFilter stars={stars} toggle={toggleStars} />}>
             <div style={{ display: "grid", gridTemplateColumns: "44px 44px 36px 1fr 36px", gap: 8, padding: "5px 10px", color: DIM, fontSize: 10.5, borderBottom: "1px solid #2E2E2E" }}>
               <span>CT</span>
               <span>BER</span>
@@ -910,7 +915,7 @@ export default function TradingPlan({
             </div>
             <div style={{ maxHeight: 420, overflowY: "auto" }}>
             {!newsOk && <div style={{ padding: "10px", color: DIM }}>Le flux des news n&apos;a pas répondu — il sera relu dans l&apos;heure.</div>}
-            {newsOk && relevant.length === 0 && <div style={{ padding: "10px", color: DIM }}>{onlyThree ? "Aucune news 3★ pour tes paires ce jour-là." : "Aucune news 3★, ni 2★ à venir, pour tes paires ce jour-là."}</div>}
+            {newsOk && relevant.length === 0 && <div style={{ padding: "10px", color: DIM }}>{!stars.two && !stars.three ? "Aucun filtre choisi : active ★★★ ou ★★." : "Aucune news de ces étoiles pour tes paires ce jour-là."}</div>}
             {relevant.map((n, i) => {
               const t = n.at ? new Date(n.at).getTime() : null;
               const block = n.impact === "high" && t !== null;
@@ -1342,9 +1347,9 @@ export default function TradingPlan({
 
         {/* ---- JOUR ---- */}
         <div id="tp-jour" style={{ scrollMarginTop: 72, marginBottom: 14 }}>
-          <MobileHead title="NEWS DU JOUR" right={<StarFilter onlyThree={onlyThree} set={(v) => setStars(v ? "3" : "23")} />} />
+          <MobileHead title="NEWS DU JOUR" right={<StarFilter stars={stars} toggle={toggleStars} />} />
           {!newsOk && <div style={{ padding: "10px 12px", color: DIM }}>Le flux des news n&apos;a pas répondu — il sera relu dans l&apos;heure.</div>}
-          {newsOk && relevant.length === 0 && <div style={{ padding: "10px 12px", color: DIM }}>{onlyThree ? "Aucune news 3★ pour tes paires ce jour-là." : "Aucune news 3★, ni 2★ à venir, pour tes paires ce jour-là."}</div>}
+          {newsOk && relevant.length === 0 && <div style={{ padding: "10px 12px", color: DIM }}>{!stars.two && !stars.three ? "Aucun filtre choisi : active ★★★ ou ★★." : "Aucune news de ces étoiles pour tes paires ce jour-là."}</div>}
           {relevant.map((n, i) => {
             const t = n.at ? new Date(n.at).getTime() : null;
             const block = n.impact === "high" && t !== null;
@@ -1508,8 +1513,8 @@ export default function TradingPlan({
   );
 }
 
-/** The news list's filter: the three-star releases only, or the two-star ones too. */
-function StarFilter({ onlyThree, set }: { onlyThree: boolean; set: (onlyThree: boolean) => void }) {
+/** The news list's filter: two switches, the three-star and the two-star releases. */
+function StarFilter({ stars, toggle }: { stars: { two: boolean; three: boolean }; toggle: (k: "two" | "three") => void }) {
   const chip = (on: boolean): React.CSSProperties => ({
     cursor: "pointer",
     fontFamily: "inherit",
@@ -1522,11 +1527,11 @@ function StarFilter({ onlyThree, set }: { onlyThree: boolean; set: (onlyThree: b
   });
   return (
     <span style={{ display: "inline-flex", gap: 4 }}>
-      <button type="button" aria-pressed={onlyThree} onClick={() => set(true)} style={chip(onlyThree)} title="Seulement les news 3 étoiles">
+      <button type="button" aria-pressed={stars.three} onClick={() => toggle("three")} style={chip(stars.three)} title="News 3 étoiles">
         ★★★
       </button>
-      <button type="button" aria-pressed={!onlyThree} onClick={() => set(false)} style={chip(!onlyThree)} title="Les news 2 et 3 étoiles">
-        ★★ + ★★★
+      <button type="button" aria-pressed={stars.two} onClick={() => toggle("two")} style={chip(stars.two)} title="News 2 étoiles">
+        ★★
       </button>
     </span>
   );

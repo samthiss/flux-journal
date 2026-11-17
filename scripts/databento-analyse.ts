@@ -42,7 +42,7 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
  */
 // Levels moved where the year's turns were (2026-11-14, checked by the
 // trader on the chart): 6B 1.3469 → 1.3477, 6N 0.59245 → 0.5930, ZS
-// 1227.75 → 1229.75, ZW 608.50 → 606.50; 6B 1.3552 and ZW 685, losing
+// 1227.75 → 1229.75 (then 1229.50, the trader's 1229'4, 2026-11-17), ZW 608.50 → 606.50; 6B 1.3552 and ZW 685, losing
 // wherever they were put, are dropped.
 // Added (2026-11-14): 6E 1.16595 and 6N 0.59635, 0.58855, 0.58515, 0.56795 —
 // found on the turns of November to May, and as good as the others on the
@@ -80,7 +80,7 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // beyond the level (eight, one tick early as on every pair), and only in the grains' day session —
   // 8h–14h, the hours before it kept out. Under the 15-tick approach rule
   // every stop and TP1 tried there made money, on both parts of the year.
-  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1153.75, 1174.75, 1229.75, 1293.5], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10, tp2: 45 }, offset: -7 },
+  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1153.75, 1174.75, 1229.5, 1293.5], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10, tp2: 45 }, offset: -7 },
   // Set by the trader: TP1 at 5 with a 15-tick stop, the runner trailed at
   // 5 — wins five trades in six, where 40 relied on a handful of runs a year.
   ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 606.5, 634.5, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5, tp2: 40 } },
@@ -122,8 +122,11 @@ function bars(symbol: string, source: string): Dataset {
 }
 
 (async () => {
-  const out = [];
+  const out: { symbol: string; zones: number[]; result: unknown }[] = [];
+  // ONLY=ZS (or ONLY=ZS,6B) runs those pairs alone and keeps the others' results from the file.
+  const only = process.env.ONLY ? process.env.ONLY.split(",").map((x) => x.trim()) : null;
   for (const [symbol, pair] of Object.entries(PAIRS)) {
+    if (only && !only.includes(symbol)) continue;
     const d = bars(symbol, pair.source);
     const spec = CONTRACTS[symbol];
     const currencies = newsCurrencies(symbol);
@@ -185,6 +188,12 @@ function bars(symbol: string, source: string): Dataset {
     out.push({ symbol, zones: pair.levels, result: r });
   }
   const file = path.join(process.cwd(), "prisma", "databento-results.json");
-  writeFileSync(file, JSON.stringify(out));
+  if (only) {
+    // The other pairs as they were, in the file's order.
+    const kept = JSON.parse(readFileSync(file, "utf8")) as { symbol: string }[];
+    const merged = kept.map((e) => out.find((x) => x.symbol === e.symbol) ?? e);
+    for (const x of out) if (!merged.some((e) => e.symbol === x.symbol)) merged.push(x);
+    writeFileSync(file, JSON.stringify(merged));
+  } else writeFileSync(file, JSON.stringify(out));
   console.log(`${file} : ${(readFileSync(file).length / 1024).toFixed(0)} Ko`);
 })();

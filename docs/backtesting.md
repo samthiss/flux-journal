@@ -59,7 +59,7 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 | 6N | 0,60785 · 0,59635 · 0,5930 · 0,58855 · 0,58515 · 0,57865 · 0,56795 · 0,5596 | 25 | 20 | 130 | 3h–7h, 9h–14h | 250 $ |
 | 6C | 0,7078 · 0,70965 · 0,71235 · 0,71705 · 0,7196 · 0,7269 · 0,72935 | 25 | 20 | 55 | 2h–14h | 250 $ |
 | ZN | 104'065 · 104'245 · 105'275 · 106'120 · 108'265 · 109'125 · 109'275 · 112'000 | 12 | 5 | 30 | 2h–14h | 375 $ |
-| ZS | 1153,75 · 1174,75 · 1229,75 · 1293,50 | 12 | 10 | 45 | 8h–14h seulement | 300 $ |
+| ZS | 1153,75 · 1174,75 · 1229,50 · 1293,50 | 12 | 10 | 45 | 8h–14h seulement | 300 $ |
 | ZW | 578,25 · 606,50 · 634,50 · 710,50 | 15 | 5 | 40 | 2h–8h, 9h–14h | 375 $ |
 
 **Pourquoi ces réglages :**
@@ -84,12 +84,12 @@ Le backtest porte sur un an de données Databento, de novembre 2025 à novembre 
 | 6N | 79 | 68 % | 476 | 434 | 630 |
 | 6C | 50 | 78 % | 372 | 345 | 430 |
 | ZN | 33 | 76 % | 169 | 161 | 563 |
-| ZS | 33 | 67 % | 247 | 224 | 925 |
+| ZS | 33 | 64 % | 216 | 193 | 925 |
 | ZW | 30 | 83 % | 184 | 164 | 900 |
 
 **Sur un compte entier** (toutes les paires ensemble, avec la limite de 500 $ par jour et celle de 5 contrats) :
 
-- environ **2 100 $/mois** net de commissions (2 283 $ en brut) ;
+- environ **2 070 $/mois** net de commissions (environ 2 250 $ en brut ; ZS sur 1229,50 depuis le 17.11, −31 $/mois) ;
 - 359 trades par an, soit environ 7 par semaine ;
 - drawdown fin de journée d'environ **1 230 $**, pour une limite de 2 000 $ ;
 - pire journée : −500 $ ;
