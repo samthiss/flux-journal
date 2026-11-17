@@ -1785,6 +1785,8 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
   const [sel, setSel] = useState<string | null>(null);
   const [month, setMonth] = useState<string | null>(null);
   const [openT, setOpenT] = useState<string | null>(null);
+  // The pairs not traded stay out of the table unless asked for: switched back on from here or from their screen.
+  const [showOff, setShowOff] = useState(false);
   if (!trend || !trend.pairs.length)
     return (
       <Panel title="TRADE WITH TREND">
@@ -1856,7 +1858,7 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
               <span style={R}>DD</span>
               <span />
             </Row>
-            {[...stats].sort((a, b) => Number(b.on) - Number(a.on) || b.pnl - a.pnl).map((x) => {
+            {[...stats].filter((x) => x.on || showOff).sort((a, b) => Number(b.on) - Number(a.on) || b.pnl - a.pnl).map((x) => {
               const mo = x.pnl / span;
               return (
                 <Row
@@ -1895,6 +1897,13 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
                 </Row>
               );
             })}
+            {stats.some((x) => !x.on) && (
+              <div style={{ padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>
+                <button type="button" onClick={() => setShowOff(!showOff)} style={{ cursor: "pointer", background: "none", border: 0, padding: 0, fontFamily: "inherit", fontSize: 11, fontWeight: 700, color: ORANGE }}>
+                  {showOff ? "▲ MASQUER LES PAIRES NON TRADÉES" : `▼ PAIRES NON TRADÉES (${stats.filter((x) => !x.on).map((x) => x.p.symbol).join(" · ")}) — POUR LES VOIR OU LES ACTIVER`}
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
