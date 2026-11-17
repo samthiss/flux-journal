@@ -580,9 +580,9 @@ const bar = (pct: number, color: string, height = 8): React.CSSProperties => ({
 });
 
 /** A panel: its title on a grey band in orange, what it says about itself on the right. */
-function Panel({ title, right, children, style }: { title: string; right?: string; children: React.ReactNode; style?: React.CSSProperties }) {
+function Panel({ title, right, children, style, id }: { title: string; right?: string; children: React.ReactNode; style?: React.CSSProperties; id?: string }) {
   return (
-    <section style={{ border: "1px solid #2E2E2E", background: "#000", minWidth: 0, ...style }}>
+    <section id={id} style={{ border: "1px solid #2E2E2E", background: "#000", minWidth: 0, ...style }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 10px", background: "#1A1A1A", color: ORANGE, fontWeight: 700, fontSize: 11, letterSpacing: "0.04em" }}>
         <span>{title}</span>
         {right && <span style={{ color: DIM, fontWeight: 500 }}>{right}</span>}
@@ -852,6 +852,8 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
   const months = monthsBetween(r.from, r.to);
   const traded = months.filter((m) => cfg.months[m]);
   const [month, setMonth] = useState<string | null>(traded[traded.length - 1] ?? null);
+  /** A level picked in the levels panel: the trades panel then shows that level's trades, every month. */
+  const [level, setLevel] = useState<number | null>(null);
   const tick = r.tickSize ?? CONTRACTS[r.symbol]?.tickSize;
   const price = (p: number) => (tick ? fmtPrice(p, r.symbol, tick) : String(p));
   const money = r.tickValue * lots;
@@ -860,8 +862,9 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
   const hasTp2 = kindOf(c) === "tp1trail" && c.tp2 > c.tp1;
   const dd = cfg.propDD ?? cfg.maxDD;
   const entryText = c.offset === 0 ? "SUR LE NIVEAU" : `${Math.abs(c.offset)} TICK${Math.abs(c.offset) > 1 ? "S" : ""} ${c.offset > 0 ? "AVANT LE" : "AU-DELÀ DU"} NIVEAU`;
-  const rows = month ? cfg.trades.filter((t) => monthOf(t[0] * 60000) === month) : [];
-  const mb = month ? cfg.months[month] : null;
+  const rows = level !== null ? cfg.trades.filter((t) => t[6] === level) : month ? cfg.trades.filter((t) => monthOf(t[0] * 60000) === month) : [];
+  const lb = level !== null ? { n: rows.length, wins: rows.filter((t) => t[1] > 0).length, pnl: rows.reduce((a, t) => a + t[1] * money, 0) } : null;
+  const mb = lb ?? (month ? cfg.months[month] : null);
   const ms = Object.values(cfg.months);
   const far = hasTp2 ? c.tp2 : c.tp1;
   const range = c.sl + far;
@@ -969,12 +972,19 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
           </Row>
           {[...months].reverse().map((m) => {
             const b = cfg.months[m];
-            const on = m === month;
+            const on = m === month && level === null;
             return (
               <Row
                 key={m}
                 cols="62px 28px 40px 1fr 54px"
-                onClick={b ? () => setMonth(m) : undefined}
+                onClick={
+                  b
+                    ? () => {
+                        setMonth(m);
+                        setLevel(null);
+                      }
+                    : undefined
+                }
                 style={on ? { background: ORANGE, color: "#000" } : undefined}
               >
                 <span style={{ color: on ? "#000" : DIM }}>{termMonth(m)}</span>
@@ -987,7 +997,7 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
           })}
         </Panel>
 
-        <Panel title={`TRADES · ${month ? termMonth(month) : "—"}`} right={mb ? `${mb.n} TR · ${Math.round((mb.wins / mb.n) * 100)}% · ${short(mb.pnl)} $` : "AUCUN TRADE"} style={{ gridColumn: "span 1" }}>
+        <Panel title={`TRADES · ${level !== null ? `NIVEAU ${price(level)} · TOUTE LA PÉRIODE` : month ? termMonth(month) : "—"}`} right={mb ? `${mb.n} TR · ${Math.round((mb.wins / mb.n) * 100)}% · ${short(mb.pnl)} $` : "AUCUN TRADE"} style={{ gridColumn: "span 1", scrollMarginTop: 16 }} id="db-trades">
           <div style={{ overflowX: "auto" }}>
             <div style={{ minWidth: 680 }}>
               <Row head cols={tradeCols}>
@@ -1032,7 +1042,7 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
                   </Row>
                 );
               })}
-              {!rows.length && <div style={{ color: DIM, padding: "12px 10px" }}>AUCUN TRADE CE MOIS</div>}
+              {!rows.length && <div style={{ color: DIM, padding: "12px 10px" }}>{level !== null ? "AUCUN TRADE SUR CE NIVEAU" : "AUCUN TRADE CE MOIS"}</div>}
             </div>
           </div>
           <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>
@@ -1040,6 +1050,20 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
           </div>
         </Panel>
       </div>
+
+      <LevelsPanel
+        zones={entry.zones}
+        trades={cfg.trades}
+        money={money}
+        from={r.from}
+        to={r.to}
+        price={price}
+        selected={level}
+        onPick={(z) => {
+          setLevel(z === level ? null : z);
+          document.getElementById("db-trades")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+      />
 
       <NewsPanel symbol={r.symbol} news={news} now={now} before={r.rules?.blackout?.before ?? 10} after={r.rules?.blackout?.after ?? 10} />
 
@@ -1191,3 +1215,123 @@ function orderSpans(hours: [number, number], excluded: number[]): [number, numbe
 }
 const spansText = (spans: [number, number][], shift = 0) =>
   spans.map(([a, b]) => `${String((a + shift + 24) % 24).padStart(2, "0")}H–${String((b + shift + 24) % 24).padStart(2, "0")}H`).join(" · ");
+
+/**
+ * Each level of a pair side by side, to decide which to keep: its trades,
+ * win rate, P&L and average, the two halves of the period apart (a level
+ * that only earned in one of them is luck as much as a level), longs and
+ * shorts, and a verdict read off those.
+ */
+function LevelsPanel({
+  zones,
+  trades,
+  money,
+  from,
+  to,
+  price,
+  selected,
+  onPick,
+}: {
+  zones: number[];
+  trades: number[][];
+  money: number;
+  from: number;
+  to: number;
+  price: (p: number) => string;
+  selected: number | null;
+  onPick: (z: number) => void;
+}) {
+  const mid = (from + to) / 2;
+  const stats = [...zones]
+    .sort((a, b) => b - a)
+    .map((z) => {
+      const ts = trades.filter((t) => t[6] === z);
+      const pnl = (list: number[][]) => list.reduce((a, t) => a + t[1] * money, 0);
+      const first = ts.filter((t) => t[0] * 60000 < mid);
+      const second = ts.filter((t) => t[0] * 60000 >= mid);
+      const longs = ts.filter((t) => t[7] === 1);
+      const shorts = ts.filter((t) => t[7] === -1);
+      const total = pnl(ts);
+      const p1 = pnl(first);
+      const p2 = pnl(second);
+      const verdict: [string, string] =
+        ts.length < 6
+          ? ["TROP PEU DE TRADES", DIM]
+          : total <= 0 && p1 <= 0 && p2 <= 0
+            ? ["À RETIRER", LOSS]
+            : total <= 0 || p1 < 0 || p2 < 0
+              ? ["À SURVEILLER", ORANGE]
+              : ["GARDER", GAIN];
+      return {
+        z,
+        n: ts.length,
+        wins: ts.filter((t) => t[1] > 0).length,
+        total,
+        avg: ts.length ? total / ts.length : 0,
+        p1,
+        n1: first.length,
+        p2,
+        n2: second.length,
+        longs: [longs.length, pnl(longs)] as const,
+        shorts: [shorts.length, pnl(shorts)] as const,
+        last: ts.length ? Math.max(...ts.map((t) => t[0])) : null,
+        verdict,
+      };
+    });
+  const maxAbs = Math.max(1, ...stats.map((x) => Math.abs(x.total)));
+  const cols = "84px 30px 40px 1fr 62px 58px 74px 74px 70px 70px 64px 128px";
+  const half = (p: number, n: number) => (
+    <span style={{ ...R, color: n ? tone(p) : "#444" }}>
+      {n ? short(p) : "–"} <span style={{ color: DIM, fontSize: 10 }}>({n})</span>
+    </span>
+  );
+  return (
+    <Panel title="NIVEAUX · GARDER OU RETIRER" right="CLIC = TRADES DU NIVEAU">
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 960 }}>
+          <Row head cols={cols}>
+            <span>NIVEAU</span>
+            <span style={R}>TR</span>
+            <span style={R}>WIN</span>
+            <span />
+            <span style={R}>P&L</span>
+            <span style={R}>MOY/TR</span>
+            <span style={R}>1RE MOITIÉ</span>
+            <span style={R}>2E MOITIÉ</span>
+            <span style={R}>ACHATS</span>
+            <span style={R}>VENTES</span>
+            <span style={R}>DERNIER</span>
+            <span>VERDICT</span>
+          </Row>
+          {stats.map((x) => {
+            const on = selected === x.z;
+            return (
+              <Row key={x.z} cols={cols} onClick={() => onPick(x.z)} style={on ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : undefined}>
+                <span style={{ color: on ? ORANGE : TXT, fontWeight: 700 }}>{price(x.z)}</span>
+                <span style={R}>{x.n}</span>
+                <span style={{ ...R, color: DIM }}>{x.n ? `${Math.round((x.wins / x.n) * 100)}%` : "–"}</span>
+                <span style={x.n ? bar((Math.abs(x.total) / maxAbs) * 100, tone(x.total)) : { display: "block" }} />
+                <span style={{ ...R, color: x.n ? tone(x.total) : "#444", fontWeight: 700 }}>{x.n ? short(x.total) : "–"}</span>
+                <span style={{ ...R, color: x.n ? tone(x.avg) : "#444" }}>{x.n ? short(x.avg) : "–"}</span>
+                {half(x.p1, x.n1)}
+                {half(x.p2, x.n2)}
+                <span style={{ ...R, color: x.longs[0] ? tone(x.longs[1]) : "#444" }}>
+                  {x.longs[0] ? `${x.longs[0]} · ${short(x.longs[1])}` : "–"}
+                </span>
+                <span style={{ ...R, color: x.shorts[0] ? tone(x.shorts[1]) : "#444" }}>
+                  {x.shorts[0] ? `${x.shorts[0]} · ${short(x.shorts[1])}` : "–"}
+                </span>
+                <span style={{ ...R, color: DIM }}>{x.last !== null ? ctTime(x.last * 60000).date : "–"}</span>
+                <span style={{ color: x.verdict[1], fontWeight: 700, fontSize: 11 }}>{x.verdict[0]}</span>
+              </Row>
+            );
+          })}
+        </div>
+      </div>
+      <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
+        P&L À 2 LOTS, AVANT FRAIS · MOITIÉS = 1RE ET 2E MOITIÉ DE LA PÉRIODE (NB DE TRADES) · GARDER : GAGNE SUR L&apos;ENSEMBLE ET SUR CHAQUE MOITIÉ (UNE MOITIÉ SANS TRADE NE COMPTE PAS) · À SURVEILLER : PERD SUR
+        UNE MOITIÉ OU À PEU PRÈS NUL · À RETIRER : PERD SUR L&apos;ENSEMBLE ET SUR LES DEUX MOITIÉS · MOINS DE 6 TRADES : TROP PEU POUR JUGER
+      </div>
+    </Panel>
+  );
+}

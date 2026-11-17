@@ -84,6 +84,8 @@ export default function TerminalSidebar({ owner, status }: { owner: boolean; sta
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      // The backtest page has its own F-keys, one per pair.
+      if (window.location.pathname.startsWith("/backtesting")) return;
       const it = items.find((i) => i.key === e.key);
       if (!it) return;
       e.preventDefault();
