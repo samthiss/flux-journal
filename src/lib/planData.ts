@@ -22,7 +22,8 @@ export async function loadPairPlans(ownerId: string): Promise<PairPlan[]> {
     if (!c) continue;
     pairs.push({
       symbol: r.symbol,
-      levels: [...r.zones].sort((a, b) => b - a),
+      // Without the levels switched off in the backtest page.
+      levels: [...r.zones].filter((z) => !offZones(row.disabledZones).some((d) => Math.abs(d - z) < 1e-9)).sort((a, b) => b - a),
       tick: r.tickSize ?? CONTRACTS[r.symbol]?.tickSize ?? 0,
       tickValue: r.tickValue ?? CONTRACTS[r.symbol]?.tickValue ?? 0,
       lots: r.settings.lots,
@@ -41,4 +42,13 @@ export async function loadPairPlans(ownerId: string): Promise<PairPlan[]> {
 /** Which reminders are on. */
 export async function pushPrefs() {
   return (await prisma.pushPrefs.findUnique({ where: { id: 1 } })) ?? { id: 1, exit: true, news: true, pull: true };
+}
+
+/** The levels switched off, from their JSON column. */
+function offZones(raw: string | null | undefined): number[] {
+  try {
+    return JSON.parse(raw ?? "[]") as number[];
+  } catch {
+    return [];
+  }
 }

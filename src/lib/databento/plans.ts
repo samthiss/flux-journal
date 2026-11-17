@@ -28,7 +28,8 @@ export async function levelPlans(ownerId: string): Promise<Record<string, LevelP
     const tickSize = r.tickSize ?? CONTRACTS[r.symbol]?.tickSize;
     if (!c || !tickSize) continue;
     out[r.symbol] = {
-      levels: [...r.zones].sort((a, b) => b - a),
+      // Without the levels switched off in the backtest page.
+      levels: [...r.zones].filter((z) => !offZones(row.disabledZones).some((d) => Math.abs(d - z) < 1e-9)).sort((a, b) => b - a),
       tickSize,
       offset: c.cfg.offset,
       sl: c.cfg.sl,
@@ -37,4 +38,13 @@ export async function levelPlans(ownerId: string): Promise<Record<string, LevelP
     };
   }
   return out;
+}
+
+/** The levels switched off, from their JSON column. */
+function offZones(raw: string | null | undefined): number[] {
+  try {
+    return JSON.parse(raw ?? "[]") as number[];
+  } catch {
+    return [];
+  }
 }

@@ -794,6 +794,8 @@ model DatabentoSymbol {
   result    String?
   /** The configuration kept for the general report; the best one when null. */
   chosenKey String?
+  /** Levels switched off by the trader, as a JSON array of prices: out of the plan, the form and the figures. */
+  disabledZones String @default("[]")
   updatedAt DateTime @updatedAt
 
   @@unique([ownerId, symbol])

@@ -30,6 +30,13 @@ export default async function BacktestingDatabentoPage() {
           zones: JSON.parse(r.zones) as number[],
           result: r.result,
           chosenKey: r.chosenKey,
+          disabled: (() => {
+            try {
+              return JSON.parse(r.disabledZones) as number[];
+            } catch {
+              return [];
+            }
+          })(),
         }))}
         news={news}
         now={now}

@@ -3,15 +3,15 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { accentColor, lossColor, winColor } from "@/lib/theme";
 import { fieldStyle, fmtOffset, fmtUsd, mono, tone } from "@/components/BacktestUi";
-import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
+import { ratioOf, kindOf, monthOf, OUTCOMES, trailingDrawdown, type Bucket, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, feeRoundTrip, firmShares, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
-import { chooseDatabentoConfig } from "@/lib/actions/databento";
+import { chooseDatabentoConfig, setZoneDisabled } from "@/lib/actions/databento";
 import { CONTRACTS, newsCurrencies } from "@/lib/contracts";
 import { HOURS_WHY } from "@/lib/pairHoursWhy";
 import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, tickNote } from "@/lib/databento/format";
 
-type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
-type Entry = { symbol: string; zones: number[]; result: SymbolResult | null; chosenKey: string | null };
+type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null; disabled: number[] };
+type Entry = { symbol: string; zones: number[]; result: SymbolResult | null; chosenKey: string | null; disabled: number[] };
 
 const SETTINGS_KEY = "databento-settings";
 
@@ -64,9 +64,67 @@ function parseResult(raw: string | null): SymbolResult | null {
 }
 
 /** The configuration a symbol is read with: the one chosen, or the best. */
-function retained(e: Entry): ConfigStats | null {
+function retainedAll(e: Entry): ConfigStats | null {
   if (!e.result?.top.length) return null;
   return e.result.top.find((c) => c.key === e.chosenKey) ?? e.result.top[0];
+}
+
+/** Whether a level is one of those switched off. */
+const isOff = (off: number[], z: number | undefined) => z !== undefined && off.some((d) => Math.abs(d - z) < 1e-9);
+
+/**
+ * The configuration a symbol is read with, without the trades of the levels
+ * switched off: its figures worked out again from the trades that are left.
+ */
+function retained(e: Entry): ConfigStats | null {
+  const c = retainedAll(e);
+  if (!c || !e.disabled.length || !e.result) return c;
+  const money = e.result.tickValue * e.result.settings.lots;
+  const rows = c.trades.filter((t) => !isOff(e.disabled, t[6]));
+  const months: Record<string, Bucket> = {};
+  let netTicks = 0, eq = 0, peak = 0, maxDD = 0, wins = 0, win = 0, loss = 0;
+  const outs = [0, 0, 0, 0, 0];
+  for (const t of rows) {
+    const p = t[1] * money;
+    netTicks += t[1];
+    eq += p;
+    peak = Math.max(peak, eq);
+    maxDD = Math.max(maxDD, peak - eq);
+    if (p > 0) {
+      wins++;
+      win += p;
+    } else loss -= p;
+    const m = monthOf(t[0] * 60000);
+    const b = (months[m] ??= { n: 0, wins: 0, pnl: 0 });
+    b.n++;
+    b.pnl += p;
+    if (p > 0) b.wins++;
+    if (t[8] !== undefined) outs[t[8]]++;
+  }
+  const propDD = trailingDrawdown(
+    rows.filter((t) => t[2] !== undefined).map((t) => ({ start: t[0] * 60000, end: t[2] * 60000, final: t[1] * money, mfe: t[3] * money, mae: t[4] * money, give: t[5] * money })),
+    null,
+    e.result.settings.ddMode ?? "intraday"
+  ).dd;
+  const zones = Object.fromEntries(Object.entries(c.zones).filter(([z]) => !isOff(e.disabled, Number(z))));
+  return {
+    ...c,
+    n: rows.length,
+    pnl: netTicks * money,
+    netTicks: Math.round(netTicks * 10) / 10,
+    winRate: rows.length ? wins / rows.length : 0,
+    maxDD,
+    propDD,
+    pf: loss > 0 ? win / loss : win > 0 ? null : 0,
+    months,
+    zones,
+    sl: outs[0],
+    tp1: outs[1],
+    tp2: outs[2],
+    tr: outs[3],
+    to: outs[4],
+    trades: rows,
+  };
 }
 
 
@@ -94,7 +152,7 @@ type News = { at: number; currency: string; title: string };
 
 export default function DatabentoClient({ initial, news, now, berlinShift }: { initial: Saved[]; news: News[] | null; now: number; berlinShift: number }) {
   const [entries, setEntries] = useState<Entry[]>(() =>
-    initial.map((s) => ({ symbol: s.symbol, zones: s.zones, result: parseResult(s.result), chosenKey: s.chosenKey }))
+    initial.map((s) => ({ symbol: s.symbol, zones: s.zones, result: parseResult(s.result), chosenKey: s.chosenKey, disabled: s.disabled }))
   );
   const [, startTransition] = useTransition();
 
@@ -132,6 +190,12 @@ export default function DatabentoClient({ initial, news, now, berlinShift }: { i
     const k = key === best ? null : key;
     setEntries((es) => es.map((e) => (e.symbol === s ? { ...e, chosenKey: k } : e)));
     startTransition(() => chooseDatabentoConfig(s, k));
+  };
+
+  /** A level switched off or back on: the figures follow at once, the plan and the form on the server. */
+  const switchZone = (s: string, z: number, off: boolean) => {
+    setEntries((es) => es.map((e) => (e.symbol === s ? { ...e, disabled: off ? [...e.disabled.filter((d) => Math.abs(d - z) > 1e-9), z] : e.disabled.filter((d) => Math.abs(d - z) > 1e-9) } : e)));
+    startTransition(() => setZoneDisabled(s, z, off));
   };
 
   // ---- Reports ------------------------------------------------------------------
@@ -535,7 +599,18 @@ export default function DatabentoClient({ initial, news, now, berlinShift }: { i
       )}
 
       {analysed.length > 0 && sel && selCfg && screen === sel.symbol && (
-        <SymbolReport key={sel.symbol} entry={sel} cfg={selCfg} account={account} news={news} now={now} berlinShift={berlinShift} onChoose={(k) => choisir(sel.symbol, k)} />
+        <SymbolReport
+          key={sel.symbol}
+          entry={sel}
+          cfg={selCfg}
+          allTrades={retainedAll(sel)?.trades ?? []}
+          account={account}
+          news={news}
+          now={now}
+          berlinShift={berlinShift}
+          onChoose={(k) => choisir(sel.symbol, k)}
+          onToggleZone={(z, off) => switchZone(sel.symbol, z, off)}
+        />
       )}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 18, padding: "4px 12px", border: "1px solid #2E2E2E", color: DIM, fontSize: 11 }}>
@@ -844,7 +919,28 @@ const OUT_TEXT: Record<string, string> = {
   TO: "CLÔTURÉ (DURÉE MAX)",
 };
 
-function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }: { entry: Entry; cfg: ConfigStats; account: AccountRules; news: News[] | null; now: number; berlinShift: number; onChoose: (key: string) => void }) {
+function SymbolReport({
+  entry,
+  cfg,
+  allTrades,
+  account,
+  news,
+  now,
+  berlinShift,
+  onChoose,
+  onToggleZone,
+}: {
+  entry: Entry;
+  cfg: ConfigStats;
+  /** The chosen configuration's trades, the levels switched off included: the levels panel shows those too. */
+  allTrades: number[][];
+  account: AccountRules;
+  news: News[] | null;
+  now: number;
+  berlinShift: number;
+  onChoose: (key: string) => void;
+  onToggleZone: (zone: number, off: boolean) => void;
+}) {
   const r = entry.result!;
   const c = cfg.cfg;
   const lots = r.settings.lots;
@@ -862,7 +958,7 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
   const hasTp2 = kindOf(c) === "tp1trail" && c.tp2 > c.tp1;
   const dd = cfg.propDD ?? cfg.maxDD;
   const entryText = c.offset === 0 ? "SUR LE NIVEAU" : `${Math.abs(c.offset)} TICK${Math.abs(c.offset) > 1 ? "S" : ""} ${c.offset > 0 ? "AVANT LE" : "AU-DELÀ DU"} NIVEAU`;
-  const rows = level !== null ? cfg.trades.filter((t) => t[6] === level) : month ? cfg.trades.filter((t) => monthOf(t[0] * 60000) === month) : [];
+  const rows = level !== null ? allTrades.filter((t) => t[6] === level) : month ? cfg.trades.filter((t) => monthOf(t[0] * 60000) === month) : [];
   const lb = level !== null ? { n: rows.length, wins: rows.filter((t) => t[1] > 0).length, pnl: rows.reduce((a, t) => a + t[1] * money, 0) } : null;
   const mb = lb ?? (month ? cfg.months[month] : null);
   const ms = Object.values(cfg.months);
@@ -871,7 +967,8 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
   const monthMax = Math.max(1, ...months.map((m) => Math.abs(cfg.months[m]?.pnl ?? 0)));
   const priceCols = hasTp2 ? 5 : 4;
   const priceGrid = `72px repeat(${priceCols}, minmax(0, 1fr)) 12px repeat(${priceCols}, minmax(0, 1fr))`;
-  const tradeCols = "92px 46px 22px 70px 70px 70px 70px 1fr 40px 60px";
+  // Fixed widths: each row is a grid of its own, and a column sized by its content would move the P&L on the rows with a long exit.
+  const tradeCols = "92px 46px 22px 70px 70px 70px 70px minmax(150px, 1fr) 44px 64px";
   const cfgCols = "40px 34px 1.6fr 44px 64px 50px 48px 44px 48px";
   const kpis = [
     { label: `P&L/MOIS · ${r.symbol}`, value: short(cfg.pnl / nMonths), color: tone(cfg.pnl), sub: `${short(cfg.pnl)} SUR LA PÉRIODE` },
@@ -999,7 +1096,7 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
 
         <Panel title={`TRADES · ${level !== null ? `NIVEAU ${price(level)} · TOUTE LA PÉRIODE` : month ? termMonth(month) : "—"}`} right={mb ? `${mb.n} TR · ${Math.round((mb.wins / mb.n) * 100)}% · ${short(mb.pnl)} $` : "AUCUN TRADE"} style={{ gridColumn: "span 1", scrollMarginTop: 16 }} id="db-trades">
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 680 }}>
+            <div style={{ minWidth: 760 }}>
               <Row head cols={tradeCols}>
                 <span>OUVERT</span>
                 <span>FERMÉ</span>
@@ -1031,7 +1128,7 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
                     <span style={{ ...R, color: TXT }}>{e === null ? "—" : price(e)}</span>
                     <span style={{ ...R, color: LOSS }}>{e === null ? "—" : price(e - dir! * c.sl * tick!)}</span>
                     <span style={{ ...R, color: GAIN }}>{e === null ? "—" : price(e + dir! * c.tp1 * tick!)}</span>
-                    <span style={{ color: "#CCC", fontSize: 11.5 }}>
+                    <span style={{ color: "#CCC", fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis" }}>
                       {outcome === null ? "—" : runner !== null ? `TP1 + TRAIL ${runner >= 0 ? "+" : "−"}${Math.abs(runner)}` : OUT_TEXT[outcome] ?? outcome}
                     </span>
                     <span style={{ ...R, color }}>
@@ -1053,7 +1150,9 @@ function SymbolReport({ entry, cfg, account, news, now, berlinShift, onChoose }:
 
       <LevelsPanel
         zones={entry.zones}
-        trades={cfg.trades}
+        trades={allTrades}
+        disabled={entry.disabled}
+        onToggle={onToggleZone}
         money={money}
         from={r.from}
         to={r.to}
@@ -1225,6 +1324,8 @@ const spansText = (spans: [number, number][], shift = 0) =>
 function LevelsPanel({
   zones,
   trades,
+  disabled,
+  onToggle,
   money,
   from,
   to,
@@ -1234,6 +1335,8 @@ function LevelsPanel({
 }: {
   zones: number[];
   trades: number[][];
+  disabled: number[];
+  onToggle: (zone: number, off: boolean) => void;
   money: number;
   from: number;
   to: number;
@@ -1279,7 +1382,7 @@ function LevelsPanel({
       };
     });
   const maxAbs = Math.max(1, ...stats.map((x) => Math.abs(x.total)));
-  const cols = "84px 30px 40px 1fr 62px 58px 74px 74px 70px 70px 64px 128px";
+  const cols = "84px 30px 40px 1fr 62px 58px 74px 74px 70px 70px 64px 128px 92px";
   const half = (p: number, n: number) => (
     <span style={{ ...R, color: n ? tone(p) : "#444" }}>
       {n ? short(p) : "–"} <span style={{ color: DIM, fontSize: 10 }}>({n})</span>
@@ -1288,7 +1391,7 @@ function LevelsPanel({
   return (
     <Panel title="NIVEAUX · GARDER OU RETIRER" right="CLIC = TRADES DU NIVEAU">
       <div style={{ overflowX: "auto" }}>
-        <div style={{ minWidth: 960 }}>
+        <div style={{ minWidth: 1060 }}>
           <Row head cols={cols}>
             <span>NIVEAU</span>
             <span style={R}>TR</span>
@@ -1302,11 +1405,18 @@ function LevelsPanel({
             <span style={R}>VENTES</span>
             <span style={R}>DERNIER</span>
             <span>VERDICT</span>
+            <span />
           </Row>
           {stats.map((x) => {
             const on = selected === x.z;
+            const off = isOff(disabled, x.z);
             return (
-              <Row key={x.z} cols={cols} onClick={() => onPick(x.z)} style={on ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : undefined}>
+              <Row
+                key={x.z}
+                cols={cols}
+                onClick={() => onPick(x.z)}
+                style={{ ...(on ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : {}), ...(off ? { opacity: 0.45, textDecoration: "line-through" } : {}) }}
+              >
                 <span style={{ color: on ? ORANGE : TXT, fontWeight: 700 }}>{price(x.z)}</span>
                 <span style={R}>{x.n}</span>
                 <span style={{ ...R, color: DIM }}>{x.n ? `${Math.round((x.wins / x.n) * 100)}%` : "–"}</span>
@@ -1322,7 +1432,35 @@ function LevelsPanel({
                   {x.shorts[0] ? `${x.shorts[0]} · ${short(x.shorts[1])}` : "–"}
                 </span>
                 <span style={{ ...R, color: DIM }}>{x.last !== null ? ctTime(x.last * 60000).date : "–"}</span>
-                <span style={{ color: x.verdict[1], fontWeight: 700, fontSize: 11 }}>{x.verdict[0]}</span>
+                <span style={{ color: off ? DIM : x.verdict[1], fontWeight: 700, fontSize: 11 }}>{off ? "DÉSACTIVÉE" : x.verdict[0]}</span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    onToggle(x.z, !off);
+                  }}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter" || ev.key === " ") {
+                      ev.preventDefault();
+                      ev.stopPropagation();
+                      onToggle(x.z, !off);
+                    }
+                  }}
+                  title={off ? "Remettre ce niveau dans le plan et les chiffres" : "Retirer ce niveau du Trading Plan, du journal et des chiffres"}
+                  style={{
+                    cursor: "pointer",
+                    textAlign: "center",
+                    textDecoration: "none",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: "2px 0",
+                    border: `1px solid ${off ? GAIN : "#555"}`,
+                    color: off ? GAIN : "#AAA",
+                  }}
+                >
+                  {off ? "RÉACTIVER" : "DÉSACTIVER"}
+                </span>
               </Row>
             );
           })}
@@ -1330,7 +1468,7 @@ function LevelsPanel({
       </div>
       <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
         P&L À 2 LOTS, AVANT FRAIS · MOITIÉS = 1RE ET 2E MOITIÉ DE LA PÉRIODE (NB DE TRADES) · GARDER : GAGNE SUR L&apos;ENSEMBLE ET SUR CHAQUE MOITIÉ (UNE MOITIÉ SANS TRADE NE COMPTE PAS) · À SURVEILLER : PERD SUR
-        UNE MOITIÉ OU À PEU PRÈS NUL · À RETIRER : PERD SUR L&apos;ENSEMBLE ET SUR LES DEUX MOITIÉS · MOINS DE 6 TRADES : TROP PEU POUR JUGER
+        UNE MOITIÉ OU À PEU PRÈS NUL · À RETIRER : PERD SUR L&apos;ENSEMBLE ET SUR LES DEUX MOITIÉS · MOINS DE 6 TRADES : TROP PEU POUR JUGER · DÉSACTIVER = RETIRÉ DU TRADING PLAN, DU FORMULAIRE DU JOURNAL ET DES CHIFFRES DE LA PAIRE ET DU COMPTE
       </div>
     </Panel>
   );
