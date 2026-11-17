@@ -4,11 +4,14 @@
  * to prisma/trend-results.json for the backtest page.
  *
  * The rule: two sessions in a row closing lower (higher for a long); three
- * M15 swing lows close together, each bounce at least half the pair's stop;
- * an H1 close breaks them; price comes back to the zone on M15 and leaves by
- * a stop; the second return is sold one tick before the zone, the stop three
- * ticks past its other edge, the target 1.5 times the stop, four hours at
- * most, inside the pair's order hours. Two lots, the fees taken off.
+ * M15 swing lows close together, each bounce at least a third of the pair's
+ * stop; an H1 close breaks them; price comes back to the zone on M15 and
+ * leaves it by a stop, measured from the zone's edge; the second return is
+ * sold one tick before the zone, the stop three ticks past its other edge,
+ * the target 1.5 times the stop, four hours at most, inside the pair's order
+ * hours and not within ten minutes of a three-star release of its
+ * currencies. Two lots, the fees taken off. Some pairs keep their own
+ * setting (OWN below, the reasons in docs/backtesting.md).
  *
  * Grew out of the tests recorded in docs/backtesting.md: some of the code
  * below (the variant switches) is the tests' and stays for rerunning them.
@@ -27,7 +30,11 @@ const res = JSON.parse(readFileSync("prisma/databento-results.json", "utf8")) as
 const ctFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", hour: "2-digit", hourCycle: "h23" });
 const ctHour = (t: number) => Number(ctFmt.format(t));
 
-type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number };
+type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean };
+/** Three-star releases of each pair's currencies, in ms: no fill within NEWS_MIN minutes of one. Loaded by the run that writes the results. */
+const NEWS_OF = new Map<string, number[]>();
+const NEWS_MIN = 10;
+const inNews = (sym: string, t: number) => (NEWS_OF.get(sym) ?? []).some((at) => Math.abs(t - at) <= NEWS_MIN * 60000);
 const grid: P[] = [];
 for (const entry of ["edge", "mid"] as const) for (const buf of [1, 3, 5]) for (const exit of [1, 1.25, 1.5, 2, 2.5, 3]) for (const mgmt of ["fixed", "be", "split"] as const) for (const hold of [4, 8])
   if (!(exit <= 1 && mgmt !== "fixed")) grid.push({ days: 2, touches: 3, bounce: 0.5, width: 0.5, away: 1, stop: "zone", exit, entry, buf, mgmt, hold });
@@ -62,7 +69,7 @@ const data: Data[] = res.filter((e) => !process.env.PAIR || e.symbol === process
   return { sym: e.symbol, T, H, L, C, n: T.length, tick: r.tickSize, money: r.tickValue * 2, fee: FEES[e.symbol] * 2, excl: r.rules.excludeHours ?? [], cfg: r.top[0].cfg, mid: (T[0] + T[T.length - 1]) / 2, months: (T[T.length - 1] - T[0]) / (30.44 * 86400000), hb };
 });
 
-type Zone = { dir: 1 | -1; bottom: number; top: number; ready: number; until: number; touches: number[]; breakT: number; retestT: number };
+type Zone = { dir: 1 | -1; bottom: number; top: number; ready: number; until: number; touches: number[]; breakT: number; retestT: number; closes: [number, number][] };
 
 // Bars of any size, from the minutes, kept per pair and size.
 const barCache = new Map<string, Bar[]>();
@@ -97,6 +104,11 @@ function zones(d: Data, p: P): Zone[] {
   for (const x of bb) closes.set(sessionDay(x.t), x.c);
   const days = [...closes.keys()].sort((x, y) => x - y);
   const dayIndex = new Map(days.map((x, i) => [x, i]));
+  // The session closes the trend was read from, oldest first: [session day, close].
+  const trendSeq = (t: number): [number, number][] => {
+    const i = dayIndex.get(sessionDay(t)) ?? 0;
+    return days.slice(Math.max(0, i - p.days - 1), i).map((x) => [x, closes.get(x)!]);
+  };
   const trendAt = (t: number): 1 | -1 | 0 => {
     const i = dayIndex.get(sessionDay(t)) ?? 0;
     if (i < p.days + 1) return 0;
@@ -165,7 +177,7 @@ function zones(d: Data, p: P): Zone[] {
       }
       if (!ok) continue;
       const ready = rb[k].t + RTF * 60000;
-      out.push({ dir: tr, bottom: edge, top: tr === -1 ? hi : lo, ready, until: Math.min(ready + 48 * 3600000, nextChicagoHour(nextChicagoHour(ready, 14) + 60000, 14)), touches: cluster.map((y) => zb[y.i].t), breakT: b.t, retestT: rb[touched].t });
+      out.push({ dir: tr, bottom: edge, top: tr === -1 ? hi : lo, ready, until: Math.min(ready + 48 * 3600000, nextChicagoHour(nextChicagoHour(ready, 14) + 60000, 14)), touches: cluster.map((y) => zb[y.i].t), breakT: b.t, retestT: rb[touched].t, closes: trendSeq(b.t) });
     }
   }
   return out;
@@ -185,7 +197,10 @@ function run(d: Data, p: P) {
   const eps = tick * 1e-3;
   const taken = new Set<number>();
   const out: { t: number; pnl: number; r: number; z: Zone; entry: number; sl: number; tp: number; ticks: number; end: number }[] = [];
+  // A wide zone only (p.wide): wider than the bounce's distance X, the tighter ones left.
+  const X = Math.max(2, Math.round(d.cfg.sl * p.width)) * tick;
   for (const z of zones(d, p).sort((x, y) => x.ready - y.ready)) {
+    if (p.wide && Math.abs(z.top - z.bottom) <= X + 1e-9) continue;
     const dd = z.dir;
     const raw = p.entry === "edge" ? z.bottom + dd * tick : (z.bottom + z.top) / 2;
     const entry = Math.round(raw / tick) * tick;
@@ -195,7 +210,7 @@ function run(d: Data, p: P) {
     for (let i = idxAt(z.ready); i < n && T[i] < z.until; i++) {
       if (dd === -1 ? H[i] >= entry + tick - eps : L[i] <= entry - tick + eps) {
         const h = ctHour(T[i]);
-        if (h >= 2 && h < 14 && !d.excl.includes(h) && !taken.has(sessionDay(T[i]))) fill = i;
+        if (h >= 2 && h < 14 && !d.excl.includes(h) && !taken.has(sessionDay(T[i])) && !inNews(d.sym, T[i])) fill = i;
         break;
       }
     }
@@ -230,15 +245,36 @@ function run(d: Data, p: P) {
   return { list: out, n: out.length, wins: w.length, gw: sum(w), gl: -sum(l), m1: sum(h1) / (d.months / 2), m2: sum(h2) / (d.months / 2), n1: h1.length, n2: h2.length };
 }
 
-if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) {
-  const base0: P = { days: 2, touches: 3, bounce: 0.5, width: 0.5, away: 1, stop: "zone", exit: 1.5, entry: "edge", buf: 3, mgmt: "fixed", hold: 4 };
-  const pairs = data.map((d) => ({
+if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => {
+  const { getHighImpactBetween } = await import("@/lib/economicCalendar");
+  const { newsCurrencies } = await import("@/lib/contracts");
+  for (const d of data) {
+    const ev = await getHighImpactBetween(new Date(d.T[0] - 864e5), new Date(d.T[d.T.length - 1] + 864e5), newsCurrencies(d.sym));
+    if (!ev) throw new Error(`${d.sym} : le calendrier des news n'a pas pu être lu.`);
+    NEWS_OF.set(d.sym, ev.map((x) => x.at));
+  }
+  const base0: P = { days: 2, touches: 3, bounce: 1 / 3, width: 0.5, away: 1, stop: "zone", exit: 1.5, entry: "edge", buf: 3, mgmt: "fixed", hold: 4 };
+  // A pair's own setting, where one was kept (docs/backtesting.md, 17.11):
+  // 6E a longer trend, a wide zone and a nearer target; 6B a shorter move
+  // away after the first return, 6J a longer one.
+  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5 }, "6J": { away: 1.5 } };
+  const pairs = data.map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
+    // The trend's sessions and the target in risks, the pair's own when it has one.
+    params: { days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
     tick: d.tick,
     from: d.T[0],
     to: d.T[d.T.length - 1],
     // [entry minute, exit minute, dir, zone low, zone high, entry, stop, target, ticks, $ net of fees]
-    trades: run(d, base0).list.map((x) => [
+    // Why each trade, in the same order: the trend's closes, the zone's touches, the break, the first return, when the zone was ready.
+    why: list.map((x) => ({
+      closes: x.z.closes,
+      touches: x.z.touches.map((t) => Math.round(t / 60000)),
+      brk: Math.round(x.z.breakT / 60000),
+      ret: Math.round(x.z.retestT / 60000),
+      ready: Math.round(x.z.ready / 60000),
+    })),
+    trades: list.map((x) => [
       Math.round(x.t / 60000),
       Math.round(x.end / 60000),
       x.z.dir,
@@ -256,7 +292,7 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) {
   for (const p of pairs) console.log(`${p.symbol} ${p.trades.length} trades`);
   console.log(`${file} : ${(readFileSync(file).length / 1024).toFixed(0)} Ko`);
   process.exit(0);
-}
+})();
 if (process.env.COMBO) {
   const base0: P = { days: 2, touches: 3, bounce: 0.5, width: 0.5, away: 1, stop: "zone", exit: 1.5, entry: "edge", buf: 3, mgmt: "fixed", hold: 4 };
   type Tr = { sym: string; t: number; end: number; pnl: number; strat: "N" | "T" };
@@ -306,7 +342,8 @@ if (process.env.COMBO) {
   study("Niveaux + TwT 8 paires", [...levels, ...trend]);
   process.exit(0);
 }
-{
+// The old test reports below run only when asked (ONLYTOT, DD, SYMS): the plain run writes the results above.
+if (process.env.ONLYTOT || process.env.DD) {
   const base0: P = { days: 2, touches: 3, bounce: 0.5, width: 0.5, away: 1, stop: "zone", exit: 1.5, entry: "edge", buf: 3, mgmt: "fixed", hold: 4 };
   let a1 = 0, a2 = 0, nn = 0, ww = 0;
   for (const d of data) { const r = run(d, base0); a1 += r.m1; a2 += r.m2; nn += r.n; ww += r.wins; console.log(`${d.sym} ${r.n} tr · ${Math.round((r.wins / r.n) * 100)} % · 1re ${Math.round(r.m1)} · 2e ${Math.round(r.m2)}`); }
@@ -320,7 +357,7 @@ const when = (t: number) => {
   return `${f("America/Chicago", { weekday: "short", day: "2-digit", month: "2-digit" })} ${f("America/Chicago", { hour: "2-digit", minute: "2-digit" })} CT (${f("Europe/Berlin", { hour: "2-digit", minute: "2-digit" })} BER)`;
 };
 const base: P = { days: 2, touches: 3, bounce: 0.5, width: 0.5, away: 1, stop: "zone", exit: 1.5, entry: "edge", buf: 3, mgmt: "fixed", hold: 4 };
-for (const sym of (process.env.SYMS ?? "ZW,ZN,6B").split(",")) {
+for (const sym of (process.env.SYMS ?? "").split(",").filter(Boolean)) {
   const d = data.find((x) => x.sym === sym)!;
   const r = run(d, base);
   const px = (v: number) => fmtPrice(v, sym, d.tick);
