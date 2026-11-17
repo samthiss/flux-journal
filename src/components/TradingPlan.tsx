@@ -93,6 +93,12 @@ function toKey(base64: string) {
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 }
 
+/** What a test send came to, in words: delivered to the push services, or refused and why. */
+const testText = (r: { devices: number; sent: number; failed: string[] }) =>
+  r.devices === 0
+    ? "aucun appareil enregistré côté serveur."
+    : `test envoyé à ${r.sent}/${r.devices} appareil${r.devices > 1 ? "s" : ""}${r.failed.length ? ` · refusé : ${r.failed.join(" | ")}` : ""}.`;
+
 const hh = (h: number) => `${String(((h % 24) + 24) % 24).padStart(2, "0")}h`;
 const money = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.round(Math.abs(v)).toLocaleString("fr-FR")} $`;
 const sideText = (side: string) => (side === "Long" ? "ACHAT" : "VENTE");
@@ -158,6 +164,7 @@ export default function TradingPlan({
   newsOk,
   orders,
   prefs,
+  pushInfo,
 }: {
   /** The Chicago session date, YYYY-MM-DD. */
   day: string;
@@ -167,6 +174,8 @@ export default function TradingPlan({
   newsOk: boolean;
   orders: PlanOrderRow[];
   prefs: Prefs;
+  /** What the server holds: the devices signed up, and the last reminders sent. */
+  pushInfo: { devices: number; recent: { key: string; at: string }[] };
 }) {
   // ---- The clock, ticking ----
   const [now, setNow] = useState(serverNow);
@@ -300,8 +309,7 @@ export default function TradingPlan({
         const s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(await pushPublicKey()) });
         await addPushDevice(JSON.parse(JSON.stringify(s)));
         setSub(s);
-        const n = await sendTestPush();
-        setMsg(`Activé · test envoyé à ${n} appareil${n > 1 ? "s" : ""}.`);
+        setMsg(`Activé · ${testText(await sendTestPush())}`);
       } catch (e) {
         setMsg(`Échec : ${(e as Error).message}`);
       }
@@ -420,7 +428,7 @@ export default function TradingPlan({
       {sup === "ok" && sub && (
         <>
           <span style={{ color: GAIN, fontWeight: 700, flex: 1 }}>● ACTIVÉ</span>
-          <button type="button" disabled={pending} onClick={() => act(async () => setMsg(`Test envoyé à ${await sendTestPush()} appareil(s).`))} style={btn(ORANGE)}>
+          <button type="button" disabled={pending} onClick={() => act(async () => setMsg(testText(await sendTestPush())))} style={btn(ORANGE)}>
             TESTER
           </button>
           <button type="button" disabled={pending} onClick={disable} style={btn("#999")}>
@@ -429,6 +437,11 @@ export default function TradingPlan({
         </>
       )}
       {msg && <span style={{ color: DIM, width: "100%" }}>{msg}</span>}
+      <span style={{ color: DIM, width: "100%", fontSize: 10.5, lineHeight: 1.6 }}>
+        SERVEUR : {pushInfo.devices} APPAREIL{pushInfo.devices > 1 ? "S" : ""} ENREGISTRÉ{pushInfo.devices > 1 ? "S" : ""}
+        {pushInfo.recent.length > 0 &&
+          ` · DERNIERS RAPPELS : ${pushInfo.recent.map((r) => `${berClock(new Date(r.at).getTime())} ${r.key.split("|")[0].toUpperCase()}`).join(", ")}`}
+      </span>
     </>
   );
 

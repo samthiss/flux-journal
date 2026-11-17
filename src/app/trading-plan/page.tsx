@@ -21,6 +21,7 @@ export default async function TradingPlanPage() {
   const now = readNow();
   const session = sessionDate(now);
   const day = dayKey(session);
+  const [devices, recent] = await Promise.all([prisma.pushDevice.count(), prisma.pushSent.findMany({ orderBy: { sentAt: "desc" }, take: 5 })]);
   const [pairs, calendar, prefs, orders] = await Promise.all([
     loadPairPlans(ownerId),
     getEconomicEvents(),
@@ -46,6 +47,7 @@ export default async function TradingPlanPage() {
       news={news}
       newsOk={calendar.ok}
       prefs={{ exit: prefs.exit, news: prefs.news, pull: prefs.pull }}
+      pushInfo={{ devices, recent: recent.map((r) => ({ key: r.key, at: r.sentAt.toISOString() })) }}
       orders={orders.map((o) => ({
         id: o.id,
         day: o.day,

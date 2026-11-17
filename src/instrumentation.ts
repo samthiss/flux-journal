@@ -6,6 +6,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs" || process.env.NEXT_PHASE === "phase-production-build") return;
   const { remindersTick } = await import("@/lib/reminders");
   const run = () => remindersTick().catch((e) => console.error("reminders:", e));
+  console.log("reminders: started, one pass a minute");
   setInterval(run, 60000);
   setTimeout(run, 15000);
 }
