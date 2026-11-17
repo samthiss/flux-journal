@@ -469,12 +469,7 @@ export default function DatabentoClient({
         ))}
       </div>
 
-      {strat === "trend" && (
-        <>
-          <TrendReport trend={trend} on={trendOn} onToggle={toggleTrend} />
-          <TrendRules />
-        </>
-      )}
+      {strat === "trend" && <TrendScreens trend={trend} on={trendOn} onToggle={toggleTrend} entries={analysed} account={account} berlinShift={berlinShift} />}
       {strat === "combo" && <ComboReport trend={trend} on={trendOn} per={general.per} account={account} />}
 
       {strat === "zones" && (
@@ -1838,7 +1833,7 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
     .filter(({ x }) => !month || monthOf(x[0] * 60000) === month)
     .sort((a, b) => b.x[0] - a.x[0]);
   const shownPnl = shown.reduce((a, { x }) => a + x[9], 0);
-  const tradeCols = "38px 92px 46px 22px 140px 70px 70px 70px 44px 64px";
+  const tradeCols = "38px 92px 46px 22px minmax(170px, 1fr) 76px 76px 76px 44px 64px";
   return (
     <>
       <KpiStrip kpis={kpis} />
@@ -1944,7 +1939,7 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
             </div>
           )}
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 720 }}>
+            <div style={{ minWidth: 800 }}>
               <Row head cols={tradeCols}>
                 <span>PAIRE</span>
                 <span>OUVERT</span>
@@ -1986,6 +1981,312 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
           <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · TK = TICKS PAR CONTRAT · P&L À 2 LOTS, FRAIS DÉDUITS</div>
         </Panel>
       </div>
+    </>
+  );
+}
+
+/** The second strategy's screens, as function keys: all pairs, one pair, the rules. */
+function TrendScreens({
+  trend,
+  on,
+  onToggle,
+  entries,
+  account,
+  berlinShift,
+}: {
+  trend: TrendResults | null;
+  on: string[];
+  onToggle: (symbol: string) => void;
+  entries: Entry[];
+  account: AccountRules;
+  berlinShift: number;
+}) {
+  const [view, setView] = useState("all");
+  const pairs = trend ? [...trend.pairs].sort((a, b) => a.symbol.localeCompare(b.symbol)) : [];
+  const keys = [{ id: "all", label: "VUE" }, ...pairs.map((p) => ({ id: p.symbol, label: p.symbol })), { id: "rules", label: "RÈGLES" }];
+  const pair = pairs.find((p) => p.symbol === view) ?? null;
+  const screen = view === "rules" ? "rules" : pair ? pair.symbol : "all";
+  return (
+    <>
+      <div role="toolbar" aria-label="Écrans Trade with Trend" style={{ display: "flex", flexWrap: "wrap", border: "1px solid #2E2E2E" }}>
+        {keys.map((k, i) => {
+          const sel = screen === k.id;
+          return (
+            <button
+              key={k.id}
+              type="button"
+              aria-pressed={sel}
+              onClick={() => setView(k.id)}
+              style={{
+                cursor: "pointer",
+                padding: "6px 12px",
+                border: 0,
+                borderRight: "1px solid #1A1A1A",
+                fontFamily: "inherit",
+                fontSize: 12,
+                fontWeight: 700,
+                background: sel ? ORANGE : "#000",
+                color: sel ? "#000" : k.id !== "all" && k.id !== "rules" && !on.includes(k.id) ? "#666" : "#CCC",
+              }}
+            >
+              <span style={{ color: sel ? "#000" : ORANGE }}>F{i + 1}</span> {k.label}
+            </button>
+          );
+        })}
+      </div>
+      {screen === "all" && <TrendReport trend={trend} on={on} onToggle={onToggle} />}
+      {screen === "rules" && <TrendRules />}
+      {pair && (
+        <TrendPair
+          key={pair.symbol}
+          p={pair}
+          on={on.includes(pair.symbol)}
+          onToggle={() => onToggle(pair.symbol)}
+          entry={entries.find((e) => e.symbol === pair.symbol) ?? null}
+          account={account}
+          berlinShift={berlinShift}
+        />
+      )}
+    </>
+  );
+}
+
+/** One pair under Trade with Trend: its figures, its rule in ticks, its months, a month's trades, where it wins. */
+function TrendPair({
+  p,
+  on,
+  onToggle,
+  entry,
+  account,
+  berlinShift,
+}: {
+  p: TrendResults["pairs"][number];
+  on: boolean;
+  onToggle: () => void;
+  entry: Entry | null;
+  account: AccountRules;
+  berlinShift: number;
+}) {
+  const span = spanMonths({ from: p.from, to: p.to }), mid = (p.from + p.to) / 2;
+  const months = monthsBetween(p.from, p.to);
+  const list = p.trades.map((x) => ({ x, t: x[0] * 60000, pnl: x[9] }));
+  const byMonth = new Map<string, { n: number; wins: number; pnl: number }>();
+  for (const it of list) {
+    const m = monthOf(it.t);
+    const b = byMonth.get(m) ?? { n: 0, wins: 0, pnl: 0 };
+    b.n++;
+    b.pnl += it.pnl;
+    if (it.pnl > 0) b.wins++;
+    byMonth.set(m, b);
+  }
+  const traded = months.filter((m) => byMonth.has(m));
+  const [month, setMonth] = useState<string | null>(traded[traded.length - 1] ?? null);
+  const n = list.length, wins = list.filter((it) => it.pnl > 0).length, pnl = list.reduce((a, it) => a + it.pnl, 0);
+  const { dd, worst } = eodDrawdown(list);
+  const ticksOf = (v: number) => Math.round(v / p.tick);
+  const avg = (f: (x: number[]) => number) => (n ? Math.round(list.reduce((a, it) => a + f(it.x), 0) / n) : 0);
+  const stopTk = avg((x) => ticksOf(Math.abs(x[5] - x[6])));
+  const tpTk = avg((x) => ticksOf(Math.abs(x[7] - x[5])));
+  const r = entry?.result ?? null;
+  const sl = r?.top[0]?.cfg.sl ?? null;
+  const money = r ? r.tickValue * r.settings.lots : null;
+  const lots = r?.settings.lots ?? 2;
+  const X = sl ? Math.max(2, Math.round(sl * 0.5)) : null;
+  const hours = r?.rules?.excludeHours ?? [];
+  const spans = orderSpans(r?.rules?.hours ?? [2, 14], hours);
+  const posMonths = [...byMonth.values()].filter((b) => b.pnl > 0).length;
+  const kpis = [
+    { label: `P&L/MOIS · ${p.symbol}`, value: short(pnl / span), color: tone(pnl), sub: `${short(pnl)} SUR LA PÉRIODE · ${on ? "ACTIVE" : "DÉSACTIVÉE"}` },
+    { label: "TRADES/MOIS", value: (n / span).toFixed(1).replace(".", ","), color: TXT, sub: "AU 2E RETOUR SUR LA ZONE" },
+    { label: "WIN%", value: n ? ((wins / n) * 100).toFixed(1).replace(".", ",") : "—", color: TXT, sub: `${posMonths}/${byMonth.size} MOIS POSITIFS` },
+    { label: "MAX DD", value: short(-dd), color: LOSS, sub: account.ddLimit ? `${Math.round((dd / account.ddLimit) * 100)}% DE LA LIMITE · PIRE JOUR ${short(worst)}` : "FIN DE JOURNÉE" },
+    { label: "STOP MOYEN", value: `${stopTk} TK`, color: LOSS, sub: money ? `≈ ${Math.round(stopTk * money)} $ À ${lots} LOTS · ZONE + 3 TK` : "ZONE + 3 TK" },
+    { label: "OBJECTIF MOYEN", value: `${tpTk} TK`, color: GAIN, sub: "1,5 × LE RISQUE · 4 H MAX" },
+  ];
+  // Where it wins: the side, the halves, the hour of entry.
+  const group = (key: (it: (typeof list)[number]) => string) => {
+    const g = new Map<string, { n: number; wins: number; pnl: number }>();
+    for (const it of list) {
+      const k = key(it);
+      const b = g.get(k) ?? { n: 0, wins: 0, pnl: 0 };
+      b.n++;
+      b.pnl += it.pnl;
+      if (it.pnl > 0) b.wins++;
+      g.set(k, b);
+    }
+    return g;
+  };
+  const sides = group((it) => (it.x[2] === 1 ? "LONGS" : "SHORTS"));
+  const halves = group((it) => (it.t < mid ? "1RE MOITIÉ" : "2E MOITIÉ"));
+  const byHour = group((it) => ctTime(it.t).time.slice(0, 2));
+  const splitRows = [
+    ...["LONGS", "SHORTS"].map((k) => ({ k, b: sides.get(k) })),
+    ...["1RE MOITIÉ", "2E MOITIÉ"].map((k) => ({ k, b: halves.get(k) })),
+    ...[...byHour.keys()].sort().map((h) => ({ k: `${h}H CT · ${String((Number(h) + berlinShift + 24) % 24).padStart(2, "0")}H BER`, b: byHour.get(h) })),
+  ];
+  const splitMax = Math.max(1, ...splitRows.map((x) => Math.abs(x.b?.pnl ?? 0)));
+  const monthMax = Math.max(1, ...[...byMonth.values()].map((b) => Math.abs(b.pnl)));
+  const rows = month ? list.filter((it) => monthOf(it.t) === month).sort((a, b) => b.t - a.t) : [];
+  const mb = month ? byMonth.get(month) : null;
+  const px = (v: number) => fmtPrice(v, p.symbol, p.tick);
+  const tradeCols = "92px 46px 22px minmax(170px, 1fr) 76px 76px 76px 44px 64px";
+  const line = (k: string, v: React.ReactNode, note?: React.ReactNode) => (
+    <div>
+      <span style={{ color: DIM }}>{k} </span>
+      <span style={{ color: TXT }}>{v}</span>
+      {note && <div style={{ color: DIM, fontSize: 10.5, lineHeight: 1.4, marginBottom: 3 }}>{note}</div>}
+    </div>
+  );
+  return (
+    <>
+      <KpiStrip kpis={kpis} />
+      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1.5fr)", gap: 8 }}>
+        <Panel title={`RÈGLE ${p.symbol} · TRADE WITH TREND`} right={`${fmtDay(p.from)} → ${fmtDay(p.to)}`}>
+          <div style={{ padding: "8px 10px", lineHeight: 1.9 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ color: DIM }}>ÉTAT </span>
+              <span style={{ color: on ? GAIN : DIM, fontWeight: 700 }}>{on ? "● ACTIVE" : "○ DÉSACTIVÉE"}</span>
+              <button
+                type="button"
+                onClick={onToggle}
+                style={{ cursor: "pointer", fontFamily: "inherit", fontSize: 10, fontWeight: 700, padding: "1px 8px", background: "#000", border: `1px solid ${on ? "#555" : GAIN}`, color: on ? "#AAA" : GAIN }}
+              >
+                {on ? "DÉSACTIVER" : "ACTIVER"}
+              </button>
+            </div>
+            {line("TENDANCE", "2 SÉANCES DE SUITE", "CLÔTURES PLUS BASSES (SHORT) OU PLUS HAUTES (LONG)")}
+            {line("ZONE", X ? `3 REBONDS M15 À ${X} TK AU PLUS` : "3 REBONDS M15", X ? `ZONE ≤ ${2 * X} TK · CHAQUE REBOND ≥ ${X} TK` : undefined)}
+            {line("CASSURE", "1RE CLÔTURE H1 AU-DELÀ DE LA ZONE")}
+            {line("1ER RETOUR", sl ? `M15, REPART D'AU MOINS ${sl} TK` : "M15, REPART D'UN STOP", "DANS LES 72 H · CLÔTURE M15 DE L'AUTRE CÔTÉ = ÉCHEC")}
+            {line("ENTRÉE", "2E RETOUR · LIMITE 1 TK AVANT LA ZONE", "DANS LES 48 H · 1 TRADE/JOUR · ZONE UTILISÉE UNE FOIS")}
+            <div>
+              <span style={{ color: DIM }}>STOP </span>
+              <span style={{ color: LOSS }}>3 TK AU-DELÀ DE L&apos;AUTRE BORD</span>
+              <span style={{ color: DIM }}> · ≤ 500 $ À {lots} LOTS</span>
+            </div>
+            <div>
+              <span style={{ color: DIM }}>OBJECTIF </span>
+              <span style={{ color: GAIN }}>1,5 × LE RISQUE</span>
+              <span style={{ color: DIM }}> · 4 H MAX, RIEN APRÈS 16H CT</span>
+            </div>
+            <div>
+              <span style={{ color: DIM }}>HORAIRES </span>
+              <span style={{ color: ORANGE }}>{spansText(spans)} CT</span>
+              <span style={{ color: DIM }}> · </span>
+              <span style={{ color: TXT }}>{spansText(spans, berlinShift)} BERLIN</span>
+            </div>
+            {line("BLACKOUT", hours.length ? `${hoursText(hours).toUpperCase()} CT` : "AUCUN", "MÊMES HEURES QUE LES ZONES")}
+          </div>
+          <div style={{ padding: "2px 10px 10px" }}>
+            <div style={{ color: DIM, fontSize: 10.5, marginBottom: 4 }}>RISQUE / GAIN EN TICKS (MOYENNE)</div>
+            <div style={{ display: "flex", height: 10 }}>
+              <span style={{ display: "block", width: `${((stopTk / Math.max(1, stopTk + tpTk)) * 100).toFixed(1)}%`, background: LOSS }} />
+              <span style={{ width: 2, background: "#FFF" }} />
+              <span style={{ display: "block", flex: 1, background: GAIN }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, marginTop: 3 }}>
+              <span style={{ color: LOSS }}>−{stopTk}</span>
+              <span>ENTRÉE</span>
+              <span style={{ color: GAIN }}>+{tpTk}</span>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel title="MOIS" right="CLIC = TRADES">
+          <Row head cols="62px 28px 40px 1fr 54px">
+            <span>MOIS</span>
+            <span style={R}>TR</span>
+            <span style={R}>WIN</span>
+            <span />
+            <span style={R}>P&L</span>
+          </Row>
+          {[...months].reverse().map((m) => {
+            const b = byMonth.get(m);
+            const sel = m === month;
+            return (
+              <Row
+                key={m}
+                cols="62px 28px 40px 1fr 54px"
+                onClick={b ? () => setMonth(sel ? null : m) : undefined}
+                style={sel ? { background: ORANGE, color: "#000" } : undefined}
+              >
+                <span style={{ color: sel ? "#000" : DIM, fontWeight: sel ? 700 : 400 }}>{termMonth(m)}</span>
+                <span style={R}>{b ? b.n : "–"}</span>
+                <span style={{ ...R, color: sel ? "#000" : DIM }}>{b ? `${Math.round((b.wins / b.n) * 100)}%` : ""}</span>
+                <span style={b ? bar((Math.abs(b.pnl) / monthMax) * 100, tone(b.pnl)) : { display: "block" }} />
+                <span style={{ ...R, color: sel ? "#000" : b ? tone(b.pnl) : "#444", fontWeight: 600 }}>{b ? short(b.pnl) : "–"}</span>
+              </Row>
+            );
+          })}
+        </Panel>
+
+        <Panel
+          title={`TRADES · ${month ? termMonth(month) : "CLIQUE UN MOIS"}`}
+          right={mb ? `${mb.n} TR · ${Math.round((mb.wins / mb.n) * 100)}% · ${short(mb.pnl)} $` : undefined}
+        >
+          <div style={{ overflowX: "auto" }}>
+            <div style={{ minWidth: 760 }}>
+              <Row head cols={tradeCols}>
+                <span>OUVERT</span>
+                <span>FERMÉ</span>
+                <span>S</span>
+                <span style={R}>ZONE</span>
+                <span style={R}>ENTRÉE</span>
+                <span style={R}>SL</span>
+                <span style={R}>TP</span>
+                <span style={R}>TK</span>
+                <span style={R}>P&L</span>
+              </Row>
+              {rows.map(({ x }) => {
+                const o = ctTime(x[0] * 60000);
+                return (
+                  <Row key={x[0]} cols={tradeCols}>
+                    <span style={{ color: DIM }}>
+                      {o.date} {o.time}
+                    </span>
+                    <span style={{ color: DIM }}>{ctTime(x[1] * 60000).time}</span>
+                    <span style={{ color: x[2] === 1 ? buyColor : sellColor, fontWeight: 700 }}>{x[2] === 1 ? "B" : "S"}</span>
+                    <span style={R}>
+                      {px(x[3])} – {px(x[4])}
+                    </span>
+                    <span style={{ ...R, color: TXT }}>{px(x[5])}</span>
+                    <span style={{ ...R, color: LOSS }}>{px(x[6])}</span>
+                    <span style={{ ...R, color: GAIN }}>{px(x[7])}</span>
+                    <span style={{ ...R, color: tone(x[8]) }}>{String(x[8]).replace(".", ",")}</span>
+                    <span style={{ ...R, color: tone(x[9]), fontWeight: 700 }}>{short(x[9])}</span>
+                  </Row>
+                );
+              })}
+              {!month && <div style={{ color: DIM, padding: "12px 10px" }}>CLIQUE UN MOIS POUR VOIR SES TRADES.</div>}
+            </div>
+          </div>
+          <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · TK = TICKS PAR CONTRAT · P&L À {lots} LOTS, FRAIS DÉDUITS</div>
+        </Panel>
+      </div>
+
+      <Panel title={`OÙ ${p.symbol} GAGNE · SENS, MOITIÉS, HEURE D'ENTRÉE`} right="P&L SUR LA PÉRIODE, FRAIS DÉDUITS">
+        <Row head cols="200px 40px 48px 1fr 70px 64px">
+          <span />
+          <span style={R}>TR</span>
+          <span style={R}>WIN</span>
+          <span />
+          <span style={R}>P&L</span>
+          <span style={R}>MOY/TR</span>
+        </Row>
+        {splitRows.map(({ k, b }, i) => (
+          <Row key={k} cols="200px 40px 48px 1fr 70px 64px" style={i === 2 || i === 4 ? { borderTop: "1px solid #2E2E2E" } : undefined}>
+            <span style={{ color: TXT, fontWeight: 700 }}>{k}</span>
+            <span style={R}>{b ? b.n : "–"}</span>
+            <span style={{ ...R, color: DIM }}>{b ? `${Math.round((b.wins / b.n) * 100)}%` : ""}</span>
+            <span style={b ? bar((Math.abs(b.pnl) / splitMax) * 100, tone(b.pnl)) : { display: "block" }} />
+            <span style={{ ...R, color: b ? tone(b.pnl) : "#444", fontWeight: 700 }}>{b ? short(b.pnl) : "–"}</span>
+            <span style={{ ...R, color: b ? tone(b.pnl) : "#444" }}>{b ? short(b.pnl / b.n) : ""}</span>
+          </Row>
+        ))}
+        <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
+          MOITIÉS = 1RE ET 2E MOITIÉ DE LA PÉRIODE · LES RÉGLAGES ONT ÉTÉ CHOISIS SUR LA 1RE : LA 2E EST LE TEST HONNÊTE · MOINS DE 6 TRADES : TROP PEU POUR JUGER
+        </div>
+      </Panel>
     </>
   );
 }
