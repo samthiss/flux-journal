@@ -7,6 +7,7 @@ import { ratioOf, kindOf, monthOf, OUTCOMES, type ConfigStats, type SymbolResult
 import { DEFAULT_TIERS, feeRoundTrip, firmShares, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
 import { chooseDatabentoConfig } from "@/lib/actions/databento";
 import { CONTRACTS, newsCurrencies } from "@/lib/contracts";
+import { HOURS_WHY } from "@/lib/pairHoursWhy";
 import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, tickNote } from "@/lib/databento/format";
 
 type Saved = { symbol: string; zones: number[]; result: string | null; chosenKey: string | null };
@@ -1176,16 +1177,6 @@ function NewsPanel({ symbol, news, now, before, after }: { symbol: string; news:
 }
 
 /** Why each pair keeps the hours it keeps, in a line. */
-export const HOURS_WHY: Record<string, string> = {
-  "6B": "La livre tient ses niveaux pendant Londres ; New York les lui fait traverser.",
-  "6E": "L'euro respecte ses niveaux toute la journée.",
-  "6J": "L'ouverture de Londres secoue le yen sa première heure.",
-  "6N": "Ouverture de Londres, puis chiffres US de 7h30 et ouverture américaine.",
-  "6C": "Aucune heure ne fait mieux sans elle.",
-  ZN: "Le T-Note est calme, 5 à 10 ticks l'heure.",
-  ZS: "La nuit des grains est trop mince : seule la séance du jour compte.",
-  ZW: "La réouverture des grains à 8h30 est trop brutale.",
-};
 
 /** The hours orders go in, as spans: 2h–14h less the hours kept out. */
 function orderSpans(hours: [number, number], excluded: number[]): [number, number][] {

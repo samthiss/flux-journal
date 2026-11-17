@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
-import Sidebar from "@/components/Sidebar";
+import TerminalSidebar, { type SidebarStatus } from "@/components/TerminalSidebar";
 import { AgentProvider } from "@/components/agent/AgentProvider";
 import { SESSION_COOKIE, authConfig, verifySessionToken } from "@/lib/auth";
-import { estProprietaire } from "@/lib/session";
-import { getNoteTree } from "@/lib/actions/notes";
-import NewsTicker from "@/components/NewsTicker";
-import { applyRatings, getEconomicEvents, type EconomicEvent } from "@/lib/economicCalendar";
-import { getEventRatings } from "@/lib/actions/eventRatings";
+import { estProprietaire, monJournal } from "@/lib/session";
+import { getEconomicEvents } from "@/lib/economicCalendar";
+import { prisma } from "@/lib/prisma";
+import { newsCurrencies } from "@/lib/contracts";
+import { loadPairPlans } from "@/lib/planData";
+import { dayKey } from "@/lib/tradingPlan";
+import { sessionDate } from "@/lib/databento/clock";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -32,65 +34,39 @@ export const metadata: Metadata = {
 };
 
 /**
- * The note tree the sidebar draws, or an empty tree for a visitor who has not
- * signed in.
- *
- * The login page inherits this layout, and it is the one route the proxy lets
- * through without a session. Querying the journal there would put a database
- * read — and the seeding check that comes with it — behind every load of a
- * screen whose whole point is that nothing has been unlocked yet.
+ * What the menu shows of the day: the next release that blocks orders on one
+ * of the plan's pairs, and the account's orders. Read through the calendar's
+ * hourly cache, so it costs one request an hour, not one per page.
  */
-async function sidebarTree() {
-  // A guest has no notes to show in the sidebar, and no page to show them on.
-  if (!(await estProprietaire())) return [];
-  return getNoteTree();
-}
-
-/**
- * The releases around today, for the band at the top of every page.
- *
- * A three-day window rather than a day: the server is in UTC and the reader is
- * not, so which day is "today" is decided in the browser. Read through the
- * calendar's own hourly cache, so putting this on every page costs one request
- * an hour rather than one per page.
- */
-async function actualitesDuJour(): Promise<{ events: EconomicEvent[]; notees: string[] }> {
-  if (!(await connecte())) return { events: [], notees: [] };
+async function sidebarStatus(): Promise<SidebarStatus | null> {
   try {
-    // Rated as the calendar rates them — a star clicked there is the reader's
-    // own opinion of a release, and the band that announces it should hold the
-    // same one.
-    // The stars are the owner's own opinion of a release, kept in the owner's
-    // journal: an account reads the calendar as the source rates it rather
-    // than through somebody else's judgement.
-    const [calendrier, notes] = await Promise.all([
+    const ownerId = await monJournal();
+    const now = Date.now();
+    const day = dayKey(sessionDate(now));
+    const [pairs, calendar, orders] = await Promise.all([
+      loadPairPlans(ownerId),
       getEconomicEvents(),
-      (await estProprietaire()) ? getEventRatings() : Promise.resolve({} as Record<string, string>),
+      prisma.planOrder.findMany({ where: { OR: [{ day }, { status: "filled" }] } }),
     ]);
-    const events = applyRatings(calendrier.events, notes);
-    // Which releases the reader has judged themselves, so the band can tell a
-    // star they clicked from one the source gave.
-    const notees = Object.keys(notes);
-    const minuit = new Date();
-    minuit.setHours(0, 0, 0, 0);
-    const debut = minuit.getTime() - 86400000;
-    const fin = minuit.getTime() + 2 * 86400000;
-    // The days the window covers, for the entries that have no clock at all —
-    // a closed session, a summit. They are filed under a day, so they are kept
-    // by day; dropping them left the band without the two things it is most
-    // worth carrying.
-    const jours = new Set(
-      [-1, 0, 1, 2].map((n) => new Date(minuit.getTime() + n * 86400000).toLocaleDateString("en-CA"))
-    );
-    const fenetre = events.filter((e) => {
-      if (!e.at) return jours.has(e.date);
-      const t = new Date(e.at).getTime();
-      return t >= debut && t < fin;
-    });
-    return { events: fenetre, notees };
+    const followed = new Set(pairs.flatMap((p) => newsCurrencies(p.symbol)));
+    const next = calendar.events
+      .filter((e) => e.kind === "release" && e.impact === "high" && e.at && followed.has(e.currency))
+      .map((e) => ({ at: e.at!, title: e.title, currency: e.currency, t: new Date(e.at!).getTime() }))
+      .filter((e) => e.t > now - 10 * 60000 && e.t < now + 24 * 3600000)
+      .sort((a, b) => a.t - b.t)[0];
+    const live = orders.filter((o) => o.status === "filled");
+    const lots = (s: string) => pairs.find((p) => p.symbol === s)?.lots ?? 2;
+    return {
+      nextNews: next ? { at: next.at, title: next.title, currency: next.currency } : null,
+      activeOrders: orders.filter((o) => o.status === "pending" || o.status === "filled").length,
+      dayPnl: orders.filter((o) => o.status === "closed" && o.day === day).reduce((a, o) => a + (o.pnl ?? 0), 0),
+      positions: live.length,
+      contracts: live.reduce((a, o) => a + lots(o.symbol), 0),
+      hours: pairs.length ? [Math.min(...pairs.map((p) => p.hours[0])), Math.max(...pairs.map((p) => p.hours[1]))] : [2, 14],
+    };
   } catch {
-    // A calendar that will not answer is not a reason for a page not to load.
-    return { events: [], notees: [] };
+    // A calendar or a database that will not answer is not a reason for a page not to load.
+    return null;
   }
 }
 
@@ -122,10 +98,9 @@ export default async function RootLayout({
               in, there is nowhere for them to navigate, and the list of notes
               is not theirs to see the shape of. */}
           {(await connecte()) && (
-            <Sidebar initialTree={await sidebarTree()} proprietaire={await estProprietaire()} />
+            <TerminalSidebar owner={await estProprietaire()} status={(await estProprietaire()) ? await sidebarStatus() : null} />
           )}
           <div className="app-main">
-            <NewsTicker {...await actualitesDuJour()} />
             {children}
           </div>
           {modal}

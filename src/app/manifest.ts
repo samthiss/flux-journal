@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Flux Journal",
     short_name: "Journal",
-    start_url: "/checklist",
+    start_url: "/trading-plan",
     display: "standalone",
     background_color: "#000000",
     theme_color: "#000000",

@@ -3,7 +3,6 @@
 import { prisma } from "@/lib/prisma";
 import { exigeProprietaire } from "@/lib/session";
 import { pushAll, pushKeys } from "@/lib/push";
-import { revalidatePath } from "next/cache";
 
 /** The key a phone subscribes with. */
 export async function pushPublicKey() {
@@ -28,20 +27,5 @@ export async function removePushDevice(endpoint: string) {
 
 export async function sendTestPush() {
   await exigeProprietaire();
-  return pushAll({ title: "Rappels activés", body: "Tu recevras les news 15 min avant, et la sortie à 4 h de tes trades.", url: "/checklist" });
-}
-
-/** A trade just filled: the four hours are counted from `filledAt`. */
-export async function openPosition(symbol: string, filledAt: string) {
-  await exigeProprietaire();
-  const t = new Date(filledAt);
-  if (!symbol || Number.isNaN(t.getTime())) throw new Error("Paire ou heure invalide.");
-  await prisma.openPosition.create({ data: { symbol, filledAt: t } });
-  revalidatePath("/checklist");
-}
-
-export async function closePosition(id: string) {
-  await exigeProprietaire();
-  await prisma.openPosition.update({ where: { id }, data: { closedAt: new Date() } });
-  revalidatePath("/checklist");
+  return pushAll({ title: "Rappels activés", body: "Tu recevras les news 15 min avant, et la sortie à 4 h de tes trades.", url: "/trading-plan" });
 }

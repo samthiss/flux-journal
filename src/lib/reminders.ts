@@ -3,14 +3,21 @@ import { getEconomicEvents, type EconomicEvent } from "@/lib/economicCalendar";
 import { newsCurrencies } from "@/lib/contracts";
 import { pushOnce } from "@/lib/push";
 import { exitAt } from "@/lib/exitTime";
+import { loadPairPlans, pushPrefs } from "@/lib/planData";
+import { orderWindows, windowEndReason, dayKey, type Blocking } from "@/lib/tradingPlan";
+import { sessionDate } from "@/lib/databento/clock";
+import { fmtPrice } from "@/lib/databento/format";
 
 /** How long before a blocking release the phone is told: time to pull the orders. */
 export const NEWS_LEAD_MIN = 15;
 /** The warning before a trade's time is up. */
 export const EXIT_WARN_MIN = 15;
+/** The warning before a posed order must come off. */
+export const PULL_LEAD_MIN = 1;
 
 const clock = (t: number, timeZone: string) => new Date(t).toLocaleTimeString("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" });
 const both = (t: number) => `${clock(t, "Europe/Berlin")} Berlin · ${clock(t, "America/Chicago")} CT`;
+const URL = "/trading-plan";
 
 // The calendar, read again every half hour rather than every minute.
 let calendar: { at: number; events: EconomicEvent[] } = { at: 0, events: [] };
@@ -22,34 +29,59 @@ async function events() {
   return calendar.events;
 }
 
+/** The releases that block orders: the source's three stars, as the backtest's blackout counts them. */
+export const blockingOf = (list: EconomicEvent[]): Blocking[] =>
+  list.filter((e) => e.kind === "release" && e.impact === "high" && e.at).map((e) => ({ at: new Date(e.at!).getTime(), currency: e.currency, title: e.title }));
+
 /**
- * One pass of the reminders, run every minute by the server.
+ * One pass of the reminders, run every minute by the server, each kind only
+ * if it is switched on in the plan's page.
  *
- * News: fifteen minutes before each three-star release during the order hours (the source's own
- * stars, as the backtest's blackout counts them) in a currency one of the
- * plan's pairs follows. A trade on: fifteen minutes before its time is up (four
- * hours, never past 16h Chicago), and when it is.
+ * News: fifteen minutes before each blocking release, during the order hours,
+ * in a currency one of the pairs follows. Exit: fifteen minutes before a
+ * filled order's time is up (four hours, never past 16h Chicago), and when it
+ * is. Pull: a minute before a posed order's window closes — a release, an
+ * excluded hour, the end of the orders.
  */
 export async function remindersTick(now = Date.now()) {
-  const pairs = (await prisma.databentoSymbol.findMany({ where: { ownerId: "owner" }, select: { symbol: true } })).map((r) => r.symbol);
-  if (pairs.length) {
-    for (const e of await events()) {
-      if (e.kind !== "release" || e.impact !== "high" || !e.at) continue;
-      const t = new Date(e.at).getTime();
-      const lead = t - now;
-      // Inside the lead, and not yet out: sent once, on the first pass that sees it.
+  const prefs = await pushPrefs();
+  const plans = await loadPairPlans("owner");
+  const pairs = plans.map((p) => p.symbol);
+  const blocking = pairs.length && (prefs.news || prefs.pull) ? blockingOf(await events()) : [];
+
+  if (prefs.news) {
+    for (const e of blocking) {
+      const lead = e.at - now;
       if (lead <= 0 || lead > NEWS_LEAD_MIN * 60000) continue;
       // Only while orders can be working: 2h to 14h Chicago, and the ten minutes either side.
-      const [h, m] = clock(t, "America/Chicago").split(":").map(Number);
+      const [h, m] = clock(e.at, "America/Chicago").split(":").map(Number);
       if (h * 60 + m < 110 || h * 60 + m > 850) continue;
       const hit = pairs.filter((p) => newsCurrencies(p).includes(e.currency));
       if (!hit.length) continue;
       const who = hit.length === pairs.length ? "toutes tes paires" : hit.join(" · ");
       await pushOnce(`news|${e.at}|${e.currency}|${e.title}`, {
-        title: `News à ${clock(t, "Europe/Berlin")} · ${e.currency} ${e.title}`,
-        body: `Ne pas trader ${who} de ${clock(t - 600000, "Europe/Berlin")} à ${clock(t + 600000, "Europe/Berlin")} (Berlin). Retire tes ordres.`,
-        url: "/checklist",
+        title: `News à ${clock(e.at, "Europe/Berlin")} · ${e.currency} ${e.title}`,
+        body: `Ne pas trader ${who} de ${clock(e.at - 600000, "Europe/Berlin")} à ${clock(e.at + 600000, "Europe/Berlin")} (Berlin). Retire tes ordres.`,
+        url: URL,
         tag: `news-${e.at}`,
+      });
+    }
+  }
+
+  if (prefs.pull) {
+    const day = dayKey(sessionDate(now));
+    const pending = await prisma.planOrder.findMany({ where: { day, status: "pending" } });
+    for (const o of pending) {
+      const p = plans.find((x) => x.symbol === o.symbol);
+      if (!p) continue;
+      const w = orderWindows(p, day, blocking).find(([a, b]) => now >= a && now < b);
+      if (!w || w[1] - now > PULL_LEAD_MIN * 60000) continue;
+      const why = windowEndReason(p, w[1], day, blocking);
+      await pushOnce(`pull|${o.id}|${w[1]}`, {
+        title: `Retire ton ordre ${o.symbol} — ${why}`,
+        body: `${o.side === "Long" ? "Achat" : "Vente"} ${o.symbol} à ${fmtPrice(o.entry, o.symbol, p.tick)} : plus d'ordre à partir de ${both(w[1])}.`,
+        url: URL,
+        tag: `pull-${o.id}`,
       });
     }
   }
@@ -57,27 +89,25 @@ export async function remindersTick(now = Date.now()) {
   // What was sent more than a week ago will not come round again.
   if (new Date(now).getUTCMinutes() === 0) await prisma.pushSent.deleteMany({ where: { sentAt: { lt: new Date(now - 7 * 86400000) } } });
 
-  const open = await prisma.openPosition.findMany({ where: { closedAt: null } });
-  for (const p of open) {
-    const end = exitAt(p.filledAt.getTime());
-    // A position nobody closed: forgotten a day later.
-    if (now > end + 20 * 3600000) {
-      await prisma.openPosition.update({ where: { id: p.id }, data: { closedAt: new Date(end) } });
-      continue;
-    }
+  if (!prefs.exit) return;
+  const open = await prisma.planOrder.findMany({ where: { status: "filled" } });
+  for (const o of open) {
+    if (!o.filledAt) continue;
+    const end = exitAt(o.filledAt.getTime());
+    if (now > end + 20 * 3600000) continue;
     if (now >= end) {
-      await pushOnce(`exit|${p.id}`, {
-        title: `${p.symbol} : temps écoulé — ferme le trade`,
-        body: `Rempli à ${both(p.filledAt.getTime())}. TP1 pas touché : ferme au marché. Runner encore ouvert : ferme-le aussi.`,
-        url: "/checklist",
-        tag: `exit-${p.id}`,
+      await pushOnce(`exit|${o.id}`, {
+        title: `${o.symbol} : temps écoulé — ferme le trade`,
+        body: `Rempli à ${both(o.filledAt.getTime())}. TP1 pas touché : ferme au marché. Runner encore ouvert : ferme-le aussi.`,
+        url: URL,
+        tag: `exit-${o.id}`,
       });
     } else if (end - now <= EXIT_WARN_MIN * 60000) {
-      await pushOnce(`warn|${p.id}`, {
-        title: `${p.symbol} : sortie dans ${Math.ceil((end - now) / 60000)} min`,
+      await pushOnce(`warn|${o.id}`, {
+        title: `${o.symbol} : sortie dans ${Math.ceil((end - now) / 60000)} min`,
         body: `Fin à ${both(end)}. Prépare-toi à fermer si TP1 n'est pas touché.`,
-        url: "/checklist",
-        tag: `exit-${p.id}`,
+        url: URL,
+        tag: `exit-${o.id}`,
       });
     }
   }

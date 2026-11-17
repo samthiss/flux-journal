@@ -823,15 +823,41 @@ model PushKeys {
 }
 
 /**
- * A trade on, from the minute it was filled: what the reminder to close it
- * after four hours is counted from. Closed by hand, or forgotten after a day.
+ * An order of the day's plan, from the moment it is posed to the trade it
+ * becomes: pending, filled (the four hours counted from `filledAt`), closed
+ * (written into the journal as `tradeId`) or cancelled.
  */
-model OpenPosition {
-  id        String    @id @default(cuid())
-  symbol    String
-  filledAt  DateTime
-  closedAt  DateTime?
-  createdAt DateTime  @default(now())
+model PlanOrder {
+  id           String    @id @default(cuid())
+  /** The Chicago session date it was posed for, YYYY-MM-DD. */
+  day          String
+  symbol       String
+  /** "Long" or "Short", as the journal writes it. */
+  side         String
+  level        Float
+  entry        Float
+  sl           Float
+  tp1          Float
+  tp2          Float?
+  status       String    @default("pending")
+  filledAt     DateTime?
+  closedAt     DateTime?
+  /** SL, TP1, TRAIL, TP2 or TIME, the journal's outcomes. */
+  outcome      String?
+  pnl          Float?
+  tradeId      String?
+  cancelReason String?
+  createdAt    DateTime  @default(now())
+
+  @@index([day])
+}
+
+/** Which reminders are sent: one row, the owner's. */
+model PushPrefs {
+  id   Int     @id @default(1)
+  exit Boolean @default(true)
+  news Boolean @default(true)
+  pull Boolean @default(true)
 }
 
 /** A reminder already sent, so a restart or a second tick does not send it twice. */

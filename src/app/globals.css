@@ -660,3 +660,70 @@ textarea:focus {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* ---- The terminal menu ---- */
+.tsb {
+  flex: 0 0 248px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: #070707;
+  border-right: 1px solid #1f1f1f;
+  height: 100vh;
+  overflow-y: auto;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+.tsb-folded {
+  flex-basis: 56px;
+}
+.tsb-folded .tsb-label {
+  display: none;
+}
+.tsb-item:hover {
+  background: #121212 !important;
+  color: #fff !important;
+}
+@media (max-width: 768px) {
+  .tsb {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-top: 1px solid #1f1f1f !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    overflow: visible !important;
+  }
+  .tsb-brand,
+  .tsb-news,
+  .tsb-group-title,
+  .tsb-foot,
+  .tsb-badge,
+  .tsb-key {
+    display: none !important;
+  }
+  .tsb-items {
+    display: flex !important;
+    width: 100% !important;
+  }
+  .tsb-group {
+    display: contents !important;
+  }
+  .tsb-item {
+    flex: 1 1 0 !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    padding: 8px 2px !important;
+    justify-content: center !important;
+    box-shadow: none !important;
+  }
+  .tsb-item[aria-current="page"] {
+    box-shadow: inset 0 2px 0 var(--tsb-accent, #ff9f1c) !important;
+  }
+  .tsb-label {
+    display: block !important;
+    font-size: 9px !important;
+    text-align: center !important;
+    flex: none !important;
+  }
+}
