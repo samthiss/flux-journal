@@ -232,8 +232,11 @@ export default function TradingPlan({
   const openNow = pairs.filter((p) => statusOf(p.symbol).kind === "open" || statusOf(p.symbol).kind === "soon").length;
 
   // ---- News ----
+  // Which stars the news list shows: the three-star only, or the two-star as well. Kept in the browser.
+  const [starsRaw, setStars] = useLocal("trading-plan-news-stars");
+  const onlyThree = starsRaw === "3";
   const relevant = news
-    .filter((n) => n.kind === "release" && (n.impact === "high" || n.impact === "medium"))
+    .filter((n) => n.kind === "release" && (n.impact === "high" || (!onlyThree && n.impact === "medium")))
     .filter((n) => pairs.some((p) => blocksFor(p.symbol, [{ at: 0, currency: n.currency, title: "" }]).length))
     // The two-star ones once they are out tell nothing more: only the three-star stay all day.
     .filter((n) => n.impact === "high" || !n.at || new Date(n.at).getTime() >= now);
@@ -897,7 +900,7 @@ export default function TradingPlan({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-          <Panel title="NEWS DU JOUR" right="3★ = BLACKOUT ±10 MIN">
+          <Panel title="NEWS DU JOUR" right={<StarFilter onlyThree={onlyThree} set={(v) => setStars(v ? "3" : "23")} />}>
             <div style={{ display: "grid", gridTemplateColumns: "44px 44px 36px 1fr 36px", gap: 8, padding: "5px 10px", color: DIM, fontSize: 10.5, borderBottom: "1px solid #2E2E2E" }}>
               <span>CT</span>
               <span>BER</span>
@@ -907,7 +910,7 @@ export default function TradingPlan({
             </div>
             <div style={{ maxHeight: 420, overflowY: "auto" }}>
             {!newsOk && <div style={{ padding: "10px", color: DIM }}>Le flux des news n&apos;a pas répondu — il sera relu dans l&apos;heure.</div>}
-            {newsOk && relevant.length === 0 && <div style={{ padding: "10px", color: DIM }}>Aucune news 3★, ni 2★ à venir, pour tes paires ce jour-là.</div>}
+            {newsOk && relevant.length === 0 && <div style={{ padding: "10px", color: DIM }}>{onlyThree ? "Aucune news 3★ pour tes paires ce jour-là." : "Aucune news 3★, ni 2★ à venir, pour tes paires ce jour-là."}</div>}
             {relevant.map((n, i) => {
               const t = n.at ? new Date(n.at).getTime() : null;
               const block = n.impact === "high" && t !== null;
@@ -1339,9 +1342,9 @@ export default function TradingPlan({
 
         {/* ---- JOUR ---- */}
         <div id="tp-jour" style={{ scrollMarginTop: 72, marginBottom: 14 }}>
-          <MobileHead title="NEWS DU JOUR" right="3★ = ±10 MIN" />
+          <MobileHead title="NEWS DU JOUR" right={<StarFilter onlyThree={onlyThree} set={(v) => setStars(v ? "3" : "23")} />} />
           {!newsOk && <div style={{ padding: "10px 12px", color: DIM }}>Le flux des news n&apos;a pas répondu — il sera relu dans l&apos;heure.</div>}
-          {newsOk && relevant.length === 0 && <div style={{ padding: "10px 12px", color: DIM }}>Aucune news 3★, ni 2★ à venir, pour tes paires ce jour-là.</div>}
+          {newsOk && relevant.length === 0 && <div style={{ padding: "10px 12px", color: DIM }}>{onlyThree ? "Aucune news 3★ pour tes paires ce jour-là." : "Aucune news 3★, ni 2★ à venir, pour tes paires ce jour-là."}</div>}
           {relevant.map((n, i) => {
             const t = n.at ? new Date(n.at).getTime() : null;
             const block = n.impact === "high" && t !== null;
@@ -1505,7 +1508,31 @@ export default function TradingPlan({
   );
 }
 
-function MobileHead({ title, right }: { title: string; right?: string }) {
+/** The news list's filter: the three-star releases only, or the two-star ones too. */
+function StarFilter({ onlyThree, set }: { onlyThree: boolean; set: (onlyThree: boolean) => void }) {
+  const chip = (on: boolean): React.CSSProperties => ({
+    cursor: "pointer",
+    fontFamily: "inherit",
+    fontSize: 10,
+    fontWeight: 700,
+    padding: "1px 7px",
+    border: `1px solid ${on ? ORANGE : "#444"}`,
+    background: on ? ORANGE : "transparent",
+    color: on ? "#000" : "#AAA",
+  });
+  return (
+    <span style={{ display: "inline-flex", gap: 4 }}>
+      <button type="button" aria-pressed={onlyThree} onClick={() => set(true)} style={chip(onlyThree)} title="Seulement les news 3 étoiles">
+        ★★★
+      </button>
+      <button type="button" aria-pressed={!onlyThree} onClick={() => set(false)} style={chip(!onlyThree)} title="Les news 2 et 3 étoiles">
+        ★★ + ★★★
+      </button>
+    </span>
+  );
+}
+
+function MobileHead({ title, right }: { title: string; right?: React.ReactNode }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "6px 12px", background: "#1A1A1A", color: ORANGE, fontWeight: 700, fontSize: 11, letterSpacing: "0.04em", marginTop: 8 }}>
       <span>{title}</span>
