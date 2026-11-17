@@ -595,6 +595,8 @@ export default function DatabentoClient({ initial, news, now, berlinShift }: { i
               </div>
             </div>
           </Panel>
+
+          <QuickWins entries={analysed} account={account} onDisable={(sym, z) => switchZone(sym, z, true)} onChoose={(sym, key) => choisir(sym, key)} />
         </>
       )}
 
@@ -640,6 +642,7 @@ const TXT = "#FFF";
 const buyColor = "#4FC3F7";
 const sellColor = "#E879F9";
 const R: React.CSSProperties = { textAlign: "right" };
+const BUY_C = "#4FC3F7";
 const PAIR_COLS = "44px 70px 44px 50px 1fr 64px 56px 64px 1fr";
 
 /** A month the terminal way: "NOV 25". */
@@ -1469,6 +1472,161 @@ function LevelsPanel({
       <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
         P&L À 2 LOTS, AVANT FRAIS · MOITIÉS = 1RE ET 2E MOITIÉ DE LA PÉRIODE (NB DE TRADES) · GARDER : GAGNE SUR L&apos;ENSEMBLE ET SUR CHAQUE MOITIÉ (UNE MOITIÉ SANS TRADE NE COMPTE PAS) · À SURVEILLER : PERD SUR
         UNE MOITIÉ OU À PEU PRÈS NUL · À RETIRER : PERD SUR L&apos;ENSEMBLE ET SUR LES DEUX MOITIÉS · MOINS DE 6 TRADES : TROP PEU POUR JUGER · DÉSACTIVER = RETIRÉ DU TRADING PLAN, DU FORMULAIRE DU JOURNAL ET DES CHIFFRES DE LA PAIRE ET DU COMPTE
+      </div>
+    </Panel>
+  );
+}
+
+type Win = {
+  kind: "NIVEAU" | "SENS" | "HEURE" | "CONFIG";
+  symbol: string;
+  text: string;
+  dPnl: number;
+  dDD: number;
+  n: number;
+  action?: { label: string; run: () => void };
+};
+
+const ctHourOf = (t: number) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", hour: "2-digit", hourCycle: "h23" }).format(t));
+
+/**
+ * Small changes that would have helped the account, each priced on the same
+ * year of trades: a level switched off, one side kept at a level, an hour kept
+ * out, another configuration of those tested. Net of fees, per month, with the
+ * pair's drawdown before and after. Taking trades out of the year is an
+ * estimate: a trade removed can free the day for another the backtest did not
+ * take, which this does not count.
+ */
+function QuickWins({
+  entries,
+  account,
+  onDisable,
+  onChoose,
+}: {
+  entries: Entry[];
+  account: AccountRules;
+  onDisable: (symbol: string, zone: number) => void;
+  onChoose: (symbol: string, key: string) => void;
+}) {
+  const wins = useMemo(() => {
+    const out: Win[] = [];
+    for (const e of entries) {
+      const r = e.result!;
+      const c = retained(e);
+      if (!c) continue;
+      const money = r.tickValue * r.settings.lots;
+      const fee = feeRoundTrip(account.fees, e.symbol) / r.tickValue;
+      const mode = r.settings.ddMode ?? "intraday";
+      const span = spanMonths(r);
+      const net = (rows: number[][]) => rows.reduce((a, t) => a + (t[1] - fee) * money, 0) / span;
+      const dd = (rows: number[][]) =>
+        trailingDrawdown(
+          rows.filter((t) => t[2] !== undefined).map((t) => ({ start: t[0] * 60000, end: t[2] * 60000, final: (t[1] - fee) * money, mfe: t[3] * money, mae: t[4] * money, give: t[5] * money })),
+          null,
+          mode
+        ).dd;
+      const base = c.trades;
+      const baseNet = net(base);
+      const baseDD = dd(base);
+      const tryOut = (keep: (t: number[]) => boolean) => {
+        const rows = base.filter(keep);
+        return { dPnl: net(rows) - baseNet, dDD: dd(rows) - baseDD, n: base.length - rows.length };
+      };
+      // 1. A level off.
+      const zones = [...new Set(base.map((t) => t[6]).filter((z) => z !== undefined))];
+      for (const z of zones) {
+        const x = tryOut((t) => t[6] !== z);
+        out.push({ kind: "NIVEAU", symbol: e.symbol, text: `Désactiver le niveau ${fmtZone(z, e.symbol)}`, ...x, action: { label: "DÉSACTIVER", run: () => onDisable(e.symbol, z) } });
+        // 2. One side only at that level.
+        for (const dir of [1, -1]) {
+          const x2 = tryOut((t) => !(t[6] === z && t[7] === dir));
+          if (x2.n >= 3) out.push({ kind: "SENS", symbol: e.symbol, text: `${fmtZone(z, e.symbol)} : ne plus ${dir === 1 ? "acheter" : "vendre"} (garder les ${dir === 1 ? "ventes" : "achats"})`, ...x2 });
+        }
+      }
+      // 3. An hour out (Chicago, the hour of the fill).
+      const hours = [...new Set(base.map((t) => ctHourOf(t[0] * 60000)))];
+      for (const h of hours) {
+        const x = tryOut((t) => ctHourOf(t[0] * 60000) !== h);
+        if (x.n >= 4) out.push({ kind: "HEURE", symbol: e.symbol, text: `Pas de nouvel ordre de ${h}h à ${h + 1}h CT`, ...x });
+      }
+      // 4. Another configuration of those tested, without the levels switched off.
+      for (const alt of r.top) {
+        if (alt.key === c.key) continue;
+        const rows = alt.trades.filter((t) => !isOff(e.disabled, t[6]));
+        out.push({
+          kind: "CONFIG",
+          symbol: e.symbol,
+          text: `SL ${alt.cfg.sl} · TP1 ${alt.cfg.tp1}${alt.cfg.tp2 > alt.cfg.tp1 ? ` · TP2 ${alt.cfg.tp2}` : ""} au lieu de SL ${c.cfg.sl} · TP1 ${c.cfg.tp1}${c.cfg.tp2 > c.cfg.tp1 ? ` · TP2 ${c.cfg.tp2}` : ""}`,
+          dPnl: net(rows) - baseNet,
+          dDD: dd(rows) - baseDD,
+          n: rows.length,
+          action: { label: "RETENIR", run: () => onChoose(e.symbol, alt.key) },
+        });
+      }
+    }
+    // Worth showing: more money for no more drawdown, or a clearly smaller drawdown for little money.
+    return out
+      .filter((w) => (w.dPnl >= 5 && w.dDD <= 50) || (w.dDD <= -100 && w.dPnl >= -15))
+      .sort((a, b) => b.dPnl - b.dDD / 12 - (a.dPnl - a.dDD / 12))
+      .slice(0, 12);
+  }, [entries, account, onDisable, onChoose]);
+
+  const cols = "70px 40px minmax(0, 1fr) 84px 84px 124px 96px";
+  const conf = (w: Win) => (w.kind === "CONFIG" ? null : w.n >= 10 ? ["SOLIDE", GAIN] : w.n >= 5 ? ["MOYENNE", ORANGE] : ["FAIBLE", LOSS]);
+  return (
+    <Panel title="RECO & QUICK WINS" right="NET DE FRAIS · SUR LA MÊME ANNÉE · À CONFIRMER">
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 860 }}>
+          <Row head cols={cols}>
+            <span>TYPE</span>
+            <span>PAIRE</span>
+            <span>CHANGEMENT</span>
+            <span style={R}>P&L/MOIS</span>
+            <span style={R}>DD PAIRE</span>
+            <span style={R}>BASE</span>
+            <span />
+          </Row>
+          {wins.length === 0 && <div style={{ color: DIM, padding: "12px 10px" }}>RIEN DE NET À GAGNER : AUCUN PETIT CHANGEMENT N&apos;AMÉLIORE LE COMPTE SANS COÛTER AILLEURS.</div>}
+          {wins.map((w, i) => {
+            const k = conf(w);
+            return (
+              <Row key={`${w.symbol}${w.text}${i}`} cols={cols}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: w.kind === "CONFIG" ? BUY_C : w.kind === "NIVEAU" ? ORANGE : DIM }}>{w.kind}</span>
+                <span style={{ color: TXT, fontWeight: 700 }}>{w.symbol}</span>
+                <span style={{ color: "#DDD", overflow: "hidden", textOverflow: "ellipsis" }} title={w.text}>
+                  {w.text}
+                </span>
+                <span style={{ ...R, color: tone(w.dPnl), fontWeight: 700 }}>
+                  {w.dPnl >= 0 ? "+" : "−"}
+                  {Math.abs(Math.round(w.dPnl))} $
+                </span>
+                <span style={{ ...R, color: w.dDD <= 0 ? GAIN : LOSS }}>
+                  {w.dDD <= 0 ? "−" : "+"}
+                  {Math.abs(Math.round(w.dDD))} $
+                </span>
+                <span style={{ ...R, color: k ? (k[1] as string) : DIM, fontSize: 10.5 }} title={w.kind === "CONFIG" ? "Trades de cette config sur l'année" : "Trades retirés"}>
+                  {w.kind === "CONFIG" ? `${w.n} TR` : `${w.n} TR · ${k![0]}`}
+                </span>
+                <span>
+                  {w.action && (
+                    <button
+                      type="button"
+                      onClick={w.action.run}
+                      style={{ cursor: "pointer", width: "100%", fontFamily: "inherit", fontSize: 10, fontWeight: 700, padding: "2px 0", border: `1px solid ${ORANGE}`, background: "transparent", color: ORANGE }}
+                    >
+                      {w.action.label}
+                    </button>
+                  )}
+                </span>
+              </Row>
+            );
+          })}
+        </div>
+      </div>
+      <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
+        CHAQUE LIGNE = L&apos;EFFET SUR LA PAIRE, LE RESTE INCHANGÉ · P&L/MOIS NET DE FRAIS · DD PAIRE : − = MOINS DE DRAWDOWN · BASE = TRADES RETIRÉS (OU DE LA CONFIG) :
+        MOINS DE 5, C&apos;EST FRAGILE · TOUT EST MESURÉ SUR L&apos;ANNÉE QUI A SERVI À FIXER LES RÈGLES : UN GAIN TROUVÉ ICI EST À CONFIRMER, PAS ACQUIS · SENS ET HEURE : À APPLIQUER TOI-MÊME,
+        L&apos;APPLI NE LES GÈRE PAS ENCORE
       </div>
     </Panel>
   );
