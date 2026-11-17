@@ -30,7 +30,7 @@ const res = JSON.parse(readFileSync("prisma/databento-results.json", "utf8")) as
 const ctFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", hour: "2-digit", hourCycle: "h23" });
 const ctHour = (t: number) => Number(ctFmt.format(t));
 
-type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number };
+type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[] };
 /** Three-star releases of each pair's currencies, in ms: no fill within NEWS_MIN minutes of one. Loaded by the run that writes the results. */
 const NEWS_OF = new Map<string, number[]>();
 const NEWS_MIN = 10;
@@ -210,6 +210,8 @@ function run(d: Data, p: P) {
     for (let i = idxAt(z.ready); i < n && T[i] < z.until; i++) {
       if (dd === -1 ? H[i] >= entry + tick - eps : L[i] <= entry - tick + eps) {
         const h = ctHour(T[i]);
+        // A second return in one of the pair's skipped hours (p.skipHours) is not traded, and the pair is done for the day: the market is too restless then.
+        if ((p.skipHours ?? []).includes(h)) { taken.add(sessionDay(T[i])); break; }
         if (h >= 2 && h < 14 && !d.excl.includes(h) && !taken.has(sessionDay(T[i])) && !inNews(d.sym, T[i])) fill = i;
         break;
       }
@@ -258,14 +260,16 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   // A pair's own setting, where one was kept (docs/backtesting.md, 17.11):
   // 6E a longer trend, a wide zone and a nearer target; 6B a shorter move
   // away after the first return, 6J a longer one; ZW a longer trend at one
-  // lot, its stop costing 420 $ a trade at two.
-  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5 }, "6J": { away: 1.5 }, ZW: { days: 3, lots: 1 } };
+  // lot, its stop costing 420 $ a trade at two; ZS not traded on a day its
+  // second return comes at 9h CT, just after the grains' day session opens
+  // (39 % won there, the drawdown 825 $ instead of 1,491).
+  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5 }, "6J": { away: 1.5 }, ZW: { days: 3, lots: 1 }, ZS: { skipHours: [9] } };
   // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half.
   const OUT = ["6N", "6C"];
   const pairs = data.filter((d) => !OUT.includes(d.sym)).map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
     // The trend's sessions and the target in risks, the pair's own when it has one.
-    params: { lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
+    params: { skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
     tick: d.tick,
     from: d.T[0],
     to: d.T[d.T.length - 1],

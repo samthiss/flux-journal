@@ -153,7 +153,7 @@ type News = { at: number; currency: string; title: string };
 /** The "Trade with Trend" backtest: each pair's trades, [entry minute, exit minute, dir, zone low, zone high, entry, stop, target, ticks, $ net of fees]. */
 /** Why a trade: the closes the trend was read from ([session day, close]), the zone's touches, the break, the first return, when the zone was ready — minutes. */
 export type TrendWhy = { closes: [number, number][]; touches: number[]; brk: number; ret: number; ready: number };
-export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
+export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
 /** "1,5" — a target in risks, French. */
 const rText = (v: number) => String(v).replace(".", ",");
 
@@ -1741,6 +1741,7 @@ function TrendRules() {
             { k: "Stop", main: "3 ticks au-delà de l'autre bord de la zone", detail: "Pas de trade si ce stop dépasse 500 $ à 2 lots. ZW se trade à 1 lot : son stop moyen (17 tk) coûte 420 $ à 2 lots ; à 1 lot, +104 $/mois pour un DD de 525 $." },
             { k: "Objectif", main: "1,5 fois le risque (6E : 1,25)", detail: "Testé : 1R, 1,25R, 2R, break-even, sortie de moitié, trailing stop (distance fixe, creux M15 ou H1, gardé jusqu'à 3 jours) — rien ne fait mieux sur la 1re moitié. 6E : 1,25R avec une tendance sur 3 séances et une zone large, 64 % de gagnants." },
             { k: "Durée", main: "4 h au plus, rien après 16h Chicago" },
+            { k: "ZS à 9h CT", main: "Si le 2e retour tombe à 9h CT, pas de trade ZS ce jour-là", detail: "Juste après l'ouverture de la séance de jour des grains (8h30), le marché traverse les zones : 39 % de gagnants à 9h, 63 à 71 % de 10h à 12h. Sans ces jours : 39 trades, 59 %, +526 $/mois au lieu de +480, drawdown 825 $ au lieu de 1 491. Testé aussi sur ZW : moins bien." },
             { k: "Journal", main: "Stratégie « Trade with Trend »", detail: "Pour mesurer tes vrais résultats : c'est eux qui diront si on l'ajoute au plan." },
           ]}
         />
@@ -1750,7 +1751,7 @@ function TrendRules() {
           detail
           rules={[
             { k: "Réglage", main: "Zone et retours en M15, cassure en H1 · règle du 17.11", detail: "Un an (13.11.2025 → 12.11.2026), news bloquées ±10 min, frais déduits, choisi sur la 1re moitié et jugé sur la 2e." },
-            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +601 → +358 · 6B +626 → +239 (57 %). ZW (3 séances, 1 lot) +74 → +135, DD 525. Pas vraiment : ZN +20 → +423. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié." },
+            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +675 → +377 (59 %, DD 825) · 6B +626 → +239 (57 %). ZW (3 séances, 1 lot) +74 → +135, DD 525. Pas vraiment : ZN +20 → +423. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié." },
             { k: "Portefeuilles", main: "6J + 6E : 7,4 trades/mois, 65 %, +610 $/mois, DD 845", detail: "6J + 6E + ZS : 12,3 trades/mois, 60 %, +1 089 $/mois, DD 1 096, pire jour −577. Avec 6B en plus : +1 522 $/mois mais DD 1 651 et pire jour −821. Toutes les paires : DD au-delà des 2 000 du compte. Avec les zones : voir COMBINÉ." },
             { k: "Statut", main: "À l'essai : à confirmer en réel", detail: "Les réglages propres à une paire sont limités à ceux qui tiennent." },
           ]}
@@ -2096,6 +2097,7 @@ function TrendPair({
     (p.params?.away ?? 1) !== 1 && `1ER RETOUR ${rText(p.params!.away!)} STOP`,
     (p.params?.exit ?? 1.5) !== 1.5 && `OBJECTIF ${rText(p.params!.exit)}R`,
     (p.params?.lots ?? 2) !== 2 && `${p.params!.lots} LOT`,
+    (p.params?.skipHours ?? []).length > 0 && `PAS DE TRADE LE JOUR OÙ LE 2E RETOUR TOMBE À ${p.params!.skipHours!.join("H, ")}H CT`,
   ].filter(Boolean);
   const hours = r?.rules?.excludeHours ?? [];
   const spans = orderSpans(r?.rules?.hours ?? [2, 14], hours);
