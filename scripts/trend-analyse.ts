@@ -30,7 +30,7 @@ const res = JSON.parse(readFileSync("prisma/databento-results.json", "utf8")) as
 const ctFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", hour: "2-digit", hourCycle: "h23" });
 const ctHour = (t: number) => Number(ctFmt.format(t));
 
-type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean };
+type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number };
 /** Three-star releases of each pair's currencies, in ms: no fill within NEWS_MIN minutes of one. Loaded by the run that writes the results. */
 const NEWS_OF = new Map<string, number[]>();
 const NEWS_MIN = 10;
@@ -237,7 +237,8 @@ function run(d: Data, p: P) {
       if (towards(j, tp)) { ticks = half ? (one + tgt) / 2 : tgt; break; }
     }
     if (ticks === null) { const cl = ticksAt(C[Math.min(j, n - 1) - 1]); ticks = half ? (one + cl) / 2 : cl; }
-    out.push({ t: T[fill], pnl: ticks * d.money - d.fee, r: ticks / slTicks, z, entry, sl: entry - dd * slTicks * tick, tp, ticks, end: T[Math.min(j, n - 1)] });
+    // d.money and d.fee are for two lots; a pair traded at one lot (p.lots) takes half of both.
+    out.push({ t: T[fill], pnl: (ticks * d.money - d.fee) * ((p.lots ?? 2) / 2), r: ticks / slTicks, z, entry, sl: entry - dd * slTicks * tick, tp, ticks, end: T[Math.min(j, n - 1)] });
   }
   const h1 = out.filter((x) => x.t < d.mid), h2 = out.filter((x) => x.t >= d.mid);
   const sum = (l: typeof out) => l.reduce((acc, x) => acc + x.pnl, 0);
@@ -256,12 +257,15 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   const base0: P = { days: 2, touches: 3, bounce: 1 / 3, width: 0.5, away: 1, stop: "zone", exit: 1.5, entry: "edge", buf: 3, mgmt: "fixed", hold: 4 };
   // A pair's own setting, where one was kept (docs/backtesting.md, 17.11):
   // 6E a longer trend, a wide zone and a nearer target; 6B a shorter move
-  // away after the first return, 6J a longer one.
-  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5 }, "6J": { away: 1.5 } };
-  const pairs = data.map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
+  // away after the first return, 6J a longer one; ZW a longer trend at one
+  // lot, its stop costing 420 $ a trade at two.
+  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5 }, "6J": { away: 1.5 }, ZW: { days: 3, lots: 1 } };
+  // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half.
+  const OUT = ["6N", "6C"];
+  const pairs = data.filter((d) => !OUT.includes(d.sym)).map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
     // The trend's sessions and the target in risks, the pair's own when it has one.
-    params: { days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
+    params: { lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
     tick: d.tick,
     from: d.T[0],
     to: d.T[d.T.length - 1],
