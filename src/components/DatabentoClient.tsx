@@ -2468,7 +2468,6 @@ function ComboReport({ trend, on, per, account }: { trend: TrendResults | null; 
     { label: "WIN%", value: kept.length ? `${Math.round((wins / kept.length) * 100)}` : "—", color: TXT, sub: `${cutPos + cutDay} TRADES ÉCARTÉS PAR LES RÈGLES` },
     { label: "MAX DD", value: `−${Math.round(dd)}`, color: LOSS, sub: `${Math.round((dd / limit) * 100)} % DE LA LIMITE (${limit})` },
     { label: "PIRE JOUR", value: short(worst), color: LOSS, sub: `${under} JOURS SOUS −${dayStop}` },
-    { label: "TREND", value: on.length ? on.join(" · ") : "AUCUNE", color: ORANGE, sub: "PAIRES ACTIVES (ONGLET TRADE WITH TREND)" },
   ];
   // Each month's legs and the running total, worked out before the render.
   const rows = months.reduce<{ m: string; z: number; t: number; n: number; cum: number }[]>((acc, m) => {
@@ -2477,11 +2476,13 @@ function ComboReport({ trend, on, per, account }: { trend: TrendResults | null; 
     return acc;
   }, []);
   const rowMax = Math.max(1, ...rows.map((r) => Math.abs(r.z + r.t)));
+  const copies = account.copies ?? 1;
+  const comboCols = `62px 40px 1fr 84px 84px 84px 90px${copies > 1 ? " 90px 96px" : ""}`;
   return (
     <>
       <KpiStrip kpis={kpis} />
       <Panel title="COMBINÉ · ZONES + TRADE WITH TREND · PAR MOIS" right={`−${dayStop} $/JOUR · ${maxPos} POSITIONS MAX · UNE PAR PAIRE`}>
-        <Row head cols="62px 40px 1fr 84px 84px 84px 90px">
+        <Row head cols={comboCols}>
           <span>MOIS</span>
           <span style={R}>TR</span>
           <span />
@@ -2489,9 +2490,11 @@ function ComboReport({ trend, on, per, account }: { trend: TrendResults | null; 
           <span style={R}>TREND</span>
           <span style={R}>TOTAL</span>
           <span style={R}>CUMUL</span>
+          {copies > 1 && <span style={R}>TOTAL ×{copies}</span>}
+          {copies > 1 && <span style={R}>CUMUL ×{copies}</span>}
         </Row>
         {rows.map(({ m, z, t, n, cum }) => (
-          <Row key={m} cols="62px 40px 1fr 84px 84px 84px 90px">
+          <Row key={m} cols={comboCols}>
             <span style={{ color: DIM }}>{termMonth(m)}</span>
             <span style={R}>{n}</span>
             <span style={bar((Math.abs(z + t) / rowMax) * 100, tone(z + t))} />
@@ -2499,11 +2502,13 @@ function ComboReport({ trend, on, per, account }: { trend: TrendResults | null; 
             <span style={{ ...R, color: tone(t) }}>{short(t)}</span>
             <span style={{ ...R, color: tone(z + t), fontWeight: 700 }}>{short(z + t)}</span>
             <span style={{ ...R, color: tone(cum) }}>{short(cum)}</span>
+            {copies > 1 && <span style={{ ...R, color: tone(z + t), fontWeight: 700 }}>{short((z + t) * copies)}</span>}
+            {copies > 1 && <span style={{ ...R, color: tone(cum) }}>{short(cum * copies)}</span>}
           </Row>
         ))}
         <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
           ZONES = TES NIVEAUX ANNUELS (CONFIG RETENUE, ZONES DÉSACTIVÉES EXCLUES) · TREND = LES PAIRES ACTIVES DE TRADE WITH TREND · FRAIS DÉDUITS · DD SUR LES SOLDES DE FIN DE JOURNÉE ·
-          LA LIMITE DU JOUR NE COUPE QUE LES NOUVEAUX TRADES
+          LA LIMITE DU JOUR NE COUPE QUE LES NOUVEAUX TRADES{copies > 1 ? ` · ×${copies} = LE MASTER ET SES ${copies - 1} SLAVE${copies > 2 ? "S" : ""}, LES MÊMES TRADES SUR CHAQUE COMPTE` : ""}
         </div>
       </Panel>
     </>
