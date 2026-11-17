@@ -245,10 +245,13 @@ export async function deleteTrades(ids: string[]) {
   // The rows go first, so that a chart a note imported is still spoken for
   // when the files are swept: the note keeps the image it was shown.
   await prisma.trade.deleteMany({ where: { id: { in: trades.map((t) => t.id) }, ownerId } });
+  // The Trading Plan's order a trade was written from goes with it.
+  await prisma.planOrder.deleteMany({ where: { tradeId: { in: trades.map((t) => t.id) } } });
   await deleteImageFilesIfUnused(charts);
 
   revalidatePath("/");
   revalidatePath("/trades");
+  revalidatePath("/trading-plan");
   return trades.length;
 }
 
@@ -260,9 +263,12 @@ export async function deleteTrade(tradeId: string) {
     // The trade goes first, so that a chart a note imported is still spoken for
     // when the files are swept: the note keeps the image it was shown.
     await prisma.trade.delete({ where: { id: tradeId } });
+    // The Trading Plan's order it was written from goes with it.
+    await prisma.planOrder.deleteMany({ where: { tradeId } });
     await deleteImageFilesIfUnused(charts);
   }
   revalidatePath("/");
   revalidatePath("/trades");
+  revalidatePath("/trading-plan");
   redirect("/trades");
 }

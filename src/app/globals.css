@@ -727,3 +727,27 @@ textarea:focus {
     flex: none !important;
   }
 }
+
+/* The Trading Plan's order zones: what a click would add, lit before it is clicked. */
+.plan-zone {
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.plan-zone:not(:disabled):hover {
+  border-style: solid !important;
+}
+.plan-zone[data-side="Long"]:not(:disabled):hover {
+  border-color: #4fc3f7 !important;
+  background: rgba(79, 195, 247, 0.14) !important;
+  box-shadow: inset 3px 0 0 #4fc3f7;
+}
+.plan-zone[data-side="Short"]:not(:disabled):hover {
+  border-color: #e879f9 !important;
+  background: rgba(232, 121, 249, 0.14) !important;
+  box-shadow: inset 3px 0 0 #e879f9;
+}
+.plan-zone:not(:disabled):active {
+  transform: translateY(1px);
+}
+.plan-zone:disabled {
+  cursor: default;
+}

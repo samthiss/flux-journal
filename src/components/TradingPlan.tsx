@@ -478,153 +478,107 @@ export default function TradingPlan({
         </div>
       </Panel>
 
-      {/* ---- Hours and news ---- */}
-      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.65fr) minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
-        <Panel title={`HORAIRES DU JOUR · ${dateLabel.slice(0, 9)}`} right={`FIN DES ORDRES ${hh(last)} CT · ${berClock(hourAt(last)).slice(0, 2)}H BERLIN`}>
-          <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 640, padding: "8px 10px 10px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: `52px repeat(${hours.length}, minmax(0, 1fr))`, gap: 3, fontSize: 11 }}>
-                <span style={{ color: DIM }}>CT</span>
-                {hours.map((h) => {
-                  const cur = isToday && nowCt.h === h;
-                  return (
-                    <span key={`c${h}`} style={{ textAlign: "center", fontWeight: 700, color: cur ? "#000" : ORANGE, background: cur ? ORANGE : "none" }}>
-                      {hh(h)}
-                    </span>
-                  );
-                })}
-                <span style={{ color: DIM }}>BERLIN</span>
-                {hours.map((h) => (
-                  <span key={`b${h}`} style={{ textAlign: "center", color: DIM }}>
-                    {berClock(hourAt(h)).slice(0, 2)}h
-                  </span>
-                ))}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 6 }}>
-                {pairs.map((p) => (
-                  <div key={p.symbol} style={{ display: "grid", gridTemplateColumns: `52px repeat(${hours.length}, minmax(0, 1fr))`, gap: 3 }}>
-                    <span style={{ color: TXT, fontWeight: 700, alignSelf: "center" }}>{p.symbol}</span>
-                    {hours.map((h) => {
-                      const blocked = h < p.hours[0] || h >= p.hours[1] || p.exclude.includes(h);
-                      const hit = blocksFor(p.symbol, blocking).filter((b) => b.at + BLACKOUT_MS > hourAt(h) && b.at - BLACKOUT_MS < hourAt(h + 1));
-                      const cur = isToday && nowCt.h === h;
-                      const past = isToday && h < nowCt.h;
-                      return (
-                        <span
-                          key={h}
-                          title={`${p.symbol} · ${hh(h)} CT / ${berClock(hourAt(h)).slice(0, 2)}h Berlin : ${blocked ? "pas de nouvel ordre" : hit.length ? `ordres permis sauf ${hit.map((b) => `${ctClock(b.at - BLACKOUT_MS)}–${ctClock(b.at + BLACKOUT_MS)} (${b.currency} ${b.title})`).join(", ")}` : "ordres permis"}`}
-                          style={{
-                            height: 16,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 10,
-                            fontWeight: 700,
-                            color: LOSS,
-                            background: blocked ? "#161616" : "#123A22",
-                            borderTop: blocked ? "none" : `1px solid ${GAIN}`,
-                            outline: cur ? `1px solid ${ORANGE}` : "none",
-                            outlineOffset: -1,
-                            opacity: past ? 0.45 : 1,
-                          }}
-                        >
-                          {!blocked && hit.length ? "N" : ""}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 10, fontSize: 11, color: "#A8A8A8" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 14, height: 10, background: "#123A22", borderTop: `1px solid ${GAIN}` }} />
-                  ORDRES PERMIS
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 14, height: 10, background: "#161616" }} />
-                  PAS DE NOUVEL ORDRE
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ color: LOSS, fontWeight: 700 }}>N</span>NEWS 3★ : AUCUN ORDRE 10 MIN AVANT → 10 MIN APRÈS
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 14, height: 10, border: `1px solid ${ORANGE}` }} />
-                  HEURE EN COURS
-                </span>
-              </div>
-              <div style={{ marginTop: 10, borderTop: "1px solid #1A1A1A" }}>
-                <button
-                  type="button"
-                  onClick={() => setWhyOpen((v) => !v)}
-                  aria-expanded={whyOpen}
-                  style={{ cursor: "pointer", background: "none", border: 0, fontFamily: "inherit", display: "flex", gap: 8, padding: "8px 0 4px", fontSize: 11, fontWeight: 700, color: ORANGE }}
-                >
-                  <span>{whyOpen ? "▾" : "▸"}</span>
-                  <span>POURQUOI CES HORAIRES</span>
-                </button>
-                {whyOpen && (
-                  <div style={{ fontSize: 11.5, lineHeight: 1.7, color: "#A8A8A8", padding: "2px 0 2px 16px" }}>
-                    <div style={{ color: DIM, marginBottom: 2 }}>Un trade rempli avant une heure grise se gère jusqu&apos;au bout (SL, TP1, trailing, 4 h max).</div>
-                    {pairs
-                      .filter((p) => p.why)
-                      .map((p) => (
-                        <div key={p.symbol}>
-                          <span style={{ color: TXT, fontWeight: 700 }}>{p.symbol}</span> · {p.why}
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </Panel>
-
-        <Panel title="NEWS DU JOUR" right="3★ = BLACKOUT ±10 MIN">
-          <div style={{ display: "grid", gridTemplateColumns: "44px 44px 36px 1fr 36px", gap: 8, padding: "5px 10px", color: DIM, fontSize: 10.5, borderBottom: "1px solid #2E2E2E" }}>
-            <span>CT</span>
-            <span>BER</span>
-            <span>DEV</span>
-            <span>ÉVÉNEMENT</span>
-            <span>IMP</span>
-          </div>
-          <div style={{ maxHeight: 420, overflowY: "auto" }}>
-          {!newsOk && <div style={{ padding: "10px", color: DIM }}>Le flux des news n&apos;a pas répondu — il sera relu dans l&apos;heure.</div>}
-          {newsOk && relevant.length === 0 && <div style={{ padding: "10px", color: DIM }}>Aucune news 3★, ni 2★ à venir, pour tes paires ce jour-là.</div>}
-          {relevant.map((n, i) => {
-            const t = n.at ? new Date(n.at).getTime() : null;
-            const block = n.impact === "high" && t !== null;
-            const past = t !== null && t < now;
-            return (
-              <div
-                key={`${n.at}${n.title}${i}`}
-                style={{ borderBottom: "1px solid #141414", color: past ? "#555" : block ? TXT : undefined, background: block && !past ? "#1F0E0E" : undefined, fontWeight: block && !past ? 600 : 400 }}
-              >
-                <div style={{ display: "grid", gridTemplateColumns: "44px 44px 36px 1fr 36px", gap: 8, padding: "5px 10px", alignItems: "center" }}>
-                  <span>{t ? ctClock(t) : "—"}</span>
-                  <span style={{ color: DIM }}>{t ? berClock(t) : "—"}</span>
-                  <span style={{ color: past ? "#555" : TXT }}>{n.currency}</span>
-                  <span>{n.title}</span>
-                  <span style={{ color: block ? LOSS : DIM }}>{block ? "★★★" : "★★"}</span>
-                </div>
-                {block && t !== null && (
-                  <div style={{ padding: "0 10px 6px 106px", fontSize: 11, lineHeight: 1.6 }}>
-                    <span style={{ background: past ? "#555" : LOSS, color: "#000", fontWeight: 700, padding: "0 6px" }}>NE PAS TRADER : {whoText(n.currency)}</span>
-                    <br />
-                    <span style={{ color: past ? "#555" : LOSS }}>
-                      {ctClock(t - BLACKOUT_MS)}–{ctClock(t + BLACKOUT_MS)} CT · {berClock(t - BLACKOUT_MS)}–{berClock(t + BLACKOUT_MS)} BER
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          </div>
-        </Panel>
-      </div>
-
-      {/* ---- Plan, orders, checklist, notifications ---- */}
+      {/* ---- Two columns: hours, plan and orders; news, checklist and notifications ---- */}
       <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.65fr) minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+          <Panel title={`HORAIRES DU JOUR · ${dateLabel.slice(0, 9)}`} right={`FIN DES ORDRES ${hh(last)} CT · ${berClock(hourAt(last)).slice(0, 2)}H BERLIN`}>
+            <div style={{ overflowX: "auto" }}>
+              <div style={{ minWidth: 640, padding: "8px 10px 10px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: `52px repeat(${hours.length}, minmax(0, 1fr))`, gap: 3, fontSize: 11 }}>
+                  <span style={{ color: DIM }}>CT</span>
+                  {hours.map((h) => {
+                    const cur = isToday && nowCt.h === h;
+                    return (
+                      <span key={`c${h}`} style={{ textAlign: "center", fontWeight: 700, color: cur ? "#000" : ORANGE, background: cur ? ORANGE : "none" }}>
+                        {hh(h)}
+                      </span>
+                    );
+                  })}
+                  <span style={{ color: DIM }}>BERLIN</span>
+                  {hours.map((h) => (
+                    <span key={`b${h}`} style={{ textAlign: "center", color: DIM }}>
+                      {berClock(hourAt(h)).slice(0, 2)}h
+                    </span>
+                  ))}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 6 }}>
+                  {pairs.map((p) => (
+                    <div key={p.symbol} style={{ display: "grid", gridTemplateColumns: `52px repeat(${hours.length}, minmax(0, 1fr))`, gap: 3 }}>
+                      <span style={{ color: TXT, fontWeight: 700, alignSelf: "center" }}>{p.symbol}</span>
+                      {hours.map((h) => {
+                        const blocked = h < p.hours[0] || h >= p.hours[1] || p.exclude.includes(h);
+                        const hit = blocksFor(p.symbol, blocking).filter((b) => b.at + BLACKOUT_MS > hourAt(h) && b.at - BLACKOUT_MS < hourAt(h + 1));
+                        const cur = isToday && nowCt.h === h;
+                        const past = isToday && h < nowCt.h;
+                        return (
+                          <span
+                            key={h}
+                            title={`${p.symbol} · ${hh(h)} CT / ${berClock(hourAt(h)).slice(0, 2)}h Berlin : ${blocked ? "pas de nouvel ordre" : hit.length ? `ordres permis sauf ${hit.map((b) => `${ctClock(b.at - BLACKOUT_MS)}–${ctClock(b.at + BLACKOUT_MS)} (${b.currency} ${b.title})`).join(", ")}` : "ordres permis"}`}
+                            style={{
+                              height: 16,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: LOSS,
+                              background: blocked ? "#161616" : "#123A22",
+                              borderTop: blocked ? "none" : `1px solid ${GAIN}`,
+                              outline: cur ? `1px solid ${ORANGE}` : "none",
+                              outlineOffset: -1,
+                              opacity: past ? 0.45 : 1,
+                            }}
+                          >
+                            {!blocked && hit.length ? "N" : ""}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 10, fontSize: 11, color: "#A8A8A8" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 14, height: 10, background: "#123A22", borderTop: `1px solid ${GAIN}` }} />
+                    ORDRES PERMIS
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 14, height: 10, background: "#161616" }} />
+                    PAS DE NOUVEL ORDRE
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: LOSS, fontWeight: 700 }}>N</span>NEWS 3★ : AUCUN ORDRE 10 MIN AVANT → 10 MIN APRÈS
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 14, height: 10, border: `1px solid ${ORANGE}` }} />
+                    HEURE EN COURS
+                  </span>
+                </div>
+                <div style={{ marginTop: 10, borderTop: "1px solid #1A1A1A" }}>
+                  <button
+                    type="button"
+                    onClick={() => setWhyOpen((v) => !v)}
+                    aria-expanded={whyOpen}
+                    style={{ cursor: "pointer", background: "none", border: 0, fontFamily: "inherit", display: "flex", gap: 8, padding: "8px 0 4px", fontSize: 11, fontWeight: 700, color: ORANGE }}
+                  >
+                    <span>{whyOpen ? "▾" : "▸"}</span>
+                    <span>POURQUOI CES HORAIRES</span>
+                  </button>
+                  {whyOpen && (
+                    <div style={{ fontSize: 11.5, lineHeight: 1.7, color: "#A8A8A8", padding: "2px 0 2px 16px" }}>
+                      <div style={{ color: DIM, marginBottom: 2 }}>Un trade rempli avant une heure grise se gère jusqu&apos;au bout (SL, TP1, trailing, 4 h max).</div>
+                      {pairs
+                        .filter((p) => p.why)
+                        .map((p) => (
+                          <div key={p.symbol}>
+                            <span style={{ color: TXT, fontWeight: 700 }}>{p.symbol}</span> · {p.why}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Panel>
           <Panel title="PLAN PAR PAIRE · FENÊTRES ET NIVEAUX" right="CLIC = PRIX D'ORDRE PAR NIVEAU">
             <div style={{ overflowX: "auto" }}>
               <div style={{ minWidth: 760 }}>
@@ -716,6 +670,7 @@ export default function TradingPlan({
                                   title={has ? "Ordre déjà ajouté" : `Ajouter cet ordre ${side === "Long" ? "d'achat" : "de vente"}`}
                                   aria-label={`${side === "Long" ? "Achat" : "Vente"} ${p.symbol} à ${px(q.entry, p.symbol)}`}
                                   className="plan-zone"
+                                  data-side={side}
                                   style={{
                                     cursor: has ? "default" : "pointer",
                                     display: "grid",
@@ -942,6 +897,47 @@ export default function TradingPlan({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+          <Panel title="NEWS DU JOUR" right="3★ = BLACKOUT ±10 MIN">
+            <div style={{ display: "grid", gridTemplateColumns: "44px 44px 36px 1fr 36px", gap: 8, padding: "5px 10px", color: DIM, fontSize: 10.5, borderBottom: "1px solid #2E2E2E" }}>
+              <span>CT</span>
+              <span>BER</span>
+              <span>DEV</span>
+              <span>ÉVÉNEMENT</span>
+              <span>IMP</span>
+            </div>
+            <div style={{ maxHeight: 420, overflowY: "auto" }}>
+            {!newsOk && <div style={{ padding: "10px", color: DIM }}>Le flux des news n&apos;a pas répondu — il sera relu dans l&apos;heure.</div>}
+            {newsOk && relevant.length === 0 && <div style={{ padding: "10px", color: DIM }}>Aucune news 3★, ni 2★ à venir, pour tes paires ce jour-là.</div>}
+            {relevant.map((n, i) => {
+              const t = n.at ? new Date(n.at).getTime() : null;
+              const block = n.impact === "high" && t !== null;
+              const past = t !== null && t < now;
+              return (
+                <div
+                  key={`${n.at}${n.title}${i}`}
+                  style={{ borderBottom: "1px solid #141414", color: past ? "#555" : block ? TXT : undefined, background: block && !past ? "#1F0E0E" : undefined, fontWeight: block && !past ? 600 : 400 }}
+                >
+                  <div style={{ display: "grid", gridTemplateColumns: "44px 44px 36px 1fr 36px", gap: 8, padding: "5px 10px", alignItems: "center" }}>
+                    <span>{t ? ctClock(t) : "—"}</span>
+                    <span style={{ color: DIM }}>{t ? berClock(t) : "—"}</span>
+                    <span style={{ color: past ? "#555" : TXT }}>{n.currency}</span>
+                    <span>{n.title}</span>
+                    <span style={{ color: block ? LOSS : DIM }}>{block ? "★★★" : "★★"}</span>
+                  </div>
+                  {block && t !== null && (
+                    <div style={{ padding: "0 10px 6px 106px", fontSize: 11, lineHeight: 1.6 }}>
+                      <span style={{ background: past ? "#555" : LOSS, color: "#000", fontWeight: 700, padding: "0 6px" }}>NE PAS TRADER : {whoText(n.currency)}</span>
+                      <br />
+                      <span style={{ color: past ? "#555" : LOSS }}>
+                        {ctClock(t - BLACKOUT_MS)}–{ctClock(t + BLACKOUT_MS)} CT · {berClock(t - BLACKOUT_MS)}–{berClock(t + BLACKOUT_MS)} BER
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            </div>
+          </Panel>
           <Panel title="CHECKLIST AVANT LES ORDRES" right={`${doneCount} / ${CHECKLIST.length}`}>
             {CHECKLIST.map((c) => {
               const done = !!checks[c.id];
@@ -1160,6 +1156,8 @@ export default function TradingPlan({
                             disabled={pending || has}
                             onClick={() => act(() => addPlanOrder(day, p.symbol, L, side))}
                             aria-label={`${side === "Long" ? "Achat" : "Vente"} ${p.symbol} à ${px(q.entry, p.symbol)}`}
+                            className="plan-zone"
+                            data-side={side}
                             style={{
                               cursor: has ? "default" : "pointer",
                               flex: 1,
