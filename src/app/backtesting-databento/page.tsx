@@ -3,6 +3,9 @@ import { monJournal } from "@/lib/session";
 import DatabentoClient from "@/components/DatabentoClient";
 import { getHighImpactBetween } from "@/lib/economicCalendar";
 import { newsCurrencies } from "@/lib/contracts";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import type { TrendResults } from "@/components/DatabentoClient";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,17 @@ async function weekNews(currencies: string[]) {
   const hourIn = (timeZone: string) => Number(new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(now));
   const berlinShift = (hourIn("Europe/Berlin") - hourIn("America/Chicago") + 24) % 24;
   return { news, now, berlinShift };
+}
+
+/** The "Trade with Trend" backtest, run on the trader's machine (scripts/trend-analyse.ts) and shipped with the code. */
+function trendResults(): TrendResults | null {
+  const file = path.join(process.cwd(), "prisma", "trend-results.json");
+  if (!existsSync(file)) return null;
+  try {
+    return JSON.parse(readFileSync(file, "utf8")) as TrendResults;
+  } catch {
+    return null;
+  }
 }
 
 export default async function BacktestingDatabentoPage() {
@@ -41,6 +55,8 @@ export default async function BacktestingDatabentoPage() {
         news={news}
         now={now}
         berlinShift={berlinShift}
+        trend={trendResults()}
+        trendOn={rows.filter((r) => r.trendOn).map((r) => r.symbol)}
       />
     </div>
   );

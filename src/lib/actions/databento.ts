@@ -34,3 +34,11 @@ export async function setZoneDisabled(symbol: string, zone: number, disabled: bo
   revalidatePath("/trading-plan");
   revalidatePath("/trade/new");
 }
+
+/** A pair's "Trade with Trend" trades counted in the reports and the account, or left out. */
+export async function setTrendPair(symbol: string, on: boolean) {
+  await exigeProprietaire();
+  const ownerId = await monJournal();
+  await prisma.databentoSymbol.updateMany({ where: { ownerId, symbol: symbol.trim().toUpperCase() }, data: { trendOn: !!on } });
+  revalidatePath("/backtesting-databento");
+}

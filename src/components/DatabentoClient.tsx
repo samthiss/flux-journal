@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { accentColor, lossColor, winColor } from "@/lib/theme";
 import { fieldStyle, fmtOffset, fmtUsd, mono, tone } from "@/components/BacktestUi";
-import { ratioOf, kindOf, monthOf, OUTCOMES, trailingDrawdown, type Bucket, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
+import { ratioOf, kindOf, monthOf, OUTCOMES, sessionDay, trailingDrawdown, type Bucket, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, feeRoundTrip, firmShares, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
-import { chooseDatabentoConfig, setZoneDisabled } from "@/lib/actions/databento";
+import { chooseDatabentoConfig, setTrendPair, setZoneDisabled } from "@/lib/actions/databento";
 import { CONTRACTS, newsCurrencies } from "@/lib/contracts";
 import { HOURS_WHY } from "@/lib/pairHoursWhy";
 import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, tickNote } from "@/lib/databento/format";
@@ -150,7 +150,32 @@ function RuleRow({ on, onToggle, label: text, children }: { on: boolean; onToggl
 /** A release that blocks orders: when, whose, what. */
 type News = { at: number; currency: string; title: string };
 
-export default function DatabentoClient({ initial, news, now, berlinShift }: { initial: Saved[]; news: News[] | null; now: number; berlinShift: number }) {
+/** The "Trade with Trend" backtest: each pair's trades, [entry minute, exit minute, dir, zone low, zone high, entry, stop, target, ticks, $ net of fees]. */
+export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][] }[] };
+
+export default function DatabentoClient({
+  initial,
+  news,
+  now,
+  berlinShift,
+  trend,
+  trendOn: trendOnInitial,
+}: {
+  initial: Saved[];
+  news: News[] | null;
+  now: number;
+  berlinShift: number;
+  trend: TrendResults | null;
+  trendOn: string[];
+}) {
+  /** Which strategy the page reports: the yearly levels, the trend trades, or both on one account. */
+  const [strat, setStrat] = useState<"zones" | "trend" | "combo">("zones");
+  const [trendOn, setTrendOn] = useState<string[]>(trendOnInitial);
+  const toggleTrend = (sym: string) => {
+    const on = !trendOn.includes(sym);
+    setTrendOn((l) => (on ? [...l, sym] : l.filter((x) => x !== sym)));
+    startTransition(() => setTrendPair(sym, on));
+  };
   const [entries, setEntries] = useState<Entry[]>(() =>
     initial.map((s) => ({ symbol: s.symbol, zones: s.zones, result: parseResult(s.result), chosenKey: s.chosenKey, disabled: s.disabled }))
   );
@@ -412,6 +437,43 @@ export default function DatabentoClient({ initial, news, now, berlinShift }: { i
         </Panel>
       )}
 
+      {/* ---- The strategy reported ---- */}
+      <div role="toolbar" aria-label="Stratégie" style={{ display: "flex", flexWrap: "wrap", border: "1px solid #2E2E2E" }}>
+        {(
+          [
+            ["zones", "STRATÉGIE ZONES"],
+            ["trend", "TRADE WITH TREND"],
+            ["combo", "COMBINÉ"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={strat === id}
+            onClick={() => setStrat(id)}
+            style={{
+              cursor: "pointer",
+              padding: "6px 14px",
+              border: 0,
+              borderRight: "1px solid #1A1A1A",
+              fontFamily: "inherit",
+              fontSize: 12,
+              fontWeight: 700,
+              background: strat === id ? "#1F1608" : "#000",
+              boxShadow: strat === id ? `inset 0 -2px 0 ${ORANGE}` : "none",
+              color: strat === id ? ORANGE : "#CCC",
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {strat === "trend" && <TrendReport trend={trend} on={trendOn} onToggle={toggleTrend} />}
+      {strat === "combo" && <ComboReport trend={trend} on={trendOn} per={general.per} account={account} />}
+
+      {strat === "zones" && (
+        <>
       {/* ---- The screens, as function keys ---- */}
       <div role="toolbar" aria-label="Écrans" style={{ display: "flex", flexWrap: "wrap", border: "1px solid #2E2E2E" }}>
         {keys.map((k, i) => {
@@ -452,6 +514,7 @@ export default function DatabentoClient({ initial, news, now, berlinShift }: { i
         <>
           <GeneralRules r={general.per[0].e.result!} account={account} symbols={general.per.map(({ e }) => e.symbol)} detail />
           <PairRules per={general.per} berlinShift={berlinShift} />
+          <TrendRules />
         </>
       )}
 
@@ -614,6 +677,8 @@ export default function DatabentoClient({ initial, news, now, berlinShift }: { i
           onToggleZone={(z, off) => switchZone(sel.symbol, z, off)}
         />
       )}
+        </>
+      )}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 18, padding: "4px 12px", border: "1px solid #2E2E2E", color: DIM, fontSize: 11 }}>
         <span>
@@ -761,7 +826,7 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
             main: bo ? `Pas d'ordre ${bo.before} min avant → ${bo.after} min après` : "Pas de blackout",
             detail: bo
               ? bo.all
-                ? "Chaque news 3 étoiles des devises de la paire, selon la note de TradingView : ce sont celles listées sur la Fiche du jour. Pas toutes les 3 étoiles d'investing.com — Initial Jobless Claims, ADP, JOLTS ou les stocks de pétrole n'en font pas partie (les bloquer aussi coûte ≈ 120 $/mois au backtest)."
+                ? "Chaque news 3 étoiles des devises de la paire, selon la note de TradingView : ce sont celles du Trading Plan. Pas toutes les 3 étoiles d'investing.com — Initial Jobless Claims, ADP, JOLTS ou les stocks de pétrole n'en font pas partie (les bloquer aussi coûte ≈ 120 $/mois au backtest)."
                 : "CPI, NFP, Fed et la banque centrale de la paire"
               : undefined,
           },
@@ -1629,5 +1694,363 @@ function QuickWins({
         L&apos;APPLI NE LES GÈRE PAS ENCORE
       </div>
     </Panel>
+  );
+}
+
+/**
+ * The second strategy, "Trade with Trend", as the trader trades it: a zone
+ * the trend broke, retested once and left, traded on the second return. Its
+ * numbers are the backtest's (2026-11-17), chosen on the first half of the
+ * year and judged on the second.
+ */
+function TrendRules() {
+  return (
+    <>
+      <div style={{ color: ORANGE, fontWeight: 700, fontSize: 12, padding: "10px 2px 0", letterSpacing: "0.04em" }}>STRATÉGIE 2 · TRADE WITH TREND</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 8 }}>
+        <RuleCard
+          num={1}
+          title="Le setup"
+          detail
+          rules={[
+            { k: "Tendance", main: "Plusieurs jours dans la même direction", detail: "Au moins 2 séances de suite qui clôturent plus bas que la précédente pour un short (plus haut pour un long)." },
+            {
+              k: "Zone",
+              main: "3 rebonds proches d'un même creux, chacun reparti assez loin",
+              detail:
+                "3 creux H1 (ou sommets pour un long) à X ticks au plus, au-dessus ou en dessous, d'un même creux de référence — la zone peut donc faire jusqu'à 2 × X. Et entre deux creux, le prix repart d'au moins X. X = 6B, 6N, 6C 12 ticks · 6J, ZW 8 ticks · 6E, ZN 6 ticks. Testé : 2 ou 4 rebonds font moins bien, et des rebonds deux fois plus grands aussi ; une zone limitée strictement à X ou à 2 × X fait nettement moins bien sur la 2e moitié.",
+            },
+            { k: "Cassure", main: "Une bougie H1 clôture au-delà de la zone, dans le sens de la tendance" },
+            {
+              k: "1er retour",
+              main: "Le prix revient sur la zone et repart dans le sens de la tendance",
+              detail:
+                "Il doit repartir d'au moins : 6B, 6N, 6C 25 ticks · 6J, ZW 15 ticks · 6E, ZN 12 ticks. Moitié moins ne suffit pas (perd) ; deux fois plus laisse trop peu de trades. S'il clôture de nouveau de l'autre côté de la zone, la cassure a échoué : pas de trade.",
+            },
+            { k: "Entrée", main: "Au 2e retour sur la zone, ordre limite 1 tick avant le bord de la zone, dans le sens de la tendance", detail: "Dans les 48 h après le 1er rebond, aux heures d'ordres de la paire, un trade par jour et par paire, mêmes blackouts news." },
+          ]}
+        />
+        <RuleCard
+          num={2}
+          title="Gestion"
+          detail
+          rules={[
+            { k: "Stop", main: "3 ticks au-delà de l'autre bord de la zone", detail: "Pas de trade si ce stop dépasse 500 $ à 2 lots." },
+            { k: "Objectif", main: "1,5 fois le risque", detail: "Testé aussi : la sortie du plan (TP1 + trailing) et 1 fois le risque, un peu moins bons." },
+            { k: "Durée", main: "4 h au plus, rien après 16h Chicago" },
+            { k: "Journal", main: "Stratégie « Trade with Trend »", detail: "Pour mesurer tes vrais résultats : c'est eux qui diront si on l'ajoute au plan." },
+          ]}
+        />
+        <RuleCard
+          num={3}
+          title="Ce que dit le backtest"
+          detail
+          rules={[
+            { k: "Statut", main: "À l'essai, pas encore dans le plan", detail: "Choisi sur la 1re moitié de l'année (+1 275 $/mois sur les 8 paires), jugé sur la 2e : +558 $/mois, sur environ 274 trades par an. Positif, mais nettement moins que la 1re moitié." },
+            { k: "Où ça marche", main: "ZW surtout, puis 6N et 6J", detail: "Réglages gagnants sur les deux moitiés, sur 240 : ZW 144, 6N 76, 6J 59, 6E 50, 6C 48, ZN 47, 6B 45." },
+            { k: "À éviter", main: "ZS : presque aucun réglage ne gagne sur les deux moitiés (2 sur 240)" },
+          ]}
+        />
+      </div>
+    </>
+  );
+}
+
+// ---- Trade with Trend -------------------------------------------------------
+
+type TrendRow = number[];
+/** End-of-day drawdown on closed trades: the deepest fall of the closing balance from its peak. */
+function eodDrawdown(list: { t: number; pnl: number }[]) {
+  const days = new Map<number, number>();
+  for (const x of list) days.set(sessionDay(x.t), (days.get(sessionDay(x.t)) ?? 0) + x.pnl);
+  let bal = 0, peak = 0, dd = 0, worst = 0;
+  for (const d of [...days.keys()].sort((a, b) => a - b)) {
+    const v = days.get(d)!;
+    worst = Math.min(worst, v);
+    bal += v;
+    dd = Math.max(dd, peak - bal);
+    peak = Math.max(peak, bal);
+  }
+  return { dd, worst, days };
+}
+
+/**
+ * The second strategy's report: every pair tested, the ones switched on
+ * counting in the totals; the months of the pairs on; a pair's trades.
+ */
+function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: string[]; onToggle: (symbol: string) => void }) {
+  const [sel, setSel] = useState<string | null>(null);
+  if (!trend || !trend.pairs.length)
+    return (
+      <Panel title="TRADE WITH TREND">
+        <div style={{ padding: 10, color: DIM }}>Pas encore de résultats : le backtest se lance hors du site (scripts/trend-analyse.ts).</div>
+      </Panel>
+    );
+  const from = Math.min(...trend.pairs.map((p) => p.from)), to = Math.max(...trend.pairs.map((p) => p.to));
+  const span = spanMonths({ from, to }), mid = (from + to) / 2;
+  const stats = trend.pairs.map((p) => {
+    const list = p.trades.map((x) => ({ t: x[0] * 60000, pnl: x[9] }));
+    const sum = (l: typeof list) => l.reduce((a, x) => a + x.pnl, 0);
+    return {
+      p,
+      on: on.includes(p.symbol),
+      n: list.length,
+      wins: list.filter((x) => x.pnl > 0).length,
+      pnl: sum(list),
+      h1: sum(list.filter((x) => x.t < mid)) / (span / 2),
+      h2: sum(list.filter((x) => x.t >= mid)) / (span / 2),
+      dd: eodDrawdown(list).dd,
+    };
+  });
+  const active = stats.filter((x) => x.on);
+  const all = active.flatMap((x) => x.p.trades.map((r) => ({ t: r[0] * 60000, pnl: r[9] })));
+  const n = all.length, wins = all.filter((x) => x.pnl > 0).length, pnl = all.reduce((a, x) => a + x.pnl, 0);
+  const acc = eodDrawdown(all);
+  const months = monthsBetween(from, to);
+  const byMonth = new Map<string, { n: number; wins: number; pnl: number }>();
+  for (const x of all) {
+    const b = byMonth.get(monthOf(x.t)) ?? { n: 0, wins: 0, pnl: 0 };
+    b.n++;
+    b.pnl += x.pnl;
+    if (x.pnl > 0) b.wins++;
+    byMonth.set(monthOf(x.t), b);
+  }
+  const monthMax = Math.max(1, ...[...byMonth.values()].map((b) => Math.abs(b.pnl)));
+  const kpis = [
+    { label: "P&L/MOIS · PAIRES ACTIVES", value: short(pnl / span), color: tone(pnl), sub: `${active.map((x) => x.p.symbol).join(" · ") || "AUCUNE"} · FRAIS DÉDUITS` },
+    { label: "TRADES/MOIS", value: (n / span).toFixed(1).replace(".", ","), color: TXT, sub: `${n} SUR LA PÉRIODE` },
+    { label: "WIN%", value: n ? `${Math.round((wins / n) * 100)}` : "—", color: TXT, sub: "OBJECTIF 1,5 × LE STOP" },
+    { label: "MAX DD", value: `−${Math.round(acc.dd)}`, color: LOSS, sub: "FIN DE JOURNÉE, PAIRES ACTIVES" },
+    { label: "PIRE JOUR", value: short(acc.worst), color: LOSS, sub: "PAIRES ACTIVES" },
+    { label: "RÈGLE", value: trend.rule, color: ORANGE, sub: "ZONE · CASSURE · RETOUR" },
+  ];
+  const cols = "52px 92px 56px 46px 1fr 70px 70px 70px 64px 96px";
+  const p = sel ? trend.pairs.find((x) => x.symbol === sel) : null;
+  const px = (v: number) => (p ? fmtPrice(v, p.symbol, p.tick) : String(v));
+  const tradeCols = "92px 46px 22px 140px 70px 70px 70px 44px 64px";
+  return (
+    <>
+      <KpiStrip kpis={kpis} />
+      <Panel title="PAIRES · TRADE WITH TREND" right="SEULES LES PAIRES ACTIVES COMPTENT · CLIC = TRADES">
+        <div style={{ overflowX: "auto" }}>
+          <div style={{ minWidth: 860 }}>
+            <Row head cols={cols}>
+              <span>PAIRE</span>
+              <span>ÉTAT</span>
+              <span style={R}>TR/MOIS</span>
+              <span style={R}>WIN</span>
+              <span />
+              <span style={R}>P&L/MOIS</span>
+              <span style={R}>1RE MOITIÉ</span>
+              <span style={R}>2E MOITIÉ</span>
+              <span style={R}>DD</span>
+              <span />
+            </Row>
+            {[...stats].sort((a, b) => Number(b.on) - Number(a.on) || b.pnl - a.pnl).map((x) => {
+              const mo = x.pnl / span;
+              return (
+                <Row
+                  key={x.p.symbol}
+                  cols={cols}
+                  onClick={() => setSel(sel === x.p.symbol ? null : x.p.symbol)}
+                  style={{ ...(sel === x.p.symbol ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : {}), ...(x.on ? {} : { opacity: 0.5 }) }}
+                >
+                  <span style={{ color: TXT, fontWeight: 700 }}>{x.p.symbol}</span>
+                  <span style={{ color: x.on ? GAIN : DIM, fontWeight: 700, fontSize: 11 }}>{x.on ? "● ACTIVE" : "○ DÉSACTIVÉE"}</span>
+                  <span style={R}>{(x.n / span).toFixed(1).replace(".", ",")}</span>
+                  <span style={{ ...R, color: DIM }}>{x.n ? `${Math.round((x.wins / x.n) * 100)}%` : "–"}</span>
+                  <span style={bar((Math.abs(mo) / Math.max(1, ...stats.map((y) => Math.abs(y.pnl / span)))) * 100, tone(mo))} />
+                  <span style={{ ...R, color: tone(mo), fontWeight: 700 }}>{short(mo)}</span>
+                  <span style={{ ...R, color: tone(x.h1) }}>{short(x.h1)}</span>
+                  <span style={{ ...R, color: tone(x.h2) }}>{short(x.h2)}</span>
+                  <span style={{ ...R, color: LOSS }}>−{Math.round(x.dd)}</span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      onToggle(x.p.symbol);
+                    }}
+                    onKeyDown={(ev) => {
+                      if (ev.key === "Enter" || ev.key === " ") {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        onToggle(x.p.symbol);
+                      }
+                    }}
+                    style={{ cursor: "pointer", textAlign: "center", fontSize: 10, fontWeight: 700, padding: "2px 0", border: `1px solid ${x.on ? "#555" : GAIN}`, color: x.on ? "#AAA" : GAIN }}
+                  >
+                    {x.on ? "DÉSACTIVER" : "ACTIVER"}
+                  </span>
+                </Row>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
+          P&L À 2 LOTS, FRAIS DÉDUITS · MOITIÉS = 1RE ET 2E MOITIÉ DE LA PÉRIODE ($/MOIS) · DD = FIN DE JOURNÉE, LA PAIRE SEULE · LES RÉGLAGES ONT ÉTÉ CHOISIS SUR LA 1RE MOITIÉ : LA 2E EST LE
+          TEST HONNÊTE · RÉSULTATS SENSIBLES AUX DÉTAILS DE LA RÈGLE, À CONFIRMER EN RÉEL
+        </div>
+      </Panel>
+
+      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.6fr)", gap: 8 }}>
+        <Panel title="MOIS · PAIRES ACTIVES">
+          <Row head cols="62px 28px 40px 1fr 54px">
+            <span>MOIS</span>
+            <span style={R}>TR</span>
+            <span style={R}>WIN</span>
+            <span />
+            <span style={R}>P&L</span>
+          </Row>
+          {[...months].reverse().map((m) => {
+            const b = byMonth.get(m);
+            return (
+              <Row key={m} cols="62px 28px 40px 1fr 54px">
+                <span style={{ color: DIM }}>{termMonth(m)}</span>
+                <span style={R}>{b ? b.n : "–"}</span>
+                <span style={{ ...R, color: DIM }}>{b ? `${Math.round((b.wins / b.n) * 100)}%` : ""}</span>
+                <span style={b ? bar((Math.abs(b.pnl) / monthMax) * 100, tone(b.pnl)) : { display: "block" }} />
+                <span style={{ ...R, color: b ? tone(b.pnl) : "#444", fontWeight: 600 }}>{b ? short(b.pnl) : "–"}</span>
+              </Row>
+            );
+          })}
+        </Panel>
+
+        <Panel title={`TRADES · ${p ? p.symbol : "CLIQUE UNE PAIRE"}`} right={p ? `${p.trades.length} TRADES` : undefined}>
+          <div style={{ overflowX: "auto" }}>
+            <div style={{ minWidth: 720 }}>
+              <Row head cols={tradeCols}>
+                <span>OUVERT</span>
+                <span>FERMÉ</span>
+                <span>S</span>
+                <span style={R}>ZONE</span>
+                <span style={R}>ENTRÉE</span>
+                <span style={R}>SL</span>
+                <span style={R}>TP</span>
+                <span style={R}>TK</span>
+                <span style={R}>P&L</span>
+              </Row>
+              {p &&
+                [...p.trades].reverse().map((x: TrendRow) => {
+                  const o = ctTime(x[0] * 60000);
+                  return (
+                    <Row key={x[0]} cols={tradeCols}>
+                      <span style={{ color: DIM }}>
+                        {o.date} {o.time}
+                      </span>
+                      <span style={{ color: DIM }}>{ctTime(x[1] * 60000).time}</span>
+                      <span style={{ color: x[2] === 1 ? buyColor : sellColor, fontWeight: 700 }}>{x[2] === 1 ? "B" : "S"}</span>
+                      <span style={R}>
+                        {px(x[3])} – {px(x[4])}
+                      </span>
+                      <span style={{ ...R, color: TXT }}>{px(x[5])}</span>
+                      <span style={{ ...R, color: LOSS }}>{px(x[6])}</span>
+                      <span style={{ ...R, color: GAIN }}>{px(x[7])}</span>
+                      <span style={{ ...R, color: tone(x[8]) }}>{String(x[8]).replace(".", ",")}</span>
+                      <span style={{ ...R, color: tone(x[9]), fontWeight: 700 }}>{short(x[9])}</span>
+                    </Row>
+                  );
+                })}
+              {!p && <div style={{ color: DIM, padding: "12px 10px" }}>CLIQUE UNE PAIRE DANS LE TABLEAU POUR VOIR SES TRADES.</div>}
+            </div>
+          </div>
+          <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · TK = TICKS PAR CONTRAT · P&L À 2 LOTS, FRAIS DÉDUITS</div>
+        </Panel>
+      </div>
+    </>
+  );
+}
+
+type Per = { e: Entry; c: ConfigStats; money: number; feeTicks: number };
+
+/**
+ * The yearly levels and the trend trades of the pairs switched on, played on
+ * one account with its rules: no new trade once the session has lost its
+ * daily limit, as many positions at once as the contracts allow, one a pair.
+ */
+function ComboReport({ trend, on, per, account }: { trend: TrendResults | null; on: string[]; per: Per[]; account: AccountRules }) {
+  type Tr = { sym: string; t: number; end: number; pnl: number; s: "N" | "T" };
+  const levels: Tr[] = per.flatMap(({ e, c, money, feeTicks }) =>
+    c.trades.map((row) => ({ sym: e.symbol, t: row[0] * 60000, end: (row[2] ?? row[0]) * 60000, pnl: (row[1] - feeTicks) * money, s: "N" as const }))
+  );
+  const twt: Tr[] = (trend?.pairs ?? [])
+    .filter((p) => on.includes(p.symbol))
+    .flatMap((p) => p.trades.map((x) => ({ sym: p.symbol, t: x[0] * 60000, end: x[1] * 60000, pnl: x[9], s: "T" as const })));
+  const lots = per[0]?.e.result?.settings.lots ?? 2;
+  const dayStop = account.dailyStop ?? 500;
+  const maxPos = account.maxContracts ? Math.max(1, Math.floor(account.maxContracts / lots)) : 2;
+  const all = [...levels, ...twt].sort((a, b) => a.t - b.t);
+  const kept: Tr[] = [];
+  const days = new Map<number, number>();
+  let cutDay = 0, cutPos = 0;
+  for (const x of all) {
+    const d = sessionDay(x.t);
+    if ((days.get(d) ?? 0) <= -dayStop) {
+      cutDay++;
+      continue;
+    }
+    const open = kept.filter((y) => y.t <= x.t && y.end > x.t);
+    if (open.length >= maxPos || open.some((y) => y.sym === x.sym)) {
+      cutPos++;
+      continue;
+    }
+    days.set(d, (days.get(d) ?? 0) + x.pnl);
+    kept.push(x);
+  }
+  const { dd, worst } = eodDrawdown(kept);
+  const from = Math.min(...kept.map((x) => x.t)), to = Math.max(...kept.map((x) => x.t));
+  const span = kept.length ? spanMonths({ from, to }) : 1;
+  const sum = (l: Tr[]) => l.reduce((a, x) => a + x.pnl, 0);
+  const kN = kept.filter((x) => x.s === "N"), kT = kept.filter((x) => x.s === "T");
+  const wins = kept.filter((x) => x.pnl > 0).length;
+  const under = [...days.values()].filter((v) => v < -dayStop).length;
+  const months = kept.length ? monthsBetween(from, to) : [];
+  const cell = (m: string, l: Tr[]) => l.filter((x) => monthOf(x.t) === m).reduce((a, x) => a + x.pnl, 0);
+  const limit = account.ddLimit ?? 2000;
+  const kpis = [
+    { label: "P&L/MOIS · COMBINÉ", value: short(sum(kept) / span), color: tone(sum(kept)), sub: `ZONES ${short(sum(kN) / span)} + TREND ${short(sum(kT) / span)}` },
+    { label: "TRADES/MOIS", value: (kept.length / span).toFixed(1).replace(".", ","), color: TXT, sub: `ZONES ${(kN.length / span).toFixed(1).replace(".", ",")} + TREND ${(kT.length / span).toFixed(1).replace(".", ",")}` },
+    { label: "WIN%", value: kept.length ? `${Math.round((wins / kept.length) * 100)}` : "—", color: TXT, sub: `${cutPos + cutDay} TRADES ÉCARTÉS PAR LES RÈGLES` },
+    { label: "MAX DD", value: `−${Math.round(dd)}`, color: dd > limit ? LOSS : GAIN, sub: `${Math.round((dd / limit) * 100)} % DE LA LIMITE (${limit})` },
+    { label: "PIRE JOUR", value: short(worst), color: LOSS, sub: `${under} JOURS SOUS −${dayStop}` },
+    { label: "TREND", value: on.length ? on.join(" · ") : "AUCUNE", color: ORANGE, sub: "PAIRES ACTIVES (ONGLET TRADE WITH TREND)" },
+  ];
+  // Each month's legs and the running total, worked out before the render.
+  const rows = months.reduce<{ m: string; z: number; t: number; n: number; cum: number }[]>((acc, m) => {
+    const z = cell(m, kN), t = cell(m, kT);
+    acc.push({ m, z, t, n: kept.filter((x) => monthOf(x.t) === m).length, cum: (acc[acc.length - 1]?.cum ?? 0) + z + t });
+    return acc;
+  }, []);
+  const rowMax = Math.max(1, ...rows.map((r) => Math.abs(r.z + r.t)));
+  return (
+    <>
+      <KpiStrip kpis={kpis} />
+      <Panel title="COMBINÉ · ZONES + TRADE WITH TREND · PAR MOIS" right={`−${dayStop} $/JOUR · ${maxPos} POSITIONS MAX · UNE PAR PAIRE`}>
+        <Row head cols="62px 40px 1fr 84px 84px 84px 90px">
+          <span>MOIS</span>
+          <span style={R}>TR</span>
+          <span />
+          <span style={R}>ZONES</span>
+          <span style={R}>TREND</span>
+          <span style={R}>TOTAL</span>
+          <span style={R}>CUMUL</span>
+        </Row>
+        {rows.map(({ m, z, t, n, cum }) => (
+          <Row key={m} cols="62px 40px 1fr 84px 84px 84px 90px">
+            <span style={{ color: DIM }}>{termMonth(m)}</span>
+            <span style={R}>{n}</span>
+            <span style={bar((Math.abs(z + t) / rowMax) * 100, tone(z + t))} />
+            <span style={{ ...R, color: tone(z) }}>{short(z)}</span>
+            <span style={{ ...R, color: tone(t) }}>{short(t)}</span>
+            <span style={{ ...R, color: tone(z + t), fontWeight: 700 }}>{short(z + t)}</span>
+            <span style={{ ...R, color: tone(cum) }}>{short(cum)}</span>
+          </Row>
+        ))}
+        <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
+          ZONES = TES NIVEAUX ANNUELS (CONFIG RETENUE, ZONES DÉSACTIVÉES EXCLUES) · TREND = LES PAIRES ACTIVES DE TRADE WITH TREND · FRAIS DÉDUITS · DD SUR LES SOLDES DE FIN DE JOURNÉE ·
+          LA LIMITE DU JOUR NE COUPE QUE LES NOUVEAUX TRADES
+        </div>
+      </Panel>
+    </>
   );
 }

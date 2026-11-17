@@ -796,6 +796,8 @@ model DatabentoSymbol {
   chosenKey String?
   /** Levels switched off by the trader, as a JSON array of prices: out of the plan, the form and the figures. */
   disabledZones String @default("[]")
+  /** Whether the pair's "Trade with Trend" trades count in the reports and the account. */
+  trendOn   Boolean  @default(false)
   updatedAt DateTime @updatedAt
 
   @@unique([ownerId, symbol])
