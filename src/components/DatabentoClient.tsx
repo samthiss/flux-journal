@@ -1721,14 +1721,14 @@ function TrendRules() {
               k: "Zone",
               main: "3 rebonds proches d'un même creux, chacun reparti assez loin",
               detail:
-                "3 creux M15 (ou sommets pour un long) à X ticks au plus d'un même creux de référence — la zone fait donc jusqu'à 2 × X (X = 6B 13 tk · 6J, ZW 8 tk · 6E, ZN, ZS 6 tk). Entre deux creux, le prix repart d'au moins ⅓ du stop du plan : 6B 8 tk · 6J, ZW 5 tk · 6E, ZN, ZS 4 tk (½ du stop avant le 17.11 : trop strict, des zones bien visibles étaient ignorées — ⅓ fait +1 750 $/mois au lieu de +1 093 sur les 8 paires testées, mieux sur les deux moitiés). 6E : zone large seulement (plus de X).",
+                "3 creux M15 (ou sommets pour un long) à X ticks au plus d'un même creux de référence — la zone fait donc jusqu'à 2 × X (X = 6B 13 tk · 6J, ZW 8 tk · 6E, ZS 6 tk). Entre deux creux, le prix repart d'au moins ⅓ du stop du plan : 6B 8 tk · 6J, ZW 5 tk · 6E, ZS 4 tk (½ du stop avant le 17.11 : trop strict, des zones bien visibles étaient ignorées — ⅓ fait +1 750 $/mois au lieu de +1 093 sur les 8 paires testées, mieux sur les deux moitiés). 6E : zone large seulement (plus de X).",
             },
             { k: "Cassure", main: "Une bougie H1 clôture au-delà de la zone, dans le sens de la tendance", detail: "La première clôture H1 de l'autre côté. Testé : 2 clôtures, une mèche, un corps entier, une bougie forte ou un temps passé sous la zone ne font pas mieux ; entrer dès la cassure ou au 1er retour perd." },
             {
               k: "1er retour",
               main: "Le prix revient sur la zone et repart dans le sens de la tendance",
               detail:
-                "Lu en M15, dans les 72 h après la cassure. Il doit repartir d'au moins un stop du plan, mesuré depuis le bord de la zone : 6B 13 tk (½ stop, réglage propre) · 6J 23 tk (1,5 stop, réglage propre) · ZW 15 tk · 6E, ZN, ZS 12 tk. Mesuré depuis le haut du retour, ça prend trop de mauvaises zones. Si une bougie M15 clôture de nouveau de l'autre côté de la zone, la cassure a échoué.",
+                "Lu en M15, dans les 72 h après la cassure. Il doit repartir d'au moins un stop du plan, mesuré depuis le bord de la zone : 6B 13 tk (½ stop, réglage propre) · 6J 23 tk (1,5 stop, réglage propre) · ZW 15 tk · 6E, ZS 12 tk. Mesuré depuis le haut du retour, ça prend trop de mauvaises zones. Si une bougie M15 clôture de nouveau de l'autre côté de la zone, la cassure a échoué.",
             },
             { k: "Entrée", main: "Au 2e retour sur la zone, ordre limite 1 tick avant le bord, dans le sens de la tendance", detail: "Dans les 48 h après le 1er retour, aux heures d'ordres de la paire, pas d'ordre rempli à ±10 min d'une news 3★ de ses devises. Un trade par jour et par paire ; une zone ne sert qu'une fois." },
           ]}
@@ -1751,7 +1751,7 @@ function TrendRules() {
           detail
           rules={[
             { k: "Réglage", main: "Zone et retours en M15, cassure en H1 · règle du 17.11", detail: "Un an (13.11.2025 → 12.11.2026), news bloquées ±10 min, frais déduits, choisi sur la 1re moitié et jugé sur la 2e." },
-            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +675 → +377 (59 %, DD 825) · 6B +626 → +239 (57 %). ZW (3 séances, 1 lot) +74 → +135, DD 525. Pas vraiment : ZN +20 → +423. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié." },
+            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +675 → +377 (59 %, DD 825) · 6B +626 → +239 (57 %). ZW (3 séances, 1 lot) +74 → +135, DD 525. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié ; ZN (+20 → +423, DD 1 540), qui ne gagnait plus rien sur la 1re moitié une fois les news bloquées." },
             { k: "Portefeuilles", main: "6J + 6E : 7,4 trades/mois, 65 %, +610 $/mois, DD 845", detail: "6J + 6E + ZS : 12,3 trades/mois, 60 %, +1 089 $/mois, DD 1 096, pire jour −577. Avec 6B en plus : +1 522 $/mois mais DD 1 651 et pire jour −821. Toutes les paires : DD au-delà des 2 000 du compte. Avec les zones : voir COMBINÉ." },
             { k: "Statut", main: "À l'essai : à confirmer en réel", detail: "Les réglages propres à une paire sont limités à ceux qui tiennent." },
           ]}
@@ -2466,7 +2466,7 @@ function ComboReport({ trend, on, per, account }: { trend: TrendResults | null; 
     { label: "P&L/MOIS · COMBINÉ", value: short(sum(kept) / span), color: tone(sum(kept)), sub: `ZONES ${short(sum(kN) / span)} + TREND ${short(sum(kT) / span)}` },
     { label: "TRADES/MOIS", value: (kept.length / span).toFixed(1).replace(".", ","), color: TXT, sub: `ZONES ${(kN.length / span).toFixed(1).replace(".", ",")} + TREND ${(kT.length / span).toFixed(1).replace(".", ",")}` },
     { label: "WIN%", value: kept.length ? `${Math.round((wins / kept.length) * 100)}` : "—", color: TXT, sub: `${cutPos + cutDay} TRADES ÉCARTÉS PAR LES RÈGLES` },
-    { label: "MAX DD", value: `−${Math.round(dd)}`, color: dd > limit ? LOSS : GAIN, sub: `${Math.round((dd / limit) * 100)} % DE LA LIMITE (${limit})` },
+    { label: "MAX DD", value: `−${Math.round(dd)}`, color: LOSS, sub: `${Math.round((dd / limit) * 100)} % DE LA LIMITE (${limit})` },
     { label: "PIRE JOUR", value: short(worst), color: LOSS, sub: `${under} JOURS SOUS −${dayStop}` },
     { label: "TREND", value: on.length ? on.join(" · ") : "AUCUNE", color: ORANGE, sub: "PAIRES ACTIVES (ONGLET TRADE WITH TREND)" },
   ];

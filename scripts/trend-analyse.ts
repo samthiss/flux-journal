@@ -264,8 +264,9 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   // second return comes at 9h CT, just after the grains' day session opens
   // (39 % won there, the drawdown 825 $ instead of 1,491).
   const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5 }, "6J": { away: 1.5 }, ZW: { days: 3, lots: 1 }, ZS: { skipHours: [9] } };
-  // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half.
-  const OUT = ["6N", "6C"];
+  // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half;
+  // ZN made nothing on the first half once the news were kept clear.
+  const OUT = ["6N", "6C", "ZN"];
   const pairs = data.filter((d) => !OUT.includes(d.sym)).map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
     // The trend's sessions and the target in risks, the pair's own when it has one.
