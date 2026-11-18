@@ -261,11 +261,12 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   // 6E a longer trend, a wide zone and a nearer target; 6B a shorter move
   // away after the first return and a longer trend (its profit leant on one
   // month, the three sessions win 73 %), 6J a longer move away; ZW a longer trend at one
-  // lot, its stop costing 420 $ a trade at two; ZS not traded on a day its
+  // lot, its stop costing 420 $ a trade at two, and a wide zone only (its
+  // narrow ones, 8 ticks, lost); ZS not traded on a day its
   // second return comes at 9h CT, just after the grains' day session opens
   // (39 % won there, the drawdown 825 $ instead of 1,491), and its stop two
   // ticks past the zone (64 %, the drawdown 600 $).
-  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5, days: 3 }, "6J": { away: 1.5 }, ZW: { days: 3, lots: 1 }, ZS: { skipHours: [9], buf: 2 } };
+  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5, days: 3 }, "6J": { away: 1.5 }, ZW: { days: 3, lots: 1, wide: true }, ZS: { skipHours: [9], buf: 2 } };
   // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half;
   // ZN made nothing on the first half once the news were kept clear.
   const OUT = ["6N", "6C", "ZN"];

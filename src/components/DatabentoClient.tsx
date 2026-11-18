@@ -1721,7 +1721,7 @@ function TrendRules() {
               k: "Zone",
               main: "3 rebonds proches d'un même creux, chacun reparti assez loin",
               detail:
-                "3 creux M15 (ou sommets pour un long) à X ticks au plus d'un même creux de référence — la zone fait donc jusqu'à 2 × X (X = 6B 13 tk · 6J, ZW 8 tk · 6E, ZS 6 tk). Entre deux creux, le prix repart d'au moins ⅓ du stop du plan : 6B 8 tk · 6J, ZW 5 tk · 6E, ZS 4 tk (½ du stop avant le 17.11 : trop strict, des zones bien visibles étaient ignorées — ⅓ fait +1 750 $/mois au lieu de +1 093 sur les 8 paires testées, mieux sur les deux moitiés). 6E : zone large seulement (plus de X).",
+                "3 creux M15 (ou sommets pour un long) à X ticks au plus d'un même creux de référence — la zone fait donc jusqu'à 2 × X (X = 6B 13 tk · 6J, ZW 8 tk · 6E, ZS 6 tk). Entre deux creux, le prix repart d'au moins ⅓ du stop du plan : 6B 8 tk · 6J, ZW 5 tk · 6E, ZS 4 tk (½ du stop avant le 17.11 : trop strict, des zones bien visibles étaient ignorées — ⅓ fait +1 750 $/mois au lieu de +1 093 sur les 8 paires testées, mieux sur les deux moitiés). 6E et ZW : zone large seulement (plus de X) — sur ZW, les zones de 8 ticks perdaient (25 trades, 60 %, +137 $/mois au lieu de 28, 54 %, +104).",
             },
             { k: "Cassure", main: "Une bougie H1 clôture au-delà de la zone, dans le sens de la tendance", detail: "La première clôture H1 de l'autre côté. Testé : 2 clôtures, une mèche, un corps entier, une bougie forte ou un temps passé sous la zone ne font pas mieux ; entrer dès la cassure ou au 1er retour perd." },
             {
@@ -1751,7 +1751,7 @@ function TrendRules() {
           detail
           rules={[
             { k: "Réglage", main: "Zone et retours en M15, cassure en H1 · règle du 17.11", detail: "Un an (13.11.2025 → 12.11.2026), news bloquées 10 min avant / 10 min après (30 après une YoY), frais déduits, choisi sur la 1re moitié et jugé sur la 2e." },
-            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +758 → +398 (64 %, DD 600) · 6B (3 séances) +612 → +150 (73 %, DD 500). ZW (3 séances, 1 lot) +74 → +135, DD 525. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié ; ZN (+20 → +423, DD 1 540), qui ne gagnait plus rien sur la 1re moitié une fois les news bloquées." },
+            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +758 → +398 (64 %, DD 600) · 6B (3 séances) +612 → +150 (73 %, DD 500). ZW (3 séances, zone large, 1 lot) +74 → +201, DD 525. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié ; ZN (+20 → +423, DD 1 540), qui ne gagnait plus rien sur la 1re moitié une fois les news bloquées." },
             { k: "Portefeuilles", main: "6J + 6E : 7,4 trades/mois, 65 %, +610 $/mois, DD 845", detail: "6J + 6E + ZS : 12,3 trades/mois, 60 %, +1 089 $/mois, DD 1 096, pire jour −577. Avec 6B en plus : +1 522 $/mois mais DD 1 651 et pire jour −821. Toutes les paires : DD au-delà des 2 000 du compte. Avec les zones : voir COMBINÉ." },
             { k: "Statut", main: "À l'essai : à confirmer en réel", detail: "Les réglages propres à une paire sont limités à ceux qui tiennent." },
           ]}
