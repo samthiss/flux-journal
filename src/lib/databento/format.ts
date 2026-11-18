@@ -11,7 +11,9 @@ export const IN_8THS = new Set(["ZS", "ZW", "ZC"]);
 export function fmtZone(z: number, symbol?: string) {
   if (symbol && IN_8THS.has(symbol)) {
     const whole = Math.floor(z + 1e-9);
-    return `${whole}'${Math.round((z - whole) * 8)}`;
+    // As the trader's platform shows them: a point between thousands, "1.248'0".
+    const w = whole >= 1000 ? `${Math.floor(whole / 1000)}.${String(whole % 1000).padStart(3, "0")}` : String(whole);
+    return `${w}'${Math.round((z - whole) * 8)}`;
   }
   if (symbol && IN_32NDS.has(symbol)) {
     const whole = Math.floor(z);
@@ -32,12 +34,13 @@ export function fmtPrice(p: number, symbol: string, tick: number | undefined) {
 /**
  * A price as typed: "1,3186", "1.3186", or for Treasuries "107'015" (CME:
  * 32nds and a tenth), "105'09" / "105'09.5" (32nds) as well as a decimal; for
- * the grains "1229'4" (eighths of a cent). The two are told apart by the price:
+ * the grains "1229'4" or "1.229'4" (eighths of a cent, a point between thousands). The two are told apart by the price:
  * a Treasury is never above 200, a grain never below it.
  * Null when it is not a price.
  */
 export function parsePrice(text: string): number | null {
-  const s = text.trim().replace(",", ".");
+  // A grain's thousands point ("1.248'0", "1.248´0") goes; the ´ the trader may type is a '.
+  const s = text.trim().replace(/[´`’]/g, "'").replace(/^(\d{1,2})\.(\d{3})'/, "$1$2'").replace(",", ".");
   if (!s) return null;
   const q = s.match(/^(\d+)'(\d+(?:\.\d+)?)$/);
   if (q && Number(q[1]) >= 200) return Number(q[1]) + Number(q[2]) / 8;

@@ -1716,7 +1716,7 @@ function TrendRules() {
           title="Le setup"
           detail
           rules={[
-            { k: "Tendance", main: "Le marché va dans la même direction depuis plusieurs séances", detail: "2 clôtures de séance de suite dans le même sens (3 pour 6E, ZW et 6B). Elles baissent : short. Elles montent : long." },
+            { k: "Tendance", main: "Le marché va dans la même direction depuis plusieurs séances", detail: "Chaque clôture de séance plus basse que la précédente, 2 fois de suite (3 pour 6E, ZW et 6B) : short. Plus haute 2 fois de suite : long. Il faut donc 3 clôtures (4 pour 6E, ZW et 6B)." },
             {
               k: "Zone",
               main: "Le marché rebondit au moins 3 fois sur un même niveau en M15",
@@ -2157,8 +2157,8 @@ function TrendPair({
             </div>
             {line(
               "TENDANCE",
-              `${p.params?.days ?? 2} SÉANCES DE SUITE`,
-              `CLÔTURES PLUS BASSES (SHORT) OU PLUS HAUTES (LONG)${own.length ? ` · RÉGLAGE PROPRE À ${p.symbol} : ${own.join(", ")}` : ""}`
+              `${p.params?.days ?? 2} BAISSES OU HAUSSES DE SUITE`,
+              `CHAQUE CLÔTURE DE SÉANCE PLUS BASSE (SHORT) OU PLUS HAUTE (LONG) QUE LA PRÉCÉDENTE${own.length ? ` · RÉGLAGE PROPRE À ${p.symbol} : ${own.join(", ")}` : ""}`
             )}
             {line(
               "ZONE",
@@ -2366,7 +2366,7 @@ function TrendWhyPanel({ q, x }: { q: TrendResults["pairs"][number]; x: number[]
                 </span>
               ))}
             </>,
-            `${why.closes.length - 1} CLÔTURES DE SÉANCE DE SUITE PLUS ${dir === 1 ? "HAUTES" : "BASSES"} : TENDANCE ${dir === 1 ? "HAUSSIÈRE, LONGS SEULEMENT" : "BAISSIÈRE, SHORTS SEULEMENT"}`
+            `CHAQUE CLÔTURE ${dir === 1 ? "PLUS HAUTE" : "PLUS BASSE"} QUE LA PRÉCÉDENTE, ${why.closes.length - 1} ${dir === 1 ? "HAUSSES" : "BAISSES"} DE SUITE : TENDANCE ${dir === 1 ? "HAUSSIÈRE, LONGS SEULEMENT" : "BAISSIÈRE, SHORTS SEULEMENT"}`
           )}
           {step(
             2,
