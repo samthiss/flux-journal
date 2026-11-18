@@ -30,7 +30,7 @@ const res = JSON.parse(readFileSync("prisma/databento-results.json", "utf8")) as
 const ctFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", hour: "2-digit", hourCycle: "h23" });
 const ctHour = (t: number) => Number(ctFmt.format(t));
 
-type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[] };
+type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[]; ma?: number };
 /** Three-star releases of each pair's currencies: no fill from NEWS_MIN minutes before one to NEWS_MIN after — 30 after a year-on-year figure. Loaded by the run that writes the results. */
 const NEWS_OF = new Map<string, { at: number; big: boolean }[]>();
 const NEWS_MIN = 10;
@@ -118,7 +118,16 @@ function zones(d: Data, p: P): Zone[] {
       if (!(seq[q] > seq[q - 1])) up = false;
       if (!(seq[q] < seq[q - 1])) down = false;
     }
-    return up ? 1 : down ? -1 : 0;
+    const tr0 = up ? 1 : down ? -1 : 0;
+    if (tr0 && p.ma) {
+      // The background trend (p.ma): the last close on the trade's side of its exponential average over p.ma sessions.
+      const cl = days.slice(0, i).map((x) => closes.get(x)!);
+      const from = Math.max(0, cl.length - 3 * p.ma);
+      let m = cl[from];
+      for (let q = from; q < cl.length; q++) m += (cl[q] - m) * (2 / (p.ma + 1));
+      if ((cl[cl.length - 1] < m ? -1 : 1) !== tr0) return 0;
+    }
+    return tr0;
   };
   const W = Math.max(2, Math.round(d.cfg.sl * p.width)) * d.tick;
   const B = d.cfg.sl * p.bounce * d.tick;
@@ -266,14 +275,14 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   // second return comes at 9h CT, just after the grains' day session opens
   // (39 % won there, the drawdown 825 $ instead of 1,491), and its stop two
   // ticks past the zone (64 %, the drawdown 600 $).
-  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5, days: 3 }, "6J": { away: 1.5 }, ZW: { days: 3, lots: 1, wide: true }, ZS: { skipHours: [9], buf: 2 } };
+  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true, ma: 20 }, "6B": { away: 0.5, days: 3 }, "6J": { away: 1.5, ma: 20 }, ZW: { days: 3, lots: 1, wide: true }, ZS: { skipHours: [9], buf: 2 } };
   // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half;
   // ZN made nothing on the first half once the news were kept clear.
   const OUT = ["6N", "6C", "ZN"];
   const pairs = data.filter((d) => !OUT.includes(d.sym)).map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
     // The trend's sessions and the target in risks, the pair's own when it has one.
-    params: { buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
+    params: { ma: p.ma ?? 0, buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
     tick: d.tick,
     from: d.T[0],
     to: d.T[d.T.length - 1],

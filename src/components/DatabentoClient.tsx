@@ -153,7 +153,7 @@ type News = { at: number; currency: string; title: string };
 /** The "Trade with Trend" backtest: each pair's trades, [entry minute, exit minute, dir, zone low, zone high, entry, stop, target, ticks, $ net of fees]. */
 /** Why a trade: the closes the trend was read from ([session day, close]), the zone's touches, the break, the first return, when the zone was ready — minutes. */
 export type TrendWhy = { closes: [number, number][]; touches: number[]; brk: number; ret: number; ready: number };
-export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { buf?: number; skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
+export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { ma?: number; buf?: number; skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
 /** "1,5" — a target in risks, French. */
 const rText = (v: number) => String(v).replace(".", ",");
 
@@ -1716,7 +1716,7 @@ function TrendRules() {
           title="Le setup"
           detail
           rules={[
-            { k: "Tendance", main: "Le marché va dans la même direction depuis plusieurs séances", detail: "Chaque clôture de séance plus basse que la précédente, 2 fois de suite (3 pour 6E, ZW et 6B) : short. Plus haute 2 fois de suite : long. Il faut donc 3 clôtures (4 pour 6E, ZW et 6B)." },
+            { k: "Tendance", main: "Le marché va dans la même direction depuis plusieurs séances", detail: "Chaque clôture de séance plus basse que la précédente, 2 fois de suite (3 pour 6E, ZW et 6B) : short. Plus haute 2 fois de suite : long. Il faut donc 3 clôtures (4 pour 6E, ZW et 6B). 6J et 6E : en plus, pas de long sous la moyenne des 20 dernières séances, pas de short au-dessus (la tendance de fond)." },
             {
               k: "Zone",
               main: "Le marché rebondit au moins 3 fois sur un même niveau en M15",
@@ -2092,6 +2092,7 @@ function TrendPair({
     (p.params?.exit ?? 1.5) !== 1.5 && `OBJECTIF ${rText(p.params!.exit)}R`,
     (p.params?.lots ?? 2) !== 2 && `${p.params!.lots} LOT`,
     (p.params?.buf ?? 3) !== 3 && `STOP ${p.params!.buf} TK AU-DELÀ DE LA ZONE`,
+    (p.params?.ma ?? 0) > 0 && `PRIX DU BON CÔTÉ DE SA MOYENNE ${p.params!.ma} SÉANCES`,
     (p.params?.skipHours ?? []).length > 0 && `PAS DE TRADE LE JOUR OÙ LE 2E RETOUR TOMBE À ${p.params!.skipHours!.join("H, ")}H CT`,
   ].filter(Boolean);
   const hours = r?.rules?.excludeHours ?? [];
