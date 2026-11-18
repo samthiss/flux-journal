@@ -1716,21 +1716,16 @@ function TrendRules() {
           title="Le setup"
           detail
           rules={[
-            { k: "Tendance", main: "Plusieurs jours dans la même direction", detail: "Au moins 2 séances de suite qui clôturent plus bas que la précédente pour un short (plus haut pour un long). 6E, ZW et 6B : 3 séances (marchés qui font des allers-retours ; 6B : 73 % au lieu de 57 %, DD 500 au lieu de 782, son gain tenait surtout à un mois ; ZW : 54 % au lieu de 46 %, +208 au lieu de +137 $/mois à 2 lots, DD 1 050 au lieu de 1 474)." },
+            { k: "Tendance", main: "Le marché va dans la même direction depuis plusieurs séances", detail: "2 clôtures de séance de suite dans le même sens (3 pour 6E, ZW et 6B). Elles baissent : short. Elles montent : long." },
             {
               k: "Zone",
-              main: "3 rebonds proches d'un même creux, chacun reparti assez loin",
+              main: "Le marché rebondit au moins 3 fois sur un même niveau en M15",
               detail:
-                "3 creux M15 (ou sommets pour un long) à X ticks au plus d'un même creux de référence — la zone fait donc jusqu'à 2 × X (X = 6B 13 tk · 6J, ZW 8 tk · 6E, ZS 6 tk). Entre deux creux, le prix repart d'au moins ⅓ du stop du plan : 6B 8 tk · 6J, ZW 5 tk · 6E, ZS 4 tk (½ du stop avant le 17.11 : trop strict, des zones bien visibles étaient ignorées — ⅓ fait +1 750 $/mois au lieu de +1 093 sur les 8 paires testées, mieux sur les deux moitiés). 6E et ZW : zone large seulement (plus de X) — sur ZW, les zones de 8 ticks perdaient (25 trades, 60 %, +137 $/mois au lieu de 28, 54 %, +104).",
+                "Les 3 rebonds sont tous du même côté, celui que la tendance va casser : en short, le prix rebondit vers le haut sur un plancher ; en long, vers le bas sur un plafond. Ils doivent être proches (au même niveau, à quelques ticks près) et être de vrais rebonds (entre deux touches, le prix repart d'au moins ⅓ du stop). 6E et ZW : la zone doit en plus être large. Les valeurs en ticks sont dans la fiche de chaque paire.",
             },
-            { k: "Cassure", main: "Une bougie H1 clôture au-delà de la zone, dans le sens de la tendance", detail: "La première clôture H1 de l'autre côté. Testé : 2 clôtures, une mèche, un corps entier, une bougie forte ou un temps passé sous la zone ne font pas mieux ; entrer dès la cassure ou au 1er retour perd." },
-            {
-              k: "1er retour",
-              main: "Le prix revient sur la zone et repart dans le sens de la tendance",
-              detail:
-                "Lu en M15, dans les 72 h après la cassure. Il doit repartir d'au moins un stop du plan, mesuré depuis le bord de la zone : 6B 13 tk (½ stop, réglage propre) · 6J 23 tk (1,5 stop, réglage propre) · ZW 15 tk · 6E, ZS 12 tk. Mesuré depuis le haut du retour, ça prend trop de mauvaises zones. Si une bougie M15 clôture de nouveau de l'autre côté de la zone, la cassure a échoué.",
-            },
-            { k: "Entrée", main: "Au 2e retour sur la zone, ordre limite 1 tick avant le bord, dans le sens de la tendance", detail: "Dans les 48 h après le 1er retour, aux heures d'ordres de la paire, pas d'ordre rempli de 10 min avant à 10 min après une news 3★ de ses devises (30 min après une news YoY). Un trade par jour et par paire ; une zone ne sert qu'une fois." },
+            { k: "Cassure", main: "Une bougie H1 clôture de l'autre côté de la zone, dans le sens de la tendance" },
+            { k: "1er retour", main: "Le prix revient sur la zone, puis repart dans le sens de la tendance", detail: "Il doit s'éloigner d'au moins un stop depuis le bord de la zone (6B : ½ stop, 6J : 1,5). Si une bougie M15 clôture de l'autre côté de la zone, la cassure a échoué : pas de trade." },
+            { k: "Entrée", main: "Au 2e retour sur la zone : ordre limite 1 tick avant le bord", detail: "Au plus tard la séance suivante, aux heures d'ordres de la paire, jamais pendant une news 3★ (10 min avant, 10 min après, 30 min après une YoY). Un trade par jour et par paire ; les 3e et 4e retours ne se tradent pas." },
           ]}
         />
         <RuleCard
@@ -1738,22 +1733,21 @@ function TrendRules() {
           title="Gestion"
           detail
           rules={[
-            { k: "Stop", main: "3 ticks au-delà de l'autre bord de la zone (ZS : 2)", detail: "Pas de trade si ce stop dépasse 500 $ à 2 lots. Plus serré, le stop coupe les 2e retours qui dépassent un peu le bord avant de repartir : 0 à 2 ticks font moins bien sur 6E, 6J et ZW ; ZS fait mieux à 2 ticks (64 %, drawdown 600 $). ZW se trade à 1 lot : son stop moyen (17 tk) coûte 420 $ à 2 lots ; à 1 lot, +104 $/mois pour un DD de 525 $." },
-            { k: "Objectif", main: "1,5 fois le risque (6E : 1,25)", detail: "Testé : 1R, 1,25R, 2R, break-even, sortie de moitié, trailing stop (distance fixe, creux M15 ou H1, gardé jusqu'à 3 jours) — rien ne fait mieux sur la 1re moitié. 6E : 1,25R avec une tendance sur 3 séances et une zone large, 64 % de gagnants." },
+            { k: "Stop", main: "3 ticks au-delà de l'autre bord de la zone (ZS : 2)", detail: "Pas de trade si le stop dépasse 500 $." },
+            { k: "Objectif", main: "1,5 fois le risque (6E : 1,25)" },
             { k: "Durée", main: "4 h au plus, rien après 16h Chicago" },
-            { k: "ZS à 9h CT", main: "Si le 2e retour tombe à 9h CT, pas de trade ZS ce jour-là", detail: "Juste après l'ouverture de la séance de jour des grains (8h30), le marché traverse les zones : 39 % de gagnants à 9h, 63 à 71 % de 10h à 12h. Sans ces jours : 39 trades, 59 %, +526 $/mois au lieu de +480, drawdown 825 $ au lieu de 1 491. Testé aussi sur ZW : moins bien." },
-            { k: "Journal", main: "Stratégie « Trade with Trend »", detail: "Pour mesurer tes vrais résultats : c'est eux qui diront si on l'ajoute au plan." },
+            { k: "Taille", main: "2 lots (ZW : 1 lot)" },
+            { k: "ZS", main: "Pas de trade ZS le jour où le 2e retour tombe à 9h CT", detail: "La demi-heure après l'ouverture des grains (8h30) est trop agitée." },
+            { k: "Journal", main: "Stratégie « Trade with Trend »", detail: "Pour mesurer tes vrais résultats et les comparer au backtest." },
           ]}
         />
         <RuleCard
           num={3}
-          title="Ce que dit le backtest"
+          title="Les paires"
           detail
           rules={[
-            { k: "Réglage", main: "Zone et retours en M15, cassure en H1 · règle du 17.11", detail: "Un an (13.11.2025 → 12.11.2026), news bloquées 10 min avant / 10 min après (30 après une YoY), frais déduits, choisi sur la 1re moitié et jugé sur la 2e." },
-            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +758 → +398 (64 %, DD 600) · 6B (3 séances) +612 → +150 (73 %, DD 500). ZW (3 séances, zone large, 1 lot) +74 → +201, DD 525. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié ; ZN (+20 → +423, DD 1 540), qui ne gagnait plus rien sur la 1re moitié une fois les news bloquées." },
-            { k: "Portefeuilles", main: "6J + 6E : 7,4 trades/mois, 65 %, +610 $/mois, DD 845", detail: "6J + 6E + ZS : 12,3 trades/mois, 60 %, +1 089 $/mois, DD 1 096, pire jour −577. Avec 6B en plus : +1 522 $/mois mais DD 1 651 et pire jour −821. Toutes les paires : DD au-delà des 2 000 du compte. Avec les zones : voir COMBINÉ." },
-            { k: "Statut", main: "À l'essai : à confirmer en réel", detail: "Les réglages propres à une paire sont limités à ceux qui tiennent." },
+            { k: "Tradées", main: "6J · 6E · ZS · 6B · ZW", detail: "Les réglages propres à chaque paire sont dans sa fiche. Retirées : 6N, 6C et ZN, qui ne tenaient pas sur la 2e moitié de l'année." },
+            { k: "Statut", main: "À l'essai : à confirmer en réel", detail: "Backtest sur un an (13.11.2025 → 12.11.2026), frais déduits. Les chiffres sont dans la VUE et dans la fiche de chaque paire." },
           ]}
         />
       </div>
