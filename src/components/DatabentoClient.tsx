@@ -1716,7 +1716,7 @@ function TrendRules() {
           title="Le setup"
           detail
           rules={[
-            { k: "Tendance", main: "Plusieurs jours dans la même direction", detail: "Au moins 2 séances de suite qui clôturent plus bas que la précédente pour un short (plus haut pour un long). 6E et ZW : 3 séances (marchés qui font des allers-retours ; ZW : 54 % au lieu de 46 %, +208 au lieu de +137 $/mois à 2 lots, DD 1 050 au lieu de 1 474)." },
+            { k: "Tendance", main: "Plusieurs jours dans la même direction", detail: "Au moins 2 séances de suite qui clôturent plus bas que la précédente pour un short (plus haut pour un long). 6E, ZW et 6B : 3 séances (marchés qui font des allers-retours ; 6B : 73 % au lieu de 57 %, DD 500 au lieu de 782, son gain tenait surtout à un mois ; ZW : 54 % au lieu de 46 %, +208 au lieu de +137 $/mois à 2 lots, DD 1 050 au lieu de 1 474)." },
             {
               k: "Zone",
               main: "3 rebonds proches d'un même creux, chacun reparti assez loin",
@@ -1751,7 +1751,7 @@ function TrendRules() {
           detail
           rules={[
             { k: "Réglage", main: "Zone et retours en M15, cassure en H1 · règle du 17.11", detail: "Un an (13.11.2025 → 12.11.2026), news bloquées 10 min avant / 10 min après (30 après une YoY), frais déduits, choisi sur la 1re moitié et jugé sur la 2e." },
-            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +758 → +398 (64 %, DD 600) · 6B +626 → +239 (57 %). ZW (3 séances, 1 lot) +74 → +135, DD 525. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié ; ZN (+20 → +423, DD 1 540), qui ne gagnait plus rien sur la 1re moitié une fois les news bloquées." },
+            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +758 → +398 (64 %, DD 600) · 6B (3 séances) +612 → +150 (73 %, DD 500). ZW (3 séances, 1 lot) +74 → +135, DD 525. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié ; ZN (+20 → +423, DD 1 540), qui ne gagnait plus rien sur la 1re moitié une fois les news bloquées." },
             { k: "Portefeuilles", main: "6J + 6E : 7,4 trades/mois, 65 %, +610 $/mois, DD 845", detail: "6J + 6E + ZS : 12,3 trades/mois, 60 %, +1 089 $/mois, DD 1 096, pire jour −577. Avec 6B en plus : +1 522 $/mois mais DD 1 651 et pire jour −821. Toutes les paires : DD au-delà des 2 000 du compte. Avec les zones : voir COMBINÉ." },
             { k: "Statut", main: "À l'essai : à confirmer en réel", detail: "Les réglages propres à une paire sont limités à ceux qui tiennent." },
           ]}
