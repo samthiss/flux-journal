@@ -29,8 +29,11 @@ const FEES: Record<string, number> = { "6B": 3.22, "6E": 3.22, "6J": 3.22, "6N":
 const res = JSON.parse(readFileSync("prisma/databento-results.json", "utf8")) as { symbol: string; result: { tickSize: number; tickValue: number; top: { cfg: { sl: number; tp1: number; tp2: number; dist: number } }[]; rules: { excludeHours: number[] } } }[];
 const ctFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", hour: "2-digit", hourCycle: "h23" });
 const ctHour = (t: number) => Number(ctFmt.format(t));
+const ctMinFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+/** Minutes since midnight, Chicago. */
+const ctMinute = (t: number) => { const [h, m] = ctMinFmt.format(t).split(":").map(Number); return h * 60 + m; };
 
-type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[]; ma?: number; maxRun?: number };
+type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[]; ma?: number; maxRun?: number; skipMin?: [number, number] };
 /** Three-star releases of each pair's currencies: no fill from NEWS_MIN minutes before one to NEWS_MIN after — 30 after a year-on-year figure. Loaded by the run that writes the results. */
 const NEWS_OF = new Map<string, { at: number; big: boolean }[]>();
 const NEWS_MIN = 10;
@@ -228,6 +231,8 @@ function run(d: Data, p: P) {
         const h = ctHour(T[i]);
         // A second return in one of the pair's skipped hours (p.skipHours) is not traded, and the pair is done for the day: the market is too restless then.
         if ((p.skipHours ?? []).includes(h)) { taken.add(sessionDay(T[i])); break; }
+        // No fill in the pair's quiet window (p.skipMin, minutes Chicago): the order waits it out, the zone is not dropped.
+        if (p.skipMin && ctMinute(T[i]) >= p.skipMin[0] && ctMinute(T[i]) < p.skipMin[1]) continue;
         if (h >= 2 && h < 14 && !d.excl.includes(h) && !taken.has(sessionDay(T[i])) && !inNews(d.sym, T[i])) fill = i;
         break;
       }
@@ -282,14 +287,14 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   // second return comes at 9h CT, just after the grains' day session opens
   // (39 % won there, the drawdown 825 $ instead of 1,491), and its stop two
   // ticks past the zone (64 %, the drawdown 600 $).
-  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true, ma: 20 }, "6B": { away: 0.5, days: 3 }, "6J": { away: 1.5, ma: 20 }, ZW: { days: 3, lots: 1, wide: true }, ZS: { skipHours: [9], buf: 2 } };
+  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true, ma: 20 }, "6B": { away: 0.5, days: 3, skipMin: [450, 480] }, "6J": { away: 1.5, ma: 20 }, ZW: { days: 3, lots: 1, wide: true }, ZS: { skipHours: [9], buf: 2 } };
   // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half;
   // ZN made nothing on the first half once the news were kept clear.
   const OUT = ["6N", "6C", "ZN"];
   const pairs = data.filter((d) => !OUT.includes(d.sym)).map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
     // The trend's sessions and the target in risks, the pair's own when it has one.
-    params: { maxRun: p.maxRun ?? 0, ma: p.ma ?? 0, buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
+    params: { skipMin: p.skipMin ?? null, maxRun: p.maxRun ?? 0, ma: p.ma ?? 0, buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
     tick: d.tick,
     from: d.T[0],
     to: d.T[d.T.length - 1],

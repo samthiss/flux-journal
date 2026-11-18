@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useTransition } from "react";
 import { accentColor, lossColor, winColor } from "@/lib/theme";
 import { fieldStyle, fmtOffset, fmtUsd, mono, tone } from "@/components/BacktestUi";
 import { ratioOf, kindOf, monthOf, OUTCOMES, sessionDay, trailingDrawdown, type Bucket, type ConfigStats, type SymbolResult } from "@/lib/databento/engine";
 import { DEFAULT_TIERS, feeRoundTrip, firmShares, fromRow, pairBudget, parseTiers, runAccount, tiersText, type AccountRules } from "@/lib/databento/account";
-import { chooseDatabentoConfig, setTrendPair, setZoneDisabled } from "@/lib/actions/databento";
+import { chooseDatabentoConfig, setTradeReviewed, setTrendPair, setZoneDisabled } from "@/lib/actions/databento";
 import { CONTRACTS, newsCurrencies } from "@/lib/contracts";
 import { HOURS_WHY } from "@/lib/pairHoursWhy";
 import { fmtDist, fmtDistBySymbol, fmtPrice, fmtZone, tickNote } from "@/lib/databento/format";
@@ -153,7 +153,7 @@ type News = { at: number; currency: string; title: string };
 /** The "Trade with Trend" backtest: each pair's trades, [entry minute, exit minute, dir, zone low, zone high, entry, stop, target, ticks, $ net of fees]. */
 /** Why a trade: the closes the trend was read from ([session day, close]), the zone's touches, the break, the first return, when the zone was ready — minutes. */
 export type TrendWhy = { closes: [number, number][]; touches: number[]; brk: number; ret: number; ready: number };
-export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { ma?: number; buf?: number; skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
+export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { skipMin?: [number, number] | null; ma?: number; buf?: number; skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
 /** "1,5" — a target in risks, French. */
 const rText = (v: number) => String(v).replace(".", ",");
 
@@ -164,6 +164,7 @@ export default function DatabentoClient({
   berlinShift,
   trend,
   trendOn: trendOnInitial,
+  reviewed: reviewedInitial,
 }: {
   initial: Saved[];
   news: News[] | null;
@@ -171,7 +172,26 @@ export default function DatabentoClient({
   berlinShift: number;
   trend: TrendResults | null;
   trendOn: string[];
+  /** Keys of the backtest trades already reviewed. */
+  reviewed: string[];
 }) {
+  const [reviewedKeys, setReviewedKeys] = useState<Set<string>>(() => new Set(reviewedInitial));
+  const review = useMemo(
+    () => ({
+      has: (k: string) => reviewedKeys.has(k),
+      toggle: (k: string) => {
+        const on = !reviewedKeys.has(k);
+        setReviewedKeys((prev) => {
+          const next = new Set(prev);
+          if (on) next.add(k);
+          else next.delete(k);
+          return next;
+        });
+        startTransition(() => setTradeReviewed(k, on));
+      },
+    }),
+    [reviewedKeys]
+  );
   /** Which strategy the page reports: the yearly levels, the trend trades, or both on one account. */
   const [strat, setStrat] = useState<"zones" | "trend" | "combo">("zones");
   const [trendOn, setTrendOn] = useState<string[]>(trendOnInitial);
@@ -319,6 +339,7 @@ export default function DatabentoClient({
       : [];
 
   return (
+    <ReviewCtx.Provider value={review}>
     <div style={{ fontSize: 12.5, display: "flex", flexDirection: "column", gap: 8 }}>
       {/* ---- The command strip: where you are, the account, the clock ---- */}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch", background: ORANGE, color: "#000", fontWeight: 700, fontSize: 12 }}>
@@ -696,6 +717,34 @@ export default function DatabentoClient({
         <span style={{ marginLeft: "auto" }}>F1–F{keys.length} = ÉCRANS</span>
       </div>
     </div>
+    </ReviewCtx.Provider>
+  );
+}
+
+/** Which backtest trades the trader has reviewed, shared by every trade list on the page. */
+const ReviewCtx = createContext<{ has: (k: string) => boolean; toggle: (k: string) => void }>({ has: () => false, toggle: () => {} });
+
+/** A trade's "reviewed" mark, first in its row: click to set or clear it, kept in the database. */
+function ReviewMark({ k }: { k: string }) {
+  const r = useContext(ReviewCtx);
+  const on = r.has(k);
+  const flip = (ev: React.SyntheticEvent) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    r.toggle(k);
+  };
+  return (
+    <span
+      role="checkbox"
+      tabIndex={0}
+      aria-checked={on}
+      title={on ? "Reviewed — cliquer pour retirer" : "Marquer comme reviewed"}
+      onClick={flip}
+      onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && flip(ev)}
+      style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, fontSize: 11, fontWeight: 700, border: `1px solid ${on ? GAIN : "#555"}`, background: on ? "#0E2A18" : "transparent", color: on ? GAIN : "transparent" }}
+    >
+      ✓
+    </span>
   );
 }
 
@@ -1039,7 +1088,7 @@ function SymbolReport({
   const priceCols = hasTp2 ? 5 : 4;
   const priceGrid = `72px repeat(${priceCols}, minmax(0, 1fr)) 12px repeat(${priceCols}, minmax(0, 1fr))`;
   // Fixed widths: each row is a grid of its own, and a column sized by its content would move the P&L on the rows with a long exit.
-  const tradeCols = "92px 46px 22px 70px 70px 70px 70px minmax(150px, 1fr) 44px 64px";
+  const tradeCols = "22px 92px 46px 22px 70px 70px 70px 70px minmax(150px, 1fr) 44px 64px";
   const cfgCols = "40px 34px 1.6fr 44px 64px 50px 48px 44px 48px";
   const kpis = [
     { label: `P&L/MOIS · ${r.symbol}`, value: short(cfg.pnl / nMonths), color: tone(cfg.pnl), sub: `${short(cfg.pnl)} SUR LA PÉRIODE` },
@@ -1167,8 +1216,9 @@ function SymbolReport({
 
         <Panel title={`TRADES · ${level !== null ? `NIVEAU ${price(level)} · TOUTE LA PÉRIODE` : month ? termMonth(month) : "—"}`} right={mb ? `${mb.n} TR · ${Math.round((mb.wins / mb.n) * 100)}% · ${short(mb.pnl)} $` : "AUCUN TRADE"} style={{ gridColumn: "span 1", scrollMarginTop: 16 }} id="db-trades">
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 760 }}>
+            <div style={{ minWidth: 790 }}>
               <Row head cols={tradeCols}>
+                <span title="Reviewed">✓</span>
                 <span>OUVERT</span>
                 <span>FERMÉ</span>
                 <span>S</span>
@@ -1190,6 +1240,7 @@ function SymbolReport({
                 const o = ctTime(m * 60000);
                 return (
                   <Row key={m} cols={tradeCols}>
+                    <ReviewMark k={`zones|${r.symbol}|${m}`} />
                     <span style={{ color: DIM }}>
                       {o.date} {o.time}
                     </span>
@@ -1738,6 +1789,7 @@ function TrendRules() {
             { k: "Durée", main: "4 h au plus, rien après 16h Chicago" },
             { k: "Taille", main: "2 lots (ZW : 1 lot)" },
             { k: "ZS", main: "Pas de trade ZS le jour où le 2e retour tombe à 9h CT", detail: "La demi-heure après l'ouverture des grains (8h30) est trop agitée." },
+            { k: "6B", main: "Pas d'entrée 6B de 7h30 à 8h CT", detail: "L'heure des chiffres américains : la livre bouge trop fort contre le dollar." },
             { k: "Journal", main: "Stratégie « Trade with Trend »", detail: "Pour mesurer tes vrais résultats et les comparer au backtest." },
           ]}
         />
@@ -1834,7 +1886,7 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
     .filter(({ x }) => !month || monthOf(x[0] * 60000) === month)
     .sort((a, b) => b.x[0] - a.x[0]);
   const shownPnl = shown.reduce((a, { x }) => a + x[9], 0);
-  const tradeCols = "38px 92px 46px 22px minmax(170px, 1fr) 76px 76px 76px 44px 64px";
+  const tradeCols = "22px 38px 92px 46px 22px minmax(170px, 1fr) 76px 76px 76px 44px 64px";
   return (
     <>
       <KpiStrip kpis={kpis} />
@@ -1947,8 +1999,9 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
             </div>
           )}
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 800 }}>
+            <div style={{ minWidth: 830 }}>
               <Row head cols={tradeCols}>
+                <span title="Reviewed">✓</span>
                 <span>PAIRE</span>
                 <span>OUVERT</span>
                 <span>FERMÉ</span>
@@ -2093,6 +2146,7 @@ function TrendPair({
     (p.params?.lots ?? 2) !== 2 && `${p.params!.lots} LOT`,
     (p.params?.buf ?? 3) !== 3 && `STOP ${p.params!.buf} TK AU-DELÀ DE LA ZONE`,
     (p.params?.ma ?? 0) > 0 && `PRIX DU BON CÔTÉ DE SA MOYENNE ${p.params!.ma} SÉANCES`,
+    p.params?.skipMin && `PAS D'ENTRÉE DE ${Math.floor(p.params.skipMin[0] / 60)}H${String(p.params.skipMin[0] % 60).padStart(2, "0")} À ${Math.floor(p.params.skipMin[1] / 60)}H${String(p.params.skipMin[1] % 60).padStart(2, "0")} CT`,
     (p.params?.skipHours ?? []).length > 0 && `PAS DE TRADE LE JOUR OÙ LE 2E RETOUR TOMBE À ${p.params!.skipHours!.join("H, ")}H CT`,
   ].filter(Boolean);
   const hours = r?.rules?.excludeHours ?? [];
@@ -2131,7 +2185,7 @@ function TrendPair({
   const monthMax = Math.max(1, ...[...byMonth.values()].map((b) => Math.abs(b.pnl)));
   const rows = month ? list.filter((it) => monthOf(it.t) === month).sort((a, b) => b.t - a.t) : [];
   const mb = month ? byMonth.get(month) : null;
-  const tradeCols = "92px 46px 22px minmax(170px, 1fr) 76px 76px 76px 44px 64px";
+  const tradeCols = "22px 92px 46px 22px minmax(170px, 1fr) 76px 76px 76px 44px 64px";
   const line = (k: string, v: React.ReactNode, note?: React.ReactNode) => (
     <div>
       <span style={{ color: DIM }}>{k} </span>
@@ -2235,8 +2289,9 @@ function TrendPair({
           right={mb ? `${mb.n} TR · ${Math.round((mb.wins / mb.n) * 100)}% · ${short(mb.pnl)} $` : undefined}
         >
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 760 }}>
+            <div style={{ minWidth: 790 }}>
               <Row head cols={tradeCols}>
+                <span title="Reviewed">✓</span>
                 <span>OUVERT</span>
                 <span>FERMÉ</span>
                 <span>S</span>
@@ -2291,6 +2346,7 @@ function TrendTradeRow({ q, x, cols, pair, open, onClick }: { q: TrendResults["p
   return (
     <>
       <Row cols={cols} onClick={onClick} style={open ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : undefined}>
+        <ReviewMark k={`twt|${q.symbol}|${x[0]}`} />
         {pair && <span style={{ color: TXT, fontWeight: 700 }}>{q.symbol}</span>}
         <span style={{ color: DIM }}>
           {o.date} {o.time}

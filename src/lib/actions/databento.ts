@@ -42,3 +42,14 @@ export async function setTrendPair(symbol: string, on: boolean) {
   await prisma.databentoSymbol.updateMany({ where: { ownerId, symbol: symbol.trim().toUpperCase() }, data: { trendOn: !!on } });
   revalidatePath("/backtesting-databento");
 }
+
+/** A backtest trade marked as reviewed, or not any more. */
+export async function setTradeReviewed(key: string, reviewed: boolean) {
+  await exigeProprietaire();
+  const ownerId = await monJournal();
+  const k = key.trim().slice(0, 80);
+  if (!k) return;
+  if (reviewed) await prisma.backtestReview.upsert({ where: { ownerId_key: { ownerId, key: k } }, create: { ownerId, key: k }, update: {} });
+  else await prisma.backtestReview.deleteMany({ where: { ownerId, key: k } });
+  revalidatePath("/backtesting-databento");
+}

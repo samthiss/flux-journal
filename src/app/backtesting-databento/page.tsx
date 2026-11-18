@@ -33,6 +33,7 @@ function trendResults(): TrendResults | null {
 export default async function BacktestingDatabentoPage() {
   const ownerId = await monJournal();
   const rows = await prisma.databentoSymbol.findMany({ where: { ownerId }, orderBy: { symbol: "asc" } });
+  const reviewed = (await prisma.backtestReview.findMany({ where: { ownerId }, select: { key: true } })).map((r) => r.key);
   // Every currency the pairs follow: each pair's own and the dollar.
   const { news, now, berlinShift } = await weekNews([...new Set(rows.flatMap((r) => newsCurrencies(r.symbol)))]);
 
@@ -57,6 +58,7 @@ export default async function BacktestingDatabentoPage() {
         berlinShift={berlinShift}
         trend={trendResults()}
         trendOn={rows.filter((r) => r.trendOn).map((r) => r.symbol)}
+        reviewed={reviewed}
       />
     </div>
   );
