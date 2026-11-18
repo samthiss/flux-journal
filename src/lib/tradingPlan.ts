@@ -30,8 +30,14 @@ export type PairPlan = {
 /** A release that blocks orders: the source's three stars. */
 export type Blocking = { at: number; currency: string; title: string };
 
-/** No order this long either side of a blocking release. */
+/** No order this long before a blocking release, and after it for most. */
 export const BLACKOUT_MS = 10 * 60000;
+/** After the biggest releases — inflation or any other year-on-year figure — the trader waits half an hour (2026-11-18). */
+export const BIG_AFTER_MS = 30 * 60000;
+/** A year-on-year figure: "Inflation Rate YoY", "GDP Growth Rate YoY"… */
+export const isBigRelease = (title: string) => /\byoy\b|y\/y/i.test(title);
+/** How long a release keeps orders out after it. */
+export const afterMs = (n: { title: string }) => (isBigRelease(n.title) ? BIG_AFTER_MS : BLACKOUT_MS);
 /** The account's limits the page watches. */
 export const MAX_POSITIONS = 2;
 export const MAX_CONTRACTS = 5;
@@ -49,7 +55,8 @@ export const blocksFor = (symbol: string, news: Blocking[]) => news.filter((n) =
 
 /**
  * A pair's order windows on a Chicago date, as instants: its hours, less its
- * excluded hours, less ten minutes either side of each blocking release.
+ * excluded hours, less ten minutes before each blocking release and ten
+ * after it — thirty after a year-on-year figure.
  */
 export function orderWindows(p: PairPlan, day: string, news: Blocking[]): [number, number][] {
   const { y, m, d } = parseDay(day);
@@ -64,7 +71,7 @@ export function orderWindows(p: PairPlan, day: string, news: Blocking[]): [numbe
   }
   for (const n of blocksFor(p.symbol, news)) {
     const a = n.at - BLACKOUT_MS;
-    const b = n.at + BLACKOUT_MS;
+    const b = n.at + afterMs(n);
     segs = segs.flatMap(([s, e]): [number, number][] => (b <= s || a >= e ? [[s, e]] : ([[s, a], [b, e]] as [number, number][]).filter(([x, z]) => z > x)));
   }
   return segs;

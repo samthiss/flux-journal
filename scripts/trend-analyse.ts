@@ -31,10 +31,10 @@ const ctFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", ho
 const ctHour = (t: number) => Number(ctFmt.format(t));
 
 type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[] };
-/** Three-star releases of each pair's currencies, in ms: no fill within NEWS_MIN minutes of one. Loaded by the run that writes the results. */
-const NEWS_OF = new Map<string, number[]>();
+/** Three-star releases of each pair's currencies: no fill from NEWS_MIN minutes before one to NEWS_MIN after — 30 after a year-on-year figure. Loaded by the run that writes the results. */
+const NEWS_OF = new Map<string, { at: number; big: boolean }[]>();
 const NEWS_MIN = 10;
-const inNews = (sym: string, t: number) => (NEWS_OF.get(sym) ?? []).some((at) => Math.abs(t - at) <= NEWS_MIN * 60000);
+const inNews = (sym: string, t: number) => (NEWS_OF.get(sym) ?? []).some(({ at, big }) => t >= at - NEWS_MIN * 60000 && t <= at + (big ? 30 : NEWS_MIN) * 60000);
 const grid: P[] = [];
 for (const entry of ["edge", "mid"] as const) for (const buf of [1, 3, 5]) for (const exit of [1, 1.25, 1.5, 2, 2.5, 3]) for (const mgmt of ["fixed", "be", "split"] as const) for (const hold of [4, 8])
   if (!(exit <= 1 && mgmt !== "fixed")) grid.push({ days: 2, touches: 3, bounce: 0.5, width: 0.5, away: 1, stop: "zone", exit, entry, buf, mgmt, hold });
@@ -254,7 +254,7 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   for (const d of data) {
     const ev = await getHighImpactBetween(new Date(d.T[0] - 864e5), new Date(d.T[d.T.length - 1] + 864e5), newsCurrencies(d.sym));
     if (!ev) throw new Error(`${d.sym} : le calendrier des news n'a pas pu être lu.`);
-    NEWS_OF.set(d.sym, ev.map((x) => x.at));
+    NEWS_OF.set(d.sym, ev.map((x) => ({ at: x.at, big: /\byoy\b|y\/y/i.test(x.title) })));
   }
   const base0: P = { days: 2, touches: 3, bounce: 1 / 3, width: 0.5, away: 1, stop: "zone", exit: 1.5, entry: "edge", buf: 3, mgmt: "fixed", hold: 4 };
   // A pair's own setting, where one was kept (docs/backtesting.md, 17.11):
@@ -262,15 +262,16 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   // away after the first return, 6J a longer one; ZW a longer trend at one
   // lot, its stop costing 420 $ a trade at two; ZS not traded on a day its
   // second return comes at 9h CT, just after the grains' day session opens
-  // (39 % won there, the drawdown 825 $ instead of 1,491).
-  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5 }, "6J": { away: 1.5 }, ZW: { days: 3, lots: 1 }, ZS: { skipHours: [9] } };
+  // (39 % won there, the drawdown 825 $ instead of 1,491), and its stop two
+  // ticks past the zone (64 %, the drawdown 600 $).
+  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true }, "6B": { away: 0.5 }, "6J": { away: 1.5 }, ZW: { days: 3, lots: 1 }, ZS: { skipHours: [9], buf: 2 } };
   // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half;
   // ZN made nothing on the first half once the news were kept clear.
   const OUT = ["6N", "6C", "ZN"];
   const pairs = data.filter((d) => !OUT.includes(d.sym)).map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
     // The trend's sessions and the target in risks, the pair's own when it has one.
-    params: { skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
+    params: { buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
     tick: d.tick,
     from: d.T[0],
     to: d.T[d.T.length - 1],

@@ -153,7 +153,7 @@ type News = { at: number; currency: string; title: string };
 /** The "Trade with Trend" backtest: each pair's trades, [entry minute, exit minute, dir, zone low, zone high, entry, stop, target, ticks, $ net of fees]. */
 /** Why a trade: the closes the trend was read from ([session day, close]), the zone's touches, the break, the first return, when the zone was ready — minutes. */
 export type TrendWhy = { closes: [number, number][]; touches: number[]; brk: number; ret: number; ready: number };
-export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
+export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { buf?: number; skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
 /** "1,5" — a target in risks, French. */
 const rText = (v: number) => String(v).replace(".", ",");
 
@@ -826,10 +826,10 @@ function GeneralRules({ r, account, symbols, detail }: { r: SymbolResult; accoun
           h && { k: "Horaires", main: `Ordres de ${h[0]}h à ${h[1]}h Chicago`, detail: "Sauf les heures exclues de la paire. Elles ne concernent que les nouveaux ordres : un ordre non rempli à l'heure exclue s'annule, un trade déjà rempli se gère jusqu'au bout (SL, TP1, trailing, 4 h max)." },
           {
             k: "News",
-            main: bo ? `Pas d'ordre ${bo.before} min avant → ${bo.after} min après` : "Pas de blackout",
+            main: bo ? `Pas d'ordre ${bo.before} min avant → ${bo.after} min après (30 min après une news YoY)` : "Pas de blackout",
             detail: bo
               ? bo.all
-                ? "Chaque news 3 étoiles des devises de la paire, selon la note de TradingView : ce sont celles du Trading Plan. Pas toutes les 3 étoiles d'investing.com — Initial Jobless Claims, ADP, JOLTS ou les stocks de pétrole n'en font pas partie (les bloquer aussi coûte ≈ 120 $/mois au backtest)."
+                ? "Chaque news 3 étoiles des devises de la paire, selon la note de TradingView : ce sont celles du Trading Plan. Pas toutes les 3 étoiles d'investing.com — Initial Jobless Claims, ADP, JOLTS ou les stocks de pétrole n'en font pas partie (les bloquer aussi coûte ≈ 120 $/mois au backtest). Après une news YoY (inflation, PIB…) : 30 min, choix du trader (18.11). Si la bougie d'une news 3★ traverse ton niveau : plus d'ordre sur ce niveau de la journée (sur l'an : 7 trades, 2 gagnants, −406 $)."
                 : "CPI, NFP, Fed et la banque centrale de la paire"
               : undefined,
           },
@@ -1730,7 +1730,7 @@ function TrendRules() {
               detail:
                 "Lu en M15, dans les 72 h après la cassure. Il doit repartir d'au moins un stop du plan, mesuré depuis le bord de la zone : 6B 13 tk (½ stop, réglage propre) · 6J 23 tk (1,5 stop, réglage propre) · ZW 15 tk · 6E, ZS 12 tk. Mesuré depuis le haut du retour, ça prend trop de mauvaises zones. Si une bougie M15 clôture de nouveau de l'autre côté de la zone, la cassure a échoué.",
             },
-            { k: "Entrée", main: "Au 2e retour sur la zone, ordre limite 1 tick avant le bord, dans le sens de la tendance", detail: "Dans les 48 h après le 1er retour, aux heures d'ordres de la paire, pas d'ordre rempli à ±10 min d'une news 3★ de ses devises. Un trade par jour et par paire ; une zone ne sert qu'une fois." },
+            { k: "Entrée", main: "Au 2e retour sur la zone, ordre limite 1 tick avant le bord, dans le sens de la tendance", detail: "Dans les 48 h après le 1er retour, aux heures d'ordres de la paire, pas d'ordre rempli de 10 min avant à 10 min après une news 3★ de ses devises (30 min après une news YoY). Un trade par jour et par paire ; une zone ne sert qu'une fois." },
           ]}
         />
         <RuleCard
@@ -1738,7 +1738,7 @@ function TrendRules() {
           title="Gestion"
           detail
           rules={[
-            { k: "Stop", main: "3 ticks au-delà de l'autre bord de la zone", detail: "Pas de trade si ce stop dépasse 500 $ à 2 lots. ZW se trade à 1 lot : son stop moyen (17 tk) coûte 420 $ à 2 lots ; à 1 lot, +104 $/mois pour un DD de 525 $." },
+            { k: "Stop", main: "3 ticks au-delà de l'autre bord de la zone (ZS : 2)", detail: "Pas de trade si ce stop dépasse 500 $ à 2 lots. Plus serré, le stop coupe les 2e retours qui dépassent un peu le bord avant de repartir : 0 à 2 ticks font moins bien sur 6E, 6J et ZW ; ZS fait mieux à 2 ticks (64 %, drawdown 600 $). ZW se trade à 1 lot : son stop moyen (17 tk) coûte 420 $ à 2 lots ; à 1 lot, +104 $/mois pour un DD de 525 $." },
             { k: "Objectif", main: "1,5 fois le risque (6E : 1,25)", detail: "Testé : 1R, 1,25R, 2R, break-even, sortie de moitié, trailing stop (distance fixe, creux M15 ou H1, gardé jusqu'à 3 jours) — rien ne fait mieux sur la 1re moitié. 6E : 1,25R avec une tendance sur 3 séances et une zone large, 64 % de gagnants." },
             { k: "Durée", main: "4 h au plus, rien après 16h Chicago" },
             { k: "ZS à 9h CT", main: "Si le 2e retour tombe à 9h CT, pas de trade ZS ce jour-là", detail: "Juste après l'ouverture de la séance de jour des grains (8h30), le marché traverse les zones : 39 % de gagnants à 9h, 63 à 71 % de 10h à 12h. Sans ces jours : 39 trades, 59 %, +526 $/mois au lieu de +480, drawdown 825 $ au lieu de 1 491. Testé aussi sur ZW : moins bien." },
@@ -1750,8 +1750,8 @@ function TrendRules() {
           title="Ce que dit le backtest"
           detail
           rules={[
-            { k: "Réglage", main: "Zone et retours en M15, cassure en H1 · règle du 17.11", detail: "Un an (13.11.2025 → 12.11.2026), news bloquées ±10 min, frais déduits, choisi sur la 1re moitié et jugé sur la 2e." },
-            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +675 → +377 (59 %, DD 825) · 6B +626 → +239 (57 %). ZW (3 séances, 1 lot) +74 → +135, DD 525. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié ; ZN (+20 → +423, DD 1 540), qui ne gagnait plus rien sur la 1re moitié une fois les news bloquées." },
+            { k: "Réglage", main: "Zone et retours en M15, cassure en H1 · règle du 17.11", detail: "Un an (13.11.2025 → 12.11.2026), news bloquées 10 min avant / 10 min après (30 après une YoY), frais déduits, choisi sur la 1re moitié et jugé sur la 2e." },
+            { k: "Où ça marche", main: "6J · 6E · ZS · 6B", detail: "$/mois (1re → 2e moitié) : 6J +372 → +304 (67 %, DD 539) · 6E +195 → +349 (64 %) · ZS +758 → +398 (64 %, DD 600) · 6B +626 → +239 (57 %). ZW (3 séances, 1 lot) +74 → +135, DD 525. Retirées (17.11) : 6N (+141 → −75) et 6C (+220 → −46), trop lentes pour l'objectif en 4 h (moins d'un trade sur cinq le touche) et aucun réglage ne tient sur la 2e moitié ; ZN (+20 → +423, DD 1 540), qui ne gagnait plus rien sur la 1re moitié une fois les news bloquées." },
             { k: "Portefeuilles", main: "6J + 6E : 7,4 trades/mois, 65 %, +610 $/mois, DD 845", detail: "6J + 6E + ZS : 12,3 trades/mois, 60 %, +1 089 $/mois, DD 1 096, pire jour −577. Avec 6B en plus : +1 522 $/mois mais DD 1 651 et pire jour −821. Toutes les paires : DD au-delà des 2 000 du compte. Avec les zones : voir COMBINÉ." },
             { k: "Statut", main: "À l'essai : à confirmer en réel", detail: "Les réglages propres à une paire sont limités à ceux qui tiennent." },
           ]}
@@ -1827,7 +1827,7 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
   const kpis = [
     { label: "P&L/MOIS · PAIRES ACTIVES", value: short(pnl / span), color: tone(pnl), sub: `${active.map((x) => x.p.symbol).join(" · ") || "AUCUNE"} · FRAIS DÉDUITS` },
     { label: "TRADES/MOIS", value: (n / span).toFixed(1).replace(".", ","), color: TXT, sub: `${n} SUR LA PÉRIODE` },
-    { label: "WIN%", value: n ? `${Math.round((wins / n) * 100)}` : "—", color: TXT, sub: "OBJECTIF 1,5 × LE STOP (6E : 1,25) · NEWS ±10 MIN" },
+    { label: "WIN%", value: n ? `${Math.round((wins / n) * 100)}` : "—", color: TXT, sub: "OBJECTIF 1,5 × LE STOP (6E : 1,25) · NEWS −10/+10 MIN (YOY +30)" },
     { label: "MAX DD", value: `−${Math.round(acc.dd)}`, color: LOSS, sub: "FIN DE JOURNÉE, PAIRES ACTIVES" },
     { label: "PIRE JOUR", value: short(acc.worst), color: LOSS, sub: "PAIRES ACTIVES" },
     { label: "RÈGLE", value: trend.rule, color: ORANGE, sub: "ZONE · CASSURE · RETOUR" },
@@ -2097,6 +2097,7 @@ function TrendPair({
     (p.params?.away ?? 1) !== 1 && `1ER RETOUR ${rText(p.params!.away!)} STOP`,
     (p.params?.exit ?? 1.5) !== 1.5 && `OBJECTIF ${rText(p.params!.exit)}R`,
     (p.params?.lots ?? 2) !== 2 && `${p.params!.lots} LOT`,
+    (p.params?.buf ?? 3) !== 3 && `STOP ${p.params!.buf} TK AU-DELÀ DE LA ZONE`,
     (p.params?.skipHours ?? []).length > 0 && `PAS DE TRADE LE JOUR OÙ LE 2E RETOUR TOMBE À ${p.params!.skipHours!.join("H, ")}H CT`,
   ].filter(Boolean);
   const hours = r?.rules?.excludeHours ?? [];
@@ -2175,7 +2176,7 @@ function TrendPair({
             {line("ENTRÉE", "2E RETOUR · LIMITE 1 TK AVANT LA ZONE", "DANS LES 48 H · 1 TRADE/JOUR · ZONE UTILISÉE UNE FOIS")}
             <div>
               <span style={{ color: DIM }}>STOP </span>
-              <span style={{ color: LOSS }}>3 TK AU-DELÀ DE L&apos;AUTRE BORD</span>
+              <span style={{ color: LOSS }}>{p.params?.buf ?? 3} TK AU-DELÀ DE L&apos;AUTRE BORD</span>
               <span style={{ color: DIM }}> · ≤ 500 $ À {lots} LOTS</span>
             </div>
             <div>
@@ -2397,7 +2398,7 @@ function TrendWhyPanel({ q, x }: { q: TrendResults["pairs"][number]; x: number[]
             <>
               <span style={{ color: LOSS }}>{px(sl)}</span> ({slTk} TK) · <span style={{ color: GAIN }}>{px(tp)}</span> ({tpTk} TK)
             </>,
-            `STOP 3 TICKS AU-DELÀ DE L'AUTRE BORD (${px(far)}) · OBJECTIF ${rText(q.params?.exit ?? 1.5)} × LE RISQUE`
+            `STOP ${q.params?.buf ?? 3} TICKS AU-DELÀ DE L'AUTRE BORD (${px(far)}) · OBJECTIF ${rText(q.params?.exit ?? 1.5)} × LE RISQUE`
           )}
           {step(
             7,

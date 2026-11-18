@@ -8,6 +8,8 @@ import { chicago, chicagoInstant } from "@/lib/databento/clock";
 import { exitAt } from "@/lib/exitTime";
 import {
   BLACKOUT_MS,
+  afterMs,
+  isBigRelease,
   DAY_LIMIT,
   MAX_CONTRACTS,
   MAX_POSITIONS,
@@ -141,10 +143,11 @@ const btn = (color: string, filled = false): React.CSSProperties => ({
 const input: React.CSSProperties = { fontFamily: "inherit", fontSize: 12, background: "#000", color: TXT, border: "1px solid #444", padding: "2px 5px", colorScheme: "dark" };
 
 const CHECKLIST = [
-  { id: "news", label: "News 3★ du jour repérées", hint: "Voir « News du jour » : aucun ordre 10 min avant → 10 min après." },
+  { id: "news", label: "News 3★ du jour repérées", hint: "Voir « News du jour » : aucun ordre 10 min avant → 10 min après ; 30 min après une news YoY (inflation, PIB…), les deux stratégies." },
   { id: "night", label: "Niveaux touchés cette nuit vérifiés sur le graphique", hint: "Un niveau touché la nuit, à une heure exclue ou pendant une news ne compte qu'après un éloignement de 30 ticks." },
   { id: "approach", label: "Approche ≥ 15 ticks depuis 17h pour chaque niveau", hint: "Séance ouverte à moins de 15 ticks du niveau : pas d'ordre sur ce niveau." },
   { id: "crossed", label: "Niveaux traversés dans la séance écartés", hint: "Un niveau traversé ne se trade plus dans l'autre sens aujourd'hui." },
+  { id: "newscross", label: "Niveau traversé par une news 3★ : écarté pour la journée", hint: "Si la bougie d'une news 3★ traverse ta zone, plus d'ordre sur cette zone jusqu'à la séance suivante (backtest : 7 trades sur l'an, 2 gagnants, −406 $)." },
   { id: "orders", label: "Ordres limites posés : 2 lots, SL attaché", hint: "Déplie une paire et clique la zone achat ou vente : l'ordre s'ajoute sous le plan." },
   { id: "blackout", label: "Ordres retirés avant chaque blackout et news", hint: "La colonne ÉTAT des ordres posés dit à quelle heure les retirer." },
   { id: "fill", label: "Heure de remplissage notée pour la notification de sortie", hint: "Dans « Ordres du jour » : saisis l'heure puis clique REMPLI." },
@@ -272,7 +275,7 @@ export default function TradingPlan({
         <span style={{ color: ORANGE, fontWeight: 700 }}>
           {b.currency} {b.title} à {ctClock(b.at)} CT ({berClock(b.at)} Berlin)
         </span>{" "}
-        : <span style={{ color: LOSS, fontWeight: 700 }}>pas d&apos;ordre {pairsHit(b.currency).length === pairs.length ? "toutes tes paires" : pairsHit(b.currency).join(" · ")}</span> de {ctClock(b.at - BLACKOUT_MS)} à {ctClock(b.at + BLACKOUT_MS)} CT.{" "}
+        : <span style={{ color: LOSS, fontWeight: 700 }}>pas d&apos;ordre {pairsHit(b.currency).length === pairs.length ? "toutes tes paires" : pairsHit(b.currency).join(" · ")}</span> de {ctClock(b.at - BLACKOUT_MS)} à {ctClock(b.at + afterMs(b))} CT{isBigRelease(b.title) ? " (YOY : 30 MIN APRÈS)" : ""}.{" "}
       </span>
     );
   const shaped = pairs.filter((p) => p.exclude.length);
@@ -528,13 +531,13 @@ export default function TradingPlan({
                       <span style={{ color: TXT, fontWeight: 700, alignSelf: "center" }}>{p.symbol}</span>
                       {hours.map((h) => {
                         const blocked = h < p.hours[0] || h >= p.hours[1] || p.exclude.includes(h);
-                        const hit = blocksFor(p.symbol, blocking).filter((b) => b.at + BLACKOUT_MS > hourAt(h) && b.at - BLACKOUT_MS < hourAt(h + 1));
+                        const hit = blocksFor(p.symbol, blocking).filter((b) => b.at + afterMs(b) > hourAt(h) && b.at - BLACKOUT_MS < hourAt(h + 1));
                         const cur = isToday && nowCt.h === h;
                         const past = isToday && h < nowCt.h;
                         return (
                           <span
                             key={h}
-                            title={`${p.symbol} · ${hh(h)} CT / ${berClock(hourAt(h)).slice(0, 2)}h Berlin : ${blocked ? "pas de nouvel ordre" : hit.length ? `ordres permis sauf ${hit.map((b) => `${ctClock(b.at - BLACKOUT_MS)}–${ctClock(b.at + BLACKOUT_MS)} (${b.currency} ${b.title})`).join(", ")}` : "ordres permis"}`}
+                            title={`${p.symbol} · ${hh(h)} CT / ${berClock(hourAt(h)).slice(0, 2)}h Berlin : ${blocked ? "pas de nouvel ordre" : hit.length ? `ordres permis sauf ${hit.map((b) => `${ctClock(b.at - BLACKOUT_MS)}–${ctClock(b.at + afterMs(b))} (${b.currency} ${b.title})`).join(", ")}` : "ordres permis"}`}
                             style={{
                               height: 16,
                               display: "flex",
@@ -567,7 +570,7 @@ export default function TradingPlan({
                     PAS DE NOUVEL ORDRE
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ color: LOSS, fontWeight: 700 }}>N</span>NEWS 3★ : AUCUN ORDRE 10 MIN AVANT → 10 MIN APRÈS
+                    <span style={{ color: LOSS, fontWeight: 700 }}>N</span>NEWS 3★ : AUCUN ORDRE 10 MIN AVANT → 10 MIN APRÈS (30 MIN APRÈS UNE NEWS YOY)
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 14, height: 10, border: `1px solid ${ORANGE}` }} />
@@ -950,7 +953,7 @@ export default function TradingPlan({
                       <span style={{ background: past ? "#555" : LOSS, color: "#000", fontWeight: 700, padding: "0 6px" }}>NE PAS TRADER : {whoText(n.currency)}</span>
                       <br />
                       <span style={{ color: past ? "#555" : LOSS }}>
-                        {ctClock(t - BLACKOUT_MS)}–{ctClock(t + BLACKOUT_MS)} CT · {berClock(t - BLACKOUT_MS)}–{berClock(t + BLACKOUT_MS)} BER
+                        {ctClock(t - BLACKOUT_MS)}–{ctClock(t + afterMs(n))} CT · {berClock(t - BLACKOUT_MS)}–{berClock(t + afterMs(n))} BER{isBigRelease(n.title) ? " · YOY : 30 MIN APRÈS, LES DEUX STRATÉGIES" : ""}
                       </span>
                     </div>
                   )}
@@ -1380,7 +1383,7 @@ export default function TradingPlan({
                   <div style={{ fontSize: 10.5, marginTop: 4 }}>
                     <span style={{ background: past ? "#555" : LOSS, color: "#000", fontWeight: 700, padding: "0 5px" }}>NE PAS TRADER : {whoText(n.currency)}</span>{" "}
                     <span style={{ color: past ? "#555" : LOSS }}>
-                      {berClock(t - BLACKOUT_MS)}–{berClock(t + BLACKOUT_MS)} BER
+                      {berClock(t - BLACKOUT_MS)}–{berClock(t + afterMs(n))} BER{isBigRelease(n.title) ? " · YOY 30 MIN" : ""}
                     </span>
                   </div>
                 )}
@@ -1409,7 +1412,7 @@ export default function TradingPlan({
                     </span>
                     {pairs.map((p) => {
                       const blocked = h < p.hours[0] || h >= p.hours[1] || p.exclude.includes(h);
-                      const hit = blocksFor(p.symbol, blocking).filter((b) => b.at + BLACKOUT_MS > hourAt(h) && b.at - BLACKOUT_MS < hourAt(h + 1));
+                      const hit = blocksFor(p.symbol, blocking).filter((b) => b.at + afterMs(b) > hourAt(h) && b.at - BLACKOUT_MS < hourAt(h + 1));
                       return (
                         <span
                           key={p.symbol}
