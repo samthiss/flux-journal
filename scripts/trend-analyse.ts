@@ -30,7 +30,7 @@ const res = JSON.parse(readFileSync("prisma/databento-results.json", "utf8")) as
 const ctFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago", hour: "2-digit", hourCycle: "h23" });
 const ctHour = (t: number) => Number(ctFmt.format(t));
 
-type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[]; ma?: number };
+type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[]; ma?: number; maxRun?: number };
 /** Three-star releases of each pair's currencies: no fill from NEWS_MIN minutes before one to NEWS_MIN after — 30 after a year-on-year figure. Loaded by the run that writes the results. */
 const NEWS_OF = new Map<string, { at: number; big: boolean }[]>();
 const NEWS_MIN = 10;
@@ -175,6 +175,13 @@ function zones(d: Data, p: P): Zone[] {
       const key = `${tr}${Math.round(lo / d.tick)}`;
       if (seen.has(key)) continue;
       if (tr === -1 ? !(b.c < lo && prevC >= lo) : !(b.c > hi && prevC <= hi)) continue;
+      if (p.maxRun) {
+        // A zone price already ran far past on the trade's side (p.maxRun stops or more) and came back from: too risky, not traded.
+        const first = Math.min(...cluster.map((y) => zb[y.i].t));
+        let ex = 0;
+        for (let q = j - 1; q >= 0 && bb[q].t >= first; q--) ex = Math.max(ex, tr === -1 ? lo - bb[q].l : bb[q].h - hi);
+        if (ex >= p.maxRun * d.cfg.sl * d.tick) continue;
+      }
       seen.add(key);
       // The first return and the move away, on the return's bars, after the breaking bar.
       let k = rIndex(end), touched = -1, ok = false;
@@ -265,7 +272,7 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
     if (!ev) throw new Error(`${d.sym} : le calendrier des news n'a pas pu être lu.`);
     NEWS_OF.set(d.sym, ev.map((x) => ({ at: x.at, big: /\byoy\b|y\/y/i.test(x.title) })));
   }
-  const base0: P = { days: 2, touches: 3, bounce: 1 / 3, width: 0.5, away: 1, stop: "zone", exit: 1.5, entry: "edge", buf: 3, mgmt: "fixed", hold: 4 };
+  const base0: P = { days: 2, touches: 3, bounce: 1 / 3, width: 0.5, away: 1, stop: "zone", exit: 1.5, entry: "edge", buf: 3, mgmt: "fixed", hold: 4, maxRun: 6 };
   // A pair's own setting, where one was kept (docs/backtesting.md, 17.11):
   // 6E a longer trend, a wide zone and a nearer target; 6B a shorter move
   // away after the first return and a longer trend (its profit leant on one
@@ -282,7 +289,7 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   const pairs = data.filter((d) => !OUT.includes(d.sym)).map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
     // The trend's sessions and the target in risks, the pair's own when it has one.
-    params: { ma: p.ma ?? 0, buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
+    params: { maxRun: p.maxRun ?? 0, ma: p.ma ?? 0, buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
     tick: d.tick,
     from: d.T[0],
     to: d.T[d.T.length - 1],
