@@ -193,7 +193,7 @@ export default function DatabentoClient({
     [reviewedKeys]
   );
   /** Which strategy the page reports: the yearly levels, the trend trades, or both on one account. */
-  const [strat, setStrat] = useState<"zones" | "trend" | "combo">("zones");
+  const [strat, setStrat] = useState<"zones" | "trend" | "combo" | "plan">("zones");
   const [trendOn, setTrendOn] = useState<string[]>(trendOnInitial);
   const toggleTrend = (sym: string) => {
     const on = !trendOn.includes(sym);
@@ -471,6 +471,7 @@ export default function DatabentoClient({
             ["zones", "LEVEL BOUNCE"],
             ["trend", "TREND RETEST"],
             ["combo", "COMBINÉ"],
+            ["plan", "PLAN"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -497,6 +498,7 @@ export default function DatabentoClient({
       </div>
 
       {strat === "trend" && <TrendScreens trend={trend} on={trendOn} onToggle={toggleTrend} entries={analysed} account={account} berlinShift={berlinShift} />}
+      {strat === "plan" && <GrowthPlan />}
       {strat === "combo" && <ComboReport trend={trend} on={trendOn} per={general.per} account={account} />}
 
       {strat === "zones" && (
@@ -2843,6 +2845,120 @@ function MonthTrades({ month, per, onClose }: { month: string | null; per: Per[]
       {month && !rows.length && <div style={{ color: DIM, padding: "12px 10px" }}>AUCUN TRADE CE MOIS.</div>}
       <div style={{ color: DIM, fontSize: 10.5, padding: "6px 12px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · P&L À 2 LOTS, FRAIS DÉDUITS · ☐ = TRADE REVU</div>
     </Panel>
+  );
+}
+
+/** The plan to 10,000 $ net a month: one direct account first, then challenges paid by the trading (19.11.2026). */
+function GrowthPlan() {
+  const cell = (v: React.ReactNode, style?: React.CSSProperties) => <span style={{ whiteSpace: "normal", ...style }}>{v}</span>;
+  const note = (t: string) => <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6, whiteSpace: "normal" }}>{t}</div>;
+  const accounts = [
+    ["MEDIUM DIRECT", "≈ 450 $ UNE FOIS", "— (RETRAITS DÈS LE DÉPART)", "2", "1", "RACHAT"],
+    ["MEDIUM CHALLENGE", "81 $/MOIS (65 AVANT LE 22.11)", "3 000 $", "2", "1", "55 $"],
+    ["MAX CHALLENGE", "211 $/MOIS (169 AVANT LE 22.11)", "9 000 $", "4", "2", "99 $"],
+  ];
+  const steps: [string, string, string, string, string, boolean?][] = [
+    ["FIN NOV.", "Direct MEDIUM n°1 + challenge MEDIUM n°1 (mêmes trades)", "TA POCHE ≈ 530 $", "1", "1 100 – 1 450 $"],
+    ["MI-JANV.", "1er retrait (≈ 2 000 $) → Databento live + challenge MAX n°1", "TRADING", "1", "1 800 – 2 350 $"],
+    ["MI-FÉVR.", "Challenge MAX n°2", "TRADING", "1", ""],
+    ["FIN FÉVR.", "Challenge MEDIUM n°1 réussi (3 000 $) → financé", "—", "2", "3 600 – 4 700 $"],
+    ["MARS", "Challenge MAX n°3 (la marge)", "TRADING", "2", ""],
+    ["FIN MARS – AVR.", "Challenge MAX n°1 réussi (9 000 $) → financé", "—", "4", "7 200 – 9 400 $"],
+    ["FIN AVR. – MAI", "Challenge MAX n°2 réussi → 10 000 $ NETS", "—", "6", "10 800 – 14 100 $", true],
+    ["JUIN", "Challenge MAX n°3 réussi → la marge", "—", "8", "14 400 – 18 800 $", true],
+  ];
+  const rules: [string, string][] = [
+    ["COMPTE DIRECT, AVANT SON 1ER RETRAIT", "Gain max +300 $ par trade et par jour (règle de constance 20 %) · −500 $ par jour."],
+    ["CHALLENGES", "Pas de plafond de gain (pas de règle de constance affichée) · −500 $/jour en MEDIUM, −1 000 $/jour en MAX 4 lots."],
+    ["TOUS LES COMPTES", "Jamais plus de 500 $ de risque par trade en 2 lots, 1 000 $ en 4 lots."],
+    ["AVANT CHAQUE NOUVEAU CHALLENGE", "Mois réel précédent ≥ 50 % du backtest · aucun compte financé sauté depuis 2 mois · réserve ≈ 1 500 $ (rachat, restarts, Databento)."],
+    ["CHALLENGE QUI SAUTE", "Restart (55 ou 99 $) payé par le trading ; au 2e échec : stop et analyse avant de continuer."],
+  ];
+  const checks = [
+    "Règles du compte financé après le challenge : constance, partage des profits, délai avant le 1er retrait (avec 20 % de constance : ≈ 1 mois de plus par compte).",
+    "Nombre de comptes LMI autorisés par trader ; sinon le MAX n°3 chez une autre firme.",
+    "Copie des trades (master / slave) autorisée entre challenges et comptes financés.",
+    "L'abonnement du challenge s'arrête-t-il une fois réussi ?",
+    "Impôts en Allemagne : 10 000 $ nets après impôts ≈ la ligne de juin (8 unités) ; voir un Steuerberater avant mai.",
+  ];
+  return (
+    <>
+      <div style={{ color: ORANGE, fontWeight: 700, fontSize: 12, padding: "2px 2px 0", letterSpacing: "0.04em" }}>PLAN · 10 000 $ NETS PAR MOIS</div>
+      <KpiStrip
+        kpis={[
+          { label: "OBJECTIF", value: "10 000 $", color: GAIN, sub: "NETS PAR MOIS, VERS MAI" },
+          { label: "DE TA POCHE", value: "≈ 530 $", color: TXT, sub: "LE RESTE PAYÉ PAR LE TRADING" },
+          { label: "1 UNITÉ", value: "1 800 – 2 350 $", color: TXT, sub: "50K · 2 LOTS · LES 2 STRATÉGIES, EN RÉEL / MOIS" },
+          { label: "UNITÉS VISÉES", value: "6 → 8", color: ORANGE, sub: "6 = OBJECTIF, 8 = LA MARGE" },
+        ]}
+      />
+      <Panel title="LES COMPTES" right="LMI · PRIX AU 19.11.2026">
+        <div style={{ overflowX: "auto" }}>
+          <div style={{ minWidth: 720 }}>
+            <Row head cols="150px 1fr 1fr 50px 60px 80px">
+              <span>COMPTE</span>
+              <span>COÛT</span>
+              <span>OBJECTIF</span>
+              <span style={R}>LOTS</span>
+              <span style={R}>UNITÉS</span>
+              <span style={R}>RESTART</span>
+            </Row>
+            {accounts.map(([a, b, c, d, e, f]) => (
+              <Row key={a} cols="150px 1fr 1fr 50px 60px 80px">
+                <span style={{ color: TXT, fontWeight: 700 }}>{a}</span>
+                <span>{b}</span>
+                <span>{c}</span>
+                <span style={R}>{d}</span>
+                <span style={{ ...R, color: ORANGE }}>{e}</span>
+                <span style={{ ...R, color: DIM }}>{f}</span>
+              </Row>
+            ))}
+          </div>
+        </div>
+        {note("1 UNITÉ = 1 COMPTE 50K EN 2 LOTS ≈ 1 800 À 2 350 $/MOIS EN RÉEL AVEC LEVEL BOUNCE + TREND RETEST (1 100 À 1 450 $ AVEC LEVEL BOUNCE SEUL), SOIT 50 À 65 % DU BACKTEST.")}
+      </Panel>
+      <Panel title="LE CALENDRIER" right="DÉPART FIN NOVEMBRE 2026">
+        <div style={{ overflowX: "auto" }}>
+          <div style={{ minWidth: 760 }}>
+            <Row head cols="120px 1fr 130px 70px 150px">
+              <span>QUAND</span>
+              <span>QUOI</span>
+              <span>PAYÉ PAR</span>
+              <span style={R}>UNITÉS</span>
+              <span style={R}>REVENU RÉEL / MOIS</span>
+            </Row>
+            {steps.map(([w, what, by, u, inc, goal]) => (
+              <Row key={w + what} cols="120px 1fr 130px 70px 150px" style={goal ? { background: "#0E2A18" } : undefined}>
+                <span style={{ color: ORANGE, fontWeight: 700 }}>{w}</span>
+                {cell(what, { color: TXT })}
+                <span style={{ color: by.startsWith("TA") ? LOSS : DIM }}>{by}</span>
+                <span style={R}>{u}</span>
+                <span style={{ ...R, color: inc ? GAIN : DIM, fontWeight: goal ? 700 : 400 }}>{inc || "—"}</span>
+              </Row>
+            ))}
+          </div>
+        </div>
+        {note("REVENU APRÈS DATABENTO (≈ 230 $/MOIS). MOYENNE : TOUS LES COMPTES COPIENT LES MÊMES TRADES, UN MOIS FAIBLE (FÉVR., AOÛT DANS LE BACKTEST) PEUT DONNER MOITIÉ MOINS. 1ER RETRAIT VERS MI-JANVIER (≈ 45 J EN MÉDIANE).")}
+      </Panel>
+      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
+        <Panel title="LES RÈGLES">
+          {rules.map(([k, v]) => (
+            <div key={k} style={{ padding: "6px 10px", borderBottom: "1px solid #141414", lineHeight: 1.5 }}>
+              <div style={{ color: ORANGE, fontWeight: 700, fontSize: 11 }}>{k}</div>
+              <div style={{ color: "#CFCFCF", fontFamily: "var(--font-space-grotesk), system-ui, sans-serif", fontSize: 13 }}>{v}</div>
+            </div>
+          ))}
+        </Panel>
+        <Panel title="À VÉRIFIER CHEZ LMI AVANT DE COMMENCER">
+          {checks.map((c) => (
+            <div key={c} style={{ display: "flex", gap: 8, padding: "6px 10px", borderBottom: "1px solid #141414", lineHeight: 1.5 }}>
+              <span style={{ color: ORANGE }}>☐</span>
+              <span style={{ color: "#CFCFCF", fontFamily: "var(--font-space-grotesk), system-ui, sans-serif", fontSize: 13 }}>{c}</span>
+            </div>
+          ))}
+        </Panel>
+      </div>
+    </>
   );
 }
 
