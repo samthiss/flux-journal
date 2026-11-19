@@ -250,6 +250,8 @@ export default function DatabentoClient({
   // ---- Reports ------------------------------------------------------------------
   const analysed = entries.filter((e) => retained(e)).sort((a, b) => a.symbol.localeCompare(b.symbol));
   const [view, setView] = useState<string>("general");
+  /** The month clicked in the overview: its trades, every pair, under the matrix. */
+  const [lbMonth, setLbMonth] = useState<string | null>(null);
 
   const general = useMemo(() => {
     const per = analysed.map((e) => {
@@ -590,7 +592,7 @@ export default function DatabentoClient({
               </div>
             </Panel>
 
-            <Panel title="P&L COMBINÉ · PAR COMPTE" right={`${general.months.length} MOIS · FRAIS DÉDUITS`}>
+            <Panel title="P&L COMBINÉ · PAR COMPTE" right={`${general.months.length} MOIS · FRAIS DÉDUITS · CLIC = TRADES DU MOIS`}>
               {(() => {
                 const cols = `64px 36px 44px 1fr 64px${copies > 1 ? " 72px" : ""}${account.split ? " 72px" : ""}`;
                 const max = Math.max(1, ...general.months.map((m) => Math.abs(general.cell(m, null).pnl)));
@@ -610,9 +612,15 @@ export default function DatabentoClient({
                       {general.months.map((m) => {
                         const c = general.cell(m, null);
                         const cut = shares.byMonth.get(m) ?? 0;
+                        const sel = lbMonth === m;
                         return (
-                          <Row key={m} cols={cols}>
-                            <span style={{ color: DIM }}>{termMonth(m)}</span>
+                          <Row
+                            key={m}
+                            cols={cols}
+                            onClick={c.n ? () => setLbMonth(sel ? null : m) : undefined}
+                            style={sel ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : undefined}
+                          >
+                            <span style={{ color: sel ? ORANGE : DIM, fontWeight: sel ? 700 : 400 }}>{termMonth(m)}</span>
                             <span style={R}>{c.n}</span>
                             <span style={{ ...R, color: DIM }}>{c.n ? `${Math.round((c.wins / c.n) * 100)}%` : "—"}</span>
                             <span style={bar((Math.abs(c.pnl) / max) * 100, tone(c.pnl))} />
@@ -683,6 +691,8 @@ export default function DatabentoClient({
               </div>
             </div>
           </Panel>
+
+          {lbMonth && <MonthTrades month={lbMonth} per={general.per} onClose={() => setLbMonth(null)} />}
 
           <QuickWins entries={analysed} account={account} onDisable={(sym, z) => switchZone(sym, z, true)} onChoose={(sym, key) => choisir(sym, key)} />
         </>
@@ -2484,6 +2494,69 @@ function TrendWhyPanel({ q, x }: { q: TrendResults["pairs"][number]; x: number[]
 }
 
 type Per = { e: Entry; c: ConfigStats; money: number; feeTicks: number };
+
+/** A month's Level Bounce trades, every pair, in time order: what the overview's month was made of. */
+function MonthTrades({ month, per, onClose }: { month: string; per: Per[]; onClose: () => void }) {
+  const rows = per
+    .flatMap(({ e, c, money, feeTicks }) => c.trades.filter((t) => monthOf(t[0] * 60000) === month).map((t) => ({ e, c, money, feeTicks, t })))
+    .sort((a, b) => a.t[0] - b.t[0]);
+  const pnl = rows.reduce((a, x) => a + (x.t[1] - x.feeTicks) * x.money, 0);
+  const wins = rows.filter((x) => x.t[1] - x.feeTicks > 0).length;
+  const cols = "22px 40px 92px 46px 22px 76px 76px minmax(130px, 1fr) 48px 64px";
+  return (
+    <Panel title={`TRADES · ${termMonth(month)} · TOUTES LES PAIRES`} right={`${rows.length} TR · ${rows.length ? Math.round((wins / rows.length) * 100) : 0}% · ${short(pnl)} $ · FRAIS DÉDUITS`}>
+      <div style={{ padding: "4px 10px", borderBottom: "1px solid #1A1A1A" }}>
+        <button type="button" onClick={onClose} style={{ cursor: "pointer", background: "none", border: 0, padding: 0, fontFamily: "inherit", fontSize: 11, fontWeight: 700, color: ORANGE }}>
+          × FERMER
+        </button>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 760 }}>
+          <Row head cols={cols}>
+            <span title="Reviewed">✓</span>
+            <span>PAIRE</span>
+            <span>OUVERT</span>
+            <span>FERMÉ</span>
+            <span>S</span>
+            <span style={R}>NIVEAU</span>
+            <span style={R}>ENTRÉE</span>
+            <span>SORTIE</span>
+            <span style={R}>TK</span>
+            <span style={R}>P&L</span>
+          </Row>
+          {rows.map(({ e, c, money, feeTicks, t }) => {
+            const [m, ticks, end, , , , zone, dir, out] = t;
+            const r = e.result!;
+            const tick = r.tickSize ?? CONTRACTS[r.symbol]?.tickSize;
+            const price = (v: number) => (tick ? fmtPrice(v, r.symbol, tick) : String(v));
+            const entry = zone !== undefined && dir !== undefined && tick ? zone + dir * c.cfg.offset * tick : null;
+            const outcome = out === undefined ? null : OUTCOMES[out];
+            const net = (ticks - feeTicks) * money;
+            const o = ctTime(m * 60000);
+            return (
+              <Row key={`${r.symbol}${m}`} cols={cols}>
+                <ReviewMark k={`zones|${r.symbol}|${m}`} />
+                <span style={{ color: TXT, fontWeight: 700 }}>{r.symbol}</span>
+                <span style={{ color: DIM }}>
+                  {o.date} {o.time}
+                </span>
+                <span style={{ color: DIM }}>{end === undefined ? "—" : ctTime(end * 60000).time}</span>
+                <span style={{ color: dir === 1 ? buyColor : sellColor, fontWeight: 700 }}>{dir === undefined ? "—" : dir === 1 ? "B" : "S"}</span>
+                <span style={R}>{zone === undefined ? "—" : price(zone)}</span>
+                <span style={{ ...R, color: TXT }}>{entry === null ? "—" : price(entry)}</span>
+                <span style={{ color: "#CCC", fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis" }}>{outcome === null ? "—" : OUT_TEXT[outcome] ?? outcome}</span>
+                <span style={{ ...R, color: tone(ticks) }}>{String(Math.round(ticks * 100) / 100).replace(".", ",")}</span>
+                <span style={{ ...R, color: tone(net), fontWeight: 700 }}>{short(net)}</span>
+              </Row>
+            );
+          })}
+          {!rows.length && <div style={{ color: DIM, padding: "12px 10px" }}>AUCUN TRADE CE MOIS.</div>}
+        </div>
+      </div>
+      <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · TK = TICKS PAR CONTRAT · P&L À 2 LOTS, FRAIS DÉDUITS · ✓ = REVIEWED</div>
+    </Panel>
+  );
+}
 
 /**
  * The yearly levels and the trend trades of the pairs switched on, played on
