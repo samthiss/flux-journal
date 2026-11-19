@@ -33,7 +33,7 @@ const ctMinFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago",
 /** Minutes since midnight, Chicago. */
 const ctMinute = (t: number) => { const [h, m] = ctMinFmt.format(t).split(":").map(Number); return h * 60 + m; };
 
-type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[]; ma?: number; maxRun?: number; skipMin?: [number, number] };
+type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[]; ma?: number; maxRun?: number; skipMin?: [number, number]; newsOpen?: boolean };
 /** Three-star releases of each pair's currencies: no fill from NEWS_MIN minutes before one to NEWS_MIN after — 30 after a year-on-year figure. Loaded by the run that writes the results. */
 const NEWS_OF = new Map<string, { at: number; big: boolean }[]>();
 const NEWS_MIN = 10;
@@ -270,6 +270,11 @@ function run(d: Data, p: P) {
         if ((p.skipHours ?? []).includes(h)) { taken.add(sessionDay(T[i])); break; }
         // No fill in the pair's quiet window (p.skipMin, minutes Chicago): the order waits it out, the zone is not dropped.
         if (p.skipMin && ctMinute(T[i]) >= p.skipMin[0] && ctMinute(T[i]) < p.skipMin[1]) continue;
+        // A 3* news since 7h CT, while the grains were shut (7h45-8h30) or just before: its move comes at the 8h30 open; no fill before 9h, the order waits (p.newsOpen, 19.11).
+        if (p.newsOpen) {
+          const mn = ctMinute(T[i]);
+          if (mn >= 510 && mn < 540 && (NEWS_OF.get(d.sym) ?? []).some(({ at }) => at <= T[i] && at > T[i] - (mn - 420) * 60000)) continue;
+        }
         if (h >= 2 && h < 14 && !d.excl.includes(h) && !taken.has(sessionDay(T[i])) && !inNews(d.sym, T[i])) fill = i;
         break;
       }
@@ -326,14 +331,14 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   // second return comes at 9h CT, just after the grains' day session opens
   // (39 % won there, the drawdown 825 $ instead of 1,491), and its stop two
   // ticks past the zone (64 %, the drawdown 600 $).
-  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true, ma: 20 }, "6B": { away: 0.5, days: 3, skipMin: [450, 480] }, "6J": { away: 1.5, ma: 20 }, ZW: { days: 3, lots: 1, wide: true }, ZS: { skipHours: [9], buf: 2 } };
+  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true, ma: 20 }, "6B": { away: 0.5, days: 3, skipMin: [450, 480] }, "6J": { away: 1.5, ma: 20 }, ZW: { days: 3, lots: 1, wide: true }, ZS: { skipHours: [9], buf: 2, newsOpen: true } };
   // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half;
   // ZN made nothing on the first half once the news were kept clear.
   const OUT = ["6N", "6C", "ZN"];
   const pairs = data.filter((d) => !OUT.includes(d.sym)).map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
     // The trend's sessions and the target in risks, the pair's own when it has one.
-    params: { skipMin: p.skipMin ?? null, maxRun: p.maxRun ?? 0, ma: p.ma ?? 0, buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
+    params: { skipMin: p.skipMin ?? null, newsOpen: !!p.newsOpen, maxRun: p.maxRun ?? 0, ma: p.ma ?? 0, buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
     tick: d.tick,
     from: d.T[0],
     to: d.T[d.T.length - 1],
