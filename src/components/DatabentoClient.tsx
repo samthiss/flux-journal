@@ -773,6 +773,9 @@ const buyColor = "#4FC3F7";
 const sellColor = "#E879F9";
 const R: React.CSSProperties = { textAlign: "right" };
 const BUY_C = "#4FC3F7";
+/** The two strategies in a chart: blue and yellow, apart from the gain / loss and long / short colours (checked for colour-blind readers on black). */
+const LB_C = "#3987e5";
+const TR_C = "#c98500";
 const PAIR_COLS = "44px 70px 44px 50px 1fr 64px 56px 64px 1fr";
 
 /** A month the terminal way: "NOV 25". */
@@ -3028,9 +3031,59 @@ function ComboReport({ trend, on, per, account }: { trend: TrendResults | null; 
   const rowMax = Math.max(1, ...rows.map((r) => Math.abs(r.z + r.t)));
   const copies = account.copies ?? 1;
   const comboCols = `62px 40px 1fr 84px 84px 84px 90px${copies > 1 ? " 90px 96px" : ""}`;
+  // Each strategy's share of the profit, the trades and the winners, on the trades kept.
+  const shares = [
+    { k: "P&L", n: Math.max(0, sum(kN)), t: Math.max(0, sum(kT)), fmt: (v: number) => `${short(v)} $` },
+    { k: "TRADES", n: kN.length, t: kT.length, fmt: (v: number) => `${v}` },
+    { k: "GAGNANTS", n: kN.filter((x) => x.pnl > 0).length, t: kT.filter((x) => x.pnl > 0).length, fmt: (v: number) => `${v}` },
+  ];
   return (
     <>
       <KpiStrip kpis={kpis} />
+      <Panel title="PART DE CHAQUE STRATÉGIE" right="SUR LES TRADES GARDÉS PAR LES RÈGLES DU COMPTE">
+        <div style={{ display: "flex", gap: 16, padding: "8px 12px 2px", fontSize: 11 }}>
+          {[
+            ["LEVEL BOUNCE", LB_C],
+            ["TREND RETEST", TR_C],
+          ].map(([l, c]) => (
+            <span key={l} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#CFCFCF" }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: c }} />
+              {l}
+            </span>
+          ))}
+        </div>
+        <div style={{ padding: "6px 12px 10px", display: "grid", gap: 8 }}>
+          {shares.map(({ k, n, t, fmt }) => {
+            const tot = n + t || 1;
+            const pn = Math.round((n / tot) * 100), pt = 100 - pn;
+            return (
+              <div key={k} style={{ display: "grid", gridTemplateColumns: "84px 1fr", alignItems: "center", gap: 10 }}>
+                <span style={{ color: DIM, fontSize: 11 }}>{k}</span>
+                <div style={{ display: "flex", gap: 2, height: 22 }}>
+                  {[
+                    { v: n, p: pn, c: LB_C, l: "Level Bounce" },
+                    { v: t, p: pt, c: TR_C, l: "Trend Retest" },
+                  ]
+                    .filter((x) => x.v > 0)
+                    .map((x) => (
+                      <div
+                        key={x.l}
+                        title={`${x.l} : ${fmt(x.v)} · ${x.p} %`}
+                        style={{ flex: x.v, minWidth: 34, background: x.c, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", color: "#000", fontWeight: 700, fontSize: 11 }}
+                      >
+                        {x.p} %
+                      </div>
+                    ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>
+          LEVEL BOUNCE {short(sum(kN))} $ · {kN.length} TRADES · {kN.length ? Math.round((kN.filter((x) => x.pnl > 0).length / kN.length) * 100) : 0} % — TREND RETEST {short(sum(kT))} $ · {kT.length} TRADES ·{" "}
+          {kT.length ? Math.round((kT.filter((x) => x.pnl > 0).length / kT.length) * 100) : 0} % · SURVOL = DÉTAIL
+        </div>
+      </Panel>
       <Panel title="COMBINÉ · LEVEL BOUNCE + TREND RETEST · PAR MOIS" right={`−${dayStop} $/JOUR · ${maxPos} POSITIONS MAX · UNE PAR PAIRE`}>
         <Row head cols={comboCols}>
           <span>MOIS</span>
