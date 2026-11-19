@@ -466,8 +466,8 @@ export default function DatabentoClient({
       <div role="toolbar" aria-label="Stratégie" style={{ display: "flex", flexWrap: "wrap", border: "1px solid #2E2E2E" }}>
         {(
           [
-            ["zones", "STRATÉGIE ZONES"],
-            ["trend", "TRADE WITH TREND"],
+            ["zones", "LEVEL BOUNCE"],
+            ["trend", "TREND RETEST"],
             ["combo", "COMBINÉ"],
           ] as const
         ).map(([id, label]) => (
@@ -537,6 +537,7 @@ export default function DatabentoClient({
 
       {analysed.length > 0 && screen === "rules" && (
         <>
+          <div style={{ color: ORANGE, fontWeight: 700, fontSize: 12, padding: "2px 2px 0", letterSpacing: "0.04em" }}>STRATÉGIE 1 · LEVEL BOUNCE</div>
           <GeneralRules r={general.per[0].e.result!} account={account} symbols={general.per.map(({ e }) => e.symbol)} detail />
           <PairRules per={general.per} berlinShift={berlinShift} />
         </>
@@ -1760,23 +1761,23 @@ function QuickWins({
 function TrendRules() {
   return (
     <>
-      <div style={{ color: ORANGE, fontWeight: 700, fontSize: 12, padding: "10px 2px 0", letterSpacing: "0.04em" }}>STRATÉGIE 2 · TRADE WITH TREND</div>
+      <div style={{ color: ORANGE, fontWeight: 700, fontSize: 12, padding: "10px 2px 0", letterSpacing: "0.04em" }}>STRATÉGIE 2 · TREND RETEST</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 8 }}>
         <RuleCard
           num={1}
           title="Le setup"
           detail
           rules={[
-            { k: "Tendance", main: "Le marché va dans la même direction depuis plusieurs séances", detail: "Chaque clôture de séance plus basse que la précédente, 2 fois de suite (3 pour 6E, ZW et 6B) : short. Plus haute 2 fois de suite : long. Il faut donc 3 clôtures (4 pour 6E, ZW et 6B). 6J et 6E : en plus, pas de long sous la moyenne des 20 dernières séances, pas de short au-dessus (la tendance de fond)." },
+            { k: "Tendance", main: "Le marché va dans la même direction depuis plusieurs séances", detail: "Chaque clôture de séance plus basse que la précédente, 2 fois de suite (3 pour 6E, ZW et 6B) : short. Plus haute : long. 6J et 6E : le prix doit aussi être du bon côté de sa moyenne des 20 dernières séances." },
             {
               k: "Zone",
               main: "Le marché rebondit au moins 3 fois sur un même niveau en M15",
               detail:
-                "Les 3 rebonds sont tous du même côté, celui que la tendance va casser : en short, le prix rebondit vers le haut sur un plancher ; en long, vers le bas sur un plafond. Ils ne sont pas forcément au même prix : ils restent dans une même bande, la zone, qui fait au plus environ 1 stop. Le rebond le plus bas en fait le bas, le plus haut le haut. Ce doivent être de vrais rebonds : entre deux touches, le prix repart d'au moins ⅓ du stop. Entre deux rebonds, le prix peut partir aussi loin qu'il veut : seule compte la cassure du plancher (du plafond pour un long). Les rebonds doivent dater des 5 derniers jours. 6E et ZW : la zone doit en plus être large. Les valeurs en ticks sont dans la fiche de chaque paire.",
+                "Les rebonds sont tous du côté que la tendance va casser : en short, le prix rebondit vers le haut sur un plancher ; en long, vers le bas sur un plafond. Ils restent dans une même bande d'environ 1 stop au plus. Entre deux rebonds, le prix repart d'au moins ⅓ du stop, et il peut partir aussi loin qu'il veut. Les rebonds datent des 5 derniers jours. 6E et ZW : la zone doit en plus être large. Les valeurs en ticks sont dans la fiche de chaque paire.",
             },
-            { k: "Cassure", main: "Une bougie H1 clôture de l'autre côté de la zone, dans le sens de la tendance", detail: "La tendance doit toujours être là au moment de la cassure. Si le prix est déjà parti loin au-delà de la zone (6 stops ou plus) puis est revenu, on ne la trade pas : trop risqué." },
-            { k: "1er retour", main: "Le prix revient sur la zone, puis repart dans le sens de la tendance", detail: "Il doit s'éloigner d'au moins un stop depuis le bord de la zone (6B : ½ stop, 6J : 1,5). Si une bougie M15 clôture de l'autre côté de la zone, la cassure a échoué : pas de trade." },
-            { k: "Entrée", main: "Au 2e retour sur la zone : ordre limite 1 tick avant le bord", detail: "Au plus tard la séance suivante, aux heures d'ordres de la paire, jamais pendant une news 3★ (10 min avant, 10 min après, 30 min après une YoY). Un trade par jour et par paire ; les 3e et 4e retours ne se tradent pas." },
+            { k: "Cassure", main: "Une fois la tendance confirmée, le prix revient sur la zone puis une bougie H1 clôture de l'autre côté, dans le sens de la tendance", detail: "Une cassure faite avant que la tendance soit là ne compte pas. Si le prix était déjà parti loin au-delà de la zone (6 stops ou plus) puis est revenu, on ne la trade pas." },
+            { k: "Retour qui valide", main: "Le prix revient sur la zone, puis repart d'au moins un stop dans le sens de la tendance", detail: "Mesuré depuis le bord de la zone (6B : ½ stop, 6J : 1,5). Si une bougie M15 clôture de l'autre côté de la zone avant, la cassure a échoué : pas de trade." },
+            { k: "Entrée", main: "Au retour suivant sur la zone : ordre limite 1 tick avant le bord", detail: "Au plus tard la séance suivante, aux heures d'ordres de la paire, jamais pendant une news 3★ (10 min avant, 10 min après, 30 min après une YoY). Un trade par jour et par paire ; une zone ne se trade qu'une fois." },
           ]}
         />
         <RuleCard
@@ -1788,9 +1789,9 @@ function TrendRules() {
             { k: "Objectif", main: "1,5 fois le risque (6E : 1,25)" },
             { k: "Durée", main: "4 h au plus, rien après 16h Chicago" },
             { k: "Taille", main: "2 lots (ZW : 1 lot)" },
-            { k: "ZS", main: "Pas de trade ZS le jour où le 2e retour tombe à 9h CT", detail: "La demi-heure après l'ouverture des grains (8h30) est trop agitée." },
+            { k: "ZS", main: "Pas de trade ZS le jour où le retour suivant tombe à 9h CT", detail: "La demi-heure après l'ouverture des grains (8h30) est trop agitée." },
             { k: "6B", main: "Pas d'entrée 6B de 7h30 à 8h CT", detail: "L'heure des chiffres américains : la livre bouge trop fort contre le dollar." },
-            { k: "Journal", main: "Stratégie « Trade with Trend »", detail: "Pour mesurer tes vrais résultats et les comparer au backtest." },
+            { k: "Journal", main: "Stratégie « Trend Retest »", detail: "Pour mesurer tes vrais résultats et les comparer au backtest." },
           ]}
         />
         <RuleCard
@@ -1836,7 +1837,7 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
   const [showOff, setShowOff] = useState(false);
   if (!trend || !trend.pairs.length)
     return (
-      <Panel title="TRADE WITH TREND">
+      <Panel title="TREND RETEST">
         <div style={{ padding: 10, color: DIM }}>Pas encore de résultats : le backtest se lance hors du site (scripts/trend-analyse.ts).</div>
       </Panel>
     );
@@ -1890,7 +1891,7 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
   return (
     <>
       <KpiStrip kpis={kpis} />
-      <Panel title="PAIRES · TRADE WITH TREND" right="SEULES LES PAIRES ACTIVES COMPTENT · CLIC = TRADES">
+      <Panel title="PAIRES · TREND RETEST" right="SEULES LES PAIRES ACTIVES COMPTENT · CLIC = TRADES">
         <div style={{ overflowX: "auto" }}>
           <div style={{ minWidth: 860 }}>
             <Row head cols={cols}>
@@ -2050,7 +2051,7 @@ function TrendScreens({
   const screen = view === "rules" ? "rules" : pair ? pair.symbol : "all";
   return (
     <>
-      <div role="toolbar" aria-label="Écrans Trade with Trend" style={{ display: "flex", flexWrap: "wrap", border: "1px solid #2E2E2E" }}>
+      <div role="toolbar" aria-label="Écrans Trend Retest" style={{ display: "flex", flexWrap: "wrap", border: "1px solid #2E2E2E" }}>
         {keys.map((k, i) => {
           const sel = screen === k.id;
           return (
@@ -2141,20 +2142,20 @@ function TrendPair({
   const own = [
     (p.params?.days ?? 2) !== 2 && `TENDANCE ${p.params!.days} SÉANCES`,
     p.params?.wide && "ZONE LARGE SEULEMENT",
-    (p.params?.away ?? 1) !== 1 && `1ER RETOUR ${rText(p.params!.away!)} STOP`,
+    (p.params?.away ?? 1) !== 1 && `RETOUR QUI VALIDE ${rText(p.params!.away!)} STOP`,
     (p.params?.exit ?? 1.5) !== 1.5 && `OBJECTIF ${rText(p.params!.exit)}R`,
     (p.params?.lots ?? 2) !== 2 && `${p.params!.lots} LOT`,
     (p.params?.buf ?? 3) !== 3 && `STOP ${p.params!.buf} TK AU-DELÀ DE LA ZONE`,
     (p.params?.ma ?? 0) > 0 && `PRIX DU BON CÔTÉ DE SA MOYENNE ${p.params!.ma} SÉANCES`,
     p.params?.skipMin && `PAS D'ENTRÉE DE ${Math.floor(p.params.skipMin[0] / 60)}H${String(p.params.skipMin[0] % 60).padStart(2, "0")} À ${Math.floor(p.params.skipMin[1] / 60)}H${String(p.params.skipMin[1] % 60).padStart(2, "0")} CT`,
-    (p.params?.skipHours ?? []).length > 0 && `PAS DE TRADE LE JOUR OÙ LE 2E RETOUR TOMBE À ${p.params!.skipHours!.join("H, ")}H CT`,
+    (p.params?.skipHours ?? []).length > 0 && `PAS DE TRADE LE JOUR OÙ LE RETOUR SUIVANT TOMBE À ${p.params!.skipHours!.join("H, ")}H CT`,
   ].filter(Boolean);
   const hours = r?.rules?.excludeHours ?? [];
   const spans = orderSpans(r?.rules?.hours ?? [2, 14], hours);
   const posMonths = [...byMonth.values()].filter((b) => b.pnl > 0).length;
   const kpis = [
     { label: `P&L/MOIS · ${p.symbol}`, value: short(pnl / span), color: tone(pnl), sub: `${short(pnl)} SUR LA PÉRIODE · ${on ? "ACTIVE" : "DÉSACTIVÉE"}` },
-    { label: "TRADES/MOIS", value: (n / span).toFixed(1).replace(".", ","), color: TXT, sub: "AU 2E RETOUR SUR LA ZONE" },
+    { label: "TRADES/MOIS", value: (n / span).toFixed(1).replace(".", ","), color: TXT, sub: "AU RETOUR SUIVANT CELUI QUI VALIDE" },
     { label: "WIN%", value: n ? ((wins / n) * 100).toFixed(1).replace(".", ",") : "—", color: TXT, sub: `${posMonths}/${byMonth.size} MOIS POSITIFS` },
     { label: "MAX DD", value: short(-dd), color: LOSS, sub: account.ddLimit ? `${Math.round((dd / account.ddLimit) * 100)}% DE LA LIMITE · PIRE JOUR ${short(worst)}` : "FIN DE JOURNÉE" },
     { label: "STOP MOYEN", value: `${stopTk} TK`, color: LOSS, sub: money ? `≈ ${Math.round(stopTk * money)} $ À ${lots} LOTS · ZONE + 3 TK` : "ZONE + 3 TK" },
@@ -2197,7 +2198,7 @@ function TrendPair({
     <>
       <KpiStrip kpis={kpis} />
       <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1.5fr)", gap: 8 }}>
-        <Panel title={`RÈGLE ${p.symbol} · TRADE WITH TREND`} right={`${fmtDay(p.from)} → ${fmtDay(p.to)}`}>
+        <Panel title={`RÈGLE ${p.symbol} · TREND RETEST`} right={`${fmtDay(p.from)} → ${fmtDay(p.to)}`}>
           <div style={{ padding: "8px 10px", lineHeight: 1.9 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ color: DIM }}>ÉTAT </span>
@@ -2221,8 +2222,8 @@ function TrendPair({
               X ? `ZONE ≤ ${2 * X} TK${p.params?.wide ? ` ET > ${X} TK (ZONE LARGE)` : ""} · CHAQUE REBOND ≥ ${String(bounceTk).replace(".", ",")} TK` : undefined
             )}
             {line("CASSURE", "1RE CLÔTURE H1 AU-DELÀ DE LA ZONE")}
-            {line("1ER RETOUR", awayTk ? `M15, REPART D'AU MOINS ${awayTk} TK SOUS LE BORD` : "M15, REPART D'UN STOP", "MESURÉ DEPUIS LE BORD DE LA ZONE · DANS LES 72 H · CLÔTURE M15 DE L'AUTRE CÔTÉ = ÉCHEC")}
-            {line("ENTRÉE", "2E RETOUR · LIMITE 1 TK AVANT LA ZONE", "DANS LES 48 H · 1 TRADE/JOUR · ZONE UTILISÉE UNE FOIS")}
+            {line("RETOUR QUI VALIDE", awayTk ? `M15, REPART D'AU MOINS ${awayTk} TK SOUS LE BORD` : "M15, REPART D'UN STOP", "MESURÉ DEPUIS LE BORD DE LA ZONE · DANS LES 72 H · CLÔTURE M15 DE L'AUTRE CÔTÉ = ÉCHEC")}
+            {line("ENTRÉE", "RETOUR SUIVANT · LIMITE 1 TK AVANT LA ZONE", "AU PLUS TARD LA SÉANCE SUIVANTE · 1 TRADE/JOUR · ZONE UTILISÉE UNE FOIS")}
             <div>
               <span style={{ color: DIM }}>STOP </span>
               <span style={{ color: LOSS }}>{p.params?.buf ?? 3} TK AU-DELÀ DE L&apos;AUTRE BORD</span>
@@ -2547,7 +2548,7 @@ function ComboReport({ trend, on, per, account }: { trend: TrendResults | null; 
   return (
     <>
       <KpiStrip kpis={kpis} />
-      <Panel title="COMBINÉ · ZONES + TRADE WITH TREND · PAR MOIS" right={`−${dayStop} $/JOUR · ${maxPos} POSITIONS MAX · UNE PAR PAIRE`}>
+      <Panel title="COMBINÉ · LEVEL BOUNCE + TREND RETEST · PAR MOIS" right={`−${dayStop} $/JOUR · ${maxPos} POSITIONS MAX · UNE PAR PAIRE`}>
         <Row head cols={comboCols}>
           <span>MOIS</span>
           <span style={R}>TR</span>
@@ -2573,7 +2574,7 @@ function ComboReport({ trend, on, per, account }: { trend: TrendResults | null; 
           </Row>
         ))}
         <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6 }}>
-          ZONES = TES NIVEAUX ANNUELS (CONFIG RETENUE, ZONES DÉSACTIVÉES EXCLUES) · TREND = LES PAIRES ACTIVES DE TRADE WITH TREND · FRAIS DÉDUITS · DD SUR LES SOLDES DE FIN DE JOURNÉE ·
+          ZONES = LEVEL BOUNCE, TES NIVEAUX ANNUELS (CONFIG RETENUE, ZONES DÉSACTIVÉES EXCLUES) · TREND = LES PAIRES ACTIVES DE TREND RETEST · FRAIS DÉDUITS · DD SUR LES SOLDES DE FIN DE JOURNÉE ·
           LA LIMITE DU JOUR NE COUPE QUE LES NOUVEAUX TRADES{copies > 1 ? ` · ×${copies} = LE MASTER ET SES ${copies - 1} SLAVE${copies > 2 ? "S" : ""}, LES MÊMES TRADES SUR CHAQUE COMPTE` : ""}
         </div>
       </Panel>
