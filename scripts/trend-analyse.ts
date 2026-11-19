@@ -72,7 +72,7 @@ const data: Data[] = res.filter((e) => !process.env.PAIR || e.symbol === process
   return { sym: e.symbol, T, H, L, C, n: T.length, tick: r.tickSize, money: r.tickValue * 2, fee: FEES[e.symbol] * 2, excl: r.rules.excludeHours ?? [], cfg: r.top[0].cfg, mid: (T[0] + T[T.length - 1]) / 2, months: (T[T.length - 1] - T[0]) / (30.44 * 86400000), hb };
 });
 
-type Zone = { dir: 1 | -1; bottom: number; top: number; ready: number; until: number; touches: number[]; breakT: number; retestT: number; closes: [number, number][] };
+type Zone = { dir: 1 | -1; bottom: number; top: number; ready: number; until: number; touches: number[]; breakT: number; retestT: number; closes: [number, number][]; bounces?: [number, number, number, number][] };
 
 // Bars of any size, from the minutes, kept per pair and size.
 const barCache = new Map<string, Bar[]>();
@@ -141,6 +141,24 @@ function zones(d: Data, p: P): Zone[] {
     if (zb[i].l < zb[i - 1].l && zb[i].l <= zb[i + 1].l) lows.push({ i, p: zb[i].l, t: zb[i + 1].t + ZTF * 60000 });
     if (zb[i].h > zb[i - 1].h && zb[i].h >= zb[i + 1].h) highs.push({ i, p: zb[i].h, t: zb[i + 1].t + ZTF * 60000 });
   }
+  // A low's (high's) own bounce, known before the time `until`: the bar where price went furthest back from it before trading past it, and how far.
+  let dirNow = 0;
+  const bounceOf = (y: { i: number; p: number }, until: number): [number, number] => {
+    let at = -1, far = 0;
+    for (let q = y.i + 1; q < zb.length && zb[q].t < until; q++) {
+      if (dirNow === -1 ? zb[q].l < y.p - 1e-12 : zb[q].h > y.p + 1e-12) break;
+      const v = dirNow === -1 ? zb[q].h - y.p : y.p - zb[q].l;
+      if (v > far) { far = v; at = q; }
+    }
+    return [at, far];
+  };
+  // Each bounce for the justification: [its bar's time, its low (high for a long), when price went furthest back from it, that price]; the last one before the break (0, 0).
+  const bouncesOf = (cl: { i: number; p: number }[], until: number) =>
+    cl.map((y, k): [number, number, number, number] => {
+      if (k === cl.length - 1) return [zb[y.i].t, y.p, 0, 0];
+      const [at] = bounceOf(y, until);
+      return at < 0 ? [zb[y.i].t, y.p, 0, 0] : [zb[y.i].t, y.p, zb[at].t, dirNow === -1 ? zb[at].h : zb[at].l];
+    });
   const out: Zone[] = [];
   const seen = new Set<string>();
   const rIndex = (t: number) => {
@@ -154,6 +172,7 @@ function zones(d: Data, p: P): Zone[] {
     const tr = trendAt(b.t);
     if (!tr) continue;
     const src = tr === -1 ? lows : highs;
+    dirNow = tr;
     const end = b.t + BTF * 60000;
     if (tr !== lastTr) { lo0 = 0; hi1 = 0; lastTr = tr; }
     while (lo0 < src.length && src[lo0].t <= end - 120 * 3600000) lo0++;
@@ -164,15 +183,9 @@ function zones(d: Data, p: P): Zone[] {
     const cands = pts.filter((x) => x.p >= Math.min(b.l, prevC) - W && x.p <= Math.max(b.h, prevC) + W);
     for (const x of cands) {
       const near = pts.filter((y) => Math.abs(y.p - x.p) <= W).sort((u, v) => u.i - v.i);
-      const cluster: typeof near = [];
-      for (const y of near) {
-        const last = cluster[cluster.length - 1];
-        if (!last) { cluster.push(y); continue; }
-        let far = 0;
-        // The bounce: how far price went back after the last low (high), from the bar after it to the next one's bar; the last one's own high came before its low (19.11).
-        for (let q = last.i + 1; q <= y.i; q++) far = Math.max(far, tr === -1 ? zb[q].h - last.p : last.p - zb[q].l);
-        if (far >= B) cluster.push(y);
-      }
+      // Each low (high) on its own: it counts when price went back at least B from it before trading past it, before the break;
+      // the latest one, the touch the break comes from, needs no bounce (19.11: each low was judged before on the bounce of the one kept before it).
+      const cluster = near.filter((y, k) => k === near.length - 1 || bounceOf(y, b.t)[1] >= B);
       if (cluster.length < p.touches) continue;
       const lo = Math.min(...cluster.map((y) => y.p)), hi = Math.max(...cluster.map((y) => y.p));
       const edge = tr === -1 ? lo : hi;
@@ -197,7 +210,7 @@ function zones(d: Data, p: P): Zone[] {
       }
       if (!ok) continue;
       const ready = rb[k].t + RTF * 60000;
-      out.push({ dir: tr, bottom: edge, top: tr === -1 ? hi : lo, ready, until: Math.min(ready + 48 * 3600000, nextChicagoHour(nextChicagoHour(ready, 14) + 60000, 14)), touches: cluster.map((y) => zb[y.i].t), breakT: b.t, retestT: rb[touched].t, closes: trendSeq(b.t) });
+      out.push({ dir: tr, bottom: edge, top: tr === -1 ? hi : lo, ready, until: Math.min(ready + 48 * 3600000, nextChicagoHour(nextChicagoHour(ready, 14) + 60000, 14)), touches: cluster.map((y) => zb[y.i].t), breakT: b.t, retestT: rb[touched].t, closes: trendSeq(b.t), bounces: bouncesOf(cluster, b.t) });
     }
   }
   return out;
@@ -330,6 +343,7 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
       brk: Math.round(x.z.breakT / 60000),
       ret: Math.round(x.z.retestT / 60000),
       ready: Math.round(x.z.ready / 60000),
+      bounces: (x.z.bounces ?? []).map(([t, p0, pt, pp]) => [Math.round(t / 60000), p0, Math.round(pt / 60000), pp]),
       ...realReturns(d, x),
     })),
     trades: list.map((x) => [
