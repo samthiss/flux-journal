@@ -4,7 +4,7 @@ import { getEconomicEvents } from "@/lib/economicCalendar";
 import { newsCurrencies } from "@/lib/contracts";
 import { chicagoInstant, sessionDate } from "@/lib/databento/clock";
 import { loadPairPlans, pushPrefs } from "@/lib/planData";
-import { dayKey } from "@/lib/tradingPlan";
+import { dayKey, isNightBerlin } from "@/lib/tradingPlan";
 import TradingPlan, { type DayNews } from "@/components/TradingPlan";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +36,7 @@ export default async function TradingPlanPage() {
   const from = chicagoInstant(session.y, session.m, session.d, 0);
   const to = chicagoInstant(session.y, session.m, session.d, 23, 59);
   const news: DayNews[] = calendar.events
-    .filter((e) => followed.has(e.currency) && e.at && new Date(e.at).getTime() >= from && new Date(e.at).getTime() <= to)
+    .filter((e) => followed.has(e.currency) && e.at && new Date(e.at).getTime() >= from && new Date(e.at).getTime() <= to && !isNightBerlin(new Date(e.at).getTime()))
     .map((e) => ({ at: e.at, currency: e.currency, title: e.title, impact: e.impact, kind: e.kind }));
 
   return (

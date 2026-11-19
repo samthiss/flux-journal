@@ -4,7 +4,7 @@ import { newsCurrencies } from "@/lib/contracts";
 import { pushOnce } from "@/lib/push";
 import { exitAt } from "@/lib/exitTime";
 import { loadPairPlans, pushPrefs } from "@/lib/planData";
-import { orderWindows, windowEndReason, dayKey, type Blocking } from "@/lib/tradingPlan";
+import { afterMs, orderWindows, windowEndReason, dayKey, type Blocking } from "@/lib/tradingPlan";
 import { sessionDate } from "@/lib/databento/clock";
 import { fmtPrice } from "@/lib/databento/format";
 
@@ -61,7 +61,7 @@ export async function remindersTick(now = Date.now()) {
       const who = hit.length === pairs.length ? "toutes tes paires" : hit.join(" · ");
       await pushOnce(`news|${e.at}|${e.currency}|${e.title}`, {
         title: `News à ${clock(e.at, "Europe/Berlin")} · ${e.currency} ${e.title}`,
-        body: `Ne pas trader ${who} de ${clock(e.at - 600000, "Europe/Berlin")} à ${clock(e.at + 600000, "Europe/Berlin")} (Berlin). Retire tes ordres.`,
+        body: `Ne pas trader ${who} de ${clock(e.at - 600000, "Europe/Berlin")} à ${clock(e.at + afterMs(e), "Europe/Berlin")} (Berlin). Retire tes ordres.`,
         url: URL,
         tag: `news-${e.at}`,
       });

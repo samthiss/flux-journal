@@ -9,7 +9,7 @@ import { getEconomicEvents } from "@/lib/economicCalendar";
 import { prisma } from "@/lib/prisma";
 import { newsCurrencies } from "@/lib/contracts";
 import { loadPairPlans } from "@/lib/planData";
-import { dayKey } from "@/lib/tradingPlan";
+import { dayKey, isNightBerlin } from "@/lib/tradingPlan";
 import { sessionDate } from "@/lib/databento/clock";
 import "./globals.css";
 
@@ -52,7 +52,7 @@ async function sidebarStatus(): Promise<SidebarStatus | null> {
     const next = calendar.events
       .filter((e) => e.kind === "release" && e.impact === "high" && e.at && followed.has(e.currency))
       .map((e) => ({ at: e.at!, title: e.title, currency: e.currency, t: new Date(e.at!).getTime() }))
-      .filter((e) => e.t > now - 10 * 60000 && e.t < now + 24 * 3600000)
+      .filter((e) => e.t > now - 10 * 60000 && e.t < now + 24 * 3600000 && !isNightBerlin(e.t))
       .sort((a, b) => a.t - b.t)[0];
     const live = orders.filter((o) => o.status === "filled");
     const lots = (s: string) => pairs.find((p) => p.symbol === s)?.lots ?? 2;

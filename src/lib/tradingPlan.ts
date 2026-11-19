@@ -38,6 +38,11 @@ export const BIG_AFTER_MS = 30 * 60000;
 export const isBigRelease = (title: string) => /\byoy\b|y\/y/i.test(title);
 /** How long a release keeps orders out after it. */
 export const afterMs = (n: { title: string }) => (isBigRelease(n.title) ? BIG_AFTER_MS : BLACKOUT_MS);
+/** A release in the night, Berlin (22h to 7h): not shown — no order is working then. */
+export const isNightBerlin = (t: number) => {
+  const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Berlin", hour: "2-digit", hourCycle: "h23" }).format(t));
+  return h >= 22 || h < 7;
+};
 /** The account's limits the page watches. */
 export const MAX_POSITIONS = 2;
 export const MAX_CONTRACTS = 5;

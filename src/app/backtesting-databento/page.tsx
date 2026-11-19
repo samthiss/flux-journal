@@ -6,13 +6,14 @@ import { newsCurrencies } from "@/lib/contracts";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { TrendResults } from "@/components/DatabentoClient";
+import { isNightBerlin } from "@/lib/tradingPlan";
 
 export const dynamic = "force-dynamic";
 
 /** The releases that block an order over the coming week, and the moment they were read. */
 async function weekNews(currencies: string[]) {
   const now = Date.now();
-  const news = currencies.length ? await getHighImpactBetween(new Date(now - 3600000), new Date(now + 7 * 864e5), currencies) : [];
+  const news = (currencies.length ? await getHighImpactBetween(new Date(now - 3600000), new Date(now + 7 * 864e5), currencies) : [])?.filter((n) => !isNightBerlin(n.at)) ?? null;
   // Berlin's hours ahead of Chicago's today: 7 most of the year, 6 for the few weeks the two change their clocks apart.
   const hourIn = (timeZone: string) => Number(new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(now));
   const berlinShift = (hourIn("Europe/Berlin") - hourIn("America/Chicago") + 24) % 24;
