@@ -152,7 +152,7 @@ type News = { at: number; currency: string; title: string };
 
 /** The "Trade with Trend" backtest: each pair's trades, [entry minute, exit minute, dir, zone low, zone high, entry, stop, target, ticks, $ net of fees]. */
 /** Why a trade: the closes the trend was read from ([session day, close]), the zone's touches, the break, the first return, when the zone was ready — minutes. */
-export type TrendWhy = { closes: [number, number][]; touches: number[]; brk: number; ret: number; ready: number };
+export type TrendWhy = { closes: [number, number][]; touches: number[]; brk: number; ret: number; ready: number; rb?: number; rn?: number };
 export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { skipMin?: [number, number] | null; ma?: number; buf?: number; skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
 /** "1,5" — a target in risks, French. */
 const rText = (v: number) => String(v).replace(".", ",");
@@ -2435,14 +2435,28 @@ function TrendWhyPanel({ q, x }: { q: TrendResults["pairs"][number]; x: number[]
               {why.touches.length} {dir === 1 ? "SOMMETS" : "CREUX"} M15 : {why.touches.map((t) => whenText(t).split(" · ")[0]).join(" · ")}
             </>
           )}
-          {step(3, "CASSURE", whenText(why.brk), `LA BOUGIE H1 CLÔTURE ${dir === 1 ? "AU-DESSUS DE" : "SOUS"} ${px(edge)}`)}
+          {step(
+            3,
+            "CASSURE",
+            whenText(why.brk),
+            why.rb !== undefined && why.rb < why.brk
+              ? `LA BOUGIE H1 CLÔTURE ${dir === 1 ? "AU-DESSUS DE" : "SOUS"} ${px(edge)}. LE MARCHÉ L'AVAIT DÉJÀ CASSÉE ${whenText(why.rb)}, AVANT QUE LA TENDANCE SOIT VALIDÉE : LA RÈGLE NE COMPTE QUE LA CASSURE FAITE DANS LA TENDANCE`
+              : `LA BOUGIE H1 CLÔTURE ${dir === 1 ? "AU-DESSUS DE" : "SOUS"} ${px(edge)}`
+          )}
           {step(
             4,
-            "1ER RETOUR",
+            "RETOUR QUI VALIDE",
             whenText(why.ret),
             `LE PRIX REVIENT SUR ${px(edge)}, PUIS REPART ${dir === 1 ? "VERS LE HAUT" : "VERS LE BAS"} D'AU MOINS ${q.params?.sl ? `${Math.round(q.params.sl * (q.params.away ?? 1))} TICKS` : "UN STOP"} AU-DELÀ DU BORD : ZONE PRÊTE ${whenText(why.ready)}`
           )}
-          {step(5, "ENTRÉE", <>{whenText(x[0])} · {side} À {px(entry)}</>, `2E RETOUR · ORDRE LIMITE 1 TICK AVANT LA ZONE (${px(edge)})`)}
+          {step(
+            5,
+            "ENTRÉE",
+            <>
+              {whenText(x[0])} · {side} À {px(entry)}
+            </>,
+            `${why.rn ? `${why.rn}E RETOUR SUR LA ZONE DEPUIS LA 1RE CASSURE · ` : ""}LE PREMIER APRÈS CELUI QUI VALIDE LA ZONE · ORDRE LIMITE 1 TICK AVANT LA ZONE (${px(edge)})`
+          )}
           {step(
             6,
             "STOP · OBJ.",

@@ -202,6 +202,27 @@ function zones(d: Data, p: P): Zone[] {
   return out;
 }
 
+/**
+ * How the market really went, for the trade's justification: the first H1
+ * close past the zone's edge since its first bounce (even before the trend
+ * was there), and which return to the zone the entry is, counting a return
+ * each time price comes back to the edge after moving a stop away from it.
+ */
+function realReturns(d: Data, x: { t: number; z: Zone }) {
+  const dir = x.z.dir, edge = x.z.bottom, stop = d.cfg.sl * d.tick;
+  const first = Math.min(...x.z.touches);
+  const hb = barsOf(d, 60).find((b) => b.t >= first && b.t + 3600000 <= x.t && (dir === -1 ? b.c < edge : b.c > edge));
+  if (!hb) return {};
+  let lo = 0, hi = d.n - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (d.T[m] < hb.t + 3600000) lo = m + 1; else hi = m; }
+  let count = 0, away = false;
+  for (let k = lo; k < d.n && d.T[k] <= x.t; k++) {
+    if ((dir === -1 ? edge - d.L[k] : d.H[k] - edge) >= stop) away = true;
+    if ((dir === -1 ? d.H[k] >= edge : d.L[k] <= edge) && (count === 0 || away)) { count++; away = false; }
+  }
+  return { rb: Math.round(hb.t / 60000), rn: count };
+}
+
 function run(d: Data, p: P) {
   const { T, H, L, C, n, tick } = d;
   const idxAt = (t: number) => {
@@ -259,9 +280,11 @@ function run(d: Data, p: P) {
       }
       if (towards(j, tp)) { ticks = half ? (one + tgt) / 2 : tgt; break; }
     }
-    if (ticks === null) { const cl = ticksAt(C[Math.min(j, n - 1) - 1]); ticks = half ? (one + cl) / 2 : cl; }
+    // Out on time: at the close of the last minute before the limit, which is when it is shown.
+    let timeOut = false;
+    if (ticks === null) { const cl = ticksAt(C[Math.min(j, n - 1) - 1]); ticks = half ? (one + cl) / 2 : cl; timeOut = true; }
     // d.money and d.fee are for two lots; a pair traded at one lot (p.lots) takes half of both.
-    out.push({ t: T[fill], pnl: (ticks * d.money - d.fee) * ((p.lots ?? 2) / 2), r: ticks / slTicks, z, entry, sl: entry - dd * slTicks * tick, tp, ticks, end: T[Math.min(j, n - 1)] });
+    out.push({ t: T[fill], pnl: (ticks * d.money - d.fee) * ((p.lots ?? 2) / 2), r: ticks / slTicks, z, entry, sl: entry - dd * slTicks * tick, tp, ticks, end: T[Math.min(j, n - 1) - (timeOut ? 1 : 0)] });
   }
   const h1 = out.filter((x) => x.t < d.mid), h2 = out.filter((x) => x.t >= d.mid);
   const sum = (l: typeof out) => l.reduce((acc, x) => acc + x.pnl, 0);
@@ -306,6 +329,7 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
       brk: Math.round(x.z.breakT / 60000),
       ret: Math.round(x.z.retestT / 60000),
       ready: Math.round(x.z.ready / 60000),
+      ...realReturns(d, x),
     })),
     trades: list.map((x) => [
       Math.round(x.t / 60000),
