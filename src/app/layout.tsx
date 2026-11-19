@@ -38,6 +38,9 @@ export const metadata: Metadata = {
  * of the plan's pairs, and the account's orders. Read through the calendar's
  * hourly cache, so it costs one request an hour, not one per page.
  */
+/** The Berlin calendar date of an instant, "2026-11-19". */
+const berlinDay = (t: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(t);
+
 async function sidebarStatus(): Promise<SidebarStatus | null> {
   try {
     const ownerId = await monJournal();
@@ -52,7 +55,8 @@ async function sidebarStatus(): Promise<SidebarStatus | null> {
     const next = calendar.events
       .filter((e) => e.kind === "release" && e.impact === "high" && e.at && followed.has(e.currency))
       .map((e) => ({ at: e.at!, title: e.title, currency: e.currency, t: new Date(e.at!).getTime() }))
-      .filter((e) => e.t > now - 10 * 60000 && e.t < now + 24 * 3600000 && !isNightBerlin(e.t))
+      // Today's only, Berlin: tomorrow's news waits for tomorrow.
+      .filter((e) => e.t > now - 10 * 60000 && berlinDay(e.t) === berlinDay(now) && !isNightBerlin(e.t))
       .sort((a, b) => a.t - b.t)[0];
     const live = orders.filter((o) => o.status === "filled");
     const lots = (s: string) => pairs.find((p) => p.symbol === s)?.lots ?? 2;
