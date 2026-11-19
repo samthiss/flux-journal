@@ -645,6 +645,8 @@ export default function DatabentoClient({
             </Panel>
           </div>
 
+          {lbMonth && <MonthTrades month={lbMonth} per={general.per} onClose={() => setLbMonth(null)} />}
+
           <Panel title="MATRICE P&L · PAIRE × MOIS" right="SURVOL = TRADES / WIN%">
             <div style={{ overflowX: "auto" }}>
               <div style={{ minWidth: 1100 }}>
@@ -691,8 +693,6 @@ export default function DatabentoClient({
               </div>
             </div>
           </Panel>
-
-          {lbMonth && <MonthTrades month={lbMonth} per={general.per} onClose={() => setLbMonth(null)} />}
 
           <QuickWins entries={analysed} account={account} onDisable={(sym, z) => switchZone(sym, z, true)} onChoose={(sym, key) => choisir(sym, key)} />
         </>
@@ -1897,7 +1897,6 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
     .filter(({ x }) => !month || monthOf(x[0] * 60000) === month)
     .sort((a, b) => b.x[0] - a.x[0]);
   const shownPnl = shown.reduce((a, { x }) => a + x[9], 0);
-  const tradeCols = "22px 38px 92px 46px 22px minmax(170px, 1fr) 76px 76px 76px 44px 64px";
   return (
     <>
       <KpiStrip kpis={kpis} />
@@ -2002,36 +2001,24 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
           title={`TRADES · ${p ? p.symbol : month ? "PAIRES ACTIVES" : "CLIQUE UNE PAIRE OU UN MOIS"}${month ? ` · ${termMonth(month)}` : ""}`}
           right={p || month ? `${shown.length} TRADES · ${short(shownPnl)}` : undefined}
         >
-          {month && (
-            <div style={{ padding: "4px 10px", borderBottom: "1px solid #1A1A1A" }}>
-              <button type="button" onClick={() => setMonth(null)} style={{ cursor: "pointer", background: "none", border: 0, padding: 0, fontFamily: "inherit", fontSize: 11, fontWeight: 700, color: ORANGE }}>
-                × TOUS LES MOIS
-              </button>
+          {(p || month) && (
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "5px 12px", borderBottom: "1px solid #1A1A1A", fontSize: 10.5 }}>
+              {month ? (
+                <button type="button" onClick={() => setMonth(null)} style={{ cursor: "pointer", background: "none", border: 0, padding: 0, fontFamily: "inherit", fontSize: 11, fontWeight: 700, color: ORANGE }}>
+                  × TOUS LES MOIS
+                </button>
+              ) : (
+                <span />
+              )}
+              <span style={{ color: DIM }}>CLIC SUR UN TRADE = SA JUSTIFICATION</span>
             </div>
           )}
-          <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 830 }}>
-              <Row head cols={tradeCols}>
-                <span title="Reviewed">✓</span>
-                <span>PAIRE</span>
-                <span>OUVERT</span>
-                <span>FERMÉ</span>
-                <span>S</span>
-                <span style={R}>ZONE</span>
-                <span style={R}>ENTRÉE</span>
-                <span style={R}>SL</span>
-                <span style={R}>TP</span>
-                <span style={R}>TK</span>
-                <span style={R}>P&L</span>
-              </Row>
-              {shown.map(({ q, x }) => (
-                <TrendTradeRow key={`${q.symbol}${x[0]}`} q={q} x={x} cols={tradeCols} pair open={openT === `${q.symbol}${x[0]}`} onClick={() => setOpenT(openT === `${q.symbol}${x[0]}` ? null : `${q.symbol}${x[0]}`)} />
-              ))}
-              {!p && !month && <div style={{ color: DIM, padding: "12px 10px" }}>CLIQUE UNE PAIRE OU UN MOIS POUR VOIR SES TRADES.</div>}
-              {(p || month) && !shown.length && <div style={{ color: DIM, padding: "12px 10px" }}>AUCUN TRADE.</div>}
-            </div>
-          </div>
-          <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · TK = TICKS PAR CONTRAT · P&L À 2 LOTS (ZW : 1 LOT), FRAIS DÉDUITS · CLIC SUR UN TRADE = SA JUSTIFICATION</div>
+          {shown.map(({ q, x }) => (
+            <TrendTradeRow key={`${q.symbol}${x[0]}`} q={q} x={x} pair open={openT === `${q.symbol}${x[0]}`} onClick={() => setOpenT(openT === `${q.symbol}${x[0]}` ? null : `${q.symbol}${x[0]}`)} />
+          ))}
+          {!p && !month && <div style={{ color: DIM, padding: "12px 10px" }}>CLIQUE UNE PAIRE OU UN MOIS POUR VOIR SES TRADES.</div>}
+          {(p || month) && !shown.length && <div style={{ color: DIM, padding: "12px 10px" }}>AUCUN TRADE.</div>}
+          <div style={{ color: DIM, fontSize: 10.5, padding: "6px 12px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · P&L À 2 LOTS (ZW : 1 LOT), FRAIS DÉDUITS · ☐ = TRADE REVU</div>
         </Panel>
       </div>
     </>
@@ -2196,7 +2183,6 @@ function TrendPair({
   const monthMax = Math.max(1, ...[...byMonth.values()].map((b) => Math.abs(b.pnl)));
   const rows = month ? list.filter((it) => monthOf(it.t) === month).sort((a, b) => b.t - a.t) : [];
   const mb = month ? byMonth.get(month) : null;
-  const tradeCols = "22px 92px 46px 22px minmax(170px, 1fr) 76px 76px 76px 44px 64px";
   const line = (k: string, v: React.ReactNode, note?: React.ReactNode) => (
     <div>
       <span style={{ color: DIM }}>{k} </span>
@@ -2299,27 +2285,12 @@ function TrendPair({
           title={`TRADES · ${month ? termMonth(month) : "CLIQUE UN MOIS"}`}
           right={mb ? `${mb.n} TR · ${Math.round((mb.wins / mb.n) * 100)}% · ${short(mb.pnl)} $` : undefined}
         >
-          <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 790 }}>
-              <Row head cols={tradeCols}>
-                <span title="Reviewed">✓</span>
-                <span>OUVERT</span>
-                <span>FERMÉ</span>
-                <span>S</span>
-                <span style={R}>ZONE</span>
-                <span style={R}>ENTRÉE</span>
-                <span style={R}>SL</span>
-                <span style={R}>TP</span>
-                <span style={R}>TK</span>
-                <span style={R}>P&L</span>
-              </Row>
-              {rows.map(({ x }) => (
-                <TrendTradeRow key={x[0]} q={p} x={x} cols={tradeCols} open={openT === x[0]} onClick={() => setOpenT(openT === x[0] ? null : x[0])} />
-              ))}
-              {!month && <div style={{ color: DIM, padding: "12px 10px" }}>CLIQUE UN MOIS POUR VOIR SES TRADES.</div>}
-            </div>
-          </div>
-          <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · TK = TICKS PAR CONTRAT · P&L À {lots} LOTS, FRAIS DÉDUITS · CLIC SUR UN TRADE = SA JUSTIFICATION</div>
+          {month && <div style={{ textAlign: "right", color: DIM, padding: "5px 12px", borderBottom: "1px solid #1A1A1A", fontSize: 10.5 }}>CLIC SUR UN TRADE = SA JUSTIFICATION</div>}
+          {rows.map(({ x }) => (
+            <TrendTradeRow key={x[0]} q={p} x={x} open={openT === x[0]} onClick={() => setOpenT(openT === x[0] ? null : x[0])} />
+          ))}
+          {!month && <div style={{ color: DIM, padding: "12px 10px" }}>CLIQUE UN MOIS POUR VOIR SES TRADES.</div>}
+          <div style={{ color: DIM, fontSize: 10.5, padding: "6px 12px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · P&L À {lots} LOT{lots > 1 ? "S" : ""}, FRAIS DÉDUITS · ☐ = TRADE REVU</div>
         </Panel>
       </div>
 
@@ -2350,145 +2321,335 @@ function TrendPair({
   );
 }
 
-/** A trade with Trend row; clicked, the steps that made it, from the trend to the exit. */
-function TrendTradeRow({ q, x, cols, pair, open, onClick }: { q: TrendResults["pairs"][number]; x: number[]; cols: string; pair?: boolean; open: boolean; onClick: () => void }) {
+/** How a Trend Retest trade ended, from its ticks against its stop and objective. */
+function trendExit(q: TrendResults["pairs"][number], x: number[]) {
+  const tk = (v: number) => Math.round(Math.abs(v) / q.tick);
+  const slTk = tk(x[5] - x[6]), tpTk = tk(x[7] - x[5]);
+  const kind: "tp" | "sl" | "time" = Math.abs(x[8] - tpTk) < 0.01 ? "tp" : Math.abs(x[8] + slTk) < 0.01 ? "sl" : "time";
+  const label = kind === "tp" ? "OBJECTIF" : kind === "sl" ? "STOP" : "FIN DU TEMPS";
+  const color = kind === "tp" ? GAIN : kind === "sl" ? LOSS : TIME_C;
+  return { kind, label, color, slTk, tpTk };
+}
+
+const TIME_C = "#FF9F1C";
+const SANS = "var(--font-space-grotesk), system-ui, sans-serif";
+
+/** A small bordered label: the side, the way out, a figure. */
+function Pill({ color, fill, children, style }: { color: string; fill?: boolean; children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <span style={{ display: "inline-block", padding: "1px 7px", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", lineHeight: 1.5, border: `1px solid ${color}`, background: fill ? color : "transparent", color: fill ? "#000" : color, whiteSpace: "nowrap", ...style }}>
+      {children}
+    </span>
+  );
+}
+
+/** A Trend Retest trade on two lines; clicked, the steps that made it, from the trend to the exit. */
+function TrendTradeRow({ q, x, pair, open, onClick }: { q: TrendResults["pairs"][number]; x: number[]; pair?: boolean; open: boolean; onClick: () => void }) {
   const o = ctTime(x[0] * 60000);
   const px = (v: number) => fmtPrice(v, q.symbol, q.tick);
+  const ex = trendExit(q, x);
+  const long = x[2] === 1;
   return (
     <>
-      <Row cols={cols} onClick={onClick} style={open ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : undefined}>
-        <ReviewMark k={`twt|${q.symbol}|${x[0]}`} />
-        {pair && <span style={{ color: TXT, fontWeight: 700 }}>{q.symbol}</span>}
-        <span style={{ color: DIM }}>
-          {o.date} {o.time}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && (ev.preventDefault(), onClick())}
+        className="term-row"
+        style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "7px 12px", cursor: "pointer", borderBottom: "1px solid #141414", ...(open ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : {}) }}
+      >
+        <span style={{ paddingTop: 1 }}>
+          <ReviewMark k={`twt|${q.symbol}|${x[0]}`} />
         </span>
-        <span style={{ color: DIM }}>{ctTime(x[1] * 60000).time}</span>
-        <span style={{ color: x[2] === 1 ? buyColor : sellColor, fontWeight: 700 }}>{x[2] === 1 ? "B" : "S"}</span>
-        <span style={R}>
-          {px(x[3])} – {px(x[4])}
-        </span>
-        <span style={{ ...R, color: TXT }}>{px(x[5])}</span>
-        <span style={{ ...R, color: LOSS }}>{px(x[6])}</span>
-        <span style={{ ...R, color: GAIN }}>{px(x[7])}</span>
-        <span style={{ ...R, color: tone(x[8]) }}>{String(x[8]).replace(".", ",")}</span>
-        <span style={{ ...R, color: tone(x[9]), fontWeight: 700 }}>{short(x[9])}</span>
-      </Row>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {pair && <span style={{ color: TXT, fontWeight: 700, fontSize: 14 }}>{q.symbol}</span>}
+            <Pill color={long ? buyColor : sellColor} fill>
+              {long ? "LONG" : "SHORT"}
+            </Pill>
+            <span style={{ color: DIM }}>
+              {o.date} · {o.time} → {ctTime(x[1] * 60000).time}
+            </span>
+            <span style={{ flex: 1 }} />
+            <Pill color={ex.color}>{ex.label}</Pill>
+            <span style={{ color: tone(x[9]), fontWeight: 700, minWidth: 52, textAlign: "right" }}>{short(x[9])}</span>
+            <span style={{ color: open ? ORANGE : DIM, width: 10 }}>{open ? "▾" : "▸"}</span>
+          </div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 3, fontSize: 10.5, color: DIM }}>
+            <span>
+              ZONE {px(x[3])} – {px(x[4])}
+            </span>
+            <span>
+              ENTRÉE <span style={{ color: TXT }}>{px(x[5])}</span>
+            </span>
+            <span>
+              SL <span style={{ color: LOSS }}>{px(x[6])}</span>
+            </span>
+            <span>
+              TP <span style={{ color: GAIN }}>{px(x[7])}</span>
+            </span>
+          </div>
+        </div>
+      </div>
       {open && <TrendWhyPanel q={q} x={x} />}
     </>
   );
 }
 
 const WEEKDAY = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
-/** "lun. 19.10 08:00 CT · 15:00 BER", from minutes. */
-function whenText(m: number) {
+/** A minute in its pieces: weekday, date, Chicago time, Berlin time. */
+function whenParts(m: number) {
   const t = m * 60000;
   const c = ctTime(t);
   const day = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", weekday: "short" }).format(t);
   const wd = WEEKDAY[["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(day)];
   const ber = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" }).format(t);
-  return `${wd} ${c.date} ${c.time} CT · ${ber} BER`;
+  return { wd, date: c.date, ct: c.time, ber };
+}
+/** "lun. 19.10 08:00 CT · 15:00 BER", from minutes. */
+function whenText(m: number) {
+  const w = whenParts(m);
+  return `${w.wd} ${w.date} ${w.ct} CT · ${w.ber} BER`;
 }
 
-/** The steps of one Trade with Trend trade, in the order the rules ask for them. */
+/** A chip in a step: a time, a close, a level. */
+function Chip({ color = "#CFCFCF", border = "#333", bg = "#111", children }: { color?: string; border?: string; bg?: string; children: React.ReactNode }) {
+  return <span style={{ display: "inline-block", padding: "1px 7px", fontSize: 11, color, border: `1px solid ${border}`, background: bg, whiteSpace: "nowrap" }}>{children}</span>;
+}
+
+/** The chips of a moment: its Chicago time and its Berlin time. */
+function WhenChips({ m }: { m: number }) {
+  const w = whenParts(m);
+  return (
+    <>
+      <Chip>
+        {w.wd} {w.date} · {w.ct} CT
+      </Chip>
+      <Chip color={DIM}>{w.ber} BER</Chip>
+    </>
+  );
+}
+
+/** The trade's prices top to bottom, each at its height: stop, zone, entry, exit, objective. */
+function PriceLadder({ q, x }: { q: TrendResults["pairs"][number]; x: number[] }) {
+  const px = (v: number) => fmtPrice(v, q.symbol, q.tick);
+  const [lo, hi, entry, sl, tp, ticks] = [x[3], x[4], x[5], x[6], x[7], x[8]];
+  const exitPx = entry + x[2] * ticks * q.tick;
+  const ex = trendExit(q, x);
+  const H = 230, PAD = 12;
+  const top = Math.max(sl, tp, hi, exitPx), bot = Math.min(sl, tp, lo, exitPx);
+  const y = (v: number) => PAD + ((top - v) / Math.max(1e-12, top - bot)) * (H - 2 * PAD);
+  const marks: { k: string; v: number; color: string; w: number }[] = [
+    { k: ex.kind === "sl" ? "SL · SORTIE" : "SL", v: sl, color: LOSS, w: 1 },
+    { k: "ZONE", v: (lo + hi) / 2, color: ORANGE, w: 0 },
+    { k: "ENTRÉE", v: entry, color: TXT, w: 2 },
+    ...(ex.kind === "time" ? [{ k: "SORTIE", v: exitPx, color: TIME_C, w: 1 }] : []),
+    { k: ex.kind === "tp" ? "TP · SORTIE" : "TP", v: tp, color: GAIN, w: 1 },
+  ];
+  // Labels kept 15 px apart, the lines at their true height.
+  const sorted = marks.map((m) => ({ ...m, ly: y(m.v) })).sort((a, b) => a.ly - b.ly);
+  for (let i = 1; i < sorted.length; i++) sorted[i].ly = Math.max(sorted[i].ly, sorted[i - 1].ly + 15);
+  const over = sorted[sorted.length - 1].ly - (H - 6);
+  if (over > 0) for (let i = sorted.length - 1; i >= 0; i--) sorted[i].ly = Math.max(6, i === sorted.length - 1 ? sorted[i].ly - over : Math.min(sorted[i].ly, sorted[i + 1].ly - 15));
+  return (
+    <div style={{ position: "relative", height: H, borderLeft: "1px solid #2E2E2E", marginLeft: 6 }}>
+      <div style={{ position: "absolute", left: 0, width: 70, top: y(hi), height: Math.max(3, y(lo) - y(hi)), background: "rgba(255,159,28,0.18)", borderTop: `1px solid ${ORANGE}`, borderBottom: `1px solid ${ORANGE}` }} />
+      {sorted.map((m) => (
+        <div key={m.k}>
+          {m.w > 0 && <div style={{ position: "absolute", left: 0, width: 70, top: y(m.v) - m.w / 2, height: m.w, background: m.color }} />}
+          <div style={{ position: "absolute", left: 78, right: 0, top: m.ly - 7, display: "flex", justifyContent: "space-between", fontSize: 10.5, lineHeight: "14px", color: m.color }}>
+            <span style={{ fontWeight: 700 }}>{m.k}</span>
+            <span>{m.k === "ZONE" ? `${px(lo)}–${px(hi).slice(-3)}` : px(m.v)}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The steps of one Trend Retest trade, in the order the rules ask for them. */
 function TrendWhyPanel({ q, x }: { q: TrendResults["pairs"][number]; x: number[] }) {
   const why = q.why?.[q.trades.indexOf(x)];
   const px = (v: number) => fmtPrice(v, q.symbol, q.tick);
   const dir = x[2];
+  const long = dir === 1;
   const [lo, hi, entry, sl, tp, ticks, pnl] = [x[3], x[4], x[5], x[6], x[7], x[8], x[9]];
   const tk = (v: number) => Math.round(Math.abs(v) / q.tick);
-  const slTk = tk(entry - sl), tpTk = tk(tp - entry);
-  const exit = Math.abs(ticks - tpTk) < 0.01 ? "OBJECTIF TOUCHÉ" : Math.abs(ticks + slTk) < 0.01 ? "STOP TOUCHÉ" : "FIN DU TEMPS (4 H MAX OU 16H CT)";
-  const side = dir === 1 ? "LONG" : "SHORT";
-  const edge = dir === 1 ? hi : lo, far = dir === 1 ? lo : hi;
-  const step = (n: number, k: string, main: React.ReactNode, detail?: React.ReactNode) => (
-    <div style={{ display: "grid", gridTemplateColumns: "22px 92px 1fr", gap: 8, padding: "3px 0" }}>
-      <span style={{ color: ORANGE, fontWeight: 700 }}>{n}</span>
-      <span style={{ color: DIM }}>{k}</span>
-      <span>
-        <span style={{ color: TXT }}>{main}</span>
-        {detail && <div style={{ color: DIM, fontSize: 10.5, lineHeight: 1.5 }}>{detail}</div>}
-      </span>
-    </div>
-  );
+  const ex = trendExit(q, x);
+  const side = long ? "LONG" : "SHORT";
+  const edge = long ? hi : lo, far = long ? lo : hi;
+  const lots = q.params?.lots ?? 2;
+  const rr = q.params?.exit ?? 1.5;
+  const away = q.params?.sl ? Math.round(q.params.sl * (q.params.away ?? 1)) : null;
+  const o = whenParts(x[0]), c = whenParts(x[1]);
+  const held = x[1] - x[0];
+  const why4 = ex.kind === "tp" ? "l'objectif est touché" : ex.kind === "sl" ? "le stop est touché" : held >= 4 * 60 - 1 ? "sorti à la limite des 4 h, avant le stop et l'objectif" : "sorti avant 16h CT, avant le stop et l'objectif";
+  const sgn = (v: number) => (v > 0 ? "+" : v < 0 ? "−" : "") + String(Math.abs(v)).replace(".", ",");
   const dayText = (d: number) => {
     const s = new Date(d * 86400000).toISOString();
     return `${s.slice(8, 10)}.${s.slice(5, 7)}`;
   };
-  return (
-    <div style={{ position: "sticky", left: 0, maxWidth: 490, boxSizing: "border-box", padding: "8px 10px 10px", background: "#0B0B0B", borderBottom: "1px solid #2E2E2E", fontSize: 11.5, lineHeight: 1.6 }}>
-      <div style={{ color: ORANGE, fontWeight: 700, marginBottom: 4 }}>
-        POURQUOI CE {side} {q.symbol}
-      </div>
-      {!why && <div style={{ color: DIM }}>Justification absente : relance scripts/trend-analyse.ts.</div>}
-      {why && (
-        <>
-          {step(
-            1,
-            "TENDANCE",
-            <>
-              {why.closes.map(([d, c], i) => (
-                <span key={d}>
-                  {i > 0 && <span style={{ color: DIM }}> → </span>}
-                  <span style={{ color: DIM }}>{dayText(d)} </span>
-                  {px(c)}
-                </span>
-              ))}
-            </>,
-            `CHAQUE CLÔTURE ${dir === 1 ? "PLUS HAUTE" : "PLUS BASSE"} QUE LA PRÉCÉDENTE, ${why.closes.length - 1} ${dir === 1 ? "HAUSSES" : "BAISSES"} DE SUITE : TENDANCE ${dir === 1 ? "HAUSSIÈRE, LONGS SEULEMENT" : "BAISSIÈRE, SHORTS SEULEMENT"}`
-          )}
-          {step(
-            2,
-            "ZONE",
-            <>
-              {px(lo)} – {px(hi)} <span style={{ color: DIM }}>({tk(hi - lo)} TK)</span>
-            </>,
-            <>
-              {why.touches.length} {dir === 1 ? "SOMMETS" : "CREUX"} M15 : {why.touches.map((t) => whenText(t).split(" · ")[0]).join(" · ")}
-            </>
-          )}
-          {step(
-            3,
-            "CASSURE",
-            whenText(why.brk),
-            why.rb !== undefined && why.rb < why.brk
-              ? `LA BOUGIE H1 CLÔTURE ${dir === 1 ? "AU-DESSUS DE" : "SOUS"} ${px(edge)}. LE MARCHÉ L'AVAIT DÉJÀ CASSÉE ${whenText(why.rb)}, AVANT QUE LA TENDANCE SOIT VALIDÉE : LA RÈGLE NE COMPTE QUE LA CASSURE FAITE DANS LA TENDANCE`
-              : `LA BOUGIE H1 CLÔTURE ${dir === 1 ? "AU-DESSUS DE" : "SOUS"} ${px(edge)}`
-          )}
-          {step(
-            4,
-            "RETOUR QUI VALIDE",
-            whenText(why.ret),
-            `LE PRIX REVIENT SUR ${px(edge)}, PUIS REPART ${dir === 1 ? "VERS LE HAUT" : "VERS LE BAS"} D'AU MOINS ${q.params?.sl ? `${Math.round(q.params.sl * (q.params.away ?? 1))} TICKS` : "UN STOP"} AU-DELÀ DU BORD : ZONE PRÊTE ${whenText(why.ready)}`
-          )}
-          {step(
-            5,
-            "ENTRÉE",
-            <>
-              {whenText(x[0])} · {side} À {px(entry)}
-            </>,
-            `${why.rn ? `${why.rn}E RETOUR SUR LA ZONE DEPUIS LA 1RE CASSURE · ` : ""}LE PREMIER APRÈS CELUI QUI VALIDE LA ZONE · ORDRE LIMITE 1 TICK AVANT LA ZONE (${px(edge)})`
-          )}
-          {step(
-            6,
-            "STOP · OBJ.",
-            <>
-              <span style={{ color: LOSS }}>{px(sl)}</span> ({slTk} TK) · <span style={{ color: GAIN }}>{px(tp)}</span> ({tpTk} TK)
-            </>,
-            `STOP ${q.params?.buf ?? 3} TICKS AU-DELÀ DE L'AUTRE BORD (${px(far)}) · OBJECTIF ${rText(q.params?.exit ?? 1.5)} × LE RISQUE`
-          )}
-          {step(
-            7,
-            "SORTIE",
-            <>
-              {whenText(x[1])} · <span style={{ color: tone(ticks) }}>{exit}</span>
-            </>,
-            <span style={{ color: tone(pnl) }}>
-              {ticks > 0 ? "+" : ""}
-              {String(ticks).replace(".", ",")} TK · {short(pnl)} $ À {q.params?.lots ?? 2} LOT{(q.params?.lots ?? 2) > 1 ? "S" : ""}, FRAIS DÉDUITS
+  const steps: { k: string; head: React.ReactNode; chips?: React.ReactNode; detail?: React.ReactNode; rule?: string }[] = why
+    ? [
+        {
+          k: "TENDANCE",
+          head: long ? "Haussière : longs seulement" : "Baissière : shorts seulement",
+          chips: why.closes.map(([d, cl], i) => (
+            <span key={d} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {i > 0 && <span style={{ color: long ? GAIN : LOSS, fontWeight: 700 }}>{long ? "↗" : "↘"}</span>}
+              <Chip>
+                <span style={{ color: DIM }}>{dayText(d)} · </span>
+                {px(cl)}
+              </Chip>
             </span>
-          )}
-        </>
-      )}
+          )),
+          detail: `Chaque clôture de séance ${long ? "plus haute" : "plus basse"} que la précédente, ${why.closes.length - 1} ${long ? "hausses" : "baisses"} de suite${q.params?.ma ? `, et le prix ${long ? "au-dessus" : "en dessous"} de sa moyenne ${q.params.ma} séances` : ""}.`,
+        },
+        {
+          k: "ZONE",
+          head: `${px(lo)} – ${px(hi)} · ${tk(hi - lo)} ticks`,
+          chips: why.touches.map((t) => {
+            const w = whenParts(t);
+            return (
+              <Chip key={t} color="#E6C79A" border="#5A3F12" bg="#140F05">
+                {w.wd} {w.date} · {w.ct}
+              </Chip>
+            );
+          }),
+          detail: `${why.touches.length} rebonds M15 dans la même zone : le marché s'y est appuyé ${why.touches.length} fois avant de la casser.`,
+        },
+        {
+          k: "CASSURE",
+          head: `Clôture H1 ${long ? "au-dessus de" : "sous"} ${px(edge)}`,
+          chips: <WhenChips m={why.brk} />,
+          detail:
+            why.rb !== undefined && why.rb < why.brk
+              ? `Le marché l'avait déjà cassée ${whenText(why.rb)}, avant que la tendance soit validée.`
+              : `La bougie H1 ferme ${long ? "au-dessus du haut" : "sous le bas"} de la zone, dans le sens de la tendance.`,
+          rule: why.rb !== undefined && why.rb < why.brk ? "Règle : seule la cassure faite dans le sens de la tendance compte." : undefined,
+        },
+        {
+          k: "RETOUR QUI VALIDE",
+          head: `Retour sur ${px(edge)} puis ${long ? "+" : "−"}${away ?? "1 stop"}${away ? " ticks" : ""}`,
+          chips: <WhenChips m={why.ret} />,
+          detail: `Le prix revient sur le bord de la zone, puis repart ${long ? "vers le haut" : "vers le bas"} d'au moins ${away ? `${away} ticks` : "un stop"} au-delà du bord : zone prête ${whenText(why.ready)}.`,
+        },
+        {
+          k: "ENTRÉE",
+          head: `${long ? "Long" : "Short"} limite à ${px(entry)}`,
+          chips: <WhenChips m={x[0]} />,
+          detail: `${why.rn ? `${why.rn}e retour sur la zone depuis la 1re cassure, ` : ""}le premier après celui qui a validé la zone. Ordre limite 1 tick avant la zone (${px(edge)}).`,
+        },
+        {
+          k: "STOP · OBJECTIF",
+          head: `Risque ${ex.slTk} ticks · objectif ${ex.tpTk} ticks`,
+          chips: (
+            <>
+              <Chip color={LOSS} border={LOSS} bg="transparent">
+                SL {px(sl)} · {ex.slTk} TK
+              </Chip>
+              <Chip color={GAIN} border={GAIN} bg="transparent">
+                TP {px(tp)} · {ex.tpTk} TK
+              </Chip>
+            </>
+          ),
+          detail: `Stop ${q.params?.buf ?? 3} ticks au-delà de l'autre bord (${px(far)}) · objectif = ${rText(rr)} × le risque.`,
+        },
+        {
+          k: "SORTIE",
+          head: (
+            <>
+              {ex.kind === "tp" ? "Objectif touché" : ex.kind === "sl" ? "Stop touché" : "Fin du temps"} :{" "}
+              <span style={{ color: tone(pnl) }}>
+                {sgn(ticks)} ticks · {short(pnl)} $
+              </span>
+            </>
+          ),
+          chips: <WhenChips m={x[1]} />,
+          detail: `${lots} lot${lots > 1 ? "s" : ""}, frais déduits · ${why4}.`,
+        },
+      ]
+    : [];
+  return (
+    <div style={{ background: "#050505", borderBottom: "1px solid #2E2E2E", boxShadow: `inset 3px 0 0 ${ORANGE}` }}>
+      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 210px", gap: 18, padding: "14px 16px", borderBottom: "1px solid #1A1A1A" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <Pill color={long ? buyColor : sellColor} fill>
+              {side}
+            </Pill>
+            <span style={{ color: TXT, fontWeight: 700, fontSize: 18 }}>{q.symbol}</span>
+            <span style={{ color: DIM, fontSize: 11 }}>
+              {o.wd} {o.date} · {o.ct} → {c.ct} CT · {o.ber} → {c.ber} BER
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginTop: 10 }}>
+            <span style={{ color: tone(pnl), fontWeight: 700, fontSize: 30, lineHeight: 1.1 }}>{short(pnl)} $</span>
+            <span style={{ color: tone(ticks), fontSize: 13 }}>{sgn(ticks)} ticks</span>
+            <Pill color={ex.color}>{ex.label}</Pill>
+          </div>
+          <div style={{ color: DIM, fontFamily: SANS, fontSize: 12.5, marginTop: 6 }}>
+            {lots} lot{lots > 1 ? "s" : ""}, frais déduits · {why4}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginTop: 14 }}>
+            {[
+              { k: "RISQUE", v: `${ex.slTk} TK`, color: LOSS },
+              { k: "OBJECTIF", v: `${ex.tpTk} TK`, color: GAIN },
+              { k: "GAIN / RISQUE", v: `1 : ${rText(rr)}`, color: TXT },
+            ].map((t) => (
+              <div key={t.k} style={{ border: "1px solid #222", background: "#0B0B0B", padding: "7px 10px" }}>
+                <div style={{ color: DIM, fontSize: 10 }}>{t.k}</div>
+                <div style={{ color: t.color, fontWeight: 700, fontSize: 16 }}>{t.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <PriceLadder q={q} x={x} />
+      </div>
+
+      <div style={{ padding: "12px 16px 14px" }}>
+        <div style={{ color: ORANGE, fontWeight: 700, fontSize: 11, letterSpacing: "0.04em", marginBottom: 10 }}>
+          POURQUOI CE {side} · {steps.length || 7} CONDITIONS
+        </div>
+        {!why && <div style={{ color: DIM }}>Justification absente : relance scripts/trend-analyse.ts.</div>}
+        {steps.map((s, i) => {
+          const last = i === steps.length - 1;
+          return (
+            <div key={s.k} style={{ display: "grid", gridTemplateColumns: "24px 118px minmax(0, 1fr) 14px", columnGap: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <span
+                  style={{
+                    width: 24,
+                    height: 24,
+                    flex: "none",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    border: `1px solid ${last ? tone(pnl) : ORANGE}`,
+                    background: last ? tone(pnl) : "transparent",
+                    color: last ? "#000" : ORANGE,
+                  }}
+                >
+                  {i + 1}
+                </span>
+                {!last && <span style={{ flex: 1, width: 1, background: "#2E2E2E", minHeight: 10 }} />}
+              </div>
+              <div style={{ color: DIM, fontSize: 11, paddingTop: 5 }}>{s.k}</div>
+              <div style={{ paddingTop: 3, paddingBottom: last ? 0 : 16, minWidth: 0 }}>
+                <div style={{ color: TXT, fontWeight: 700, fontSize: 13.5 }}>{s.head}</div>
+                {s.chips && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>{s.chips}</div>}
+                {s.detail && <div style={{ color: "#B5B5B5", fontFamily: SANS, fontSize: 13, lineHeight: 1.5, marginTop: 6, whiteSpace: "normal" }}>{s.detail}</div>}
+                {s.rule && <div style={{ marginTop: 8, padding: "6px 10px", borderLeft: `2px solid ${ORANGE}`, background: "#140F05", color: "#E6C79A", fontFamily: SANS, fontSize: 12.5 }}>{s.rule}</div>}
+              </div>
+              <div style={{ color: GAIN, fontWeight: 700, paddingTop: 5 }}>✓</div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
