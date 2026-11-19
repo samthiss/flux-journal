@@ -1782,7 +1782,7 @@ function TrendRules() {
               k: "Zone",
               main: "Le marché rebondit au moins 3 fois sur un même niveau en M15",
               detail:
-                "Les rebonds sont tous du côté que la tendance va casser : en short, le prix rebondit vers le haut sur un plancher ; en long, vers le bas sur un plafond. Ils restent dans une même bande d'environ 1 stop au plus. Un rebond compte si le prix en repart d'au moins ⅓ du stop avant de repasser de l'autre côté du creux (ou du sommet) ; chaque rebond est jugé seul, et le prix peut partir aussi loin qu'il veut. Le dernier passage avant la cassure compte toujours. Les rebonds datent des 5 derniers jours. 6E et ZW : la zone doit en plus être large. Les valeurs en ticks sont dans la fiche de chaque paire.",
+                "Les rebonds sont tous du côté que la tendance va casser : en short, le prix rebondit vers le haut sur un plancher ; en long, vers le bas sur un plafond. Ils restent dans une même bande d'environ 1 stop au plus. Un rebond compte si le prix en repart d'au moins ⅓ du stop avant de revenir sur la zone (sans repasser sous le creux, ou au-dessus du sommet) ; il peut partir aussi loin qu'il veut. Le dernier passage avant la cassure compte toujours. Les rebonds datent des 5 derniers jours. 6E et ZW : la zone doit en plus être large. Les valeurs en ticks sont dans la fiche de chaque paire.",
             },
             { k: "Cassure", main: "Une fois la tendance confirmée, le prix revient sur la zone puis une bougie H1 clôture de l'autre côté, dans le sens de la tendance", detail: "Une cassure faite avant que la tendance soit là ne compte pas. Si le prix était déjà parti loin au-delà de la zone (6 stops ou plus) puis est revenu, on ne la trade pas." },
             { k: "Retour qui valide", main: "Le prix revient sur la zone, puis repart d'au moins un stop dans le sens de la tendance", detail: "Mesuré depuis le bord de la zone (6B : ½ stop, 6J : 1,5). Si une bougie M15 clôture de l'autre côté de la zone avant, la cassure a échoué : pas de trade." },
@@ -2606,28 +2606,22 @@ function TrendWhyPanel({ q, x }: { q: TrendResults["pairs"][number]; x: number[]
           k: "ZONE",
           head: `${px(lo)} – ${px(hi)} · ${tk(hi - lo)} ticks`,
           chips: why.bounces?.length ? (
-            <div style={{ display: "grid", gap: 4, width: "100%" }}>
-              {why.bounces.map(([t, p0, pt, pp], k) => {
-                const w = whenParts(t);
-                const v = pt ? whenParts(pt) : null;
+            <div style={{ display: "grid", gap: 5, width: "100%" }}>
+              {[...new Set(why.bounces.map(([t]) => whenParts(t).date))].map((day) => {
+                const list = why.bounces!.filter(([t]) => whenParts(t).date === day);
                 return (
-                  <div key={t} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontSize: 11 }}>
-                    <Chip color="#E6C79A" border="#5A3F12" bg="#140F05">
-                      {k + 1} · {w.wd} {w.date} · {w.ct}
-                    </Chip>
-                    <span style={{ color: "#CFCFCF", whiteSpace: "nowrap" }}>
-                      {px(p0)}
-                      {v ? (
-                        <>
-                          <span style={{ color: DIM }}> → </span>
-                          {px(pp)}
-                          <span style={{ color: DIM }}> à {v.date === w.date ? "" : `${v.date} `}{v.ct} </span>
-                          <span style={{ color: GAIN, fontWeight: 700 }}>{long ? "−" : "+"}{tk(pp - p0)} tk</span>
-                        </>
-                      ) : (
-                        <span style={{ color: DIM }}> · dernier avant la cassure</span>
-                      )}
+                  <div key={day} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: DIM, width: 72, fontSize: 11 }}>
+                      {whenParts(list[0][0]).wd} {day}
                     </span>
+                    {list.map(([t, p0, pt, pp]) => (
+                      <span key={t} title={`${long ? "sommet" : "creux"} ${px(p0)}${pt ? ` → ${px(pp)} à ${whenParts(pt).ct} CT` : ""}`}>
+                        <Chip color="#E6C79A" border="#5A3F12" bg="#140F05">
+                          {whenParts(t).ct}{" "}
+                          {pt ? <span style={{ color: GAIN, fontWeight: 700 }}>{long ? "−" : "+"}{tk(pp - p0)} tk</span> : <span style={{ color: DIM }}>dernier</span>}
+                        </Chip>
+                      </span>
+                    ))}
                   </div>
                 );
               })}
@@ -2642,7 +2636,7 @@ function TrendWhyPanel({ q, x }: { q: TrendResults["pairs"][number]; x: number[]
               );
             })
           ),
-          detail: `${why.touches.length} rebonds M15 dans la même zone, heures CT : le ${long ? "sommet" : "creux"}, puis jusqu'où le prix ${long ? "redescend" : "remonte"} avant de repasser ${long ? "au-dessus" : "dessous"}${q.params?.sl ? ` ; il en faut au moins ${Math.round(q.params.sl * (q.params.bounce ?? 1 / 3))} ticks (⅓ du stop)` : ""}.`,
+          detail: `${why.touches.length} rebonds M15 sur la zone (heure du ${long ? "sommet" : "creux"}, CT) et de combien le prix ${long ? "redescend" : "remonte"} avant de revenir${q.params?.sl ? ` : au moins ${Math.round(q.params.sl * (q.params.bounce ?? 1 / 3))} ticks (⅓ du stop)` : ""}. « Dernier » = le passage d'où part la cassure.`,
         },
         {
           k: "CASSURE",

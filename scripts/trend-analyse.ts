@@ -141,24 +141,17 @@ function zones(d: Data, p: P): Zone[] {
     if (zb[i].l < zb[i - 1].l && zb[i].l <= zb[i + 1].l) lows.push({ i, p: zb[i].l, t: zb[i + 1].t + ZTF * 60000 });
     if (zb[i].h > zb[i - 1].h && zb[i].h >= zb[i + 1].h) highs.push({ i, p: zb[i].h, t: zb[i + 1].t + ZTF * 60000 });
   }
-  // A low's (high's) own bounce, known before the time `until`: the bar where price went furthest back from it before trading past it, and how far.
+  // A low's (high's) bounce: the bar where price went furthest back from it up to the next low's bar (index `to`), stopping if it traded past it, before the break (`until`); and how far.
   let dirNow = 0;
-  const bounceOf = (y: { i: number; p: number }, until: number): [number, number] => {
+  const bounceOf = (y: { i: number; p: number }, to: number, until: number): [number, number] => {
     let at = -1, far = 0;
-    for (let q = y.i + 1; q < zb.length && zb[q].t < until; q++) {
+    for (let q = y.i + 1; q <= to && q < zb.length && zb[q].t < until; q++) {
       if (dirNow === -1 ? zb[q].l < y.p - 1e-12 : zb[q].h > y.p + 1e-12) break;
       const v = dirNow === -1 ? zb[q].h - y.p : y.p - zb[q].l;
       if (v > far) { far = v; at = q; }
     }
     return [at, far];
   };
-  // Each bounce for the justification: [its bar's time, its low (high for a long), when price went furthest back from it, that price]; the last one before the break (0, 0).
-  const bouncesOf = (cl: { i: number; p: number }[], until: number) =>
-    cl.map((y, k): [number, number, number, number] => {
-      if (k === cl.length - 1) return [zb[y.i].t, y.p, 0, 0];
-      const [at] = bounceOf(y, until);
-      return at < 0 ? [zb[y.i].t, y.p, 0, 0] : [zb[y.i].t, y.p, zb[at].t, dirNow === -1 ? zb[at].h : zb[at].l];
-    });
   const out: Zone[] = [];
   const seen = new Set<string>();
   const rIndex = (t: number) => {
@@ -183,9 +176,18 @@ function zones(d: Data, p: P): Zone[] {
     const cands = pts.filter((x) => x.p >= Math.min(b.l, prevC) - W && x.p <= Math.max(b.h, prevC) + W);
     for (const x of cands) {
       const near = pts.filter((y) => Math.abs(y.p - x.p) <= W).sort((u, v) => u.i - v.i);
-      // Each low (high) on its own: it counts when price went back at least B from it before trading past it, before the break;
+      // Each low (high) on its own: it counts when price went back at least B from it before the next low in the band, without trading past it first;
       // the latest one, the touch the break comes from, needs no bounce (19.11: each low was judged before on the bounce of the one kept before it).
-      const cluster = near.filter((y, k) => k === near.length - 1 || bounceOf(y, b.t)[1] >= B);
+      const bn = near.map((y, k) => (k === near.length - 1 ? null : bounceOf(y, near[k + 1].i, b.t)));
+      const keep = near.map((_, k) => bn[k] === null || bn[k]![1] >= B);
+      const cluster = near.filter((_, k) => keep[k]);
+      // Each bounce for the justification: [its bar's time, its low (high for a long), when price went furthest back from it, that price]; the last one before the break (0, 0).
+      const bounces = near
+        .map((y, k): [number, number, number, number] => {
+          const v = bn[k];
+          return v && v[0] >= 0 ? [zb[y.i].t, y.p, zb[v[0]].t, tr === -1 ? zb[v[0]].h : zb[v[0]].l] : [zb[y.i].t, y.p, 0, 0];
+        })
+        .filter((_, k) => keep[k]);
       if (cluster.length < p.touches) continue;
       const lo = Math.min(...cluster.map((y) => y.p)), hi = Math.max(...cluster.map((y) => y.p));
       const edge = tr === -1 ? lo : hi;
@@ -210,7 +212,7 @@ function zones(d: Data, p: P): Zone[] {
       }
       if (!ok) continue;
       const ready = rb[k].t + RTF * 60000;
-      out.push({ dir: tr, bottom: edge, top: tr === -1 ? hi : lo, ready, until: Math.min(ready + 48 * 3600000, nextChicagoHour(nextChicagoHour(ready, 14) + 60000, 14)), touches: cluster.map((y) => zb[y.i].t), breakT: b.t, retestT: rb[touched].t, closes: trendSeq(b.t), bounces: bouncesOf(cluster, b.t) });
+      out.push({ dir: tr, bottom: edge, top: tr === -1 ? hi : lo, ready, until: Math.min(ready + 48 * 3600000, nextChicagoHour(nextChicagoHour(ready, 14) + 60000, 14)), touches: cluster.map((y) => zb[y.i].t), breakT: b.t, retestT: rb[touched].t, closes: trendSeq(b.t), bounces });
     }
   }
   return out;
