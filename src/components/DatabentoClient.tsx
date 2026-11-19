@@ -1880,15 +1880,25 @@ function TrendReport({ trend, on, onToggle, account }: { trend: TrendResults | n
     byMonth.set(monthOf(x.t), b);
   }
   const monthMax = Math.max(1, ...[...byMonth.values()].map((b) => Math.abs(b.pnl)));
+  const copies = account.copies ?? 1;
+  const perMonth = pnl / span;
+  const positiveMonths = months.filter((m) => (byMonth.get(m)?.pnl ?? 0) > 0).length;
   const kpis = [
-    { label: "P&L/MOIS · PAIRES ACTIVES", value: short(pnl / span), color: tone(pnl), sub: `${active.map((x) => x.p.symbol).join(" · ") || "AUCUNE"} · FRAIS DÉDUITS` },
-    { label: "TRADES/MOIS", value: (n / span).toFixed(1).replace(".", ","), color: TXT, sub: `${n} SUR LA PÉRIODE` },
-    { label: "WIN%", value: n ? `${Math.round((wins / n) * 100)}` : "—", color: TXT, sub: "OBJECTIF 1,5 × LE STOP (6E : 1,25) · NEWS −10/+10 MIN (YOY +30)" },
-    { label: "MAX DD", value: `−${Math.round(acc.dd)}`, color: LOSS, sub: "FIN DE JOURNÉE, PAIRES ACTIVES" },
-    { label: "PIRE JOUR", value: short(acc.worst), color: LOSS, sub: "PAIRES ACTIVES" },
-    { label: "RÈGLE", value: trend.rule, color: ORANGE, sub: "ZONE · CASSURE · RETOUR" },
+    { label: "P&L/MOIS · 1 CPTE", value: short(perMonth), color: tone(perMonth), sub: `${positiveMonths}/${months.length} MOIS POSITIFS` },
+    ...(copies > 1
+      ? [{ label: `SUR ${copies} CPTES`, value: short(perMonth * copies), color: tone(perMonth), sub: `RÉALISTE ${short(perMonth * copies * 0.5)} À ${short(perMonth * copies * 0.65)}` }]
+      : []),
+    { label: "WIN%", value: n ? ((wins / n) * 100).toFixed(1).replace(".", ",") : "—", color: TXT, sub: `${(n / span).toFixed(0)} TRADES / MOIS` },
+    {
+      label: "MAX DD",
+      value: short(-acc.dd),
+      color: LOSS,
+      sub: account.ddLimit ? `${Math.round((acc.dd / account.ddLimit) * 100)}% DE LA LIMITE ${account.ddLimit}` : "FIN DE JOURNÉE",
+    },
+    { label: "PIRE JOUR", value: short(acc.worst), color: LOSS, sub: `LIMITE ${account.dailyStop ?? "—"}` },
+    { label: `TOTAL ${months.length} MOIS`, value: short(pnl), color: tone(pnl), sub: `${n} TRADES · FRAIS DÉDUITS` },
   ];
-  const cols = "52px 92px 56px 46px 1fr 70px 70px 70px 64px 96px";
+  const cols = "44px 70px 56px 50px minmax(140px, 1fr) 76px 76px 92px 96px";
   const p = sel ? trend.pairs.find((x) => x.symbol === sel) : null;
   // The trades shown: the pair clicked, or the active pairs; only the month clicked, if one is.
   const shown = (p ? [p] : month ? active.map((x) => x.p) : [])
@@ -1899,19 +1909,18 @@ function TrendReport({ trend, on, onToggle, account }: { trend: TrendResults | n
   return (
     <>
       <KpiStrip kpis={kpis} />
-      <Panel title="PAIRES · TREND RETEST" right="SEULES LES PAIRES ACTIVES COMPTENT · CLIC = TRADES">
+      <Panel title="PAIRES · CLASSÉES PAR P&L/MOIS" right="SEULES LES PAIRES ACTIVES COMPTENT · CLIC = TRADES">
         <div style={{ overflowX: "auto" }}>
           <div style={{ minWidth: 860 }}>
             <Row head cols={cols}>
               <span>PAIRE</span>
-              <span>ÉTAT</span>
+              <span style={R}>P&L/MOIS</span>
               <span style={R}>TR/MOIS</span>
               <span style={R}>WIN</span>
-              <span />
-              <span style={R}>P&L/MOIS</span>
+              <span>DD / LIM {account.ddLimit ?? "—"}</span>
               <span style={R}>1RE MOITIÉ</span>
               <span style={R}>2E MOITIÉ</span>
-              <span style={R}>DD</span>
+              <span>ÉTAT</span>
               <span />
             </Row>
             {[...stats].filter((x) => x.on || showOff).sort((a, b) => Number(b.on) - Number(a.on) || b.pnl - a.pnl).map((x) => {
@@ -1924,14 +1933,18 @@ function TrendReport({ trend, on, onToggle, account }: { trend: TrendResults | n
                   style={{ ...(sel === x.p.symbol ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : {}), ...(x.on ? {} : { opacity: 0.5 }) }}
                 >
                   <span style={{ color: TXT, fontWeight: 700 }}>{x.p.symbol}</span>
-                  <span style={{ color: x.on ? GAIN : DIM, fontWeight: 700, fontSize: 11 }}>{x.on ? "● ACTIVE" : "○ DÉSACTIVÉE"}</span>
+                  <span style={{ ...R, color: tone(mo), fontWeight: 700 }}>{short(mo)}</span>
                   <span style={R}>{(x.n / span).toFixed(1).replace(".", ",")}</span>
                   <span style={{ ...R, color: DIM }}>{x.n ? `${Math.round((x.wins / x.n) * 100)}%` : "–"}</span>
-                  <span style={bar((Math.abs(mo) / Math.max(1, ...stats.map((y) => Math.abs(y.pnl / span)))) * 100, tone(mo))} />
-                  <span style={{ ...R, color: tone(mo), fontWeight: 700 }}>{short(mo)}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: LOSS, width: 42 }}>{short(-x.dd)}</span>
+                    <span style={{ flex: 1, height: 6, background: "#1A1A1A" }}>
+                      <span style={bar(account.ddLimit ? (x.dd / account.ddLimit) * 100 : 0, account.ddLimit && x.dd / account.ddLimit > 0.45 ? LOSS : "#7A3A3A", 6)} />
+                    </span>
+                  </span>
                   <span style={{ ...R, color: tone(x.h1) }}>{short(x.h1)}</span>
                   <span style={{ ...R, color: tone(x.h2) }}>{short(x.h2)}</span>
-                  <span style={{ ...R, color: LOSS }}>−{Math.round(x.dd)}</span>
+                  <span style={{ color: x.on ? GAIN : DIM, fontWeight: 700, fontSize: 11 }}>{x.on ? "● ACTIVE" : "○ DÉSACTIVÉE"}</span>
                   <span
                     role="button"
                     tabIndex={0}
@@ -2049,6 +2062,61 @@ function TrendReport({ trend, on, onToggle, account }: { trend: TrendResults | n
           <div style={{ color: DIM, fontSize: 10.5, padding: "6px 12px", borderTop: "1px solid #1A1A1A" }}>HEURES CT · P&L À 2 LOTS (ZW : 1 LOT), FRAIS DÉDUITS · ☐ = TRADE REVU</div>
         </Panel>
       </div>
+
+      <Panel title="MATRICE P&L · PAIRE × MOIS" right="PAIRES ACTIVES · SURVOL = TRADES / WIN%">
+        <div style={{ overflowX: "auto" }}>
+          <div style={{ minWidth: 1100 }}>
+            <Row head cols={`44px repeat(${months.length}, minmax(0, 1fr)) 72px`}>
+              <span>PAIRE</span>
+              {months.map((m) => (
+                <span key={m} style={R}>
+                  {termMonth(m).replace(" ", "")}
+                </span>
+              ))}
+              <span style={{ ...R, color: ORANGE }}>TOTAL</span>
+            </Row>
+            {[...active]
+              .sort((a, b) => b.pnl - a.pnl)
+              .map((x) => {
+                const cell = new Map<string, { n: number; wins: number; pnl: number }>();
+                for (const t of x.p.trades) {
+                  const m = monthOf(t[0] * 60000);
+                  const c = cell.get(m) ?? { n: 0, wins: 0, pnl: 0 };
+                  c.n++;
+                  c.pnl += t[9];
+                  if (t[9] > 0) c.wins++;
+                  cell.set(m, c);
+                }
+                return (
+                  <Row key={x.p.symbol} cols={`44px repeat(${months.length}, minmax(0, 1fr)) 72px`}>
+                    <span style={{ color: "#FFF", fontWeight: 700 }}>{x.p.symbol}</span>
+                    {months.map((m) => {
+                      const c = cell.get(m);
+                      return c ? (
+                        <span
+                          key={m}
+                          title={`${x.p.symbol} ${termMonth(m)} : ${c.n} trades · ${Math.round((c.wins / c.n) * 100)}%`}
+                          style={{
+                            ...R,
+                            color: tone(c.pnl),
+                            ...(Math.abs(c.pnl) >= 900 ? { background: c.pnl >= 0 ? "rgba(63,212,122,0.16)" : "rgba(255,77,77,0.18)", fontWeight: 700 } : {}),
+                          }}
+                        >
+                          {short(c.pnl)}
+                        </span>
+                      ) : (
+                        <span key={m} title={`${x.p.symbol} ${termMonth(m)} : aucun trade`} style={{ ...R, color: "#444" }}>
+                          ·
+                        </span>
+                      );
+                    })}
+                    <span style={{ ...R, color: tone(x.pnl), fontWeight: 700 }}>{short(x.pnl)}</span>
+                  </Row>
+                );
+              })}
+          </div>
+        </div>
+      </Panel>
     </>
   );
 }
