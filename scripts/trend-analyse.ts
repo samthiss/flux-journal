@@ -169,7 +169,8 @@ function zones(d: Data, p: P): Zone[] {
         const last = cluster[cluster.length - 1];
         if (!last) { cluster.push(y); continue; }
         let far = 0;
-        for (let q = last.i; q < y.i; q++) far = Math.max(far, tr === -1 ? zb[q].h - last.p : last.p - zb[q].l);
+        // The bounce: how far price went back after the last low (high), from the bar after it to the next one's bar; the last one's own high came before its low (19.11).
+        for (let q = last.i + 1; q <= y.i; q++) far = Math.max(far, tr === -1 ? zb[q].h - last.p : last.p - zb[q].l);
         if (far >= B) cluster.push(y);
       }
       if (cluster.length < p.touches) continue;
