@@ -1838,7 +1838,7 @@ function eodDrawdown(list: { t: number; pnl: number }[]) {
  * The second strategy's report: every pair tested, the ones switched on
  * counting in the totals; the months of the pairs on; a pair's trades.
  */
-function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: string[]; onToggle: (symbol: string) => void }) {
+function TrendReport({ trend, on, onToggle, account }: { trend: TrendResults | null; on: string[]; onToggle: (symbol: string) => void; account: AccountRules }) {
   const [sel, setSel] = useState<string | null>(null);
   const [month, setMonth] = useState<string | null>(null);
   const [openT, setOpenT] = useState<string | null>(null);
@@ -1968,32 +1968,61 @@ function TrendReport({ trend, on, onToggle }: { trend: TrendResults | null; on: 
         </div>
       </Panel>
 
-      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.6fr)", gap: 8 }}>
-        <Panel title="MOIS · PAIRES ACTIVES" right="CLIC = TRADES DU MOIS">
-          <Row head cols="62px 28px 40px 1fr 54px">
-            <span>MOIS</span>
-            <span style={R}>TR</span>
-            <span style={R}>WIN</span>
-            <span />
-            <span style={R}>P&L</span>
-          </Row>
-          {[...months].reverse().map((m) => {
-            const b = byMonth.get(m);
+      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(440px, 1fr) minmax(0, 1.6fr)", gap: 8, alignItems: "start" }}>
+        <Panel title="P&L COMBINÉ · PAR COMPTE" right={`${months.length} MOIS · FRAIS DÉDUITS · CLIC = TRADES DU MOIS`}>
+          {(() => {
+            const copies = account.copies ?? 1;
+            const mcols = `64px 36px 44px 1fr 64px${copies > 1 ? " 72px" : ""}${account.split ? " 72px" : ""}`;
+            const old = [...months].sort();
+            const cuts = firmShares(old.map((m) => byMonth.get(m)?.pnl ?? 0), account.split ?? null);
+            const cutOf = new Map(old.map((m, i) => [m, cuts[i]]));
+            const cutAll = cuts.reduce((x, y) => x + y, 0);
             return (
-              <Row
-                key={m}
-                cols="62px 28px 40px 1fr 54px"
-                onClick={b ? () => setMonth(month === m ? null : m) : undefined}
-                style={month === m ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : undefined}
-              >
-                <span style={{ color: DIM }}>{termMonth(m)}</span>
-                <span style={R}>{b ? b.n : "–"}</span>
-                <span style={{ ...R, color: DIM }}>{b ? `${Math.round((b.wins / b.n) * 100)}%` : ""}</span>
-                <span style={b ? bar((Math.abs(b.pnl) / monthMax) * 100, tone(b.pnl)) : { display: "block" }} />
-                <span style={{ ...R, color: b ? tone(b.pnl) : "#444", fontWeight: 600 }}>{b ? short(b.pnl) : "–"}</span>
-              </Row>
+              <div style={{ overflowX: "auto" }}>
+                <div style={{ minWidth: 380 }}>
+                  <Row head cols={mcols}>
+                    <span>MOIS</span>
+                    <span style={R}>TR</span>
+                    <span style={R}>WIN</span>
+                    <span />
+                    <span style={R}>P&L</span>
+                    {copies > 1 && <span style={R}>×{copies}</span>}
+                    {account.split && <span style={R}>POUR TOI</span>}
+                  </Row>
+                  {[...old].reverse().map((m) => {
+                    const b = byMonth.get(m);
+                    const v = b?.pnl ?? 0;
+                    const cut = cutOf.get(m) ?? 0;
+                    const on2 = month === m;
+                    return (
+                      <Row
+                        key={m}
+                        cols={mcols}
+                        onClick={b ? () => setMonth(on2 ? null : m) : undefined}
+                        style={on2 ? { background: "#1F1608", boxShadow: `inset 3px 0 0 ${ORANGE}` } : undefined}
+                      >
+                        <span style={{ color: on2 ? ORANGE : DIM, fontWeight: on2 ? 700 : 400 }}>{termMonth(m)}</span>
+                        <span style={R}>{b ? b.n : 0}</span>
+                        <span style={{ ...R, color: DIM }}>{b ? `${Math.round((b.wins / b.n) * 100)}%` : "—"}</span>
+                        <span style={bar((Math.abs(v) / monthMax) * 100, tone(v))} />
+                        <span style={{ ...R, color: tone(v), fontWeight: 600 }}>{short(v)}</span>
+                        {copies > 1 && <span style={{ ...R, color: tone(v) }}>{short(v * copies)}</span>}
+                        {account.split && <span style={{ ...R, color: tone(v - cut) }}>{short((v - cut) * copies)}</span>}
+                      </Row>
+                    );
+                  })}
+                  <Row cols={mcols} style={{ borderTop: "1px solid #2E2E2E", padding: "6px 10px" }}>
+                    <span style={{ color: ORANGE, fontWeight: 700, gridColumn: "span 4" }}>
+                      TOTAL · {n} TR · {n ? Math.round((wins / n) * 100) : 0}%
+                    </span>
+                    <span style={{ ...R, color: tone(pnl), fontWeight: 700 }}>{short(pnl)}</span>
+                    {copies > 1 && <span style={{ ...R, color: tone(pnl), fontWeight: 700 }}>{short(pnl * copies)}</span>}
+                    {account.split && <span style={{ ...R, color: tone(pnl - cutAll), fontWeight: 700 }}>{short((pnl - cutAll) * copies)}</span>}
+                  </Row>
+                </div>
+              </div>
             );
-          })}
+          })()}
         </Panel>
 
         <Panel
@@ -2073,7 +2102,7 @@ function TrendScreens({
           );
         })}
       </div>
-      {screen === "all" && <TrendReport trend={trend} on={on} onToggle={onToggle} />}
+      {screen === "all" && <TrendReport trend={trend} on={on} onToggle={onToggle} account={account} />}
       {screen === "rules" && <TrendRules />}
       {pair && (
         <TrendPair
