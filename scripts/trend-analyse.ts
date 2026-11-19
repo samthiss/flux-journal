@@ -33,7 +33,7 @@ const ctMinFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Chicago",
 /** Minutes since midnight, Chicago. */
 const ctMinute = (t: number) => { const [h, m] = ctMinFmt.format(t).split(":").map(Number); return h * 60 + m; };
 
-type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[]; ma?: number; maxRun?: number; skipMin?: [number, number]; newsOpen?: boolean };
+type P = { days: 2 | 3; touches: 2 | 3 | 4; bounce: number; width: number; away: number; stop: "plan" | "zone"; exit: number; entry: "edge" | "mid"; buf: number; mgmt: "fixed" | "be" | "split"; hold: number; wide?: boolean; lots?: number; skipHours?: number[]; ma?: number; maxRun?: number; skipMin?: [number, number]; newsOpen?: boolean; maxVol?: number };
 /** Three-star releases of each pair's currencies: no fill from NEWS_MIN minutes before one to NEWS_MIN after — 30 after a year-on-year figure. Loaded by the run that writes the results. */
 const NEWS_OF = new Map<string, { at: number; big: boolean }[]>();
 const NEWS_MIN = 10;
@@ -239,6 +239,31 @@ function realReturns(d: Data, x: { t: number; z: Zone }) {
   return { rb: Math.round(hb.t / 60000), rn: count };
 }
 
+// A pair's volatility now against its usual: the mean session range of the 20 sessions before, over the mean of all the sessions before (19.11).
+const VR_CACHE = new Map<string, (t: number) => number>();
+function volRatio(d: Data) {
+  const got = VR_CACHE.get(d.sym);
+  if (got) return got;
+  const ses = new Map<number, { h: number; l: number }>();
+  for (let i = 0; i < d.n; i++) {
+    const k = sessionDay(d.T[i]);
+    const x = ses.get(k);
+    if (!x) ses.set(k, { h: d.H[i], l: d.L[i] });
+    else { x.h = Math.max(x.h, d.H[i]); x.l = Math.min(x.l, d.L[i]); }
+  }
+  const keys = [...ses.keys()].sort((a, b) => a - b);
+  const rng = keys.map((k) => ses.get(k)!.h - ses.get(k)!.l);
+  const at = new Map<number, number>();
+  let cum = 0;
+  for (let i = 0; i < keys.length; i++) {
+    if (i >= 20) { let s20 = 0; for (let q = i - 20; q < i; q++) s20 += rng[q]; at.set(keys[i], s20 / 20 / (cum / i)); }
+    cum += rng[i];
+  }
+  const fn = (t: number) => at.get(sessionDay(t)) ?? 1;
+  VR_CACHE.set(d.sym, fn);
+  return fn;
+}
+
 function run(d: Data, p: P) {
   const { T, H, L, C, n, tick } = d;
   const idxAt = (t: number) => {
@@ -257,6 +282,8 @@ function run(d: Data, p: P) {
   const X = Math.max(2, Math.round(d.cfg.sl * p.width)) * tick;
   for (const z of zones(d, p).sort((x, y) => x.ready - y.ready)) {
     if (p.wide && Math.abs(z.top - z.bottom) <= X + 1e-9) continue;
+    // No trade while the pair is far more restless than usual (p.maxVol × its usual session range, at the break).
+    if (p.maxVol && volRatio(d)(z.breakT) > p.maxVol) continue;
     const dd = z.dir;
     const raw = p.entry === "edge" ? z.bottom + dd * tick : (z.bottom + z.top) / 2;
     const entry = Math.round(raw / tick) * tick;
@@ -331,14 +358,14 @@ if (!process.env.COMBO && !process.env.ONLYTOT && !process.env.DD) (async () => 
   // second return comes at 9h CT, just after the grains' day session opens
   // (39 % won there, the drawdown 825 $ instead of 1,491), and its stop two
   // ticks past the zone (64 %, the drawdown 600 $).
-  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true, ma: 20 }, "6B": { away: 0.5, days: 3, skipMin: [450, 480] }, "6J": { away: 1.5, ma: 20 }, ZW: { days: 3, lots: 1, wide: true }, ZS: { skipHours: [9], buf: 2, newsOpen: true } };
+  const OWN: Record<string, Partial<P>> = { "6E": { days: 3, exit: 1.25, wide: true, ma: 20, maxVol: 1.4 }, "6B": { away: 0.5, days: 3, skipMin: [450, 480] }, "6J": { away: 1.5, ma: 20 }, ZW: { days: 3, lots: 1, wide: true }, ZS: { skipHours: [9], buf: 2, newsOpen: true } };
   // Pairs taken out of the strategy (docs/backtesting.md, 17.11): 6N and 6C are too slow for the target in their hours, and no setting holds on the second half;
   // ZN made nothing on the first half once the news were kept clear.
   const OUT = ["6N", "6C", "ZN"];
   const pairs = data.filter((d) => !OUT.includes(d.sym)).map((d) => ({ d, p: { ...base0, ...OWN[d.sym] } })).map(({ d, p }) => ({ d, p, list: run(d, p).list })).map(({ d, p, list }) => ({
     symbol: d.sym,
     // The trend's sessions and the target in risks, the pair's own when it has one.
-    params: { skipMin: p.skipMin ?? null, newsOpen: !!p.newsOpen, maxRun: p.maxRun ?? 0, ma: p.ma ?? 0, buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
+    params: { skipMin: p.skipMin ?? null, newsOpen: !!p.newsOpen, maxVol: p.maxVol ?? 0, maxRun: p.maxRun ?? 0, ma: p.ma ?? 0, buf: p.buf, skipHours: p.skipHours ?? [], lots: p.lots ?? 2, days: p.days, exit: p.exit, away: p.away, bounce: Math.round(p.bounce * 1000) / 1000, wide: !!p.wide, news: NEWS_MIN, sl: d.cfg.sl },
     tick: d.tick,
     from: d.T[0],
     to: d.T[d.T.length - 1],

@@ -153,7 +153,7 @@ type News = { at: number; currency: string; title: string };
 /** The "Trade with Trend" backtest: each pair's trades, [entry minute, exit minute, dir, zone low, zone high, entry, stop, target, ticks, $ net of fees]. */
 /** Why a trade: the closes the trend was read from ([session day, close]), the zone's touches, the break, the first return, when the zone was ready — minutes. */
 export type TrendWhy = { closes: [number, number][]; touches: number[]; brk: number; ret: number; ready: number; rb?: number; rn?: number; bounces?: [number, number, number, number][] };
-export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { skipMin?: [number, number] | null; newsOpen?: boolean; ma?: number; buf?: number; skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
+export type TrendResults = { ranAt: number; rule: string; pairs: { symbol: string; tick: number; from: number; to: number; trades: number[][]; why?: TrendWhy[]; params?: { skipMin?: [number, number] | null; newsOpen?: boolean; maxVol?: number; ma?: number; buf?: number; skipHours?: number[]; lots?: number; days: number; exit: number; away?: number; bounce?: number; wide?: boolean; news?: number; sl?: number } }[] };
 /** "1,5" — a target in risks, French. */
 const rText = (v: number) => String(v).replace(".", ",");
 
@@ -328,7 +328,8 @@ export default function DatabentoClient({
           ...(copies > 1
             ? [{ label: `SUR ${copies} CPTES`, value: short(perMonth * copies), color: tone(perMonth), sub: `RÉALISTE ${short(perMonth * copies * 0.5)} À ${short(perMonth * copies * 0.65)}` }]
             : []),
-          { label: "WIN%", value: (general.winRate * 100).toFixed(1).replace(".", ","), color: TXT, sub: `${(general.trades.length / general.span).toFixed(0)} TRADES / MOIS` },
+          { label: "WIN%", value: (general.winRate * 100).toFixed(1).replace(".", ","), color: TXT, sub: `${general.trades.length} TRADES · FRAIS DÉDUITS` },
+          { label: "TRADES/MOIS", value: (general.trades.length / general.span).toFixed(1).replace(".", ","), color: TXT, sub: `≈ ${(general.trades.length / general.span / 4.33).toFixed(1).replace(".", ",")} PAR SEMAINE · ${general.trades.length} SUR ${general.months.length} MOIS` },
           {
             label: "MAX DD",
             value: short(-ddRun),
@@ -1801,6 +1802,7 @@ function TrendRules() {
             { k: "Durée", main: "4 h au plus, rien après 16h Chicago" },
             { k: "Taille", main: "2 lots (ZW : 1 lot)" },
             { k: "ZS", main: "Pas de trade ZS le jour où le retour suivant tombe à 9h CT", detail: "La demi-heure après l'ouverture des grains (8h30) est trop agitée." },
+            { k: "6E agité", main: "Pas de trade 6E quand il est 1,4 fois plus agité que d'habitude", detail: "Amplitude moyenne des 20 dernières séances comparée à sa moyenne : ses pertes de mars-avril sont venues de ces périodes." },
             { k: "ZS news", main: "News 3★ entre 7h et 8h30 CT : pas d'entrée ZS avant 9h", detail: "Les grains sont fermés de 7h45 à 8h30 : la réaction à la news arrive d'un coup à l'ouverture." },
             { k: "6B", main: "Pas d'entrée 6B de 7h30 à 8h CT", detail: "L'heure des chiffres américains : la livre bouge trop fort contre le dollar." },
             { k: "Journal", main: "Stratégie « Trend Retest »", detail: "Pour mesurer tes vrais résultats et les comparer au backtest." },
@@ -1891,7 +1893,8 @@ function TrendReport({ trend, on, onToggle, account }: { trend: TrendResults | n
     ...(copies > 1
       ? [{ label: `SUR ${copies} CPTES`, value: short(perMonth * copies), color: tone(perMonth), sub: `RÉALISTE ${short(perMonth * copies * 0.5)} À ${short(perMonth * copies * 0.65)}` }]
       : []),
-    { label: "WIN%", value: n ? ((wins / n) * 100).toFixed(1).replace(".", ",") : "—", color: TXT, sub: `${(n / span).toFixed(0)} TRADES / MOIS` },
+    { label: "WIN%", value: n ? ((wins / n) * 100).toFixed(1).replace(".", ",") : "—", color: TXT, sub: `${n} TRADES · PAIRES ACTIVES` },
+    { label: "TRADES/MOIS", value: (n / span).toFixed(1).replace(".", ","), color: TXT, sub: `≈ ${(n / span / 4.33).toFixed(1).replace(".", ",")} PAR SEMAINE · ${n} SUR ${months.length} MOIS` },
     {
       label: "MAX DD",
       value: short(-acc.dd),
@@ -2243,6 +2246,7 @@ function TrendPair({
     (p.params?.lots ?? 2) !== 2 && `${p.params!.lots} LOT`,
     (p.params?.buf ?? 3) !== 3 && `STOP ${p.params!.buf} TK AU-DELÀ DE LA ZONE`,
     (p.params?.ma ?? 0) > 0 && `PRIX DU BON CÔTÉ DE SA MOYENNE ${p.params!.ma} SÉANCES`,
+    p.params?.maxVol && `PAS DE TRADE SI LA VOLATILITÉ DÉPASSE ${String(p.params.maxVol).replace(".", ",")} × LA NORMALE (AMPLITUDE DES 20 DERNIÈRES SÉANCES)`,
     p.params?.newsOpen && "NEWS 3★ DEPUIS 7H CT : PAS D'ENTRÉE À L'OUVERTURE, AVANT 9H",
     p.params?.skipMin && `PAS D'ENTRÉE DE ${Math.floor(p.params.skipMin[0] / 60)}H${String(p.params.skipMin[0] % 60).padStart(2, "0")} À ${Math.floor(p.params.skipMin[1] / 60)}H${String(p.params.skipMin[1] % 60).padStart(2, "0")} CT`,
     (p.params?.skipHours ?? []).length > 0 && `PAS DE TRADE LE JOUR OÙ LE RETOUR SUIVANT TOMBE À ${p.params!.skipHours!.join("H, ")}H CT`,
