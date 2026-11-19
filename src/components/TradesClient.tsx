@@ -218,7 +218,8 @@ export default function TradesClient({
 
   const [filterSymbol, setFilterSymbol] = useState(vue.symbol ?? "all");
   const [filterOutcome, setFilterOutcome] = useState(vue.outcome ?? "all");
-  const [filterSetup, setFilterSetup] = useState(vue.setup ?? "all");
+  // The setup filter is gone with the field (2026-11-19); a saved view that still carries one is read as "all".
+  const filterSetup = "all";
   const [filterStrategy, setFilterStrategy] = useState(vue.strategy ?? "all");
   const [filterEntry, setFilterEntry] = useState(vue.entry ?? "all");
   const [filterTp, setFilterTp] = useState(vue.tp ?? "all");
@@ -282,7 +283,7 @@ export default function TradesClient({
     });
   };
 
-  const GRILLE = grilleEt(colonnes, !lectureSeule, !lectureSeule);
+  const GRILLE = grilleEt(colonnes, false, !lectureSeule);
 
   const choosePeriod = (next: string) => {
     setPeriod(next);
@@ -304,7 +305,6 @@ export default function TradesClient({
   };
 
   const symbolOptions = useMemo(() => [...new Set(trades.map((t) => t.symbol))], [trades]);
-  const setupOptions = useMemo(() => [...new Set(trades.map((t) => t.setup))], [trades]);
   /**
    * The schools actually written on a trade.
    *
@@ -497,14 +497,6 @@ export default function TradesClient({
             something that is not on the page. */}
         {!lectureSeule && (
           <>
-        <select value={filterSetup} onChange={(e) => { setFilterSetup(e.target.value); noter({ setup: e.target.value }); }} style={selectStyle}>
-          <option value="all">All setups</option>
-          {setupOptions.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
         <select
           value={strategyFilter}
           onChange={(e) => { setFilterStrategy(e.target.value); noter({ strategy: e.target.value }); }}
@@ -766,7 +758,6 @@ export default function TradesClient({
           <div>Date</div>
           <div>Symbol</div>
           <div>Side</div>
-          {!lectureSeule && <div>Setup</div>}
           <div>Size</div>
           <div>P&amp;L</div>
           <div>R:R</div>
@@ -826,7 +817,6 @@ export default function TradesClient({
               </div>
               <div style={{ fontWeight: 600 }}>{t.symbol}</div>
               <div style={{ color: t.side === "Long" ? accentColor : "oklch(0.6 0 0)", fontSize: 12 }}>{t.side}</div>
-              {!lectureSeule && <div style={{ fontSize: 12, color: "oklch(0.65 0 0)" }}>{t.setup}</div>}
               <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.72 0 0)" }}>
                 {t.size}
               </div>

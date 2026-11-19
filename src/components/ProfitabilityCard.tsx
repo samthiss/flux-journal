@@ -70,10 +70,10 @@ function Figure({ title, value, hint, color }: { title: string; value: string; h
 
 export default function ProfitabilityCard({
   stats,
-  setups,
 }: {
   stats: ReturnType<typeof computeDashboardStats>;
-  setups: ReturnType<typeof computeSetupStats>;
+  /** No longer read: the setup field is gone (2026-11-19). */
+  setups?: ReturnType<typeof computeSetupStats>;
 }) {
   const { winRate, payoff, breakevenWinRate, expectancy, expectancyR, avgWin, avgLoss, totalPnl } = stats;
   const margin = winRate - breakevenWinRate;
@@ -210,42 +210,6 @@ export default function ProfitabilityCard({
         </div>
       )}
 
-      {setups.length > 1 && (
-        <div style={{ marginTop: 22, borderTop: "1px solid oklch(0.28 0 0)", paddingTop: 16 }}>
-          <div style={{ ...label, marginBottom: 12 }}>Par setup</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {setups.map((s) => {
-              const setupMargin = s.winRate - s.breakevenWinRate;
-              const ok = s.expectancy >= 0;
-              return (
-                <div key={s.setup}>
-                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>
-                      {s.setup} <span style={{ ...mono, fontSize: 11, color: "oklch(0.5 0 0)" }}>n={s.count}</span>
-                    </div>
-                    <div style={{ ...mono, fontSize: 11.5, color: "oklch(0.62 0 0)", display: "flex", gap: 14, flexWrap: "wrap" }}>
-                      <span>RR {s.payoff > 0 ? s.payoff.toFixed(2) : "—"}</span>
-                      <span>WR {pct(s.winRate)}</span>
-                      <span>requis {s.breakevenWinRate > 0 ? pct(s.breakevenWinRate) : "—"}</span>
-                      <span style={{ color: ok ? winColor : lossColor, fontWeight: 600 }}>{fmtMoney(s.expectancy)} / trade</span>
-                      <span style={{ color: s.totalPnl >= 0 ? winColor : lossColor }}>{fmtMoney(s.totalPnl)} au total</span>
-                    </div>
-                  </div>
-                  <BreakevenBar winRate={s.winRate} breakeven={s.breakevenWinRate} />
-                  {/* A setup living within a couple of points of its own breakeven
-                      line is the thing this card exists to surface: it reads as
-                      profitable in the totals and is one bad week from not. */}
-                  {s.payoff > 0 && setupMargin > 0 && setupMargin < 0.05 && (
-                    <div style={{ fontSize: 11.5, color: lossColor, marginTop: 5 }}>
-                      À {(setupMargin * 100).toFixed(1)} points seulement de son seuil.
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

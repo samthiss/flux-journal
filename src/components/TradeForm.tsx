@@ -307,7 +307,7 @@ export default function TradeForm({
 }) {
   const [side, setSide] = useState(initial.side);
   const [emotion, setEmotion] = useState(initial.emotion);
-  const [setup, setSetup] = useState(initial.setup || SETUP_DEFAUT);
+  const [setup] = useState(initial.setup || SETUP_DEFAUT);
   // Empty rather than the first school, and empty stays empty: the 88 trades
   // already in the journal were taken before the question was asked, and a
   // field that answers it for them would file them all under one on the next
@@ -512,26 +512,14 @@ export default function TradeForm({
                 ))}
               </select>
             </div>
-            <div>
-              {fieldLabel("Setup")}
-              <select name="setup" value={setup} onChange={(e) => setSetup(e.target.value)} style={inputStyle}>
-                {/* A trade recorded under a setup that is no longer offered
-                    keeps it, rather than being quietly refiled under another
-                    one by the act of editing something else. */}
-                {(SETUP_OPTIONS as readonly string[]).includes(setup) ? null : <option value={setup}>{setup}</option>}
-                {SETUP_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* The setup field was taken off the form (2026-11-19): the strategy says it. A trade keeps the one it had. */}
+            <input type="hidden" name="setup" value={setup} />
             <div>
               {fieldLabel("Strategy")}
               <select name="strategy" value={strategy} onChange={(e) => setStrategy(e.target.value)} style={inputStyle}>
                 <option value="">—</option>
-                {/* As with the setup: a trade filed under something else keeps
-                    it rather than being refiled by the act of editing. */}
+                {/* A trade filed under something else keeps it rather than
+                    being refiled by the act of editing. */}
                 {!strategy || (STRATEGY_OPTIONS as readonly string[]).includes(strategy) ? null : (
                   <option value={strategy}>{strategy}</option>
                 )}
@@ -777,7 +765,7 @@ export default function TradeForm({
               <textarea
                 name="preTradeNotes"
                 defaultValue={initial.preTradeNotes}
-                placeholder="Setup context, execution notes, lessons…"
+                placeholder="Context, execution notes, lessons…"
                 rows={3}
                 style={{ ...inputStyle, resize: "vertical" }}
               />

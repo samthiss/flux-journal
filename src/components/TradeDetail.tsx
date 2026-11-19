@@ -171,7 +171,7 @@ export default async function TradeDetail({
           </div>
           <div style={{ fontSize: 14, color: "oklch(0.62 0 0)", marginTop: 2 }}>
             {trade.date.toISOString().slice(0, 10)}
-            {trade.time ? ` · ${trade.time}` : ""} &middot; {trade.setup}
+            {trade.time ? ` · ${trade.time}` : ""}
           </div>
         </div>
         <div className="trade-detail-pnl">
@@ -259,12 +259,6 @@ export default async function TradeDetail({
             Details
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ color: "oklch(0.6 0 0)" }}>Setup</span>
-              <span style={{ fontWeight: 600 }}>{trade.setup}</span>
-            </div>
-            {/* Under the setup, because it is the other half of the same
-                question: which pattern, and whose rules for taking it. */}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
               <span style={{ color: "oklch(0.6 0 0)" }}>Strategy</span>
               <span style={{ fontWeight: 600 }}>{trade.strategy ?? "—"}</span>

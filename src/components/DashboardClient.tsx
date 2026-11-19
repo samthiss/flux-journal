@@ -70,20 +70,17 @@ export default function DashboardClient({
   }, [router]);
 
   const [filterSymbol, setFilterSymbol] = useState("all");
-  const [filterSetup, setFilterSetup] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilterCount = (filterSymbol !== "all" ? 1 : 0) + (filterSetup !== "all" ? 1 : 0);
+  const activeFilterCount = filterSymbol !== "all" ? 1 : 0;
 
   const allTrades = useMemo(() => withOutcome(trades), [trades]);
   const symbolOptions = useMemo(() => [...new Set(allTrades.map((t) => t.symbol))], [allTrades]);
-  const setupOptions = useMemo(() => [...new Set(allTrades.map((t) => t.setup))], [allTrades]);
 
   const now = useMemo(() => new Date(), []);
   const periodTrades = useMemo(() => {
     return filterByPeriod(allTrades, period, now)
-      .filter((t) => filterSymbol === "all" || t.symbol === filterSymbol)
-      .filter((t) => filterSetup === "all" || t.setup === filterSetup);
-  }, [allTrades, period, filterSymbol, filterSetup, now]);
+      .filter((t) => filterSymbol === "all" || t.symbol === filterSymbol);
+  }, [allTrades, period, filterSymbol, now]);
 
   const stats = useMemo(() => computeDashboardStats(periodTrades), [periodTrades]);
 
@@ -227,26 +224,10 @@ export default function DashboardClient({
               </option>
             ))}
           </select>
-          <select
-            value={filterSetup}
-            onChange={(e) => {
-              setFilterSetup(e.target.value);
-              setFiltersOpen(false);
-            }}
-            style={selectStyle}
-          >
-            <option value="all">All setups</option>
-            {setupOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
           {activeFilterCount > 0 && (
             <div
               onClick={() => {
                 setFilterSymbol("all");
-                setFilterSetup("all");
                 setFiltersOpen(false);
               }}
               style={{
