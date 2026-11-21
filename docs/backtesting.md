@@ -54,15 +54,15 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 | Paire | Niveaux | SL | TP1 = trailing | TP2 | Ordres | Risque (2 lots) |
 |---|---|---|---|---|---|---|
 | 6B | 1,3045 · 1,3189 · 1,3335 · 1,3430 · 1,3478 · 1,3652 · 1,3862 | 25 | 18 | 75 | 2h–8h seulement | 312 $ |
-| 6E | 1,07455 · 1,0921 · 1,13015 · 1,1398 · 1,1505 · 1,1597 · 1,16595 · 1,1683 · 1,1757 · 1,19325 · 1,213 | 12 | 15 | 60 | 2h–14h | 150 $ |
+| 6E | 1,13015 · 1,1398 · 1,1505 · 1,1597 · 1,16595 · 1,1683 · 1,1757 | 12 | 15 | 60 | 2h–14h | 150 $ |
 | 6J | 0,006286 · 0,0063545 · 0,006429 | 15 | 10 | 40 | 3h–14h | 187 $ |
-| 6N | 0,60785 · 0,5988 · 0,5930 · 0,58845 · 0,57865 · 0,56795 · 0,56635 · 0,5596 | 25 | 20 | 130 | 3h–7h, 9h–14h | 250 $ |
+| 6N | 0,55965 · 0,56495 · 0,5700 · 0,57165 · 0,57795 · 0,5930 · 0,59885 | 25 | 20 | 130 | 3h–7h, 9h–14h | 250 $ |
 | 6C | 0,7078 · 0,70965 · 0,71235 · 0,71705 · 0,7196 · 0,7269 · 0,72975 | 25 | 20 | 55 | 2h–14h | 250 $ |
 | ZN | 104'065 · 104'245 · 105'275 · 108'265 · 112'025 | 12 | 5 | 30 | 2h–14h | 375 $ |
 | ZS | 1154,25 · 1199,00 · 1229,50 · 1294,75 · 1329,75 | 12 | 10 | 45 | 8h–14h seulement | 300 $ |
 | ZW | 505,25 · 575,00 · 606,50 · 634,50 · 680,25 · 710,50 | 15 | 5 | 40 | 2h–8h, 9h–14h | 375 $ |
 
-Niveaux revus le 20.11.2026 comme des zones de 20 ticks : chaque ligne est posée au milieu des ticks qui gagnent, pour qu'une ligne placée 1 ou 2 ticks à côté marche encore (voir le journal du 20.11). ZS 1329,75 et 6N 0,56635 sont nouveaux et ont encore trop peu de trades pour être jugés.
+Niveaux revus le 20.11.2026 comme des zones de 20 ticks : chaque ligne est posée au milieu des ticks qui gagnent, pour qu'une ligne placée 1 ou 2 ticks à côté marche encore (voir le journal du 20.11). ZS 1329,75 est nouveau et a encore trop peu de trades pour être jugé. 6E et 6N alignés sur le graphique du trader le 21.11.
 
 **Pourquoi ces réglages :**
 
@@ -74,16 +74,16 @@ Niveaux revus le 20.11.2026 comme des zones de 20 ticks : chaque ligne est posé
 
 Les prix d'entrée, de SL, de TP1, de TP2 et du 2e rebond de chaque niveau sont dans l'appli : onglet de la paire → « Prix par niveau ».
 
-## 4. Les chiffres (état au 20.11.2026, niveaux revus en zones)
+## 4. Les chiffres (état au 21.11.2026, niveaux revus en zones)
 
 Le backtest porte sur un an de données Databento, de novembre 2025 à novembre 2026. Il est compté **de façon prudente** : un ordre n'est considéré comme rempli que si le prix le dépasse d'au moins 1 tick.
 
 | Paire | Trades par an | Gagnants | $/mois brut | $/mois net de commissions | DD de la paire |
 |---|---|---|---|---|---|
 | 6B | 50 | 84 % | 683 | 656 | 588 |
-| 6E | 93 | 65 % | 618 | 568 | 1 463 |
+| 6E | 88 | 66 % | 617 | 570 | 1 463 |
 | 6J | 40 | 75 % | 171 | 150 | 531 |
-| 6N | 66 | 73 % | 500 | 465 | 720 |
+| 6N | 49 | 86 % | 637 | 611 | 365 |
 | 6C | 55 | 76 % | 462 | 432 | 390 |
 | ZN | 21 | 81 % | 198 | 193 | 344 |
 | ZS | 36 | 67 % | 373 | 349 | 688 |
@@ -91,11 +91,11 @@ Le backtest porte sur un an de données Databento, de novembre 2025 à novembre 
 
 **Sur un compte entier** (toutes les paires ensemble, avec la limite de 500 $ par jour et celle de 5 contrats) :
 
-- environ **3 050 $/mois** net de commissions (2 056 avec les niveaux d'avant le 20.11 ; la hausse vient surtout de 6E, +240, de ZW, +210, de ZS, +150, et de 6B, +125) ;
-- 389 trades par an, soit environ 7 à 8 par semaine ;
-- drawdown d'environ **1 170 $**, pour une limite de 2 000 $ ;
+- environ **3 280 $/mois** net de commissions (2 056 avec les niveaux d'avant le 20.11 ; la hausse vient surtout de 6E, +240, de ZW, +210, de ZS, +150, de 6N, +145, et de 6B, +125) ;
+- 371 trades par an, soit environ 7 par semaine ;
+- drawdown d'environ **815 $**, pour une limite de 2 000 $ ;
 - pire journée : −500 $ ;
-- environ 74 % de trades gagnants, profit factor d'environ 3.
+- environ 77 % de trades gagnants, profit factor d'environ 3,8.
 
 **Ce que j'attends en réel : environ 50 à 65 % du backtest**, soit **1 050 à 1 350 $/mois par compte**. Avec 5 comptes copiés, ça fait environ 5 000 à 6 500 $/mois.
 
@@ -324,3 +324,5 @@ On ne refait pas ces tests sans raison nouvelle.
 - **Level Bounce 6B : 1,3273 retirée** (21.11). 15 tr 60 % +653 $ sur l'année, mais 6 pertes (−1 789 $) et toute la pire baisse de 6B (13.03 et 16.03.2026, −638 $). Pertes = cassures sans rebond (≤ 6 ticks dans le bon sens sur 4 des 6, puis 42 à 111 ticks au-delà), dont 2 des jours de news UK (PIB 13.03, BoE 18.06) ; aucune position de 1,3260 à 1,3275 ne les évite ; 3 derniers mois 5 tr −13 $. Zone au milieu du range, traversée souvent. Sans elle : 6B 50 tr 84 % ≈ +656 $/mois net, DD 588 ; compte entier ≈ 2 790 $/mois net (contre 2 784) et DD ≈ 1 170 (contre 1 470). Piste notée : pas de trade 6B les jours de grosse news UK.
 - **Level Bounce ZS : zones redessinées par le trader** (21.11 ; 7 zones testées de −30 à +30 ticks). 1294'6 6 tr 83 % +2 101 $ (gagne de 1293'2 à 1295'4) ; 1199'0 12 tr 75 % +1 039 $ mais seulement de 1198'6 à 1199'6 (perd fort juste à côté) ; 1229'4 8 tr +384 $ ; 1154'2 9 tr +688 $ ; 1329'6 1 trade. Retirées, perdantes presque partout : 1254'2 (5 tr +284 $ seulement à ce tick) et 1184'4 (7 tr +30 $). Ensemble : 36 tr 67 % ≈ +349 $/mois net (contre +197), DD 616-688 ; presque tout le gain sur la 2e moitié de l'année (+3 552 contre +626). **Appliqué** ; compte entier ≈ 2 880 $/mois net, DD ≈ 1 170.
 - **Level Bounce ZW : zones redessinées par le trader** (21.11 ; 7 zones testées de −30 à +30 ticks). À ses prix 40 tr 78 % ≈ +138 $/mois (2e moitié +40). 677'6 perd de 674'2 à 678'0 (10 tr −932 $) → 680'2 (9 tr 89 % +613 $) ; 577'4 → 575'0 (6 tr 100 % +1 038 $, zone étroite 574'0-576'0) ; 790'6 retirée (2 tr −329 $) ; 710'4, 634'4 (étroite), 606'4 (17 tr 82 % +985 $) et 505'2 gardées. Ensemble 40 tr 93 % ≈ +374 $/mois net (contre +213), DD 383-450. **Appliqué** ; compte entier ≈ 3 050 $/mois net, DD ≈ 1 170.
+- **Level Bounce : filtres pour gagner du win rate** (21.11, idée du trader ; 401 trades des 8 paires, 75 %, ≈ 3 180 $/mois avant les limites du compte). (1) Vitesse d'arrivée : plus le prix arrive vite, moins ça tient — mouvement vers la zone en 30 min ≤ 1 stop 76 % 90 $/tr, 1-1,5 stop 84 % 149 $/tr, 2-3 stops 70 % 78 $/tr, > 3 stops 62 % 59 $/tr. Pas de trade au-delà de 3 stops : 77 % mais 2 909 $/mois (−270) ; au-delà de 2 stops : 78 %, 2 623 $/mois. Les arrivées rapides restent gagnantes en moyenne : on gagne 2-3 points de win rate pour 8-18 % de profit en moins. (2) Jours de grosse news (taux, CPI, emploi, PIB) : même win rate (75 %) et plus par trade (114 contre 92 $) ; les éviter coûte 600 $/mois. (3) Volatilité des 20 dernières séances : aucun effet (74-81 % à tous les niveaux). Rien de retenu.
+- **Level Bounce 6N et 6E alignés sur le graphique du trader** (21.11). 6N, chaque ligne essayée à ±10 ticks : 0,5931 → 0,5930 (1 183 → 1 650 $ sur l'année), 0,5696 → 0,5700 (281 → 613 $) ; retirées 0,5858 (−130 $), 0,58085 (−199 $) et 0,5823 (−774 $, perdante à toutes les positions : entre 0,580 et 0,586 le prix a traversé sans rebondir) ; 0,57585 pas ajoutée (faible partout, −10 $/mois et DD 256 → 296 $). 6N : 66 tr 73 % 465 $/mois DD 720 → 49 tr 86 % 611 $/mois. 6E : 1,213, 1,19325, 1,0921 et 1,07455 retirées (plus sur le graphique) → 88 tr, 570 $/mois. Compte : ≈ 3 050 → **3 280 $/mois**, 77 %, DD ≈ 1 170 → 815 $. Mêmes réserves : les déplacements sont ajustés sur l'année testée.

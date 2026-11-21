@@ -70,6 +70,10 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
 // than 1294.25; 1254.25 and 1184.50, losing almost wherever put, dropped.
 // ZW redrawn by the trader (2026-11-21): 677.75 → 680.25 (losing below),
 // 577.50 → 575.00; 505.25 added, 790.75 dropped (two trades, losing).
+// 6E (2026-11-21): 1.213, 1.19325, 1.0921 and 1.07455 dropped, off the
+// trader's chart. 6N redrawn by the trader (2026-11-21), ten ticks either
+// way: 0.5931 → 0.5930, 0.5696 → 0.5700; 0.5858, 0.58085 and 0.5823 dropped
+// (crossed without a bounce, losing wherever put), 0.57585 not added (weak).
 const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; pick?: { sl: number; tp1: number; tp2?: number }; offset?: number }> = {
   // Set by the trader: 6B only in London's session, 2h–8h — after it, the
   // American session runs the pound through its levels and only 5-tick
@@ -81,12 +85,12 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // Set by the trader: a TP1 of 15 wins three trades in five rather than
   // under one in two, for the same drawdown, and held on the last months —
   // where 30, the most profitable on the year, had stopped working.
-  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.07455, 1.0921, 1.13015, 1.1398, 1.1505, 1.1597, 1.16595, 1.1683, 1.1757, 1.19325, 1.213], excludeHours: [], tp1s: FX_TP1, pick: { sl: 12, tp1: 15, tp2: 60 } },
+  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.13015, 1.1398, 1.1505, 1.1597, 1.16595, 1.1683, 1.1757], excludeHours: [], tp1s: FX_TP1, pick: { sl: 12, tp1: 15, tp2: 60 } },
   // Set by the trader: TP1 at 10 with a 15-tick stop, two trades in three won.
   "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429], excludeHours: [2], tp1s: FX_TP1, pick: { sl: 15, tp1: 10, tp2: 40 } },
   // Set for the win rate: TP1 20 wins four trades in five, where 30 wins
   // two in three for 12 a month more.
-  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.5988, 0.593, 0.58845, 0.57865, 0.56795, 0.56635, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1, pick: { sl: 25, tp1: 20, tp2: 130 } },
+  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.59885, 0.593, 0.57795, 0.57165, 0.57, 0.56495, 0.55965], excludeHours: [2, 7, 8], tp1s: FX_TP1, pick: { sl: 25, tp1: 20, tp2: 130 } },
   // Added 2026-11-14: levels where the year turned, the ones broken or
   // untouched since May left out. Set for the win rate: TP1 20 wins four
   // trades in five, where 30 wins a little less for 30 a month more.
