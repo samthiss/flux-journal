@@ -85,7 +85,7 @@ Une règle automatique ne sait pas reproduire ce tri (voir §7, 21.11 : réglée
 4. Une bande d'environ 20 ticks, posée pour que les touches en support et en résistance tombent dedans.
 5. Dans une range : le haut et le bas, jamais le milieu.
 
-**Prix jamais visité** : attendre une range nette ou un gros pullback, puis placer les zones au haut et au bas de la range, ou à l'extrême d'où le pullback repart (exemple : 6E 1,11465).
+**Prix jamais visité** : attendre une range nette ou un gros pullback, **puis que le marché en sorte par un breakout**. Seulement après la cassure, tracer les zones au haut et au bas de la range, ou à l'extrême d'où le pullback est reparti (exemple : 6E 1,11465). Avant le breakout, la range ou le pullback n'est pas fini : ses bords peuvent encore bouger, on ne trace rien. **Le dernier creux cassé devient souvent une résistance** quand le prix revient dessus : c'est en général le bas du pullback ou de la range, et on y trace une zone. À l'inverse, le dernier sommet cassé devient souvent un support.
 
 **Avant de l'ajouter dans l'appli**
 - La tester à ±10 ticks (±30 si besoin). La garder si elle gagne sur une bonne partie des positions autour, pas seulement au tick près.
