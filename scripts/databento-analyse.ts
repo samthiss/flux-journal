@@ -60,6 +60,9 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
 // resistances: 1.185, 1.14175 and 1.11895 dropped, 1.1687 → 1.1683,
 // 1.15935 → 1.1597, 1.1406 → 1.1398, 1.16595 kept; 1.213, 1.0921 and
 // 1.07455 never reached in the year tested.
+// 6B redrawn by the trader (2026-11-21), each line tried thirty ticks either
+// way: 1.3405 → 1.3430, 1.3363 and 1.3307 → 1.3335 (one zone, in place of
+// 1.3316), 1.3278 → 1.3273, 1.3569 dropped; 1.3862 and 1.3045 barely reached.
 const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; pick?: { sl: number; tp1: number; tp2?: number }; offset?: number }> = {
   // Set by the trader: 6B only in London's session, 2h–8h — after it, the
   // American session runs the pound through its levels and only 5-tick
@@ -67,7 +70,7 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // five times as much a trade, on half as many, for a lower drawdown.
   // TP1 18 rather than 20 (2026-11-16): since July price often stopped at
   // 17–19 ticks; 18 gives up 18 a month on the year and does better since.
-  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3188, 1.3316, 1.3477, 1.3651], excludeHours: [8, 9, 10, 11, 12, 13], tp1s: FX_TP1, pick: { sl: 25, tp1: 18, tp2: 75 } },
+  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3045, 1.3189, 1.3273, 1.3335, 1.343, 1.3478, 1.3652, 1.3862], excludeHours: [8, 9, 10, 11, 12, 13], tp1s: FX_TP1, pick: { sl: 25, tp1: 18, tp2: 75 } },
   // Set by the trader: a TP1 of 15 wins three trades in five rather than
   // under one in two, for the same drawdown, and held on the last months —
   // where 30, the most profitable on the year, had stopped working.

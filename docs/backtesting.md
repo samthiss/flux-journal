@@ -53,7 +53,7 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 
 | Paire | Niveaux | SL | TP1 = trailing | TP2 | Ordres | Risque (2 lots) |
 |---|---|---|---|---|---|---|
-| 6B | 1,3188 · 1,3316 · 1,3477 · 1,3651 | 25 | 18 | 75 | 2h–8h seulement | 312 $ |
+| 6B | 1,3045 · 1,3189 · 1,3273 · 1,3335 · 1,3430 · 1,3478 · 1,3652 · 1,3862 | 25 | 18 | 75 | 2h–8h seulement | 312 $ |
 | 6E | 1,07455 · 1,0921 · 1,13015 · 1,1398 · 1,1505 · 1,1597 · 1,16595 · 1,1683 · 1,1757 · 1,19325 · 1,213 | 12 | 15 | 60 | 2h–14h | 150 $ |
 | 6J | 0,006286 · 0,0063545 · 0,006429 | 15 | 10 | 40 | 3h–14h | 187 $ |
 | 6N | 0,60785 · 0,5988 · 0,5930 · 0,58845 · 0,57865 · 0,56795 · 0,56635 · 0,5596 | 25 | 20 | 130 | 3h–7h, 9h–14h | 250 $ |
@@ -80,7 +80,7 @@ Le backtest porte sur un an de données Databento, de novembre 2025 à novembre 
 
 | Paire | Trades par an | Gagnants | $/mois brut | $/mois net de commissions | DD de la paire |
 |---|---|---|---|---|---|
-| 6B | 34 | 91 % | 550 | 532 | 350 |
+| 6B | 64 | 80 % | 772 | 738 | 731 |
 | 6E | 93 | 65 % | 618 | 568 | 1 463 |
 | 6J | 40 | 75 % | 171 | 150 | 531 |
 | 6N | 66 | 73 % | 500 | 465 | 720 |
@@ -91,9 +91,9 @@ Le backtest porte sur un an de données Databento, de novembre 2025 à novembre 
 
 **Sur un compte entier** (toutes les paires ensemble, avec la limite de 500 $ par jour et celle de 5 contrats) :
 
-- environ **2 710 $/mois** net de commissions (2 056 avec les niveaux d'avant le 20.11 ; la hausse vient surtout de 6E, +240, et de 6C, 6N, ZN, ZW, +30 à +90 chacun) ;
-- 363 trades par an, soit environ 7 par semaine ;
-- drawdown d'environ **1 160 $**, pour une limite de 2 000 $ ;
+- environ **2 780 $/mois** net de commissions (2 056 avec les niveaux d'avant le 20.11 ; la hausse vient surtout de 6E, +240, et de 6B, +205) ;
+- 388 trades par an, soit environ 7 à 8 par semaine ;
+- drawdown d'environ **1 470 $**, pour une limite de 2 000 $ ;
 - pire journée : −500 $ ;
 - environ 74 % de trades gagnants, profit factor d'environ 3.
 
@@ -320,3 +320,4 @@ On ne refait pas ces tests sans raison nouvelle.
 - **Level Bounce 6E : meilleurs emplacements cherchés sur tout le graphique** (20.11, demande du trader : déplacer les lignes sans limite de ticks). Chaque prix de 1,1059 à 1,2110 testé (2 103 positions), zones = centres des 5 ticks voisins qui gagnent le plus, au moins 40 ticks d'écart. Les 8 meilleures sur 12 mois (après coup) : 1,18815 · 1,18195 · 1,17575 · 1,16705 · 1,1576 · 1,1398 · 1,1255 · 1,1217 → 101 tr 72 % +9 475 $ (≈ +790 $/mois), DD 469. Test honnête, zones choisies sur la 1re moitié (13.11 → 14.05) : +941 $/mois sur la 1re moitié, **−108 $/mois sur la 2e** (28 tr, 39 %). Les meilleurs endroits du passé ne prédisent pas la suite : chercher les meilleurs prix dans les données ne donne pas de niveaux. Pas retenu.
 - **Level Bounce 6E : zones régulières plutôt que les meilleures** (20.11, idée du trader). Chaque prix de 6E jugé sur sa régularité : gagnant (moyenne des 5 ticks voisins) dans chaque trimestre où il a tradé, au moins 3 trimestres, classé par son plus mauvais trimestre. Sur 12 mois, seules 2 zones passent : 1,1670 (19 tr 68 % +1 790 $) et 1,1597 (34 tr 53 % +994 $), soit les zones du trader 1,1682 / 1,16595 et 1,1602. Test honnête (régularité jugée sur 3 périodes de 2 mois de la 1re moitié) : +743 $/mois sur la 1re moitié, −165 $/mois sur la 2e (29 tr, 41 %). La régularité passée ne prédit pas mieux que le gain passé. Pas retenu ; confirme seulement que 1,1597-1,1602 et 1,1670-1,1682 sont les zones les plus solides de 6E.
 - **Level Bounce 6E : zones redessinées par le trader** (20.11 ; supports et résistances de l'année sur son graphique, testés de −10 à +10 ticks, ±30 pour 1,1406). Supprimées, perdantes presque partout : 1,185 (5 tr −138 $), 1,14175 (9 tr −589 $), 1,11895 (6 tr −307 $). Déplacées : 1,1687 → 1,1683 (14 tr 71 % +1 366 $), 1,15935 → 1,1597 (34 tr 53 % +994 $), 1,1406 → 1,1398 (8 tr 88 % +1 230 $). Gardées : 1,1757 (18 tr 83 % +1 659 $), 1,1505, 1,13015, 1,19325 (6 tr +74 $) ; 1,213, 1,0921, 1,07455 jamais atteintes. Avec 1,16595 de l'ancienne liste : 93 tr 65 % ≈ +568 $/mois net (ancienne liste ≈ +509), DD de la paire 1 463. **Appliqué** dans le backtest ; compte entier ≈ 2 710 $/mois net, DD ≈ 1 160.
+- **Level Bounce 6B : zones redessinées par le trader** (21.11 ; 9 zones testées de −30 à +30 ticks). 1,3405 perd de 1,3375 à 1,3409 → 1,3430 (13 tr 77 % +1 835 $) ; 1,3363 et 1,3307 entourent une même zone qui gagne de 1,3311 à 1,3337 → une seule ligne à 1,3335 (14 tr 71 % +1 741 $), à la place de 1,3316 ; 1,3278 → 1,3273 (15 tr 60 % +653 $) ; 1,3569 retirée (gagnante seulement sur 1,3570-1,3578, 5-6 trades) ; 1,3649 → 1,3652, 1,3472 → 1,3478, 1,3186 → 1,3189 ; 1,3862 et 1,3045 presque jamais atteintes. Le gain vient des zones ajoutées (1,3430 et 1,3273 : +150 $/mois), les déplacements de quelques ticks apportent ≈ +30. 2 derniers mois (12.09 → 12.11) : 12 tr 75 % +1 273 $ contre 4 tr +605 $ avec les anciennes zones. **Appliqué** : 6B 64 tr 80 % ≈ +738 $/mois net (contre +532), DD de la paire 731 ; compte entier ≈ 2 780 $/mois net, DD ≈ 1 470.
