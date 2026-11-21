@@ -60,7 +60,7 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 | 6C | 0,7078 · 0,70965 · 0,71235 · 0,71705 · 0,7196 · 0,7269 · 0,72975 | 25 | 20 | 55 | 2h–14h | 250 $ |
 | ZN | 104'065 · 104'245 · 105'275 · 108'265 · 112'025 | 12 | 5 | 30 | 2h–14h | 375 $ |
 | ZS | 1154,25 · 1199,00 · 1229,50 · 1294,75 · 1329,75 | 12 | 10 | 45 | 8h–14h seulement | 300 $ |
-| ZW | 577,50 · 606,50 · 634,50 · 710,50 | 15 | 5 | 40 | 2h–8h, 9h–14h | 375 $ |
+| ZW | 505,25 · 575,00 · 606,50 · 634,50 · 680,25 · 710,50 | 15 | 5 | 40 | 2h–8h, 9h–14h | 375 $ |
 
 Niveaux revus le 20.11.2026 comme des zones de 20 ticks : chaque ligne est posée au milieu des ticks qui gagnent, pour qu'une ligne placée 1 ou 2 ticks à côté marche encore (voir le journal du 20.11). ZS 1329,75 et 6N 0,56635 sont nouveaux et ont encore trop peu de trades pour être jugés.
 
@@ -87,12 +87,12 @@ Le backtest porte sur un an de données Databento, de novembre 2025 à novembre 
 | 6C | 55 | 76 % | 462 | 432 | 390 |
 | ZN | 21 | 81 % | 198 | 193 | 344 |
 | ZS | 36 | 67 % | 373 | 349 | 688 |
-| ZW | 29 | 86 % | 233 | 213 | 450 |
+| ZW | 40 | 93 % | 402 | 374 | 450 |
 
 **Sur un compte entier** (toutes les paires ensemble, avec la limite de 500 $ par jour et celle de 5 contrats) :
 
-- environ **2 880 $/mois** net de commissions (2 056 avec les niveaux d'avant le 20.11 ; la hausse vient surtout de 6E, +240, de ZS, +150, et de 6B, +125) ;
-- 379 trades par an, soit environ 7 par semaine ;
+- environ **3 050 $/mois** net de commissions (2 056 avec les niveaux d'avant le 20.11 ; la hausse vient surtout de 6E, +240, de ZW, +210, de ZS, +150, et de 6B, +125) ;
+- 389 trades par an, soit environ 7 à 8 par semaine ;
 - drawdown d'environ **1 170 $**, pour une limite de 2 000 $ ;
 - pire journée : −500 $ ;
 - environ 74 % de trades gagnants, profit factor d'environ 3.
@@ -323,3 +323,4 @@ On ne refait pas ces tests sans raison nouvelle.
 - **Level Bounce 6B : zones redessinées par le trader** (21.11 ; 9 zones testées de −30 à +30 ticks). 1,3405 perd de 1,3375 à 1,3409 → 1,3430 (13 tr 77 % +1 835 $) ; 1,3363 et 1,3307 entourent une même zone qui gagne de 1,3311 à 1,3337 → une seule ligne à 1,3335 (14 tr 71 % +1 741 $), à la place de 1,3316 ; 1,3278 → 1,3273 (15 tr 60 % +653 $) ; 1,3569 retirée (gagnante seulement sur 1,3570-1,3578, 5-6 trades) ; 1,3649 → 1,3652, 1,3472 → 1,3478, 1,3186 → 1,3189 ; 1,3862 et 1,3045 presque jamais atteintes. Le gain vient des zones ajoutées (1,3430 et 1,3273 : +150 $/mois), les déplacements de quelques ticks apportent ≈ +30. 2 derniers mois (12.09 → 12.11) : 12 tr 75 % +1 273 $ contre 4 tr +605 $ avec les anciennes zones. **Appliqué** : 6B 64 tr 80 % ≈ +738 $/mois net (contre +532), DD de la paire 731 ; compte entier ≈ 2 780 $/mois net, DD ≈ 1 470.
 - **Level Bounce 6B : 1,3273 retirée** (21.11). 15 tr 60 % +653 $ sur l'année, mais 6 pertes (−1 789 $) et toute la pire baisse de 6B (13.03 et 16.03.2026, −638 $). Pertes = cassures sans rebond (≤ 6 ticks dans le bon sens sur 4 des 6, puis 42 à 111 ticks au-delà), dont 2 des jours de news UK (PIB 13.03, BoE 18.06) ; aucune position de 1,3260 à 1,3275 ne les évite ; 3 derniers mois 5 tr −13 $. Zone au milieu du range, traversée souvent. Sans elle : 6B 50 tr 84 % ≈ +656 $/mois net, DD 588 ; compte entier ≈ 2 790 $/mois net (contre 2 784) et DD ≈ 1 170 (contre 1 470). Piste notée : pas de trade 6B les jours de grosse news UK.
 - **Level Bounce ZS : zones redessinées par le trader** (21.11 ; 7 zones testées de −30 à +30 ticks). 1294'6 6 tr 83 % +2 101 $ (gagne de 1293'2 à 1295'4) ; 1199'0 12 tr 75 % +1 039 $ mais seulement de 1198'6 à 1199'6 (perd fort juste à côté) ; 1229'4 8 tr +384 $ ; 1154'2 9 tr +688 $ ; 1329'6 1 trade. Retirées, perdantes presque partout : 1254'2 (5 tr +284 $ seulement à ce tick) et 1184'4 (7 tr +30 $). Ensemble : 36 tr 67 % ≈ +349 $/mois net (contre +197), DD 616-688 ; presque tout le gain sur la 2e moitié de l'année (+3 552 contre +626). **Appliqué** ; compte entier ≈ 2 880 $/mois net, DD ≈ 1 170.
+- **Level Bounce ZW : zones redessinées par le trader** (21.11 ; 7 zones testées de −30 à +30 ticks). À ses prix 40 tr 78 % ≈ +138 $/mois (2e moitié +40). 677'6 perd de 674'2 à 678'0 (10 tr −932 $) → 680'2 (9 tr 89 % +613 $) ; 577'4 → 575'0 (6 tr 100 % +1 038 $, zone étroite 574'0-576'0) ; 790'6 retirée (2 tr −329 $) ; 710'4, 634'4 (étroite), 606'4 (17 tr 82 % +985 $) et 505'2 gardées. Ensemble 40 tr 93 % ≈ +374 $/mois net (contre +213), DD 383-450. **Appliqué** ; compte entier ≈ 3 050 $/mois net, DD ≈ 1 170.

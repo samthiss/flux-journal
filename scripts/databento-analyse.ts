@@ -68,6 +68,8 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
 // ZS redrawn by the trader (2026-11-21), thirty ticks either way: 1199 in
 // place of 1174.75 (losing; a narrow zone, keep it exact), 1294.75 rather
 // than 1294.25; 1254.25 and 1184.50, losing almost wherever put, dropped.
+// ZW redrawn by the trader (2026-11-21): 677.75 → 680.25 (losing below),
+// 577.50 → 575.00; 505.25 added, 790.75 dropped (two trades, losing).
 const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; pick?: { sl: number; tp1: number; tp2?: number }; offset?: number }> = {
   // Set by the trader: 6B only in London's session, 2h–8h — after it, the
   // American session runs the pound through its levels and only 5-tick
@@ -100,7 +102,7 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1154.25, 1199, 1229.5, 1294.75, 1329.75], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10, tp2: 45 }, offset: -7 },
   // Set by the trader: TP1 at 5 with a 15-tick stop, the runner trailed at
   // 5 — wins five trades in six, where 40 relied on a handful of runs a year.
-  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [577.5, 606.5, 634.5, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5, tp2: 40 } },
+  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [505.25, 575, 606.5, 634.5, 680.25, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5, tp2: 40 } },
 };
 
 /** The prop firm's account, MEDIUM: 2,000 trailed at the session's close, five contracts; 500 a day, the trader's own limit (the firm's is 1,000). */
