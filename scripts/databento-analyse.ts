@@ -51,6 +51,15 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
 // for each pair just under its runners' biggest runs of the year — about one
 // runner in ten gets there — so the trail is left to work: on the year it
 // costs nothing or a little gains (6N: further out, its long runs pay).
+// Levels as zones (2026-11-20, the trader's chart): each line tried from ten
+// ticks under to ten over and set in the middle of the ticks that win, so a
+// line a tick or two off still works. Dropped, losing almost wherever they
+// were put: 6E 1.18435 and 1.1591, 6N 0.58515, 6J 0.006555, ZN 109'275,
+// 109'125 and 106'125. ZS 1329.75 and 6N 0.56635 added, too few trades yet
+// to judge. 6E redrawn by the trader the same day, the year's supports and
+// resistances: 1.185, 1.14175 and 1.11895 dropped, 1.1687 → 1.1683,
+// 1.15935 → 1.1597, 1.1406 → 1.1398, 1.16595 kept; 1.213, 1.0921 and
+// 1.07455 never reached in the year tested.
 const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; pick?: { sl: number; tp1: number; tp2?: number }; offset?: number }> = {
   // Set by the trader: 6B only in London's session, 2h–8h — after it, the
   // American session runs the pound through its levels and only 5-tick
@@ -58,32 +67,32 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // five times as much a trade, on half as many, for a lower drawdown.
   // TP1 18 rather than 20 (2026-11-16): since July price often stopped at
   // 17–19 ticks; 18 gives up 18 a month on the year and does better since.
-  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3186, 1.3316, 1.3477, 1.3651], excludeHours: [8, 9, 10, 11, 12, 13], tp1s: FX_TP1, pick: { sl: 25, tp1: 18, tp2: 75 } },
+  "6B": { source: "GLBX-20261113-578Q94WBNM/6b_front_1m.csv", levels: [1.3188, 1.3316, 1.3477, 1.3651], excludeHours: [8, 9, 10, 11, 12, 13], tp1s: FX_TP1, pick: { sl: 25, tp1: 18, tp2: 75 } },
   // Set by the trader: a TP1 of 15 wins three trades in five rather than
   // under one in two, for the same drawdown, and held on the last months —
   // where 30, the most profitable on the year, had stopped working.
-  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1187, 1.15065, 1.1591, 1.16595, 1.18435], excludeHours: [], tp1s: FX_TP1, pick: { sl: 12, tp1: 15, tp2: 60 } },
+  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.07455, 1.0921, 1.13015, 1.1398, 1.1505, 1.1597, 1.16595, 1.1683, 1.1757, 1.19325, 1.213], excludeHours: [], tp1s: FX_TP1, pick: { sl: 12, tp1: 15, tp2: 60 } },
   // Set by the trader: TP1 at 10 with a 15-tick stop, two trades in three won.
-  "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429, 0.006555], excludeHours: [2], tp1s: FX_TP1, pick: { sl: 15, tp1: 10, tp2: 40 } },
+  "6J": { source: "GLBX-20261113-GCPSNPW5BC.zip", levels: [0.006286, 0.0063545, 0.006429], excludeHours: [2], tp1s: FX_TP1, pick: { sl: 15, tp1: 10, tp2: 40 } },
   // Set for the win rate: TP1 20 wins four trades in five, where 30 wins
   // two in three for 12 a month more.
-  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.59635, 0.593, 0.58855, 0.58515, 0.57865, 0.56795, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1, pick: { sl: 25, tp1: 20, tp2: 130 } },
+  "6N": { source: "GLBX-20261113-6B8HPAQ9AC", levels: [0.60785, 0.5988, 0.593, 0.58845, 0.57865, 0.56795, 0.56635, 0.5596], excludeHours: [2, 7, 8], tp1s: FX_TP1, pick: { sl: 25, tp1: 20, tp2: 130 } },
   // Added 2026-11-14: levels where the year turned, the ones broken or
   // untouched since May left out. Set for the win rate: TP1 20 wins four
   // trades in five, where 30 wins a little less for 30 a month more.
-  "6C": { source: "GLBX-20261114-XT3UQKQJN8", levels: [0.7078, 0.70965, 0.71235, 0.71705, 0.7196, 0.7269, 0.72935], excludeHours: [], tp1s: FX_TP1, pick: { sl: 25, tp1: 20, tp2: 55 } },
+  "6C": { source: "GLBX-20261114-XT3UQKQJN8", levels: [0.7078, 0.70965, 0.71235, 0.71705, 0.7196, 0.7269, 0.72975], excludeHours: [], tp1s: FX_TP1, pick: { sl: 25, tp1: 20, tp2: 55 } },
   // Added 2026-11-14: the 10-year note, calm (5–10 ticks an hour) and tied to
   // none of the other pairs. Levels where the year turned, the three losing
   // ones left out; TP1 5 on a 12-tick stop wins nearly nine trades in ten.
-  ZN: { source: "GLBX-20261114-5455U3L7DB", levels: [104.203125, 104.765625, 105.859375, 106.375, 108.828125, 109.390625, 109.859375, 112], excludeHours: [], tp1s: [3, 5, 8, 10, 15, 20], pick: { sl: 12, tp1: 5, tp2: 30 } },
+  ZN: { source: "GLBX-20261114-5455U3L7DB", levels: [104.203125, 104.765625, 105.859375, 108.828125, 112.078125], excludeHours: [], tp1s: [3, 5, 8, 10, 15, 20], pick: { sl: 12, tp1: 5, tp2: 30 } },
   // ZS overshoots its levels before it turns: the order goes seven ticks
   // beyond the level (eight, one tick early as on every pair), and only in the grains' day session —
   // 8h–14h, the hours before it kept out. Under the 15-tick approach rule
   // every stop and TP1 tried there made money, on both parts of the year.
-  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1153.75, 1174.75, 1229.5, 1293.5], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10, tp2: 45 }, offset: -7 },
+  ZS: { source: "GLBX-20261113-JL6JCCMRCH.zip", levels: [1154.25, 1174.75, 1229.5, 1294.25, 1329.75], excludeHours: [2, 3, 4, 5, 6, 7], tp1s: GRAIN_TP1, pick: { sl: 12, tp1: 10, tp2: 45 }, offset: -7 },
   // Set by the trader: TP1 at 5 with a 15-tick stop, the runner trailed at
   // 5 — wins five trades in six, where 40 relied on a handful of runs a year.
-  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [578.25, 606.5, 634.5, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5, tp2: 40 } },
+  ZW: { source: "GLBX-20261113-P985XH3AXW.zip", levels: [577.5, 606.5, 634.5, 710.5], excludeHours: [8], tp1s: GRAIN_TP1, pick: { sl: 15, tp1: 5, tp2: 40 } },
 };
 
 /** The prop firm's account, MEDIUM: 2,000 trailed at the session's close, five contracts; 500 a day, the trader's own limit (the firm's is 1,000). */
