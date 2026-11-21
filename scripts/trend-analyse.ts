@@ -153,7 +153,8 @@ function zones(d: Data, p: P): Zone[] {
     return [at, far];
   };
   const out: Zone[] = [];
-  const seen = new Set<string>();
+  // A zone (its side and its low) is traded once: not again while the same one broke less than 5 days ago, the window its bounces are taken from (19.11: it was the whole year).
+  const seen = new Map<string, number>();
   const rIndex = (t: number) => {
     let lo = 0, hi = rb.length - 1;
     while (lo < hi) { const m = (lo + hi) >> 1; if (rb[m].t < t) lo = m + 1; else hi = m; }
@@ -192,7 +193,7 @@ function zones(d: Data, p: P): Zone[] {
       const lo = Math.min(...cluster.map((y) => y.p)), hi = Math.max(...cluster.map((y) => y.p));
       const edge = tr === -1 ? lo : hi;
       const key = `${tr}${Math.round(lo / d.tick)}`;
-      if (seen.has(key)) continue;
+      if (seen.has(key) && b.t - seen.get(key)! < 120 * 3600000) continue;
       if (tr === -1 ? !(b.c < lo && prevC >= lo) : !(b.c > hi && prevC <= hi)) continue;
       if (p.maxRun) {
         // A zone price already ran far past on the trade's side (p.maxRun stops or more) and came back from: too risky, not traded.
@@ -201,7 +202,7 @@ function zones(d: Data, p: P): Zone[] {
         for (let q = j - 1; q >= 0 && bb[q].t >= first; q--) ex = Math.max(ex, tr === -1 ? lo - bb[q].l : bb[q].h - hi);
         if (ex >= p.maxRun * d.cfg.sl * d.tick) continue;
       }
-      seen.add(key);
+      seen.set(key, b.t);
       // The first return and the move away, on the return's bars, after the breaking bar.
       let k = rIndex(end), touched = -1, ok = false;
       const stopAt = end + 72 * 3600000;
@@ -280,6 +281,9 @@ function run(d: Data, p: P) {
   const out: { t: number; pnl: number; r: number; z: Zone; entry: number; sl: number; tp: number; ticks: number; end: number }[] = [];
   // A wide zone only (p.wide): wider than the bounce's distance X, the tighter ones left.
   const X = Math.max(2, Math.round(d.cfg.sl * p.width)) * tick;
+  // First the moment each zone's order is reached, then the trades in the order they were filled.
+  type Ev = { z: Zone; entry: number; slTicks: number; i: number; kind: "ok" | "skipDay" | "no" | "none" };
+  const evs: Ev[] = [];
   for (const z of zones(d, p).sort((x, y) => x.ready - y.ready)) {
     if (p.wide && Math.abs(z.top - z.bottom) <= X + 1e-9) continue;
     // No trade while the pair is far more restless than usual (p.maxVol × its usual session range, at the break).
@@ -289,12 +293,13 @@ function run(d: Data, p: P) {
     const entry = Math.round(raw / tick) * tick;
     const slTicks = Math.max(4, Math.round(Math.abs(z.top - entry) / tick) + p.buf);
     if (slTicks * d.money > 500) continue;
-    let fill = -1;
+    let reached = false;
     for (let i = idxAt(z.ready); i < n && T[i] < z.until; i++) {
       if (dd === -1 ? H[i] >= entry + tick - eps : L[i] <= entry - tick + eps) {
+        reached = true;
         const h = ctHour(T[i]);
         // A second return in one of the pair's skipped hours (p.skipHours) is not traded, and the pair is done for the day: the market is too restless then.
-        if ((p.skipHours ?? []).includes(h)) { taken.add(sessionDay(T[i])); break; }
+        if ((p.skipHours ?? []).includes(h)) { evs.push({ z, entry, slTicks, i, kind: "skipDay" }); break; }
         // No fill in the pair's quiet window (p.skipMin, minutes Chicago): the order waits it out, the zone is not dropped.
         if (p.skipMin && ctMinute(T[i]) >= p.skipMin[0] && ctMinute(T[i]) < p.skipMin[1]) continue;
         // A 3* news since 7h CT, while the grains were shut (7h45-8h30) or just before: its move comes at the 8h30 open; no fill before 9h, the order waits (p.newsOpen, 19.11).
@@ -302,12 +307,33 @@ function run(d: Data, p: P) {
           const mn = ctMinute(T[i]);
           if (mn >= 510 && mn < 540 && (NEWS_OF.get(d.sym) ?? []).some(({ at }) => at <= T[i] && at > T[i] - (mn - 420) * 60000)) continue;
         }
-        if (h >= 2 && h < 14 && !d.excl.includes(h) && !taken.has(sessionDay(T[i])) && !inNews(d.sym, T[i])) fill = i;
+        evs.push({ z, entry, slTicks, i, kind: h >= 2 && h < 14 && !d.excl.includes(h) && !inNews(d.sym, T[i]) ? "ok" : "no" });
         break;
       }
     }
-    if (fill < 0) continue;
-    taken.add(sessionDay(T[fill]));
+    // Never reached: the order waited until the zone ran out, and kept the pair's place till then.
+    if (!reached) evs.push({ z, entry, slTicks, i: Math.min(n - 1, idxAt(z.until)), kind: "none" });
+  }
+  // One order at a time on a pair, the zone ready first (19.11): a zone whose return comes while an older one's order is
+  // still waiting is passed. With an order on every zone, the first filled took the day: when price runs through stacked
+  // zones the first is often stopped and the next one wins (60 %, +1 009 $/month instead of 70 %, +1 502).
+  const gone = new Set<Ev>();
+  const live = (t: number) => {
+    let best: Ev | null = null;
+    for (const e of evs) if (e.z.ready <= t && T[e.i] >= t && !gone.has(e) && (!best || e.z.ready < best.z.ready)) best = e;
+    return best;
+  };
+  for (const ev of evs.sort((x, y) => x.i - y.i)) {
+    const isLive = live(T[ev.i]) === ev;
+    gone.add(ev);
+    if (!isLive || ev.kind === "none") continue;
+    const { z, entry, slTicks } = ev;
+    const dd = z.dir;
+    const day = sessionDay(T[ev.i]);
+    if (ev.kind === "skipDay") { taken.add(day); continue; }
+    if (ev.kind === "no" || taken.has(day)) continue;
+    const fill = ev.i;
+    taken.add(day);
     const against = (j: number, q: number) => (dd === 1 ? L[j] <= q + eps : H[j] >= q - eps);
     const towards = (j: number, q: number) => (dd === 1 ? H[j] >= q - eps : L[j] <= q + eps);
     const ticksAt = (q: number) => (dd * (q - entry)) / tick;
