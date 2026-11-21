@@ -74,6 +74,9 @@ const GRAIN_TP1 = [5, 10, 15, 20, 30, 40];
 // trader's chart. 6N redrawn by the trader (2026-11-21), ten ticks either
 // way: 0.5931 → 0.5930, 0.5696 → 0.5700; 0.5858, 0.58085 and 0.5823 dropped
 // (crossed without a bounce, losing wherever put), 0.57585 not added (weak).
+// ZN (2026-11-21), the trader's new zones, ten ticks either way: 111'14,
+// 109'315, 108'01, 107'115 and 106'15 added (109'315 and 108'01 narrow: keep
+// them exact); 112'245 not added (losing almost wherever put).
 const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: number[]; tp1s: number[]; pick?: { sl: number; tp1: number; tp2?: number }; offset?: number }> = {
   // Set by the trader: 6B only in London's session, 2h–8h — after it, the
   // American session runs the pound through its levels and only 5-tick
@@ -98,7 +101,7 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // Added 2026-11-14: the 10-year note, calm (5–10 ticks an hour) and tied to
   // none of the other pairs. Levels where the year turned, the three losing
   // ones left out; TP1 5 on a 12-tick stop wins nearly nine trades in ten.
-  ZN: { source: "GLBX-20261114-5455U3L7DB", levels: [104.203125, 104.765625, 105.859375, 108.828125, 112.078125], excludeHours: [], tp1s: [3, 5, 8, 10, 15, 20], pick: { sl: 12, tp1: 5, tp2: 30 } },
+  ZN: { source: "GLBX-20261114-5455U3L7DB", levels: [104.203125, 104.765625, 105.859375, 106.46875, 107.359375, 108.03125, 108.828125, 109.984375, 111.4375, 112.078125], excludeHours: [], tp1s: [3, 5, 8, 10, 15, 20], pick: { sl: 12, tp1: 5, tp2: 30 } },
   // ZS overshoots its levels before it turns: the order goes seven ticks
   // beyond the level (eight, one tick early as on every pair), and only in the grains' day session —
   // 8h–14h, the hours before it kept out. Under the 15-tick approach rule

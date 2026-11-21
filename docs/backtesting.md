@@ -58,11 +58,11 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 | 6J | 0,006286 · 0,0063545 · 0,006429 | 15 | 10 | 40 | 3h–14h | 187 $ |
 | 6N | 0,55965 · 0,56495 · 0,5700 · 0,57165 · 0,57795 · 0,5930 · 0,59885 | 25 | 20 | 130 | 3h–7h, 9h–14h | 250 $ |
 | 6C | 0,7078 · 0,70965 · 0,71235 · 0,71705 · 0,7196 · 0,7269 · 0,72975 | 25 | 20 | 55 | 2h–14h | 250 $ |
-| ZN | 104'065 · 104'245 · 105'275 · 108'265 · 112'025 | 12 | 5 | 30 | 2h–14h | 375 $ |
+| ZN | 104'065 · 104'245 · 105'275 · 106'15 · 107'115 · 108'01 · 108'265 · 109'315 · 111'14 · 112'025 | 12 | 5 | 30 | 2h–14h | 375 $ |
 | ZS | 1154,25 · 1199,00 · 1229,50 · 1294,75 · 1329,75 | 12 | 10 | 45 | 8h–14h seulement | 300 $ |
 | ZW | 505,25 · 575,00 · 606,50 · 634,50 · 680,25 · 710,50 | 15 | 5 | 40 | 2h–8h, 9h–14h | 375 $ |
 
-Niveaux revus le 20.11.2026 comme des zones de 20 ticks : chaque ligne est posée au milieu des ticks qui gagnent, pour qu'une ligne placée 1 ou 2 ticks à côté marche encore (voir le journal du 20.11). ZS 1329,75 est nouveau et a encore trop peu de trades pour être jugé. 6E et 6N alignés sur le graphique du trader le 21.11.
+Niveaux revus le 20.11.2026 comme des zones de 20 ticks : chaque ligne est posée au milieu des ticks qui gagnent, pour qu'une ligne placée 1 ou 2 ticks à côté marche encore (voir le journal du 20.11). ZS 1329,75 est nouveau et a encore trop peu de trades pour être jugé. 6E, 6N et ZN alignés sur le graphique du trader le 21.11 (ZN : 5 zones ajoutées, 1 à 3 trades chacune pour l'instant ; 109'315 et 108'01 ne marchent qu'au tick près).
 
 **Pourquoi ces réglages :**
 
@@ -73,6 +73,30 @@ Niveaux revus le 20.11.2026 comme des zones de 20 ticks : chaque ligne est posé
 - **TP2** : il est placé juste sous les plus grosses courses du runner sur l'année, et environ 1 runner sur 10 l'atteint. VolFix exige un TP2 dans le bracket ; placé là, il ne gêne pas le trailing.
 
 Les prix d'entrée, de SL, de TP1, de TP2 et du 2e rebond de chaque niveau sont dans l'appli : onglet de la paire → « Prix par niveau ».
+
+### Tracer et revoir les zones (règles du trader, 21.11.2026)
+
+Une règle automatique ne sait pas reproduire ce tri (voir §7, 21.11 : réglée sur 4 paires, elle perd sur les 4 autres). Les zones restent tracées à la main, selon ces règles.
+
+**Tracer**
+1. Seulement les grandes zones de l'année : 3 à 7 par paire. Une vingtaine, c'est trop.
+2. Une zone où le prix a été support puis résistance (ou l'inverse).
+3. Une zone d'où est parti un gros mouvement ; les petits rebonds ne comptent pas.
+4. Une bande d'environ 20 ticks, posée pour que les touches en support et en résistance tombent dedans.
+5. Dans une range : le haut et le bas, jamais le milieu.
+
+**Prix jamais visité** : attendre une range nette ou un gros pullback, puis placer les zones au haut et au bas de la range, ou à l'extrême d'où le pullback repart (exemple : 6E 1,11465).
+
+**Avant de l'ajouter dans l'appli**
+- La tester à ±10 ticks (±30 si besoin). La garder si elle gagne sur une bonne partie des positions autour, pas seulement au tick près.
+- Poser la ligne au milieu de la partie qui gagne, en tapant le prix exact dans les réglages de la ligne au lieu de la glisser.
+- Une zone que le marché n'a pas encore atteinte peut être enlevée.
+
+**Retirer**
+- Revue tous les 3 mois (prochaine vers le 20.02.2027), pas chaque mois.
+- Retirer une zone que le prix traverse sans rebondir sur la majorité des touches récentes (exemples : 6B 1,3273, 6N 0,5823).
+- Retirer une zone dont les 10 derniers trades gagnent moins de 50 %, seulement à partir de 10 trades sur la zone.
+- Entre deux revues, ne rien toucher, même après 2 ou 3 stops d'affilée sur une zone.
 
 ## 4. Les chiffres (état au 21.11.2026, niveaux revus en zones)
 
@@ -85,17 +109,17 @@ Le backtest porte sur un an de données Databento, de novembre 2025 à novembre 
 | 6J | 40 | 75 % | 171 | 150 | 531 |
 | 6N | 49 | 86 % | 637 | 611 | 365 |
 | 6C | 55 | 76 % | 462 | 432 | 390 |
-| ZN | 21 | 81 % | 198 | 193 | 344 |
+| ZN | 30 | 80 % | 296 | 288 | 313 |
 | ZS | 36 | 67 % | 373 | 349 | 688 |
 | ZW | 40 | 93 % | 402 | 374 | 450 |
 
 **Sur un compte entier** (toutes les paires ensemble, avec la limite de 500 $ par jour et celle de 5 contrats) :
 
-- environ **3 280 $/mois** net de commissions (2 056 avec les niveaux d'avant le 20.11 ; la hausse vient surtout de 6E, +240, de ZW, +210, de ZS, +150, de 6N, +145, et de 6B, +125) ;
-- 371 trades par an, soit environ 7 par semaine ;
-- drawdown d'environ **815 $**, pour une limite de 2 000 $ ;
+- environ **3 300 $/mois** net de commissions (2 056 avec les niveaux d'avant le 20.11 ; la hausse vient surtout de 6E, +240, de ZW, +210, de ZS, +150, de 6N, +145, et de 6B, +125 ; ZN +95 sur la paire mais seulement +20 sur le compte, des jours déjà au plafond de 500 $) ;
+- 380 trades par an, soit environ 7 par semaine ;
+- drawdown d'environ **895 $**, pour une limite de 2 000 $ ;
 - pire journée : −500 $ ;
-- environ 77 % de trades gagnants, profit factor d'environ 3,8.
+- environ 77 % de trades gagnants, profit factor d'environ 3,7.
 
 **Ce que j'attends en réel : environ 50 à 65 % du backtest**, soit **1 050 à 1 350 $/mois par compte**. Avec 5 comptes copiés, ça fait environ 5 000 à 6 500 $/mois.
 
@@ -326,3 +350,9 @@ On ne refait pas ces tests sans raison nouvelle.
 - **Level Bounce ZW : zones redessinées par le trader** (21.11 ; 7 zones testées de −30 à +30 ticks). À ses prix 40 tr 78 % ≈ +138 $/mois (2e moitié +40). 677'6 perd de 674'2 à 678'0 (10 tr −932 $) → 680'2 (9 tr 89 % +613 $) ; 577'4 → 575'0 (6 tr 100 % +1 038 $, zone étroite 574'0-576'0) ; 790'6 retirée (2 tr −329 $) ; 710'4, 634'4 (étroite), 606'4 (17 tr 82 % +985 $) et 505'2 gardées. Ensemble 40 tr 93 % ≈ +374 $/mois net (contre +213), DD 383-450. **Appliqué** ; compte entier ≈ 3 050 $/mois net, DD ≈ 1 170.
 - **Level Bounce : filtres pour gagner du win rate** (21.11, idée du trader ; 401 trades des 8 paires, 75 %, ≈ 3 180 $/mois avant les limites du compte). (1) Vitesse d'arrivée : plus le prix arrive vite, moins ça tient — mouvement vers la zone en 30 min ≤ 1 stop 76 % 90 $/tr, 1-1,5 stop 84 % 149 $/tr, 2-3 stops 70 % 78 $/tr, > 3 stops 62 % 59 $/tr. Pas de trade au-delà de 3 stops : 77 % mais 2 909 $/mois (−270) ; au-delà de 2 stops : 78 %, 2 623 $/mois. Les arrivées rapides restent gagnantes en moyenne : on gagne 2-3 points de win rate pour 8-18 % de profit en moins. (2) Jours de grosse news (taux, CPI, emploi, PIB) : même win rate (75 %) et plus par trade (114 contre 92 $) ; les éviter coûte 600 $/mois. (3) Volatilité des 20 dernières séances : aucun effet (74-81 % à tous les niveaux). Rien de retenu.
 - **Level Bounce 6N et 6E alignés sur le graphique du trader** (21.11). 6N, chaque ligne essayée à ±10 ticks : 0,5931 → 0,5930 (1 183 → 1 650 $ sur l'année), 0,5696 → 0,5700 (281 → 613 $) ; retirées 0,5858 (−130 $), 0,58085 (−199 $) et 0,5823 (−774 $, perdante à toutes les positions : entre 0,580 et 0,586 le prix a traversé sans rebondir) ; 0,57585 pas ajoutée (faible partout, −10 $/mois et DD 256 → 296 $). 6N : 66 tr 73 % 465 $/mois DD 720 → 49 tr 86 % 611 $/mois. 6E : 1,213, 1,19325, 1,0921 et 1,07455 retirées (plus sur le graphique) → 88 tr, 570 $/mois. Compte : ≈ 3 050 → **3 280 $/mois**, 77 %, DD ≈ 1 170 → 815 $. Mêmes réserves : les déplacements sont ajustés sur l'année testée.
+- **Level Bounce : retirer une zone d'après ses propres résultats ?** (21.11, idée du trader). Test honnête : zones actuelles + celles retirées depuis le 20.11 (6B 1,3273, 6N 0,5858 / 0,5823, ZN 112'245…), règle appliquée au fil de l'année avec les seuls trades passés de la zone, 1 trade/jour/paire, sans les limites du compte. Sans règle : 574 tr, 69 %, 3 213 $/mois (1re 3 395 / 2e 3 031), DD 1 155 (zones actuelles seules, choisies après coup : 3 326, DD 884). Retrait après 2 pertes de suite 2 594 ; après 3 pertes 3 025 (DD 1 521) ; 3 / 4 / 5 derniers trades perdants au total 2 214 / 2 502 / 2 764 ; pause 60 j / 90 j après 2 pertes 2 953 / 2 752. Sur les zones actuelles seules, 2 pertes de suite → 2 814. **Toutes font moins bien** : une zone à 75 % aligne souvent 2-3 pertes par hasard, la règle coupe les bonnes zones aussi souvent que les mauvaises. Rien de retenu ; le tri reste à l'œil (zone traversée sans rebond, prix parti loin).
+- **Level Bounce : retirer une zone si ses 10 derniers trades gagnent < 50 %** (21.11, règle du trader, même test). Dès 10 trades : 3 184 $/mois au lieu de 3 213, DD 1 246 — elle ne se déclenche presque jamais en un an (peu de zones font 10 trades). Dès 5 trades : 2 892 ; dès 3 : 2 791 ; seuil 60 % dès 5 : 2 744. Sur les zones actuelles seules, dès 10 trades : 3 319 au lieu de 3 326 (neutre). **Retenue comme garde-fou à la revue** (seulement à partir de 10 trades sur la zone), pas comme filtre plus serré.
+- **Level Bounce : nouvelles zones automatiques en nouvelle région** (21.11, idée du trader, ZN seul). Règle sans regard vers l'avant : prix jamais vu avant (2 mois de recul minimum) ; zone au départ et au bout d'un pullback de 3 ou 4 stops, ou au haut / bas d'une range de 3-4 jours large de 2-3 stops ; tradable seulement après sa formation. Pullback 3 stops : 38 zones, 56 tr, 59 %, **−94 $/mois** (DD 1 614). Pullback 4 stops : 19 zones, 24 tr, 67 %, +60 $/mois (1re 370 / 2e 354), DD 593 ; avec les zones de l'app 237 au lieu de 193 $/mois mais DD 128 → 503. La règle retrouve certaines zones du trader (108'01, 109'315) mais en crée autant de perdantes (105'21, 104'145, 106'11, 109'16). Trop dépendante du réglage, très loin des zones tracées à la main (81 %, DD 128). Rien de retenu : la logique sert de guide au trader, pas d'automate.
+- **Level Bounce : règle réglée pour retrouver les zones ZN du trader** (21.11, 2e essai). Sommets / creux H1 (pullback 2-10 stops), regroupés à 4-24 tk, gardés s'ils ont réagi 1 à 4 fois ; 140 réglages, choisis sur leur ressemblance avec les 11 lignes du trader (±10 tk). Meilleur : pullback 3 stops, groupe 24 tk, 4+ réactions → 15 zones, retrouve 9/11 des lignes du trader, mais tradé dès la formation de chaque zone : 27 tr, 70 %, **35 $/mois** (2e moitié −273), DD 799 ; 3+ réactions : 109 $/mois, DD 569. Les 11 lignes du trader : 240 $/mois. La règle trouve les bons endroits à quelques ticks près mais pas le placement exact ni le tri ; réglée sur ZN seul, donc encore optimiste. Rien de retenu.
+- **Level Bounce : la même règle vérifiée sur d'autres paires** (21.11, 3e essai). 144 réglages (H1/H4, pullback 2-5 stops, groupe 12-24 tk, 2-4 réactions, médiane/moyenne, prix et date de la zone pris au moment où elle se forme), choisis sur ZN, 6E, 6B, ZS, appliqués tels quels à 6N, 6C, ZW, 6J. Meilleur réglage : −8 $/mois sur les 4 paires de réglage, **−420 $/mois** sur les 4 autres (classé 85e sur 144 là-bas) ; les zones du trader : 1 863 et 1 567 $/mois. Même le meilleur réglage choisi après coup sur les 4 paires de vérif ne fait que 236. La règle retrouve 40-85 % des lignes du trader mais en ajoute 2 à 5 fois plus, à 40-60 % de gagnants. Fermé : les zones restent tracées à la main.
+- **Level Bounce ZN : zones du trader ajoutées** (21.11, ±10 ticks). 111'14 (1 tr, +122 $), 109'315 (3 tr, +538 $, ne gagne que de 109'315 à 110'01), 108'01 (3 tr, +382 $, de 108'005 à 108'025), 107'115 (2 tr, +103 $), 106'15 (1 tr, +106 $) ajoutées ; 112'245 pas ajoutée (2 tr, −569 $, perdante presque partout). Bleues gardées (112'03 au lieu de 112'025 = 1 tick, sans effet). ZN : 21 tr 81 % 193 $/mois → 30 tr 80 % 288 $/mois. Compte ≈ 3 280 → 3 300 $/mois, DD ≈ 815 → 895. 6E 1,1191 (6 tr, 33 %, −276 $) et 1,11415 (bonne zone de 1,11435 à 1,11495, milieu 1,11465 : 3 tr, 100 %, +537 $, 6E 570 → 615 $/mois, tout depuis le 14.10) testées, pas ajoutées pour l'instant.
