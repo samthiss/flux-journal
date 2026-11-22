@@ -129,6 +129,18 @@ L'écart avec le backtest vient de deux choses :
 - les niveaux ont été choisis en regardant la même année que celle qui est testée (voir §6) ;
 - le prix d'exécution réel est parfois un peu moins bon que prévu (glissement).
 
+### Jours absent de 9h à 18h (« Out of Home », 22.11.2026)
+
+Ordres posés avant 9h Berlin, rien à toucher jusqu'à 18h : pas de pause news, pas d'heures exclues, pas de nouvel ordre. Le process (aussi dans l'onglet OUT OF HOME du backtesting) :
+
+1. **Avant 9h, le calendrier** : grosse news entre 9h et 18h (taux, CPI, emploi, PIB), US ou devise de la paire → rien sur cette paire. Les autres news 3★ : on pose quand même.
+2. **Les paires** : 6E, 6B, 6N et ZS seulement.
+3. **Les ordres** : par paire, un ordre sur la zone la plus proche au-dessus et un sur la plus proche en dessous, chacun à 15 ticks au moins du prix, en OCO (le premier exécuté annule l'autre). Bracket habituel de la paire.
+4. **18h** : annuler les ordres non exécutés.
+5. **18h–21h** : trading normal, sur les paires sans trade le matin.
+
+Résultat : environ **1 680 $/mois**, DD environ 1 180, pire jour −740 (la limite de 500 $ ne peut pas être tenue à la main ; un stop journalier automatique à −500 fait pire sur l'année). Une journée normale chez soi : 3 300 $/mois, DD 895.
+
 ## 5. Testé et écarté
 
 On ne refait pas ces tests sans raison nouvelle.
@@ -356,3 +368,4 @@ On ne refait pas ces tests sans raison nouvelle.
 - **Level Bounce : règle réglée pour retrouver les zones ZN du trader** (21.11, 2e essai). Sommets / creux H1 (pullback 2-10 stops), regroupés à 4-24 tk, gardés s'ils ont réagi 1 à 4 fois ; 140 réglages, choisis sur leur ressemblance avec les 11 lignes du trader (±10 tk). Meilleur : pullback 3 stops, groupe 24 tk, 4+ réactions → 15 zones, retrouve 9/11 des lignes du trader, mais tradé dès la formation de chaque zone : 27 tr, 70 %, **35 $/mois** (2e moitié −273), DD 799 ; 3+ réactions : 109 $/mois, DD 569. Les 11 lignes du trader : 240 $/mois. La règle trouve les bons endroits à quelques ticks près mais pas le placement exact ni le tri ; réglée sur ZN seul, donc encore optimiste. Rien de retenu.
 - **Level Bounce : la même règle vérifiée sur d'autres paires** (21.11, 3e essai). 144 réglages (H1/H4, pullback 2-5 stops, groupe 12-24 tk, 2-4 réactions, médiane/moyenne, prix et date de la zone pris au moment où elle se forme), choisis sur ZN, 6E, 6B, ZS, appliqués tels quels à 6N, 6C, ZW, 6J. Meilleur réglage : −8 $/mois sur les 4 paires de réglage, **−420 $/mois** sur les 4 autres (classé 85e sur 144 là-bas) ; les zones du trader : 1 863 et 1 567 $/mois. Même le meilleur réglage choisi après coup sur les 4 paires de vérif ne fait que 236. La règle retrouve 40-85 % des lignes du trader mais en ajoute 2 à 5 fois plus, à 40-60 % de gagnants. Fermé : les zones restent tracées à la main.
 - **Level Bounce ZN : zones du trader ajoutées** (21.11, ±10 ticks). 111'14 (1 tr, +122 $), 109'315 (3 tr, +538 $, ne gagne que de 109'315 à 110'01), 108'01 (3 tr, +382 $, de 108'005 à 108'025), 107'115 (2 tr, +103 $), 106'15 (1 tr, +106 $) ajoutées ; 112'245 pas ajoutée (2 tr, −569 $, perdante presque partout). Bleues gardées (112'03 au lieu de 112'025 = 1 tick, sans effet). ZN : 21 tr 81 % 193 $/mois → 30 tr 80 % 288 $/mois. Compte ≈ 3 280 → 3 300 $/mois, DD ≈ 815 → 895. 6E 1,1191 (6 tr, 33 %, −276 $) et 1,11415 (bonne zone de 1,11435 à 1,11495, milieu 1,11465 : 3 tr, 100 %, +537 $, 6E 570 → 615 $/mois, tout depuis le 14.10) testées, pas ajoutées pour l'instant.
+- **Level Bounce : jours absent 9h–18h** (22.11, demande du trader). Ordres posés à 9h sur la zone la plus proche de chaque côté (≥ 15 ticks, OCO), sortie par le bracket seul, annulés à 18h. 8 paires, tous les jours : 1 900 $/mois, 68 %, DD 1 880 (+ soirée 18h–21h : 2 210, DD 1 950). Les news coûtent ≈ 90 $/mois, les heures exclues ≈ 75 ; le reste (≈ 1 200) vient de l'ordre posé à l'avance, qui prend le premier contact sans réarmement ni approche. Distance 30 ou 50 ticks à 9h : pire (1 376, 640). Sauter les jours de news 3★ : 730 (les jours de news gagnent) ; sauter seulement les grosses news (taux, CPI, emploi, PIB) : 1 735, DD plus bas — retenu. Paires : 6E, 6B, 6N, ZS + soirée → 1 680 $/mois, DD 1 180 ; + 6C, ZW → 2 140, DD 1 720 ; 8 paires → 2 075, DD 2 060. 6J perd (ouverture de Londres à 9h) ; ZN, 6C, ZW ajoutent plus de DD que de gain. Choix des paires fait sur la même année : optimiste.

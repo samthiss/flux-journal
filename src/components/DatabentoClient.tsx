@@ -193,7 +193,7 @@ export default function DatabentoClient({
     [reviewedKeys]
   );
   /** Which strategy the page reports: the yearly levels, the trend trades, or both on one account. */
-  const [strat, setStrat] = useState<"zones" | "trend" | "combo" | "plan">("zones");
+  const [strat, setStrat] = useState<"zones" | "trend" | "combo" | "plan" | "away">("zones");
   const [trendOn, setTrendOn] = useState<string[]>(trendOnInitial);
   const toggleTrend = (sym: string) => {
     const on = !trendOn.includes(sym);
@@ -473,6 +473,7 @@ export default function DatabentoClient({
             ["trend", "TREND RETEST"],
             ["combo", "COMBINÉ"],
             ["plan", "PLAN"],
+            ["away", "OUT OF HOME"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -500,6 +501,7 @@ export default function DatabentoClient({
 
       {strat === "trend" && <TrendScreens trend={trend} on={trendOn} onToggle={toggleTrend} entries={analysed} account={account} berlinShift={berlinShift} />}
       {strat === "plan" && <GrowthPlan />}
+      {strat === "away" && <OutOfHome />}
       {strat === "combo" && <ComboReport trend={trend} on={trendOn} per={general.per} account={account} />}
 
       {strat === "zones" && (
@@ -2967,6 +2969,121 @@ function GrowthPlan() {
           ))}
         </Panel>
       </div>
+    </>
+  );
+}
+
+/**
+ * The days the trader is out from 9h to 18h Berlin: orders placed before 9h
+ * and left alone, as tested on the year (2026-11-22). Fixed figures, like the
+ * plan: rerun the test when the levels change.
+ */
+function OutOfHome() {
+  const text: React.CSSProperties = { color: "#CFCFCF", fontFamily: "var(--font-space-grotesk), system-ui, sans-serif", fontSize: 13, whiteSpace: "normal" };
+  const note = (t: string) => <div style={{ color: DIM, fontSize: 10.5, padding: "6px 10px", borderTop: "1px solid #1A1A1A", lineHeight: 1.6, whiteSpace: "normal" }}>{t}</div>;
+  const steps: [string, string][] = [
+    ["AVANT 9H · LE CALENDRIER", "Grosse news entre 9h et 18h Berlin (taux, CPI, emploi, PIB) — US ou devise de la paire : rien sur cette paire aujourd'hui. Les autres news 3★ : on pose quand même."],
+    ["AVANT 9H · LES PAIRES", "6E, 6B, 6N et ZS seulement. Pas 6J (ouverture de Londres à 9h), ni ZN, 6C, ZW (plus de drawdown que de gain quand on ne peut pas surveiller)."],
+    ["AVANT 9H · LES ORDRES", "Par paire : un ordre limite sur la zone la plus proche au-dessus (vente) et un sur la plus proche en dessous (achat), chacun à 15 ticks au moins du prix. Les deux en OCO : le premier exécuté annule l'autre."],
+    ["LE BRACKET", "Celui de la paire, comme d'habitude : stop, TP1, stop à l'entrée après TP1, trailing, TP2. Rien à toucher ensuite."],
+    ["18H · RETOUR", "Annuler les ordres non exécutés. Un trade encore ouvert se gère normalement."],
+    ["18H – 21H", "Trading normal, toutes les paires, toutes les règles — seulement sur les paires sans trade le matin (1 trade par paire et par jour)."],
+  ];
+  const filters: [string, string, string, boolean?][] = [
+    ["Tous les jours", "1 900", "Référence (8 paires, sans la soirée)"],
+    ["Rien si news 3★ de la paire entre 9h et 18h", "730", "La moitié des trades en moins — et ceux des jours de news gagnaient"],
+    ["Rien si news 3★ de la paire dans la journée", "585", "Encore pire"],
+    ["Rien si GROSSE news (taux, CPI, emploi, PIB) entre 9h et 18h", "1 735", "≈ 150 $ de moins, drawdown plus bas — retenu", true],
+    ["Rien du tout les jours de grosse news US", "1 720", "Presque pareil"],
+  ];
+  const combos: [string, string, string, string, boolean?][] = [
+    ["6E, 6B, 6N", "1 450", "1 080", "−689"],
+    ["6E, 6B, 6N, ZS", "1 680", "1 180", "−740", true],
+    ["6E, 6B, 6N, ZS, 6C, ZW", "2 140", "1 720", "−945"],
+    ["Les 8 paires", "2 075", "2 060", "−945"],
+    ["Comparaison : journée normale chez toi", "3 300", "895", "−500"],
+  ];
+  const pairs: [string, string, string, string][] = [
+    ["6E", "570", "474", "373"],
+    ["6B", "656", "342", "365"],
+    ["6N", "611", "347", "341"],
+    ["ZS", "349", "304", "251"],
+    ["6C", "432", "233", "230"],
+    ["ZW", "374", "210", "219"],
+    ["ZN", "288", "183", "164"],
+    ["6J", "150", "−14", "13"],
+  ];
+  const money = (v: string) => ({ ...R, color: v.startsWith("−") ? LOSS : GAIN });
+  return (
+    <>
+      <div style={{ color: ORANGE, fontWeight: 700, fontSize: 12, padding: "2px 2px 0", letterSpacing: "0.04em" }}>OUT OF HOME · ORDRES POSÉS AVANT 9H, RIEN À TOUCHER JUSQU&apos;À 18H (BERLIN)</div>
+      <KpiStrip
+        kpis={[
+          { label: "P&L/MOIS NET", value: "≈ 1 680 $", color: GAIN, sub: "MATIN 4 PAIRES + SOIRÉE NORMALE" },
+          { label: "MAX DD", value: "≈ −1 180", color: LOSS, sub: "59 % DE LA LIMITE (2 000)" },
+          { label: "PIRE JOUR", value: "−740", color: LOSS, sub: "AU-DELÀ DE TES 500, SOUS LES 1 000 DE LA FIRME" },
+          { label: "VS CHEZ TOI", value: "≈ 50 %", color: TXT, sub: "3 300 $/MOIS · DD 895 UNE JOURNÉE NORMALE" },
+        ]}
+      />
+      <Panel title="LE PROCESS" right="JOURS OÙ TU ES ABSENT 9H – 18H">
+        {steps.map(([k, v], i) => (
+          <div key={k} style={{ display: "grid", gridTemplateColumns: "26px 1fr", gap: 6, padding: "6px 10px", borderBottom: "1px solid #141414", lineHeight: 1.5 }}>
+            <span style={{ color: ORANGE, fontWeight: 700 }}>{i + 1}</span>
+            <div>
+              <div style={{ color: ORANGE, fontWeight: 700, fontSize: 11 }}>{k}</div>
+              <div style={text}>{v}</div>
+            </div>
+          </div>
+        ))}
+        {note("TA LIMITE DE 500 $/JOUR NE PEUT PAS ÊTRE TENUE À LA MAIN EN ÉTANT ABSENT. UN STOP JOURNALIER AUTOMATIQUE À −500 SUR LA PLATEFORME FAIT PIRE SUR L'ANNÉE (IL COUPE DES JOURNÉES QUI SE SERAIENT RATTRAPÉES) : C'EST LA LIMITE DE 1 000 DE LA FIRME QUI JOUE CES JOURS-LÀ.")}
+      </Panel>
+      <div className="term-cols" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
+        <Panel title="QUELS JOURS SAUTER" right="MATIN SEUL · 8 PAIRES · $/MOIS">
+          {filters.map(([k, v, why, pick]) => (
+            <Row key={k} cols="1fr 64px" style={pick ? { background: "#0E2A18" } : undefined}>
+              <div>
+                <div style={{ ...text, color: TXT }}>{k}</div>
+                <div style={{ color: DIM, fontSize: 10.5, whiteSpace: "normal" }}>{why}</div>
+              </div>
+              <span style={{ ...R, color: GAIN, fontWeight: pick ? 700 : 400 }}>{v}</span>
+            </Row>
+          ))}
+        </Panel>
+        <Panel title="QUELLES PAIRES" right="GROSSES NEWS SAUTÉES · + SOIRÉE">
+          <Row head cols="1fr 64px 64px 64px">
+            <span>PAIRES LE MATIN</span>
+            <span style={R}>$/MOIS</span>
+            <span style={R}>DD</span>
+            <span style={R}>PIRE J.</span>
+          </Row>
+          {combos.map(([k, v, dd, w, pick]) => (
+            <Row key={k} cols="1fr 64px 64px 64px" style={pick ? { background: "#0E2A18" } : undefined}>
+              <span style={{ ...text, color: k.startsWith("Comparaison") ? DIM : TXT }}>{k}</span>
+              <span style={{ ...R, color: GAIN, fontWeight: pick ? 700 : 400 }}>{v}</span>
+              <span style={{ ...R, color: dd === "2 060" ? LOSS : "#CFCFCF" }}>{dd}</span>
+              <span style={{ ...R, color: LOSS }}>{w}</span>
+            </Row>
+          ))}
+          {note("6C ET ZW GAGNENT AUSSI LE MATIN, MAIS ELLES PERDENT LES MÊMES JOURS QUE LES AUTRES (6C, 6E, 6B, 6N : TOUTES CONTRE LE DOLLAR) : LE DRAWDOWN MONTE À ≈ 1 720 SUR 2 000.")}
+        </Panel>
+      </div>
+      <Panel title="PAIRE PAR PAIRE" right="$/MOIS NET · 2 LOTS">
+        <Row head cols="60px 1fr 1fr 1fr">
+          <span>PAIRE</span>
+          <span style={R}>CHEZ TOI</span>
+          <span style={R}>ABSENT, TOUS LES JOURS</span>
+          <span style={R}>ABSENT, GROSSES NEWS SAUTÉES</span>
+        </Row>
+        {pairs.map(([p, a, b, c]) => (
+          <Row key={p} cols="60px 1fr 1fr 1fr">
+            <span style={{ color: TXT, fontWeight: 700 }}>{p}</span>
+            <span style={money(a)}>{a}</span>
+            <span style={money(b)}>{b}</span>
+            <span style={money(c)}>{c}</span>
+          </Row>
+        ))}
+        {note("POURQUOI MOINS QUE CHEZ TOI : LES NEWS (≈ 90 $/MOIS) ET LES HEURES EXCLUES (≈ 75 $/MOIS) PÈSENT PEU. L'ESSENTIEL (≈ 1 200 $/MOIS) VIENT DE L'ORDRE POSÉ À L'AVANCE : IL PREND LE PREMIER CONTACT, SANS LE RÉARMEMENT DE 30 TICKS NI L'APPROCHE DE 15 TICKS DEPUIS L'OUVERTURE, ET SEULEMENT SUR LES DEUX ZONES LES PLUS PROCHES. EXIGER 30 OU 50 TICKS DE DISTANCE À 9H FAIT PIRE. TESTÉ LE 22.11.2026 SUR L'ANNÉE, ZONES ET CHOIX DES PAIRES AJUSTÉS SUR LA MÊME ANNÉE : CHIFFRES OPTIMISTES.")}
+      </Panel>
     </>
   );
 }
