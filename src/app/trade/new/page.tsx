@@ -148,7 +148,10 @@ export default async function NewTradePage({
         confirmationsReverse: prealable?.confirmationsReverse ?? "",
         validity: "",
         invalidReasons: prealable?.invalidReasons ?? "",
-        emotion: "Calm",
+        // Vide, et plus "Calm" : le formulaire ne pose plus la question, et
+        // une émotion que personne n'a choisie n'a rien à faire dans la
+        // colonne ni dans le filtre.
+        emotion: "",
         preTradeNotes: prealable?.notes ?? "",
         postTradeNotes: "",
         level: "",

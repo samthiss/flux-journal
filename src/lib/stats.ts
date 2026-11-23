@@ -51,6 +51,11 @@ export type TradeForStats = {
   /** The verdict and, where it asks for one, why — the list filters on both. */
   validity: string | null;
   invalidReasons: string | null;
+  /**
+   * How the trade ended, as picked on the form: "SL", "BE", "TP1", "TRAIL",
+   * "TP2", "TIME", or null on a trade that was never asked.
+   */
+  outcome: string | null;
 };
 
 /**
@@ -88,6 +93,9 @@ export const TRADE_FOR_STATS_SELECT = {
   confirmations: true,
   validity: true,
   invalidReasons: true,
+  // How it ended, which is the only thing that can say a trade came out at the
+  // entry rather than a few dollars of commission below it.
+  outcome: true,
 } as const;
 
 /**
@@ -99,16 +107,26 @@ export const TRADE_FOR_STATS_SELECT = {
  * the average loss towards nothing from inside the losing trades. It is its
  * own outcome now, and it is kept out of both.
  */
-export type Outcome = "win" | "loss" | "be";
+export type WinLoss = "win" | "loss" | "be";
 
-export type TradeWithOutcome = TradeForStats & { outcome: Outcome };
+export type TradeWithOutcome = TradeForStats & { outcome: WinLoss };
 
-export function outcomeOf(pnl: number): Outcome {
+/**
+ * What the trade's result says, then what its P&L says.
+ *
+ * `recorded` is the result picked on the form — "BE" when the position was
+ * taken off at the entry. It wins over the sign of the P&L, because with the
+ * commissions deducted such a trade comes out a few dollars down: a breakeven
+ * that reads as a loss because of its fees is exactly the trade this field
+ * exists to tell apart.
+ */
+export function outcomeOf(pnl: number, recorded?: string | null): WinLoss {
+  if (recorded === "BE") return "be";
   return pnl > 0 ? "win" : pnl < 0 ? "loss" : "be";
 }
 
 export function withOutcome(trades: TradeForStats[]): TradeWithOutcome[] {
-  return trades.map((t) => ({ ...t, outcome: outcomeOf(t.pnl) }));
+  return trades.map((t) => ({ ...t, outcome: outcomeOf(t.pnl, t.outcome) }));
 }
 
 export function filterByPeriod(trades: TradeWithOutcome[], period: string, referenceDate: Date) {

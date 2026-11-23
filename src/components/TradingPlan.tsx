@@ -407,6 +407,9 @@ export default function TradingPlan({
   const outcomeButtons = (p: PairPlan) =>
     [
       ["SL", "STOP", LOSS],
+      // Le stop remonté à l'entrée et le prix revenu le chercher : la sortie
+      // qui ne coûte rien et ne rapporte rien.
+      ["BE", "BREAK EVEN", DIM],
       ["TP1", "TP1 + ENTRÉE", GAIN],
       ...(p.tp2 ? [["TP2", "TP1 + TP2", GAIN]] : []),
     ] as [Outcome, string, string][];

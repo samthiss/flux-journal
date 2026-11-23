@@ -62,7 +62,7 @@ export async function unfillPlanOrder(id: string) {
 export async function closePlanOrder(id: string, outcome: Outcome, extra: number) {
   await exigeProprietaire();
   const ownerId = await monJournal();
-  if (!["SL", "TP1", "TRAIL", "TP2", "TIME"].includes(outcome)) throw new Error("Résultat invalide.");
+  if (!["SL", "BE", "TP1", "TRAIL", "TP2", "TIME"].includes(outcome)) throw new Error("Résultat invalide.");
   const o = await prisma.planOrder.findUniqueOrThrow({ where: { id } });
   if (o.status !== "filled" || !o.filledAt) throw new Error("Ordre pas rempli.");
   const p = (await loadPairPlans(ownerId)).find((x) => x.symbol === o.symbol);

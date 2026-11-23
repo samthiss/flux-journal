@@ -105,9 +105,13 @@ export function orderPrices(p: PairPlan, level: number) {
   return { buy: side(1), sell: side(-1) };
 }
 
-export type Outcome = "SL" | "TP1" | "TRAIL" | "TP2" | "TIME";
+export type Outcome = "SL" | "BE" | "TP1" | "TRAIL" | "TP2" | "TIME";
 export const OUTCOME_TEXT: Record<Outcome, string> = {
   SL: "Stop touché",
+  // Le stop déjà remonté à l'entrée, et le prix qui revient le chercher : la
+  // position sort pour rien. Ni un stop — la perte n'a pas été prise — ni un
+  // TP1, qui n'a pas payé.
+  BE: "Sorti à l'entrée (break even)",
   TP1: "TP1, runner sorti à l'entrée",
   TRAIL: "TP1 + trailing",
   TP2: "TP1 + TP2",
@@ -124,6 +128,9 @@ export function pnlOf(p: PairPlan, outcome: Outcome, extra = 0) {
   switch (outcome) {
     case "SL":
       return -p.sl * p.tickValue * p.lots;
+    // Toute la position sortie à l'entrée : rien, aux commissions près.
+    case "BE":
+      return 0;
     case "TP1":
       return p.tp1 * half;
     case "TP2":

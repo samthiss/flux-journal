@@ -1,11 +1,12 @@
-/** The bodies of rules a trade is taken under, as the journal offers them. */
-export const STRATEGY_OPTIONS = [
-  "Volume academy",
-  "Level Bounce",
-  "Trend Retest",
-  "VWAP (Monthly)",
-  "VWAP (Yearly)",
-] as const;
+/**
+ * The bodies of rules a trade is taken under, as the journal offers them.
+ *
+ * One, now: Level Bounce is what is traded. The others — Volume academy, Trend
+ * Retest, the two VWAPs — were offered before anything was taken under them
+ * and made a menu to answer rather than a question. A trade that already holds
+ * one of them keeps it: the form shows a stored value it does not offer.
+ */
+export const STRATEGY_OPTIONS = ["Level Bounce"] as const;
 
 /** The yearly levels ("Level Bounce", once "Support / Resistance Yearly"): the strategy backtested on Databento, whose levels and prices the journal can fill in. */
 export const YEARLY_LEVELS = "Level Bounce";

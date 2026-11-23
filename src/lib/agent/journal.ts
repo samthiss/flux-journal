@@ -15,6 +15,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { monJournal } from "@/lib/session";
+import { outcomeOf } from "@/lib/stats";
 
 /**
  * Words compared without their accents or case.
@@ -443,7 +444,7 @@ export async function interrogerTrades(filtres: TradeFilters): Promise<string> {
     orderBy: { date: "asc" },
     select: {
       date: true, symbol: true, setup: true, side: true, pnl: true, rr: true,
-      tpReached: true, tradeTypes: true, zone: true, confirmations: true,
+      tpReached: true, tradeTypes: true, zone: true, confirmations: true, outcome: true,
     },
   });
 
@@ -456,10 +457,11 @@ export async function interrogerTrades(filtres: TradeFilters): Promise<string> {
 
   if (trades.length === 0) return "Aucun trade ne correspond à ces filtres.";
 
-  const wins = trades.filter((t) => t.pnl > 0);
   // Un trade sorti à l'entrée n'est pas une perte : hors du win rate, des deux
-  // côtés de la division, comme sur le dashboard et dans la liste.
-  const losses = trades.filter((t) => t.pnl < 0);
+  // côtés de la division, comme sur le dashboard et dans la liste. Le résultat
+  // saisi l'emporte sur le signe du P&L, que les commissions font mentir.
+  const wins = trades.filter((t) => outcomeOf(t.pnl, t.outcome) === "win");
+  const losses = trades.filter((t) => outcomeOf(t.pnl, t.outcome) === "loss");
   const nuls = trades.length - wins.length - losses.length;
   const pnl = trades.reduce((sum, t) => sum + t.pnl, 0);
   const withRR = trades.filter((t) => t.rr != null);

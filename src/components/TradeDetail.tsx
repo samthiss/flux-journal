@@ -71,7 +71,7 @@ export default async function TradeDetail({
 
   const deleteTradeWithId = deleteTrade.bind(null, trade.id);
 
-  const outcome = outcomeOf(trade.pnl);
+  const outcome = outcomeOf(trade.pnl, trade.outcome);
   const pnlColor = outcome === "win" ? winColor : outcome === "loss" ? lossColor : neutralColor;
   const sideColor = trade.side === "Long" ? accentColor : "oklch(0.6 0 0)";
   const badgeStyle: React.CSSProperties = {
@@ -319,8 +319,8 @@ export default async function TradeDetail({
               ["TP2", trade.tp2Price != null ? fmtPrice(trade.tp2Price, trade.symbol, CONTRACTS[trade.symbol]?.tickSize) : null, null],
               [
                 "Résultat",
-                trade.outcome === "SL" ? "SL" : trade.outcome === "TP1" ? "TP1" : trade.outcome === "TRAIL" ? "TP1 + trailing stop" : trade.outcome === "TP2" ? "TP2" : trade.outcome === "TIME" ? "Clôturé (durée max)" : null,
-                trade.outcome === "SL" ? lossColor : accentColor,
+                trade.outcome === "SL" ? "SL" : trade.outcome === "BE" ? "Break even" : trade.outcome === "TP1" ? "TP1" : trade.outcome === "TRAIL" ? "TP1 + trailing stop" : trade.outcome === "TP2" ? "TP2" : trade.outcome === "TIME" ? "Clôturé (durée max)" : null,
+                trade.outcome === "SL" ? lossColor : trade.outcome === "BE" ? neutralColor : accentColor,
               ],
             ]
               .filter(([, v]) => v != null)

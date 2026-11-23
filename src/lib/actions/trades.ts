@@ -127,7 +127,11 @@ function parseTradeForm(formData: FormData) {
   const tp1Price = priceOf("tp1Price");
   const tp2Price = priceOf("tp2Price");
   const said = String(formData.get("outcome") ?? "");
-  const outcome = jahres && ["SL", "TP1", "TRAIL", "TP2", "TIME"].includes(said) ? said : null;
+  // Le formulaire pose la même question à tout trade depuis que le champ
+  // "Take profit reached" a disparu : SL, break even, TP, clôture. TRAIL et
+  // TP2 restent acceptés — ils arrivent d'un ordre du plan fermé depuis la
+  // fiche du jour, et des trades les portent peut-être déjà.
+  const outcome = ["SL", "BE", "TP1", "TRAIL", "TP2", "TIME"].includes(said) ? said : null;
   // The exit the plan cannot give: the runner's on its trail, or the whole
   // position's at market when the four hours ran out.
   const trailPrice = outcome === "TRAIL" || outcome === "TIME" ? priceOf("trailPrice") : null;

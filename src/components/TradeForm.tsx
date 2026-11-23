@@ -28,14 +28,16 @@ const PLANNED = PLANNED_STRATEGIES;
  */
 const OUTCOMES = [
   { value: "SL", label: "SL", tp: "" },
-  { value: "TP1", label: "TP1", tp: "1" },
-  { value: "TRAIL", label: "TP1 + trailing stop", tp: "1" },
-  { value: "TP2", label: "TP2", tp: "2" },
+  // Le stop déjà à l'entrée et le prix qui revient le chercher : rien n'est
+  // perdu et le TP n'a pas payé, donc aucun TP atteint.
+  { value: "BE", label: "Break even", tp: "" },
+  // Un seul TP. Le journal distinguait TP1, TP1 + trailing et TP2 : trois
+  // réponses à une question qui n'en demande qu'une, et la suite — jusqu'où le
+  // runner est allé — se lit sur le P&L. La valeur gardée reste "TP1", celle
+  // avec laquelle le plan sait calculer.
+  { value: "TP1", label: "TP", tp: "1" },
   { value: "TIME", label: "Clôturé (durée max)", tp: "" },
 ] as const;
-
-/** And how the entry was taken: by hand on a confirmation, or by a resting order. */
-const ENTRY_TYPE_OPTIONS = ["Confirmation", "Automatique"] as const;
 
 /**
  * What it opens on when nothing said otherwise.
@@ -58,7 +60,6 @@ const CONFIRMATIONS = [
 ] as const;
 
 type ConfirmationKind = (typeof CONFIRMATIONS)[number]["kind"];
-const EMOTIONS = ["Calm", "Cautious", "Nervous", "Impatient", "Frustrated", "Revenge", "Greedy"];
 
 export type TradeFormValues = {
   date: string;
@@ -306,7 +307,10 @@ export default function TradeForm({
   plans?: Record<string, LevelPlan>;
 }) {
   const [side, setSide] = useState(initial.side);
-  const [emotion, setEmotion] = useState(initial.emotion);
+  // Gardés sans être demandés : le formulaire ne pose plus l'émotion, le plan
+  // suivi, le prix du TP ni celui de la sortie trailing, mais ce qu'un trade
+  // porte déjà est reposté tel quel plutôt qu'effacé par une modification.
+  const [emotion] = useState(initial.emotion);
   const [setup] = useState(initial.setup || SETUP_DEFAUT);
   // Empty rather than the first school, and empty stays empty: the 88 trades
   // already in the journal were taken before the question was asked, and a
@@ -315,7 +319,7 @@ export default function TradeForm({
   const [strategy, setStrategy] = useState(initial.strategy || "");
   // Empty for the same reason: the trades already written were taken before
   // the question existed.
-  const [entryType, setEntryType] = useState(initial.entryType || "");
+  const [entryType] = useState(initial.entryType || "");
   const [symbol, setSymbol] = useState(initial.symbol || SYMBOL_OPTIONS[0]);
 
   /**
@@ -330,8 +334,7 @@ export default function TradeForm({
   const [slPrice, setSlPrice] = useState(shown(initial.slPrice));
   const [tp1Price, setTp1Price] = useState(shown(initial.tp1Price));
   const [tp2Price, setTp2Price] = useState(shown(initial.tp2Price));
-  // Where the trailing stop took the runner out: typed, the plan cannot know it.
-  const [trailPrice, setTrailPrice] = useState(shown(initial.trailPrice));
+  const [trailPrice] = useState(shown(initial.trailPrice));
   const [outcome, setOutcome] = useState(initial.outcome);
   const jahres = strategy === JAHRES;
   const planned = PLANNED.includes(strategy);
@@ -349,7 +352,7 @@ export default function TradeForm({
   const entryPrice = plan && level ? Number(level) + (side === "Short" ? -1 : 1) * plan.offset * plan.tickSize : null;
 
   const [planCharts, setPlanCharts] = useState<string[]>(planChartsInitial);
-  const [planFollowed, setPlanFollowed] = useState<string | null>(initial.planFollowed || null);
+  const [planFollowed] = useState<string | null>(initial.planFollowed || null);
 
   /**
    * The date and the hour, held rather than left to the inputs.
@@ -530,20 +533,11 @@ export default function TradeForm({
                 ))}
               </select>
             </div>
-            <div>
-              {fieldLabel("Entry type")}
-              <select name="entryType" value={entryType} onChange={(e) => setEntryType(e.target.value)} style={inputStyle}>
-                <option value="">—</option>
-                {!entryType || (ENTRY_TYPE_OPTIONS as readonly string[]).includes(entryType) ? null : (
-                  <option value={entryType}>{entryType}</option>
-                )}
-                {ENTRY_TYPE_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* "Entry type" — à la main sur confirmation, ou par un ordre posé
+                — ne figure plus : aucun trade ne l'a renseigné, et la réponse
+                est déjà dans le plan de la journée. Le champ posté garde ce
+                qu'un trade porte, le cas échéant. */}
+            <input type="hidden" name="entryType" value={entryType} />
             <div>
               {fieldLabel("Size")}
               <input
@@ -604,45 +598,34 @@ export default function TradeForm({
                   TP2 lights TP1 too, because there is no reaching the second
                   without passing the first; picking the highest one lit again
                   clears the answer. */}
-              {fieldLabel(planned ? "Résultat" : "Take profit reached")}
+              {/* Un seul champ de résultat, les mêmes quatre réponses pour
+                  tout trade. "Take profit reached" (TP1 / TP2 / TP3) posait à
+                  côté la même question une seconde fois, en plus fin que ce
+                  que le plan paie : un TP, et le reste se lit sur le P&L. */}
+              {fieldLabel("Résultat")}
               <input type="hidden" name="tpReached" value={tpReached} />
-              <input type="hidden" name="outcome" value={planned ? outcome : ""} />
-              {/* On the yearly levels the plan has one TP1, one runner and a
-                  TP2: what is asked is how the trade ended, which says how
-                  far it went as well. */}
-              {planned ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  {OUTCOMES.map((o) => (
-                    <div
-                      key={o.value}
-                      onClick={() => {
-                        const off = outcome === o.value;
-                        setOutcome(off ? "" : o.value);
-                        setTpReached(off ? "" : o.tp);
-                      }}
-                      style={
-                        o.value === "SL" && outcome === "SL"
-                          ? { ...toggleBtnStyle(true), background: lossColor, border: `1px solid ${lossColor}` }
-                          : toggleBtnStyle(outcome === o.value)
-                      }
-                    >
-                      {o.label}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-              <div style={{ display: "flex", gap: 10 }}>
-                {[1, 2, 3].map((level) => (
+              <input type="hidden" name="outcome" value={outcome} />
+              <input type="hidden" name="tp1Price" value={tp1Price} />
+              <input type="hidden" name="trailPrice" value={trailPrice} />
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {OUTCOMES.map((o) => (
                   <div
-                    key={level}
-                    onClick={() => setTpReached(String(tpReached) === String(level) ? "" : String(level))}
-                    style={toggleBtnStyle(Number(tpReached) >= level)}
+                    key={o.value}
+                    onClick={() => {
+                      const off = outcome === o.value;
+                      setOutcome(off ? "" : o.value);
+                      setTpReached(off ? "" : o.tp);
+                    }}
+                    style={
+                      o.value === "SL" && outcome === "SL"
+                        ? { ...toggleBtnStyle(true), background: lossColor, border: `1px solid ${lossColor}` }
+                        : toggleBtnStyle(outcome === o.value)
+                    }
                   >
-                    TP{level}
+                    {o.label}
                   </div>
                 ))}
               </div>
-              )}
             </div>
 
             {/* The annotations this form no longer asks for: the type, the
@@ -722,9 +705,9 @@ export default function TradeForm({
                 {(
                   [
                     ["SL", "slPrice", slPrice, setSlPrice, !outcome || outcome === "SL"],
-                    ["TP1", "tp1Price", tp1Price, setTp1Price, !outcome || outcome === "TP1" || outcome === "TRAIL"],
-                    // Where the position actually went out, when the plan cannot say: on the trail, or at market when time ran out.
-                    [outcome === "TIME" ? "Prix de clôture" : "Trailing stop", "trailPrice", trailPrice, setTrailPrice, outcome === "TRAIL" || outcome === "TIME"],
+                    // Le prix du TP et celui de la sortie trailing ne sont plus
+                    // demandés : le résultat dit si le TP a payé, et combien
+                    // le runner a rendu se lit sur le P&L.
                     ["TP2", "tp2Price", tp2Price, setTp2Price, outcome === "TP2"],
                   ] as const
                 ).map(([text, name, value, set, visible]) =>
@@ -736,7 +719,6 @@ export default function TradeForm({
                         name={name}
                         value={value}
                         onChange={(e) => set(e.target.value)}
-                        placeholder={name === "trailPrice" ? "prix de sortie" : undefined}
                         style={monoInputStyle}
                       />
                     </div>
@@ -748,17 +730,12 @@ export default function TradeForm({
             )}
 
 
-            <div style={{ gridColumn: "span 2" }}>
-              {fieldLabel("Emotion")}
-              <input type="hidden" name="emotion" value={emotion} />
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
-                {EMOTIONS.map((em) => (
-                  <div key={em} onClick={() => setEmotion(em)} style={toggleBtnStyle(emotion === em)}>
-                    {em}
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* "Emotion" et "Did I follow my plan ?" ne sont plus demandés
+                ici : les deux sont des questions du bilan, répondues une fois
+                le trade relu, et un formulaire de saisie qui les pose à chaud
+                récolte la même réponse à chaque fois. Ce qui est déjà écrit sur
+                un trade le reste. */}
+            <input type="hidden" name="emotion" value={emotion} />
 
             <div style={{ gridColumn: "span 2" }}>
               {fieldLabel("Pre trade analysis")}
@@ -771,38 +748,7 @@ export default function TradeForm({
               />
             </div>
 
-            <div style={{ gridColumn: "span 2" }}>
-              {/* The one Bilan question whose answer is yes or no, asked as
-                  two chips rather than as a prompt to write prose under. A
-                  trade that made money against its plan is what a journal
-                  exists to surface, and prose cannot be counted. */}
-              {fieldLabel("Did I follow my plan?")}
-              <input type="hidden" name="planFollowed" value={planFollowed ?? ""} />
-              <div style={{ display: "flex", gap: 10 }}>
-                {[
-                  ["oui", "Yes", accentColor],
-                  ["non", "No", lossColor],
-                ].map(([valeur, texte, couleur]) => (
-                  <div
-                    key={valeur}
-                    onClick={() => setPlanFollowed((prev) => (prev === valeur ? null : valeur))}
-                    style={{
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      padding: "9px 22px",
-                      borderRadius: 8,
-                      textAlign: "center",
-                      border: `1px solid ${planFollowed === valeur ? couleur : "oklch(0.32 0 0 / 0.6)"}`,
-                      background: planFollowed === valeur ? couleur.replace(")", " / 0.14)") : "oklch(0.1 0 0)",
-                      color: planFollowed === valeur ? couleur : "oklch(0.7 0 0)",
-                    }}
-                  >
-                    {texte}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <input type="hidden" name="planFollowed" value={planFollowed ?? ""} />
 
             <div style={{ gridColumn: "span 2" }}>
               {fieldLabel("Post trade analysis")}

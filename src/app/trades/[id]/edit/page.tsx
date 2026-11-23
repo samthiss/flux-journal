@@ -77,7 +77,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         confirmationsReverse: trade.confirmationsReverse ?? "",
         validity: trade.validity ?? "",
         invalidReasons: trade.invalidReasons ?? "",
-        emotion: trade.emotion ?? "Calm",
+        emotion: trade.emotion ?? "",
         preTradeNotes: trade.preTradeNotes ?? "",
         postTradeNotes: trade.postTradeNotes ?? "",
         level: trade.level != null ? String(trade.level) : "",
