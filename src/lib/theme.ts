@@ -8,6 +8,14 @@ export const winColor = "oklch(0.77 0.18 152)";
 export const lossColor = "oklch(0.67 0.21 25)";
 
 /**
+ * Neither: a trade taken off at the entry.
+ *
+ * Grey rather than a paler red, because that is the point — a breakeven used
+ * to be drawn as a loss, and the colour was most of what said so.
+ */
+export const neutralColor = "oklch(0.72 0 0)";
+
+/**
  * The third light, for the news band alone.
  *
  * Orange is the terminal's own colour and green and red say how a trade went,

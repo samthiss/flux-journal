@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
+import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor, neutralColor } from "@/lib/theme";
 import { CountUp, PageTitle } from "@/components/NeonText";
 import PeriodFilter from "@/components/PeriodFilter";
 import {
@@ -270,6 +270,9 @@ export default function DashboardClient({
           </svg>
           <div style={{ fontSize: 13, color: "oklch(0.62 0 0)", fontFamily: "var(--font-jetbrains-mono), monospace" }}>
             {stats.wins.length}W &nbsp;/&nbsp; {stats.losses.length}L
+            {/* Only when there are any: a "0 BE" on every journal would be a
+                column of nothing. The win rate above leaves them out. */}
+            {stats.breakeven.length > 0 && <> &nbsp;/&nbsp; {stats.breakeven.length} BE</>}
           </div>
         </div>
 
@@ -440,7 +443,8 @@ export default function DashboardClient({
                         fontFamily: "var(--font-jetbrains-mono), monospace",
                         fontSize: 11,
                         fontWeight: 600,
-                        color: has ? (isWin ? winColor : lossColor) : "transparent",
+                        // A day that comes out flat keeps its figure, in grey.
+                        color: has ? (isWin ? winColor : c.isBe ? neutralColor : lossColor) : "transparent",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",

@@ -10,7 +10,8 @@ import { parseTagArray, tagTone } from "@/lib/tags";
 /** The three verdicts, worded as the trades list words them. */
 const VERDICTS: Record<string, string> = { valid: "Valid", invalid: "Invalid", risk: "Risk" };
 import { deleteTrade } from "@/lib/actions/trades";
-import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
+import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor, neutralColor } from "@/lib/theme";
+import { outcomeOf } from "@/lib/stats";
 import AddTradeToNoteButton from "@/components/AddTradeToNoteButton";
 import TradeCharts from "@/components/TradeCharts";
 import TradeComments from "@/components/TradeComments";
@@ -70,8 +71,8 @@ export default async function TradeDetail({
 
   const deleteTradeWithId = deleteTrade.bind(null, trade.id);
 
-  const outcome = trade.pnl > 0 ? "win" : "loss";
-  const pnlColor = trade.pnl > 0 ? winColor : lossColor;
+  const outcome = outcomeOf(trade.pnl);
+  const pnlColor = outcome === "win" ? winColor : outcome === "loss" ? lossColor : neutralColor;
   const sideColor = trade.side === "Long" ? accentColor : "oklch(0.6 0 0)";
   const badgeStyle: React.CSSProperties = {
     fontSize: 11,
@@ -79,7 +80,7 @@ export default async function TradeDetail({
     padding: "4px 10px",
     borderRadius: 20,
     background: outcome === "win" ? accentSoft : "oklch(0.3 0 0)",
-    color: outcome === "win" ? winColor : "oklch(0.7 0 0)",
+    color: outcome === "win" ? winColor : outcome === "loss" ? "oklch(0.7 0 0)" : neutralColor,
   };
 
   const statCards = [
@@ -166,7 +167,7 @@ export default async function TradeDetail({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ fontSize: 28, fontWeight: 700 }}>{trade.symbol}</div>
-            <span style={badgeStyle}>{outcome === "win" ? "Win" : "Loss"}</span>
+            <span style={badgeStyle}>{outcome === "win" ? "Win" : outcome === "loss" ? "Loss" : "Break even"}</span>
             <span style={{ fontSize: 13, color: sideColor, fontWeight: 600 }}>{trade.side}</span>
           </div>
           <div style={{ fontSize: 14, color: "oklch(0.62 0 0)", marginTop: 2 }}>

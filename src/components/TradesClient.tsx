@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor } from "@/lib/theme";
+import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor, neutralColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import PeriodFilter from "@/components/PeriodFilter";
-import { filterByPeriod, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
+import { filterByPeriod, outcomeOf, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
 import { tagTone } from "@/lib/tags";
 import { enregistrerVue } from "@/lib/actions/vue";
 import { deleteTrades } from "@/lib/actions/trades";
@@ -335,7 +335,7 @@ export default function TradesClient({
   const filteredTrades = useMemo(() => {
     return filterByPeriod(withOutcome(trades), period, now)
       .filter((t) => filterSymbol === "all" || t.symbol === filterSymbol)
-      .filter((t) => filterOutcome === "all" || (t.pnl > 0 ? "win" : "loss") === filterOutcome)
+      .filter((t) => filterOutcome === "all" || outcomeOf(t.pnl) === filterOutcome)
       .filter((t) => filterSetup === "all" || t.setup === filterSetup)
       .filter((t) =>
         strategyFilter === "all" ? true : strategyFilter === "none" ? !t.strategy : t.strategy === strategyFilter,
@@ -388,7 +388,10 @@ export default function TradesClient({
   const totaux = useMemo(() => {
     const pnl = visibles.reduce((somme, t) => somme + t.pnl, 0);
     const gagnants = visibles.filter((t) => t.pnl > 0).length;
-    const perdants = visibles.length - gagnants;
+    const perdants = visibles.filter((t) => t.pnl < 0).length;
+    // Taken off at the entry: out of the win rate rather than counted against
+    // it, as on the dashboard.
+    const nuls = visibles.length - gagnants - perdants;
     // Averaged over the trades that recorded a risk, like the dashboard's:
     // counting a missing one as zero drags the figure towards nothing.
     const avecRR = visibles.filter((t) => t.rr != null);
@@ -396,7 +399,8 @@ export default function TradesClient({
       pnl,
       gagnants,
       perdants,
-      tauxDeReussite: visibles.length ? gagnants / visibles.length : 0,
+      nuls,
+      tauxDeReussite: gagnants + perdants ? gagnants / (gagnants + perdants) : 0,
       moyenne: visibles.length ? pnl / visibles.length : 0,
       rr: avecRR.length ? avecRR.reduce((somme, t) => somme + (t.rr ?? 0), 0) / avecRR.length : null,
     };
@@ -491,6 +495,7 @@ export default function TradesClient({
           <option value="all">All outcomes</option>
           <option value="win">Wins</option>
           <option value="loss">Losses</option>
+          <option value="be">Break even</option>
         </select>
         {/* The filters for the columns a share link does not show. A menu
             that narrows a column nobody is looking at is a question about
@@ -635,8 +640,8 @@ export default function TradesClient({
           },
           {
             label: "Win rate",
-            valeur: visibles.length ? `${Math.round(totaux.tauxDeReussite * 100)}%` : "—",
-            sous: `${totaux.gagnants}W / ${totaux.perdants}L`,
+            valeur: totaux.gagnants + totaux.perdants ? `${Math.round(totaux.tauxDeReussite * 100)}%` : "—",
+            sous: `${totaux.gagnants}W / ${totaux.perdants}L${totaux.nuls ? ` / ${totaux.nuls} BE` : ""}`,
             couleur: "oklch(0.96 0 0)",
           },
           {
@@ -771,8 +776,8 @@ export default function TradesClient({
         {/* The column filters are applied here rather than in the query
             above: each belongs to the heading it sits under. */}
         {visibles.map((t, i) => {
-          const outcome = t.pnl > 0 ? "win" : "loss";
-          const pnlColor = t.pnl > 0 ? winColor : lossColor;
+          const outcome = outcomeOf(t.pnl);
+          const pnlColor = outcome === "win" ? winColor : outcome === "loss" ? lossColor : neutralColor;
           const styleLigne = {
                 // Capped at fifteen rows: past the first screenful the stagger
                 // is only a delay before a row nobody has scrolled to yet, and
@@ -831,13 +836,16 @@ export default function TradesClient({
                   style={{
                     fontSize: 11,
                     fontWeight: 600,
-                    padding: "4px 10px",
+                    // "Break even" is twice the width of "Win": the chip is
+                    // allowed to be narrower rather than pushing the column.
+                    padding: outcome === "be" ? "4px 7px" : "4px 10px",
                     borderRadius: 20,
-                    background: outcome === "win" ? accentSoft : "oklch(0.74 0 0 / 0.16)",
-                    color: outcome === "win" ? winColor : lossColor,
+                    whiteSpace: "nowrap",
+                    background: outcome === "win" ? accentSoft : outcome === "loss" ? "oklch(0.74 0 0 / 0.16)" : "oklch(0.74 0 0 / 0.1)",
+                    color: outcome === "win" ? winColor : outcome === "loss" ? lossColor : neutralColor,
                   }}
                 >
-                  {outcome === "win" ? "Win" : "Loss"}
+                  {outcome === "win" ? "Win" : outcome === "loss" ? "Loss" : "Break even"}
                 </span>
               </div>
               {/* One cell per vocabulary, so a word always sits under the

@@ -457,6 +457,10 @@ export async function interrogerTrades(filtres: TradeFilters): Promise<string> {
   if (trades.length === 0) return "Aucun trade ne correspond à ces filtres.";
 
   const wins = trades.filter((t) => t.pnl > 0);
+  // Un trade sorti à l'entrée n'est pas une perte : hors du win rate, des deux
+  // côtés de la division, comme sur le dashboard et dans la liste.
+  const losses = trades.filter((t) => t.pnl < 0);
+  const nuls = trades.length - wins.length - losses.length;
   const pnl = trades.reduce((sum, t) => sum + t.pnl, 0);
   const withRR = trades.filter((t) => t.rr != null);
   const rr = withRR.length ? withRR.reduce((sum, t) => sum + (t.rr ?? 0), 0) / withRR.length : null;
@@ -464,7 +468,7 @@ export async function interrogerTrades(filtres: TradeFilters): Promise<string> {
 
   return [
     `${trades.length} trade(s) du ${trades[0].date.toISOString().slice(0, 10)} au ${trades[trades.length - 1].date.toISOString().slice(0, 10)}`,
-    `win rate : ${Math.round((wins.length / trades.length) * 100)} % (${wins.length}G / ${trades.length - wins.length}P)`,
+    `win rate : ${wins.length + losses.length ? `${Math.round((wins.length / (wins.length + losses.length)) * 100)} %` : "—"} (${wins.length}G / ${losses.length}P${nuls ? ` / ${nuls} break even` : ""})`,
     `P&L cumulé : ${pnl.toFixed(2)}`,
     rr != null ? `R:R moyen : ${rr.toFixed(2)} sur ${withRR.length} trade(s) qui l'ont renseigné` : "R:R : non renseigné",
     `take profit : TP1+ ${tp(1)} · TP2+ ${tp(2)} · TP3 ${tp(3)} · aucun ${trades.filter((t) => t.tpReached == null).length}`,

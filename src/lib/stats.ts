@@ -90,10 +90,25 @@ export const TRADE_FOR_STATS_SELECT = {
   invalidReasons: true,
 } as const;
 
-export type TradeWithOutcome = TradeForStats & { outcome: "win" | "loss" };
+/**
+ * How a trade ended: won, lost, or neither.
+ *
+ * A trade taken off at the entry — the stop moved up, the market came back —
+ * is not a loss. It used to be counted as one, because anything that was not
+ * above zero was: it lowered the win rate exactly as a loss does, and dragged
+ * the average loss towards nothing from inside the losing trades. It is its
+ * own outcome now, and it is kept out of both.
+ */
+export type Outcome = "win" | "loss" | "be";
+
+export type TradeWithOutcome = TradeForStats & { outcome: Outcome };
+
+export function outcomeOf(pnl: number): Outcome {
+  return pnl > 0 ? "win" : pnl < 0 ? "loss" : "be";
+}
 
 export function withOutcome(trades: TradeForStats[]): TradeWithOutcome[] {
-  return trades.map((t) => ({ ...t, outcome: t.pnl > 0 ? "win" : "loss" }));
+  return trades.map((t) => ({ ...t, outcome: outcomeOf(t.pnl) }));
 }
 
 export function filterByPeriod(trades: TradeWithOutcome[], period: string, referenceDate: Date) {
@@ -146,7 +161,12 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
   const hasTrades = trades.length > 0;
   const wins = trades.filter((t) => t.outcome === "win");
   const losses = trades.filter((t) => t.outcome === "loss");
-  const winRate = hasTrades ? wins.length / trades.length : 0;
+  const breakeven = trades.filter((t) => t.outcome === "be");
+  // Out of the win rate, not counted as a loss in it: the question the figure
+  // answers is how often a trade that was decided went the right way, and a
+  // trade taken off at the entry was not decided either way.
+  const decided = wins.length + losses.length;
+  const winRate = decided ? wins.length / decided : 0;
   const totalPnl = trades.reduce((a, t) => a + t.pnl, 0);
   const avgWin = wins.reduce((a, t) => a + t.pnl, 0) / (wins.length || 1);
   const avgLoss = losses.reduce((a, t) => a + t.pnl, 0) / (losses.length || 1);
@@ -178,10 +198,15 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
   // which is what makes two setups risking different amounts comparable.
   const expectancyR = absAvgLoss > 0 ? expectancy / absAvgLoss : 0;
 
+  // The run of wins or losses the journal ends on. A trade taken off at the
+  // entry neither continues it nor breaks it: it is stepped over, so three
+  // winners with a breakeven in the middle still read as three.
+  const decidedTrades = trades.filter((t) => t.outcome !== "be");
   let streak = 0;
-  const streakType: "win" | "loss" = hasTrades ? trades[trades.length - 1].outcome : "win";
-  for (let i = trades.length - 1; i >= 0; i--) {
-    if (trades[i].outcome === streakType) streak++;
+  const streakType: "win" | "loss" =
+    decidedTrades.length ? (decidedTrades[decidedTrades.length - 1].outcome as "win" | "loss") : "win";
+  for (let i = decidedTrades.length - 1; i >= 0; i--) {
+    if (decidedTrades[i].outcome === streakType) streak++;
     else break;
   }
 
@@ -221,6 +246,8 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
     hasTrades,
     wins,
     losses,
+    /** Taken off at the entry: neither won nor lost. */
+    breakeven,
     winRate,
     totalPnl,
     avgWin,
@@ -312,6 +339,8 @@ export function buildMonthlyCalendar(trades: TradeWithOutcome[], year: number, m
     pnl?: number;
     hasTrades?: boolean;
     isWin?: boolean;
+    /** Traded that day and came out flat. */
+    isBe?: boolean;
   }[] = [];
 
   for (let i = 0; i < firstWeekday; i++) cells.push({ isDay: false });
@@ -322,7 +351,9 @@ export function buildMonthlyCalendar(trades: TradeWithOutcome[], year: number, m
     );
     const dayPnl = dayTrades.reduce((a, t) => a + t.pnl, 0);
     const has = dayTrades.length > 0;
-    cells.push({ isDay: true, dayNum: d, pnl: dayPnl, hasTrades: has, isWin: has && dayPnl > 0 });
+    // A day that comes out exactly flat is neither green nor red: it used to
+    // be drawn as a losing day, like the trades it is made of.
+    cells.push({ isDay: true, dayNum: d, pnl: dayPnl, hasTrades: has, isWin: has && dayPnl > 0, isBe: has && dayPnl === 0 });
   }
 
   return cells;
