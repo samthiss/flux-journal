@@ -109,7 +109,18 @@ export const TRADE_FOR_STATS_SELECT = {
  */
 export type WinLoss = "win" | "loss" | "be";
 
-export type TradeWithOutcome = TradeForStats & { outcome: WinLoss };
+/**
+ * Un trade avec son verdict calculé.
+ *
+ * `outcome` porte ici le verdict — win, loss, be — et non plus le résultat
+ * saisi, qu'il remplace : ce champ est consommé par tout ce qui compte des
+ * gains et des pertes. Le résultat tel qu'il a été coché reste lisible sous
+ * `recorded`, pour qui a besoin de savoir que la sortie était un stop ou une
+ * clôture à l'heure. C'est la confusion des deux qui faisait lire « Loss » sur
+ * un break even : le verdict écrasait le résultat, puis on relisait le verdict
+ * comme s'il était le résultat.
+ */
+export type TradeWithOutcome = Omit<TradeForStats, "outcome"> & { outcome: WinLoss; recorded: string | null };
 
 /**
  * What the trade's result says, then what its P&L says.
@@ -126,7 +137,7 @@ export function outcomeOf(pnl: number, recorded?: string | null): WinLoss {
 }
 
 export function withOutcome(trades: TradeForStats[]): TradeWithOutcome[] {
-  return trades.map((t) => ({ ...t, outcome: outcomeOf(t.pnl, t.outcome) }));
+  return trades.map((t) => ({ ...t, recorded: t.outcome, outcome: outcomeOf(t.pnl, t.outcome) }));
 }
 
 export function filterByPeriod(trades: TradeWithOutcome[], period: string, referenceDate: Date) {

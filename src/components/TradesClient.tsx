@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { accentColor, accentSoft, glassCard, fmtMoney, winColor, lossColor, neutralColor } from "@/lib/theme";
 import { PageTitle } from "@/components/NeonText";
 import PeriodFilter from "@/components/PeriodFilter";
-import { filterByPeriod, outcomeOf, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
+import { filterByPeriod, withOutcome, type TradeForStats as Trade } from "@/lib/stats";
 import { tagTone } from "@/lib/tags";
 import { enregistrerVue } from "@/lib/actions/vue";
 import { deleteTrades } from "@/lib/actions/trades";
@@ -335,7 +335,7 @@ export default function TradesClient({
   const filteredTrades = useMemo(() => {
     return filterByPeriod(withOutcome(trades), period, now)
       .filter((t) => filterSymbol === "all" || t.symbol === filterSymbol)
-      .filter((t) => filterOutcome === "all" || outcomeOf(t.pnl, t.outcome) === filterOutcome)
+      .filter((t) => filterOutcome === "all" || t.outcome === filterOutcome)
       .filter((t) => filterSetup === "all" || t.setup === filterSetup)
       .filter((t) =>
         strategyFilter === "all" ? true : strategyFilter === "none" ? !t.strategy : t.strategy === strategyFilter,
@@ -387,8 +387,8 @@ export default function TradesClient({
    */
   const totaux = useMemo(() => {
     const pnl = visibles.reduce((somme, t) => somme + t.pnl, 0);
-    const gagnants = visibles.filter((t) => outcomeOf(t.pnl, t.outcome) === "win").length;
-    const perdants = visibles.filter((t) => outcomeOf(t.pnl, t.outcome) === "loss").length;
+    const gagnants = visibles.filter((t) => t.outcome === "win").length;
+    const perdants = visibles.filter((t) => t.outcome === "loss").length;
     // Taken off at the entry: out of the win rate rather than counted against
     // it, as on the dashboard.
     const nuls = visibles.length - gagnants - perdants;
@@ -776,7 +776,10 @@ export default function TradesClient({
         {/* The column filters are applied here rather than in the query
             above: each belongs to the heading it sits under. */}
         {visibles.map((t, i) => {
-          const outcome = outcomeOf(t.pnl, t.outcome);
+          // Le verdict est déjà calculé une fois pour toutes par withOutcome,
+          // résultat saisi compris : le relire ici le recalculait à partir du
+          // seul P&L, et un break even payé en commissions redevenait une perte.
+          const outcome = t.outcome;
           const pnlColor = outcome === "win" ? winColor : outcome === "loss" ? lossColor : neutralColor;
           const styleLigne = {
                 // Capped at fifteen rows: past the first screenful the stagger
