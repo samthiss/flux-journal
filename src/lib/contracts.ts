@@ -48,12 +48,16 @@ export const TICK_VALUES: Record<string, number> = Object.fromEntries(
   Object.entries(CONTRACTS).map(([s, c]) => [s, c.tickValue])
 );
 
+/** The grains also follow the USDA's reports (see usdaReports). */
+const GRAINS = new Set(["ZS", "ZW", "ZC"]);
 /**
  * The currencies whose releases move a contract: its own and the dollar it is
- * quoted against. Indices, metals, energy and grains move on the dollar's.
+ * quoted against. Indices, metals, energy and grains move on the dollar's,
+ * and the grains on the USDA's reports too.
  */
 const FX_CURRENCY: Record<string, string> = { "6E": "EUR", "6B": "GBP", "6J": "JPY", "6A": "AUD", "6C": "CAD", "6S": "CHF", "6N": "NZD", FGBL: "EUR" };
 export function newsCurrencies(symbol: string): string[] {
   const own = FX_CURRENCY[symbol];
+  if (GRAINS.has(symbol)) return ["USD", "USDA"];
   return own ? (own === "EUR" && symbol === "FGBL" ? ["EUR"] : [own, "USD"]) : ["USD"];
 }

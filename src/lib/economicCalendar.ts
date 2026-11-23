@@ -16,6 +16,8 @@
  * the ForexFactory feed rate-limits hard.
  */
 
+import { usdaBetween } from "@/lib/usdaReports";
+
 export type EconomicEvent = {
   /**
    * The instant of the release, as an ISO string, or null for an entry with no
@@ -294,6 +296,8 @@ export async function getEconomicEvents(): Promise<{ events: EconomicEvent[]; ok
     events = await readFeed();
   }
   if (!events) return { events: [], ok: false, source };
+  // The USDA's reports, which neither source lists.
+  events = [...events, ...usdaBetween(from, to)];
 
   return { events: events.sort((a, b) => sortKey(a).localeCompare(sortKey(b))), ok: true, source };
 }
@@ -321,7 +325,8 @@ export async function getEventsOver(days: string[]): Promise<EconomicEvent[]> {
   const to = new Date(`${sorted[sorted.length - 1]}T00:00:00Z`);
   to.setUTCDate(to.getUTCDate() + 2);
 
-  return (await readRange(from, to)) ?? [];
+  const events = await readRange(from, to);
+  return events ? [...events, ...usdaBetween(from, to)] : [];
 }
 
 /**
@@ -350,7 +355,7 @@ export async function getHighImpactBetween(
     end.setUTCMonth(end.getUTCMonth() + 1);
     const chunk = await readRange(start, end < to ? end : to);
     if (!chunk) return null;
-    for (const e of chunk)
+    for (const e of [...chunk, ...usdaBetween(start, end < to ? end : to)])
       if (e.kind === "release" && (ratings[`${e.currency}|${e.title}`] ?? e.impact) === "high" && e.at && wanted.has(e.currency))
         out.push({ at: Date.parse(e.at), currency: e.currency, title: e.title });
     start = end;
