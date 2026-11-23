@@ -75,11 +75,9 @@ function parseTradeForm(formData: FormData) {
   const side = String(formData.get("side") ?? "Long");
   const size = parseFloat(String(formData.get("size") ?? "0")) || 0;
   const pnl = parseFloat(String(formData.get("pnl") ?? "0")) || 0;
-  // The risk is what gets typed; the reward-to-risk falls out of it, so a trade
-  // can no longer be saved with a P&L and an R:R that contradict each other.
-  const riskInput = formData.get("risk") ? parseFloat(String(formData.get("risk"))) : null;
-  const risk = riskInput && Number.isFinite(riskInput) && riskInput !== 0 ? Math.abs(riskInput) : null;
-  const rr = risk ? Number((pnl / risk).toFixed(2)) : null;
+  // Le risque et le reward-to-risk ne sont plus ni demandés ni montrés : ces
+  // deux colonnes ne sont plus écrites du tout, plutôt que remises à zéro —
+  // ce qu'un trade porte déjà y reste, une modification ne l'efface pas.
   // How far the market went, 1 to 3, or nothing.
   const reached = parseInt(String(formData.get("tpReached") ?? ""), 10);
   const tpReached = reached >= 1 && reached <= 3 ? reached : null;
@@ -137,7 +135,7 @@ function parseTradeForm(formData: FormData) {
   const trailPrice = outcome === "TRAIL" || outcome === "TIME" ? priceOf("trailPrice") : null;
 
   return {
-    date, time, symbol, market, side, size, pnl, risk, rr,
+    date, time, symbol, market, side, size, pnl,
     tpReached, tradeTypes, zone, confirmations, confirmationsBox, confirmationsReverse, validity, invalidReasons, planCharts, planFollowed,
     setup, strategy, entryType, emotion, preTradeNotes, postTradeNotes,
     level, slPrice, tp1Price, tp2Price, trailPrice, outcome,

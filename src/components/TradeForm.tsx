@@ -72,7 +72,6 @@ export type TradeFormValues = {
   side: string;
   size: string;
   pnl: string;
-  risk: string;
   /** "1", "2", "3" or "" — how far the market went. */
   tpReached: string;
   /** JSON arrays, as they are stored: the form parses them on the way in. */
@@ -273,7 +272,6 @@ export default function TradeForm({
   existingCharts = {},
   title,
   subtitle,
-  riskPerLot,
   planCharts: planChartsInitial = [],
   closedAt,
   plans = {},
@@ -282,8 +280,6 @@ export default function TradeForm({
   deleteAction?: (formData: FormData) => void;
   tradeId?: string;
   initial: TradeFormValues;
-  /** What one lot risked on the last trade that recorded it, if any. */
-  riskPerLot?: number | null;
   /** The words the examples and the trade ideas are already annotated with. */
   existingCharts?: ExistingCharts;
   /**
@@ -394,33 +390,11 @@ export default function TradeForm({
   const validity = initial.validity || "";
   const invalidReasons = parseTagArray(initial.invalidReasons);
 
-  // P&L, size and risk are held here rather than left uncontrolled, because the
-  // R:R is computed from them as they are typed.
   const [pnl, setPnl] = useState(initial.pnl);
   const [size, setSize] = useState(initial.size);
-  const [risk, setRisk] = useState(initial.risk);
 
-  const num = (v: string) => {
-    const n = parseFloat(v.replace(",", "."));
-    return Number.isFinite(n) ? n : null;
-  };
-  const riskValue = num(risk);
-  const pnlValue = num(pnl);
-  const computedRR = riskValue && pnlValue != null ? pnlValue / Math.abs(riskValue) : null;
-
-  // The risk scales with the number of lots, so typing a size fills it in from
-  // what one lot risked last time. It stays editable — a wider stop on one
-  // trade is exactly the case a fixed per-lot figure gets wrong.
-  const sizeValue = num(size);
-  const perLot = (lots: number) => String(Math.round(riskPerLot! * Math.abs(lots)));
-  const suggestedRisk = riskPerLot && sizeValue ? perLot(sizeValue) : null;
-  const onSizeChange = (next: string) => {
-    setSize(next);
-    const lots = num(next);
-    if (!riskPerLot || !lots) return;
-    // Only fills a field the reader has not written in themselves.
-    if (!risk || (sizeValue && risk === perLot(sizeValue))) setRisk(perLot(lots));
-  };
+  // Le risque et le R:R ne sont plus ni demandés ni calculés : ni le champ,
+  // ni la suggestion par lot, ni le ratio sous le P&L.
 
   const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
     flex: 1,
@@ -544,42 +518,10 @@ export default function TradeForm({
                 type="text"
                 name="size"
                 value={size}
-                onChange={(e) => onSizeChange(e.target.value)}
+                onChange={(e) => setSize(e.target.value)}
                 placeholder="0"
                 style={monoInputStyle}
               />
-            </div>
-            <div>
-              {fieldLabel("Risk $")}
-              <input
-                type="text"
-                name="risk"
-                value={risk}
-                onChange={(e) => setRisk(e.target.value)}
-                placeholder={suggestedRisk ?? "250"}
-                style={monoInputStyle}
-              />
-              {/* The R:R is no longer a field: typed beside a P&L, the two could
-                  contradict each other. It is shown here as it is computed. */}
-              <div
-                style={{
-                  fontSize: 11.5,
-                  color: "oklch(0.55 0 0)",
-                  marginTop: 5,
-                  fontFamily: "var(--font-jetbrains-mono), monospace",
-                }}
-              >
-                {computedRR == null ? (
-                  suggestedRisk && sizeValue ? `≈ $${suggestedRisk} for ${sizeValue} lot${sizeValue > 1 ? "s" : ""}` : "R:R computed from the risk"
-                ) : (
-                  <>
-                    R:R{" "}
-                    <span style={{ color: computedRR >= 0 ? accentColor : lossColor, fontWeight: 600 }}>
-                      {computedRR.toFixed(2)}
-                    </span>
-                  </>
-                )}
-              </div>
             </div>
             <div>
               {fieldLabel("P&L")}

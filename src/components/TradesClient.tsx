@@ -14,7 +14,7 @@ import { deleteTrades } from "@/lib/actions/trades";
 /**
  * The annotation columns, after the figures.
  *
- * One vocabulary per column, as Size, P&L and R:R are one number per column:
+ * One vocabulary per column, as Size and P&L are one number per column:
  * a word means something different under each of these headings, and a single
  * column of everything hid which was which.
  */
@@ -99,8 +99,11 @@ function passeLesColonnes(
  * how it went — the rest is working notes, which is not what a link is sent
  * for.
  */
-function grilleEt(colonnes: typeof COLONNES, avecSetup: boolean, avecCases: boolean) {
-  const figures = avecSetup ? "100px 90px 70px 120px 70px 110px 90px 90px" : "100px 90px 70px 70px 110px 90px 90px";
+function grilleEt(colonnes: typeof COLONNES, avecCases: boolean) {
+  // La date, le symbole, le sens, la taille, le P&L, le verdict. Le setup n'a
+  // plus de colonne depuis qu'il n'est plus affiché, le R:R non plus depuis
+  // qu'il ne se lit plus nulle part dans le journal.
+  const figures = "100px 90px 70px 70px 110px 90px";
   return `${avecCases ? "30px " : ""}${figures} ${colonnes.map((c) => c.largeur).join(" ")}`;
 }
 
@@ -283,7 +286,7 @@ export default function TradesClient({
     });
   };
 
-  const GRILLE = grilleEt(colonnes, false, !lectureSeule);
+  const GRILLE = grilleEt(colonnes, !lectureSeule);
 
   const choosePeriod = (next: string) => {
     setPeriod(next);
@@ -392,9 +395,6 @@ export default function TradesClient({
     // Taken off at the entry: out of the win rate rather than counted against
     // it, as on the dashboard.
     const nuls = visibles.length - gagnants - perdants;
-    // Averaged over the trades that recorded a risk, like the dashboard's:
-    // counting a missing one as zero drags the figure towards nothing.
-    const avecRR = visibles.filter((t) => t.rr != null);
     return {
       pnl,
       gagnants,
@@ -402,7 +402,6 @@ export default function TradesClient({
       nuls,
       tauxDeReussite: gagnants + perdants ? gagnants / (gagnants + perdants) : 0,
       moyenne: visibles.length ? pnl / visibles.length : 0,
-      rr: avecRR.length ? avecRR.reduce((somme, t) => somme + (t.rr ?? 0), 0) / avecRR.length : null,
     };
   }, [visibles]);
 
@@ -650,12 +649,6 @@ export default function TradesClient({
             sous: "per trade",
             couleur: totaux.moyenne >= 0 ? winColor : lossColor,
           },
-          {
-            label: "Risk / Reward",
-            valeur: totaux.rr != null ? `1 : ${totaux.rr.toFixed(2)}` : "—",
-            sous: totaux.rr != null ? "average, where risk is set" : "no risk recorded",
-            couleur: "oklch(0.96 0 0)",
-          },
         ].map((carte) => (
           <div key={carte.label} style={{ ...glassCard, padding: "12px 14px" }}>
             <div style={{ fontSize: 11, color: "oklch(0.6 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -740,7 +733,7 @@ export default function TradesClient({
         {/* Wide enough for the figures and what is left beside them, and no
             wider: the table used to be scrolled sideways past seven columns of
             words. */}
-        <div style={{ minWidth: lectureSeule ? 1320 : 1100 }}>
+        <div style={{ minWidth: lectureSeule ? 1220 : 950 }}>
         <div
           style={{
             display: "grid",
@@ -765,7 +758,6 @@ export default function TradesClient({
           <div>Side</div>
           <div>Size</div>
           <div>P&amp;L</div>
-          <div>R:R</div>
           <div>Outcome</div>
           {colonnes.map((c) => (
             <div key={c.cle} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -830,9 +822,6 @@ export default function TradesClient({
               </div>
               <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontWeight: 600, color: pnlColor }}>
                 {fmtMoney(t.pnl)}
-              </div>
-              <div style={{ fontFamily: "var(--font-jetbrains-mono), monospace", fontSize: 12, color: "oklch(0.6 0 0)" }}>
-                {t.rr != null ? `1 : ${t.rr.toFixed(1)}` : "—"}
               </div>
               <div>
                 <span

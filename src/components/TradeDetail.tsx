@@ -83,10 +83,7 @@ export default async function TradeDetail({
     color: outcome === "win" ? winColor : outcome === "loss" ? "oklch(0.7 0 0)" : neutralColor,
   };
 
-  const statCards = [
-    { label: "Size", value: trade.size },
-    { label: "R : R", value: trade.rr != null ? `1 : ${trade.rr.toFixed(1)}` : "—" },
-  ];
+  const statCards = [{ label: "Size", value: trade.size }];
 
 
   /**

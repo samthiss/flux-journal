@@ -443,7 +443,7 @@ export async function interrogerTrades(filtres: TradeFilters): Promise<string> {
     where,
     orderBy: { date: "asc" },
     select: {
-      date: true, symbol: true, setup: true, side: true, pnl: true, rr: true,
+      date: true, symbol: true, setup: true, side: true, pnl: true,
       tpReached: true, tradeTypes: true, zone: true, confirmations: true, outcome: true,
     },
   });
@@ -464,15 +464,12 @@ export async function interrogerTrades(filtres: TradeFilters): Promise<string> {
   const losses = trades.filter((t) => outcomeOf(t.pnl, t.outcome) === "loss");
   const nuls = trades.length - wins.length - losses.length;
   const pnl = trades.reduce((sum, t) => sum + t.pnl, 0);
-  const withRR = trades.filter((t) => t.rr != null);
-  const rr = withRR.length ? withRR.reduce((sum, t) => sum + (t.rr ?? 0), 0) / withRR.length : null;
   const tp = (level: number) => trades.filter((t) => (t.tpReached ?? 0) >= level).length;
 
   return [
     `${trades.length} trade(s) du ${trades[0].date.toISOString().slice(0, 10)} au ${trades[trades.length - 1].date.toISOString().slice(0, 10)}`,
     `win rate : ${wins.length + losses.length ? `${Math.round((wins.length / (wins.length + losses.length)) * 100)} %` : "—"} (${wins.length}G / ${losses.length}P${nuls ? ` / ${nuls} break even` : ""})`,
     `P&L cumulé : ${pnl.toFixed(2)}`,
-    rr != null ? `R:R moyen : ${rr.toFixed(2)} sur ${withRR.length} trade(s) qui l'ont renseigné` : "R:R : non renseigné",
     `take profit : TP1+ ${tp(1)} · TP2+ ${tp(2)} · TP3 ${tp(3)} · aucun ${trades.filter((t) => t.tpReached == null).length}`,
   ].join("\n");
 }

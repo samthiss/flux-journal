@@ -8,20 +8,6 @@ import { levelPlans } from "@/lib/databento/plans";
 
 export const dynamic = "force-dynamic";
 
-/**
- * What one lot risked on the most recent trade that recorded it.
- *
- * The risk scales with the number of lots, so this is what lets the form fill
- * the field in from a size instead of asking for the same figure every time.
- */
-async function lastRiskPerLot(ownerId: string) {
-  const last = await prisma.trade.findFirst({
-    where: { ownerId, risk: { not: null }, size: { not: 0 } },
-    orderBy: { date: "desc" },
-    select: { risk: true, size: true },
-  });
-  return last?.risk ? last.risk / Math.abs(last.size) : null;
-}
 
 
 export default async function EditTradePage({ params }: { params: Promise<{ id: string }> }) {
@@ -33,10 +19,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
   if (!trade) notFound();
 
   const updateTradeWithId = updateTrade.bind(null, trade.id);
-  const [riskPerLot, plans] = await Promise.all([
-    lastRiskPerLot(ownerId),
-    levelPlans(ownerId),
-  ]);
+  const plans = await levelPlans(ownerId);
 
   const existingCharts: ExistingCharts = {
     cluster: trade.chartCluster ?? undefined,
@@ -49,7 +32,6 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
     <TradeForm
       action={updateTradeWithId}
       tradeId={trade.id}
-      riskPerLot={riskPerLot}
       plans={plans}
       // Carried through the form, or editing a trade would drop the plan it
       // was written from.
@@ -68,7 +50,6 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         side: trade.side,
         size: String(trade.size),
         pnl: String(trade.pnl),
-        risk: trade.risk != null ? String(trade.risk) : "",
         tpReached: trade.tpReached != null ? String(trade.tpReached) : "",
         tradeTypes: trade.tradeTypes ?? "",
         zone: trade.zone ?? "",

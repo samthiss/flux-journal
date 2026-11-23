@@ -12,20 +12,6 @@ export const dynamic = "force-dynamic";
 // rendered a 404 — which a reload then "fixed", a reload being a fresh request
 // that no interceptor sees. Outside that segment there is nothing to intercept.
 
-/**
- * What one lot risked on the most recent trade that recorded it.
- *
- * The risk scales with the number of lots, so this is what lets the form fill
- * the field in from a size instead of asking for the same figure every time.
- */
-async function lastRiskPerLot(ownerId: string) {
-  const last = await prisma.trade.findFirst({
-    where: { ownerId, risk: { not: null }, size: { not: 0 } },
-    orderBy: { date: "desc" },
-    select: { risk: true, size: true },
-  });
-  return last?.risk ? last.risk / Math.abs(last.size) : null;
-}
 
 /**
  * The idea this trade came from, when the form was opened from one.
@@ -106,18 +92,13 @@ export default async function NewTradePage({
   const today = new Date().toISOString().slice(0, 10);
   const { idea } = await searchParams;
   const ownerId = await monJournal();
-  const [riskPerLot, prealable, plans] = await Promise.all([
-    lastRiskPerLot(ownerId),
-    ideePrealable(idea, ownerId),
-    levelPlans(ownerId),
-  ]);
+  const [prealable, plans] = await Promise.all([ideePrealable(idea, ownerId), levelPlans(ownerId)]);
 
   return (
     <TradeForm
       action={createTrade}
       title="Add Trade"
       subtitle="Log a new entry to your journal"
-      riskPerLot={riskPerLot}
       plans={plans}
       // The plan's captures, kept as their own section rather than laid into
       // the trade's four slots: those are for the charts taken afterwards.
@@ -139,7 +120,6 @@ export default async function NewTradePage({
         side: prealable?.side ?? "Long",
         size: "",
         pnl: "",
-        risk: "",
         tpReached: "",
         tradeTypes: prealable?.tradeTypes ?? "",
         zone: prealable?.zone ?? "",

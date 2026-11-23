@@ -41,7 +41,6 @@ export type TradeForStats = {
   strategy: string | null;
   entryType: string | null;
   market: string | null;
-  rr: number | null;
   /** How far the market went: 1, 2, 3, or null. */
   tpReached: number | null;
   /** The three vocabularies, as stored — JSON arrays, and one word for a zone. */
@@ -85,7 +84,6 @@ export const TRADE_FOR_STATS_SELECT = {
   strategy: true,
   entryType: true,
   market: true,
-  rr: true,
   // What the trade reached and what it was, which the trades list filters on.
   tpReached: true,
   tradeTypes: true,
@@ -201,11 +199,6 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
   const avgLoss = losses.reduce((a, t) => a + t.pnl, 0) / (losses.length || 1);
   const grossLoss = losses.reduce((a, t) => a + t.pnl, 0);
   const profitFactor = Math.abs(wins.reduce((a, t) => a + t.pnl, 0) / (grossLoss || -1));
-  // Averaged over the trades that actually recorded a reward-to-risk. Counting
-  // a missing one as zero — which is what the previous divisor did — dragged
-  // the figure towards nothing on a journal where most rows have none.
-  const withRR = trades.filter((t) => t.rr != null);
-  const avgRR = withRR.length ? withRR.reduce((a, t) => a + (t.rr ?? 0), 0) / withRR.length : 0;
   const best = hasTrades ? Math.max(...trades.map((t) => t.pnl)) : 0;
   const worst = hasTrades ? Math.min(...trades.map((t) => t.pnl)) : 0;
 
@@ -282,9 +275,6 @@ export function computeDashboardStats(trades: TradeWithOutcome[]) {
     avgWin,
     avgLoss,
     profitFactor,
-    avgRR,
-    /** How many trades the average above rests on. */
-    rrCount: withRR.length,
     payoff,
     breakevenWinRate,
     expectancy,
