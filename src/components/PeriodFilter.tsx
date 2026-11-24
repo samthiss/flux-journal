@@ -7,7 +7,9 @@ import { buildCustomPeriod, parseCustomPeriod } from "@/lib/stats";
 const FIXED = [
   ["today", "Today"],
   ["week", "This Week"],
+  ["lastweek", "Last Week"],
   ["month", "This Month"],
+  ["lastmonth", "Last Month"],
   ["all", "All Time"],
 ] as const;
 

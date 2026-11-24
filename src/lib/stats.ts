@@ -1,4 +1,4 @@
-export const PERIODS = ["today", "week", "month", "all", "custom"] as const;
+export const PERIODS = ["today", "week", "lastweek", "month", "lastmonth", "all", "custom"] as const;
 
 /**
  * A custom range travels as one string, `custom:<from>:<to>`, so it fits the
@@ -16,7 +16,7 @@ export function buildCustomPeriod(from: string, to: string) {
   return `custom:${from}:${to}`;
 }
 
-/** Accepts the four fixed periods and any custom range; anything else is rejected. */
+/** Accepts the fixed periods and any custom range; anything else is rejected. */
 export function isValidPeriod(period: string | undefined): period is string {
   if (!period) return false;
   if (PERIODS.includes(period as (typeof PERIODS)[number])) return true;
@@ -145,13 +145,35 @@ export function filterByPeriod(trades: TradeWithOutcome[], period: string, refer
     return trades.filter((t) => sameDay(t.date, ref));
   }
   if (period === "week") {
-    const start = new Date(ref);
-    start.setDate(start.getDate() - 6);
-    return trades.filter((t) => t.date >= start && t.date <= endOfDay(ref));
+    // La semaine en cours, du lundi à aujourd'hui — et non les sept derniers
+    // jours. La fenêtre glissante qui vivait ici affichait, un mardi, les
+    // mercredi, jeudi et vendredi de la semaine passée sous un bouton qui
+    // annonce « This Week » ; et elle comptait autrement que « This Month »,
+    // juste à côté, qui a toujours été un mois calendaire.
+    return trades.filter((t) => t.date >= startOfWeek(ref) && t.date <= endOfDay(ref));
+  }
+  if (period === "lastweek") {
+    // Lundi au dimanche de la semaine d'avant, en entier : une semaine écoulée
+    // se lit sur ses sept jours, pas jusqu'au jour de la semaine où on est.
+    const lundi = startOfWeek(ref);
+    const début = new Date(lundi);
+    début.setDate(début.getDate() - 7);
+    const fin = new Date(lundi);
+    fin.setDate(fin.getDate() - 1);
+    return trades.filter((t) => t.date >= début && t.date <= endOfDay(fin));
   }
   if (period === "month") {
     return trades.filter(
       (t) => t.date.getFullYear() === ref.getFullYear() && t.date.getMonth() === ref.getMonth()
+    );
+  }
+  if (period === "lastmonth") {
+    // Le mois d'avant, en comparant année et mois comme « This Month » plutôt
+    // qu'en reculant de 30 jours : `setMonth(m - 1)` sur le 31 mars donnerait
+    // le 3 mars, et janvier doit retomber sur décembre de l'année précédente.
+    const mois = new Date(ref.getFullYear(), ref.getMonth() - 1, 1);
+    return trades.filter(
+      (t) => t.date.getFullYear() === mois.getFullYear() && t.date.getMonth() === mois.getMonth()
     );
   }
 
@@ -172,6 +194,19 @@ export function filterByPeriod(trades: TradeWithOutcome[], period: string, refer
 function startOfLocalDay(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0);
+}
+
+/**
+ * Minuit du lundi de la semaine de `d`.
+ *
+ * `getDay()` rend 0 le dimanche : sans le `|| 7`, un dimanche reculerait d'un
+ * jour au lieu de six et rattacherait la journée à la semaine qui s'ouvre.
+ */
+function startOfWeek(d: Date) {
+  const lundi = new Date(d);
+  lundi.setDate(lundi.getDate() - ((lundi.getDay() || 7) - 1));
+  lundi.setHours(0, 0, 0, 0);
+  return lundi;
 }
 
 function sameDay(a: Date, b: Date) {
