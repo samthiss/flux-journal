@@ -161,7 +161,10 @@ function bars(symbol: string, source: string): Dataset {
     const settings: Settings = {
       lots: 2,
       rearm: 30,
-      maxHours: 4,
+      // MAX_HOURS=24 holds to the 16h Chicago flat instead of the plan's four
+      // hours — what an order left to its bracket does when nobody is there
+      // to close it.
+      maxHours: Number(process.env.MAX_HOURS ?? 4),
       // Enough trades that a configuration cannot rank on trading little.
       minTrades: 20,
       newsWindow: 30,
@@ -213,7 +216,9 @@ function bars(symbol: string, source: string): Dataset {
     );
     out.push({ symbol, zones: pair.levels, result: r });
   }
-  const file = path.join(process.cwd(), "prisma", "databento-results.json");
+  // OUT=/chemin/essai.json writes the run elsewhere, to compare a variant
+  // without losing the results the journal reads.
+  const file = process.env.OUT ?? path.join(process.cwd(), "prisma", "databento-results.json");
   if (only) {
     // The other pairs as they were, in the file's order.
     const kept = JSON.parse(readFileSync(file, "utf8")) as { symbol: string }[];

@@ -141,6 +141,8 @@ Ordres posés avant 9h Berlin, rien à toucher jusqu'à 18h : pas de pause news,
 
 Résultat : environ **1 680 $/mois**, DD environ 1 180, pire jour −740 (la limite de 500 $ ne peut pas être tenue à la main ; un stop journalier automatique à −500 fait pire sur l'année). Une journée normale chez soi : 3 300 $/mois, DD 895.
 
+**Ce que vaudrait un téléphone qui sait annuler et reposer (24.11.2026)** — le poste de 8h à 18h rend ces jours-là permanents, donc l'écart devient le vrai enjeu : **1 680 contre 3 300 $/mois, soit ~1 620 $/mois en jeu**. Les trois restrictions du process ci-dessus n'existent que parce qu'on ne peut rien toucher de la journée : 4 paires au lieu de 8, les grosses news sautées, et aucun nouvel ordre après 9h. Une appli mobile qui pose, annule et repose un bracket les lève toutes. Deux pièces techniques sont déjà vérifiées : la sortie à 4 h ne coûte que 103 $/mois si on l'abandonne (§5, Sorties), et le bracket TP1 + runner se pose comme **deux ordres d'un lot** (lot A : stop + TP1 ; lot B : stop, passage à l'entrée au TP1, trailing, TP2), ce que toutes les applis savent faire — là où un bracket à deux cibles n'existe que sur le bureau. Reste à vérifier sur une démo : le trailing à déclencheur se règle-t-il depuis le mobile. Détail des plateformes et des firmes dans `docs/prop-firms.md` §6 et §7.
+
 ## 5. Testé et écarté
 
 On ne refait pas ces tests sans raison nouvelle.
@@ -155,6 +157,7 @@ On ne refait pas ces tests sans raison nouvelle.
 
 **Sorties**
 
+- **Abandonner la sortie à 4 h** (testé le 24.11.2026, `MAX_HOURS=24 npx tsx scripts/databento-analyse.ts`, 8 paires, réglages du plan) : le trade court jusqu'au plat de 16h Chicago au lieu de 4 h après le remplissage. **Ça coûte 103 $/mois** — 3 286 au lieu de 3 389 — soit 3 % du revenu. Par paire : 6C +48, 6E +7, 6J +3, ZS 0, 6N −19, ZN −35, ZW −38, 6B −70. Le drawdown ne bouge que sur ZN (313 → 438) et ZW (450 → 600). Les sorties « temps écoulé » passent de 105 à 66, les SL de 58 à 67, le trailing de 189 à 217. **Conclusion : la règle des 4 h peut sauter quand on ne peut pas être là pour fermer** — c'est la sortie la moins chère à sacrifier, et c'est la seule du plan qu'aucun bracket ne sait appliquer tout seul. On la garde quand on est devant l'écran.
 - Config 90 % de gagnants, config « gros gains », trailing serré, règle en R unique, TP1 atteint dans au moins 80 % des cas : moins bien.
 - **TP2 serré** (2 fois le TP1) : ça coûte, jusqu'à 80 $/mois sur 6N. Il doit rester loin.
 - **Demi-pips / pips entiers** : la question ne se pose plus depuis qu'on compte en ticks.
