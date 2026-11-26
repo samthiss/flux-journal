@@ -761,6 +761,10 @@ function baseConfigs(g: Grid): Config[] {
       for (const sl of g.sls)
         for (const tp1 of g.tp1s)
           for (const tp2 of g.tp2s.length ? g.tp2s : [0])
+            // `act` is the TP1 and searching it apart would change nothing:
+            // in this exit the trail is gated on TP1 having filled, not on
+            // `act` (see the `!half || tp1At >= 0` below), so a lower trigger
+            // is simply never read.
             if (tp2 === 0 || tp2 > tp1) out.push({ kind: "tp1trail", offset, sl, tp1, tp2, act: tp1, dist: Math.max(1, Math.round(tp1 * g.trailFromTp1)) });
   // A single target can be any of the target distances, TP1's or TP2's.
   const singles = [...new Set([...g.tp1s, ...g.tp2s])].sort((a, b) => a - b);

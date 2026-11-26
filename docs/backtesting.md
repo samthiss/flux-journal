@@ -54,11 +54,10 @@ Toutes les distances sont en **ticks** : 1 tick = une ligne du DOM, comme sur Vo
 | Paire | Niveaux | SL | TP1 = trailing | TP2 | Ordres | Risque (2 lots) |
 |---|---|---|---|---|---|---|
 | 6B | 1,3045 · 1,3189 · 1,3335 · 1,3430 · 1,3478 · 1,3652 · 1,3862 | 25 | 18 | 75 | 2h–8h seulement | 312 $ |
-| 6E | 1,13015 · 1,1398 · 1,1505 · 1,1597 · 1,16595 · 1,1683 · 1,1757 | 12 | 15 | 60 | 2h–14h | 150 $ |
-| 6J | 0,006286 · 0,0063545 · 0,006429 | 15 | 10 | 40 | 3h–14h | 187 $ |
+| 6E | 1,11985 · 1,13015 · 1,1398 · 1,1505 · 1,1597 · 1,16595 · 1,1683 · 1,1757 | 25 | 30 | 80 | 2h–14h | 312 $ |
 | 6N | 0,55965 · 0,56495 · 0,5700 · 0,57165 · 0,57795 · 0,5930 · 0,59885 | 25 | 20 | 130 | 3h–7h, 9h–14h | 250 $ |
 | 6C | 0,7078 · 0,70965 · 0,71235 · 0,71705 · 0,7196 · 0,7269 · 0,72975 | 25 | 20 | 55 | 2h–14h | 250 $ |
-| ZN | 104'065 · 104'245 · 105'275 · 106'15 · 107'115 · 108'01 · 108'265 · 109'315 · 111'14 · 112'025 | 12 | 5 | 30 | 2h–14h | 375 $ |
+| ZN | 104'065 · 104'245 · 105'275 · 106'15 · 107'14 · 108'01 · 108'265 · 109'315 · 111'14 · 112'025 | 12 | 5 | 30 | 2h–14h | 375 $ |
 | ZS | 1154,25 · 1199,00 · 1229,50 · 1294,75 · 1329,75 | 12 | 10 | 45 | 8h–14h seulement | 300 $ |
 | ZW | 505,25 · 575,00 · 606,50 · 634,50 · 680,25 · 710,50 | 15 | 5 | 40 | 2h–8h, 9h–14h | 375 $ |
 
@@ -66,9 +65,10 @@ Niveaux revus le 20.11.2026 comme des zones de 20 ticks : chaque ligne est posé
 
 **Pourquoi ces réglages :**
 
-- **Heures exclues** : ce sont les ouvertures de marché. À 2h, c'est Londres (6J, 6N). De 7h à 9h, c'est l'ouverture américaine avec les chiffres de 7h30 (6N). À 8h, c'est la réouverture des grains à 8h30 (ZW).
+- **Heures exclues** : ce sont les ouvertures de marché. À 2h, c'est Londres (6N). De 7h à 9h, c'est l'ouverture américaine avec les chiffres de 7h30 (6N). À 8h, c'est la réouverture des grains à 8h30 (ZW).
 - **6B seulement de 2h à 8h** : c'est la séance de Londres. Après, la séance américaine fait traverser les niveaux au sterling. Le matin seul fait 5 fois plus par trade, avec 2 fois moins de trades.
-- **6E 12/15, 6J 15/10, ZW 15/5** : c'est moi qui les ai choisis, pour avoir plus de trades gagnants.
+- **ZW 15/5** : c'est moi qui l'ai choisi, pour avoir plus de trades gagnants.
+- **6E 25/30** (26.11) : le stop de 12 que j'avais choisi était à l'intérieur du bruit de l'euro — 30 trades stoppés sur 93, dont 23 après être passés en gain. Rien ne remonte derrière la position avant que TP1 tombe, donc un trade monté à +9 rendait tout. À 25/30 la paire fait 1 171 $/mois net au lieu de 570, avec un drawdown de 1 113 au lieu de 1 463. Voir le journal du 26.11.
 - **ZS au-delà du niveau, de 8h à 14h** : ZS dépasse ses niveaux avant de tourner, et la séance de jour des grains est la seule qui tienne.
 - **TP2** : il est placé juste sous les plus grosses courses du runner sur l'année, et environ 1 runner sur 10 l'atteint. VolFix exige un TP2 dans le bracket ; placé là, il ne gêne pas le trailing.
 
@@ -98,28 +98,31 @@ Une règle automatique ne sait pas reproduire ce tri (voir §7, 21.11 : réglée
 - Retirer une zone dont les 10 derniers trades gagnent moins de 50 %, seulement à partir de 10 trades sur la zone.
 - Entre deux revues, ne rien toucher, même après 2 ou 3 stops d'affilée sur une zone.
 
-## 4. Les chiffres (état au 21.11.2026, niveaux revus en zones)
+## 4. Les chiffres (état au 26.11.2026, 7 paires)
 
 Le backtest porte sur un an de données Databento, de novembre 2025 à novembre 2026. Il est compté **de façon prudente** : un ordre n'est considéré comme rempli que si le prix le dépasse d'au moins 1 tick.
 
 | Paire | Trades par an | Gagnants | $/mois brut | $/mois net de commissions | DD de la paire |
 |---|---|---|---|---|---|
+| 6E | 93 | 71 % | 1 221 | 1 171 | 1 113 |
 | 6B | 50 | 84 % | 683 | 656 | 588 |
-| 6E | 88 | 66 % | 617 | 570 | 1 463 |
-| 6J | 40 | 75 % | 171 | 150 | 531 |
-| 6N | 49 | 86 % | 637 | 611 | 365 |
-| 6C | 55 | 76 % | 462 | 432 | 390 |
-| ZN | 30 | 80 % | 296 | 288 | 313 |
-| ZS | 33 | 67 % | 350 | 328 | 688 |
-| ZW | 39 | 92 % | 384 | 357 | 450 |
+| 6N | 49 | 86 % | 637 | 610 | 365 |
+| 6C | 55 | 76 % | 461 | 432 | 390 |
+| ZW | 39 | 92 % | 383 | 357 | 450 |
+| ZS | 33 | 67 % | 350 | 327 | 688 |
+| ZN | 30 | 83 % | 303 | 296 | 313 |
 
 **Sur un compte entier** (toutes les paires ensemble, avec la limite de 500 $ par jour et celle de 5 contrats) :
 
-- environ **3 260 $/mois** net de commissions (3 300 avant la pause USDA du 23.11 ; 2 056 avec les niveaux d'avant le 20.11 ; la hausse vient surtout de 6E, +240, de ZW, +210, de ZS, +150, de 6N, +145, et de 6B, +125 ; ZN +95 sur la paire mais seulement +20 sur le compte, des jours déjà au plafond de 500 $) ;
-- 376 trades par an, soit environ 7 par semaine ;
-- drawdown d'environ **895 $**, pour une limite de 2 000 $ ;
-- pire journée : −500 $ ;
-- environ 77 % de trades gagnants, profit factor d'environ 3,7.
+- environ **3 745 $/mois** net de commissions (3 262 au 23.11 avec 8 paires ; la hausse vient de 6E, +600, dont il faut retirer les 150 que rapportait 6J) ;
+- 340 trades par an, soit environ 6,5 par semaine ;
+- drawdown d'environ **640 $**, pour une limite de 2 000 $ ;
+- pire journée : −408 $ ;
+- environ 79 % de trades gagnants.
+
+La somme des drawdowns des 7 paires fait 3 905 $, le carnet n'en tire que 640 — **un sixième**. Les paires ne souffrent pas les mêmes jours. C'est pourquoi un plafond par paire n'a aucun sens et a été retiré le 26.11 : ce qui compte est le drawdown de l'ensemble, que le script calcule maintenant à la fin de chaque analyse.
+
+Sans les deux limites du compte, les 7 paires feraient 3 849 $/mois sur 349 trades : les limites coûtent une centaine de dollars par mois et refusent 9 trades (8 pour les 5 contrats, 1 pour la pause journalière).
 
 **Ce que j'attends en réel : environ 50 à 65 % du backtest**, soit **1 050 à 1 350 $/mois par compte**. Avec 5 comptes copiés, ça fait environ 5 000 à 6 500 $/mois.
 
@@ -373,3 +376,9 @@ On ne refait pas ces tests sans raison nouvelle.
 - **Level Bounce ZN : zones du trader ajoutées** (21.11, ±10 ticks). 111'14 (1 tr, +122 $), 109'315 (3 tr, +538 $, ne gagne que de 109'315 à 110'01), 108'01 (3 tr, +382 $, de 108'005 à 108'025), 107'115 (2 tr, +103 $), 106'15 (1 tr, +106 $) ajoutées ; 112'245 pas ajoutée (2 tr, −569 $, perdante presque partout). Bleues gardées (112'03 au lieu de 112'025 = 1 tick, sans effet). ZN : 21 tr 81 % 193 $/mois → 30 tr 80 % 288 $/mois. Compte ≈ 3 280 → 3 300 $/mois, DD ≈ 815 → 895. 6E 1,1191 (6 tr, 33 %, −276 $) et 1,11415 (bonne zone de 1,11435 à 1,11495, milieu 1,11465 : 3 tr, 100 %, +537 $, 6E 570 → 615 $/mois, tout depuis le 14.10) testées, pas ajoutées pour l'instant.
 - **Level Bounce : jours absent 9h–18h** (22.11, demande du trader). Ordres posés à 9h sur la zone la plus proche de chaque côté (≥ 15 ticks, OCO), sortie par le bracket seul, annulés à 18h. 8 paires, tous les jours : 1 900 $/mois, 68 %, DD 1 880 (+ soirée 18h–21h : 2 210, DD 1 950). Les news coûtent ≈ 90 $/mois, les heures exclues ≈ 75 ; le reste (≈ 1 200) vient de l'ordre posé à l'avance, qui prend le premier contact sans réarmement ni approche. Distance 30 ou 50 ticks à 9h : pire (1 376, 640). Sauter les jours de news 3★ : 730 (les jours de news gagnent) ; sauter seulement les grosses news (taux, CPI, emploi, PIB) : 1 735, DD plus bas — retenu. Paires : 6E, 6B, 6N, ZS + soirée → 1 680 $/mois, DD 1 180 ; + 6C, ZW → 2 140, DD 1 720 ; 8 paires → 2 075, DD 2 060. 6J perd (ouverture de Londres à 9h) ; ZN, 6C, ZW ajoutent plus de DD que de gain. Choix des paires fait sur la même année : optimiste.
 - **ZS / ZW : pause news sur les rapports USDA** (23.11, après le trade ZS du 10.11). Le 10.11 à 18h00 Berlin (WASDE), ZS passe de 1188 à 1224,5 en une minute : la vente à 1200,75 (zone 1199) est remplie puis stoppée dans la même minute, −12 ticks dans le backtest, mais un stop au marché dans un pic pareil peut sortir 30 ticks plus loin (≈ −1 000 $ au lieu de −300). Le calendrier ne contenait pas les rapports USDA : ajoutés comme une « devise » USDA suivie par ZS, ZW et ZC (backtest, Fiche du jour, notifications), ±10 min. Retirés sur l'année : ZS 12.05 (+8), 30.06 (+15), 10.11 (−12), ZW 30.09 (+8,5). ZS 349 → 328, ZW 374 → 357 $/mois ; compte 3 299 → 3 262 $/mois, DD 895 inchangé. Gardée malgré le petit coût : le backtest ne voit pas le glissement du stop sur ces pics.
+- **Level Bounce : aucun test de qualité par niveau ne peut marcher** (25.11, règle du trader : garder une zone si ses N derniers trades font plus de X %). Mesuré sur 52 niveaux et 384 trades. Un niveau annuel reçoit **1 à 9 passages du prix par an**, fixé par le chemin du prix et non par la longueur de l'historique : médiane 5,5 trades par niveau et par an, seuls 15 niveaux sur 52 atteignent 10 trades en 13 mois, un seul en atteint 20. Toutes les variantes (N = 3 à 15, seuils 50/60/70 %, PnL > 0) perdent de 9 à 842 $/mois, et les trades refusés étaient toujours positifs au total. **49 niveaux sur 50 sont rentables** ; le seul perdant a perdu 33 $ sur un trade. Même un filtre appliqué avec le résultat déjà connu ne gagne que 3 $/mois. Le point mort est à **46 %** de réussite : un niveau à 50 % rapporte encore +19 $/trade, et le plus mauvais du carnet (6E 1,1597, 48 %) rapporte +10. Le taux de réussite toutes heures confondues n'a **aucun pouvoir prédictif** (corrélation 0,09 avec le taux dans les heures, 0,01 avec les $/trade) : les niveaux sous 50 % toutes heures rapportent 113 $/trade, ceux au-dessus 112. Les filtres (heures + approche 15 ticks) ajoutent 33 points, de 44 % à 77 % — la qualité vient de la combinaison niveau + horaire, pas du niveau. Hypothèse de l'espacement testée aussi : corrélation −0,06, les niveaux serrés font 123 $/trade contre 100 pour les isolés. **Fermé.** Ce qui reste valable : la valeur d'un niveau ≈ son nombre de trades dans ses heures × ≈ 112 $, et le drawdown. Les lignes tracées à l'œil étaient déjà bonnes.
+- **Drawdown et taille** (25.11). Ajouter des niveaux ne bouge presque pas le drawdown : même dix niveaux au point mort laissent de la marge sur les 2 000 à 2 lots. **À 4 lots tout double** : DD 1 580 (420 $ de marge), pire journée −930 pour une limite à 1 000, et cinq niveaux médiocres suffiraient à franchir. C'est le drawdown, pas la rentabilité, qui plafonne la taille — un deuxième compte en parallèle plutôt que plus de contrats. Vérifié aussi : la limite des 5 contrats refuse 9 trades à 2 lots mais **69 sur 349 (18 %) dès 3 lots**, parce que tout chevauchement devient interdit ; monter de 2 à 4 lots ne multiplie le résultat que par 1,6.
+- **ZN 107'115 → 107'14** (25.11, choix du trader après balayage ±10 ticks). 5 ticks d'écart, donc la même zone déplacée et non une ligne ajoutée (au stop de 12 et au réarmement de 30 barres, les deux se disputeraient les mêmes séances sous la règle d'un trade par jour). 2 trades sur 3 réactions au lieu de 3 sur 3, mais 2 gagnants au lieu d'1 : ZN 83 % et 3 641 $ contre 80 % et 3 547, drawdown inchangé. 93 $ sur l'année, du bruit sur deux trades ; gardée parce que le trader l'a tracée là. Les quatre ticks sous l'ancienne ligne, 107'065 à 107'08, sont le seul endroit à éviter : −378 $.
+- **6E : le stop était trop serré** (26.11). Parti du trade perdant du 06.10 sur 1,13015 : monté à +9 ticks, il a rendu 21 ticks en 21 minutes pour prendre le stop à −12. Aucune news ce jour-là. Cause : en mode `tp1trail` le trailing est conditionné à **TP1 rempli**, pas au paramètre `act` — qui est donc inerte (vérifié : act 5, 8, 10, 12, 15 donnent le même résultat au dollar). Rien ne protège la position avant TP1, et avec TP1 à 15 pour un stop de 12, un trade 6E devait gagner plus qu'il ne risquait pour obtenir la moindre protection. C'était la seule paire du carnet dans ce cas (rapport armement/stop 1,25 ; ZN 0,42 et zéro stop en 12 mois). Elle prenait 30 stops sur 93 trades, dont 23 passés en gain d'abord et 13 au-delà de +5 ticks. **Le levier est le stop**, pas l'armement : sl 25 / TP1 30 donne 1 171 $/mois net contre 613, avec un drawdown qui baisse de 1 350 à 1 075. Ce n'est pas un pic ajusté — toute la région sl 20–30 × TP1 20–30 fait 881 à 1 171 $/mois, les deux moitiés de l'année progressent (2 575 → 6 381 $ puis 5 375 → 8 269), et 11 mois sur 13 sont positifs. Et c'est bien **spécifique à l'euro** : le même élargissement ne donne que +107 $/mois sur 6B pour un DD doublé, +50 sur 6N, +14 sur 6C, et **dégrade** 6J. **Appliqué.** Contrepartie : à sl 25, 6E ne peut plus monter qu'à 3 lots sous la règle des 500 $/trade, contre 6 avant.
+- **6J retirée** (26.11). 150 $/mois, 4 % du carnet, pour 481 $ de drawdown — à elle seule plus de la moitié des 790 du carnet, qui tombe à 465 sans elle. 45 $/trade contre 106 de moyenne, et la seule paire que tout élargissement du stop dégrade (sl 25 : 106 $/mois, sl 35 : 75). Le yen réagit bien à ses 3 niveaux, il ne paie simplement pas le risque d'être là. Son archive source et son contrat restent en place.
+- **Le plafond de drawdown par paire retiré** (26.11, défaut trouvé en cherchant pourquoi sl 25 / TP1 30 n'était jamais proposé sur 6E). Le script écartait du classement toute config dépassant 850 $ de drawdown. Trois pièces en cause : (1) quand aucune config ne passe, le filtre se désactive en silence (`pool = safe.length ? safe : counted`) ; (2) le choix du trader est évalué dans un second appel à `analyse` ne contenant **qu'une** config, donc le repli s'active toujours et son choix est rapporté quel que soit son drawdown — il était structurellement exempté du plafond, pas par décision mais par accident d'architecture ; (3) le champ `unconstrained`, prévu pour révéler le meilleur en ignorant le plafond, était repris du run à une seule config et recopiait donc le choix du trader — identique à `top[0]` sur les 8 paires. Résultat : on comparait une config à 1 463 de drawdown aux meilleures restant sous 850, et sl 25 / TP1 30 (à 1 113) tombait entre les deux, invisible. **Corrigé** : `unconstrained` vient de la recherche complète, et le plafond par paire est retiré. Il était de toute façon le mauvais instrument — la somme des drawdowns des 7 paires fait 3 905 $ et le carnet n'en tire que 640, donc contraindre paire par paire revient à supposer qu'elles tombent ensemble. Le script calcule désormais, à la fin de chaque analyse, la courbe combinée des paires retenues, son drawdown fin de journée et sa pire journée, et signale un dépassement des 2 000 $ ou de la pause de 500 $/jour. `PAIR_DD_CAP=850` remet l'ancien plafond pour comparer.
