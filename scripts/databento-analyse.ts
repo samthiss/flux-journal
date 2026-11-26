@@ -116,7 +116,19 @@ const PAIRS: Record<string, { source: string; levels: number[]; excludeHours: nu
   // The older note, kept because it says what was true: a TP1 of 15 did win
   // three trades in five where 15's neighbours won under one in two. That
   // held the stop still; it is the pair the stop and the target make.
-  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.11985, 1.13015, 1.1398, 1.1505, 1.1597, 1.16595, 1.1683, 1.1757], excludeHours: [], tp1s: FX_TP1, pick: { sl: 25, tp1: 30, tp2: 80 } },
+  //
+  // 1.11985 → 1.1202 (2026-11-26), after the wider stop moved where the lines
+  // belong: +606 on the year, a trade more, the drawdown unmoved, and the
+  // year's second half carries all of it. The other seven measured better
+  // where they are, two of them markedly so — moving 1.16595 or 1.1683 takes
+  // the pair's drawdown to 1,300 and 1,138 for nothing. Read the sweep in the
+  // book and not level by level: on its own 1.1597 promised 1,587 more and
+  // costs 356 once the others are there, because the one-trade-a-day cap
+  // makes a level that looks better steal sessions from a neighbour that did
+  // better with them. 1.1202 sits on a plateau (1.1202 to 1.12035 all within
+  // 75 of each other), unlike the old 1.11985, which was a one-tick peak
+  // under the old stop. Not between 1.1200 and 1.1201: −270 there.
+  "6E": { source: "GLBX-20261113-ULHBVEC84B/6e_front_1m.csv", levels: [1.1202, 1.13015, 1.1398, 1.1505, 1.1597, 1.16595, 1.1683, 1.1757], excludeHours: [], tp1s: FX_TP1, pick: { sl: 25, tp1: 30, tp2: 80 } },
   // 6J dropped (2026-11-26). It made 150 a month, 4 % of the book, for 481 of
   // drawdown — on its own more than half the portfolio's 790, which falls to
   // 465 without it. 45 a trade against the book's 106, and the only pair that
