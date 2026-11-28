@@ -26,7 +26,7 @@ import {
   type Outcome,
   type PairPlan,
 } from "@/lib/tradingPlan";
-import { addPlanOrder, closePlanOrder, fillPlanOrder, removePlanOrder, resendPlanOrder, setPushPrefs, unfillPlanOrder } from "@/lib/actions/planOrders";
+import { addPlanOrder, closePlanOrder, fillPlanOrder, markPlanOrderPulled, removePlanOrder, resendPlanOrder, setPushPrefs, unfillPlanOrder } from "@/lib/actions/planOrders";
 import { addPushDevice, pushPublicKey, removePushDevice, sendTestPush } from "@/lib/actions/reminders";
 
 const ORANGE = accentColor;
@@ -59,7 +59,7 @@ export type PlanOrderRow = {
   botCancelAt: string | null;
   botError: string | null;
 };
-type Prefs = { exit: boolean; news: boolean; pull: boolean };
+type Prefs = { exit: boolean; news: boolean; pull: boolean; bot: boolean };
 
 // ---- A small store over localStorage: the checklist and the drawdown, kept in the browser ----
 const LS_EVENT = "trading-plan-store";
@@ -161,6 +161,7 @@ const PREF_ROWS: [keyof Prefs, string, string][] = [
   ["exit", "Sortie max", "15 min avant puis à la sortie : 4 h après le remplissage, au plus tard 16:00 CT · 23:00 Berlin."],
   ["news", "News 3★", "15 min avant chaque news 3★ des devises de tes paires, pendant tes heures d'ordres."],
   ["pull", "Retrait d'ordre", "1 min avant chaque blackout, news 3★ ou fin des ordres : retire les ordres posés concernés."],
+  ["bot", "Bot d'exécution", "Quand le bot confirme qu'il a passé ou retiré un ordre, avec son prix d'entrée."],
 ];
 
 export default function TradingPlan({
@@ -382,11 +383,11 @@ export default function TradingPlan({
    * n'existe pas côté exécution : le silence ne doit pas ressembler à un
    * succès. `null` quand il n'y a rien à dire (ordre déjà clos).
    */
-  const botView = (o: PlanOrderRow): { texte: string; couleur: string; renvoi: boolean } | null => {
+  const botView = (o: PlanOrderRow): { texte: string; couleur: string; renvoi: boolean; retrait?: boolean } | null => {
     if (o.botError) return { texte: `BOT : ${o.botError}`, couleur: LOSS, renvoi: true };
-    if (o.status === "cancelled" && o.botSentAt) return o.botCancelAt ? { texte: "BOT : annulation reçue", couleur: DIM, renvoi: false } : { texte: "BOT : annulation non transmise", couleur: LOSS, renvoi: true };
-    if (o.botSentAt) return { texte: `BOT : reçu ${berClock(new Date(o.botSentAt).getTime())}`, couleur: GAIN, renvoi: false };
-    if (o.status === "pending") return { texte: "BOT : pas envoyé", couleur: ORANGE, renvoi: true };
+    if (o.status === "cancelled" && o.botSentAt) return o.botCancelAt ? { texte: "BOT : retiré", couleur: DIM, renvoi: false } : { texte: "À RETIRER DANS VOLFIX", couleur: LOSS, renvoi: false, retrait: true };
+    if (o.botSentAt) return { texte: `BOT : posé ${berClock(new Date(o.botSentAt).getTime())}`, couleur: GAIN, renvoi: false };
+    if (o.status === "pending") return { texte: "BOT : en attente", couleur: ORANGE, renvoi: false };
     return null;
   };
 
@@ -829,7 +830,12 @@ export default function TradingPlan({
                                   {b.texte}
                                   {b.renvoi && (
                                     <button type="button" disabled={pending} onClick={() => act(() => resendPlanOrder(o.id))} style={{ ...btn(ORANGE), fontSize: 10, padding: "1px 6px" }}>
-                                      RENVOYER
+                                      À REPRENDRE
+                                    </button>
+                                  )}
+                                  {b.retrait && (
+                                    <button type="button" disabled={pending} onClick={() => act(() => markPlanOrderPulled(o.id))} style={{ ...btn(GAIN), fontSize: 10, padding: "1px 6px" }}>
+                                      RETIRÉ
                                     </button>
                                   )}
                                 </span>
@@ -1300,7 +1306,12 @@ export default function TradingPlan({
                       {b.texte}
                       {b.renvoi && (
                         <button type="button" disabled={pending} onClick={() => act(() => resendPlanOrder(o.id))} style={{ ...btn(ORANGE), fontSize: 11, padding: "3px 10px" }}>
-                          RENVOYER
+                          À REPRENDRE
+                        </button>
+                      )}
+                      {b.retrait && (
+                        <button type="button" disabled={pending} onClick={() => act(() => markPlanOrderPulled(o.id))} style={{ ...btn(GAIN), fontSize: 11, padding: "3px 10px" }}>
+                          RETIRÉ
                         </button>
                       )}
                     </div>

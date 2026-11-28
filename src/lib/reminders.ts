@@ -86,6 +86,31 @@ export async function remindersTick(now = Date.now()) {
     }
   }
 
+  /**
+   * Les ordres annulés que le bot avait posés : il ne sait pas les retirer, et
+   * ils dorment chez le courtier jusqu'à ce que le trader les retire.
+   *
+   * Relancé toutes les cinq minutes, quatre fois au plus : une notification
+   * manquée laisserait un ordre interdit en place, mais une relance sans fin
+   * finirait par être ignorée. Le bouton « RETIRÉ » d'Ordres du jour arrête
+   * la série.
+   */
+  if (prefs.bot) {
+    const aRetirer = await prisma.planOrder.findMany({ where: { status: "cancelled", botSentAt: { not: null }, botCancelAt: null } });
+    for (const o of aRetirer) {
+      const depuis = now - o.createdAt.getTime();
+      const tour = Math.floor(depuis / (5 * 60000));
+      if (tour < 1 || tour > 4) continue;
+      const p = plans.find((x) => x.symbol === o.symbol);
+      await pushOnce(`retrait|${o.id}|${tour}`, {
+        title: `Toujours posé : retire ${o.symbol} dans VolFix`,
+        body: `${o.side === "Long" ? "Achat" : "Vente"} ${o.symbol} à ${p ? fmtPrice(o.entry, o.symbol, p.tick) : o.entry}. ${o.cancelReason ?? ""} Confirme dans Ordres du jour quand c'est retiré.`,
+        url: URL,
+        tag: `retrait-${o.id}`,
+      });
+    }
+  }
+
   // What was sent more than a week ago will not come round again.
   if (new Date(now).getUTCMinutes() === 0) await prisma.pushSent.deleteMany({ where: { sentAt: { lt: new Date(now - 7 * 86400000) } } });
 

@@ -7,24 +7,40 @@ import { loadPairPlans } from "@/lib/planData";
 import { orderPrices, pnlOf, type Outcome } from "@/lib/tradingPlan";
 import { YEARLY_LEVELS } from "@/lib/strategies";
 import { fmtPrice } from "@/lib/databento/format";
-import { envoyer, texteAnnulation, texteOrdre } from "@/lib/telegram";
+import { pushAll } from "@/lib/push";
+import { pushPrefs } from "@/lib/planData";
 
 const done = () => revalidatePath("/trading-plan");
 
 /**
- * L'ordre part au bot Telegram, et la ligne garde ce que l'envoi a donné.
+ * Prévenir que des ordres dorment chez le courtier.
  *
- * L'ordre est déjà en base quand on arrive ici : un bot injoignable ne doit
- * pas empêcher de noter un ordre qu'on peut toujours poser à la main. En
- * revanche l'échec est écrit sur la ligne, avec un bouton pour renvoyer.
+ * Le journal sait annuler, le bot d'exécution ne sait pas : son fichier de
+ * signal ne porte qu'un ordre d'entrée. Un ordre annulé ici reste donc posé
+ * dans VolFix, et s'il est rempli plus tard c'est un second trade sur la
+ * paire — ce que le plan interdit, et que le backtest n'a jamais compté. D'où
+ * la notification immédiate, puis les relances de `remindersTick` jusqu'à ce
+ * que le retrait soit confirmé.
  */
-async function auBot(id: string, texte: string, champ: "botSentAt" | "botCancelAt") {
-  const r = await envoyer(texte);
-  await prisma.planOrder.update({
-    where: { id },
-    data: r.ok ? { [champ]: new Date(), botError: null } : { botError: r.erreur },
+async function aRetirerAlaMain(orders: { symbol: string; side: string; entry: number }[], raison: string) {
+  if (!orders.length) return;
+  if (!(await pushPrefs()).bot) return;
+  const quoi = orders.map((o) => `${o.symbol} ${o.side === "Long" ? "achat" : "vente"} à ${o.entry}`).join(" · ");
+  await pushAll({
+    title: orders.length > 1 ? `Retire ${orders.length} ordres dans VolFix` : `Retire ton ordre ${orders[0].symbol} dans VolFix`,
+    body: `${quoi}. ${raison} Le bot ne sait pas annuler : confirme dans Ordres du jour quand c'est fait.`,
+    url: "/trading-plan",
+    tag: "bot-retrait",
   });
 }
+
+/**
+ * Le bot d'exécution ne reçoit rien d'ici : c'est lui qui interroge
+ * `/api/bot/orders` depuis la machine du trader, puis accuse réception. Ces
+ * actions ne font donc que tenir l'état que le bot lira — `botSentAt` vide
+ * veut dire « à poser », un ordre annulé qu'il avait posé veut dire « à
+ * retirer » — et c'est son accusé qui marque la ligne.
+ */
 
 /** An order on a level of the plan, priced from the pair's setting rather than from the page. */
 export async function addPlanOrder(day: string, symbol: string, level: number, side: "Long" | "Short") {
@@ -35,8 +51,7 @@ export async function addPlanOrder(day: string, symbol: string, level: number, s
   const already = await prisma.planOrder.findFirst({ where: { day, symbol, level, side, status: { not: "cancelled" } } });
   if (already) return;
   const px = orderPrices(p, level)[side === "Long" ? "buy" : "sell"];
-  const o = await prisma.planOrder.create({ data: { day, symbol, side, level, entry: px.entry, sl: px.sl, tp1: px.tp1, tp2: px.tp2 } });
-  await auBot(o.id, texteOrdre({ ...o, lots: p.lots, tick: p.tick }), "botSentAt");
+  await prisma.planOrder.create({ data: { day, symbol, side, level, entry: px.entry, sl: px.sl, tp1: px.tp1, tp2: px.tp2 } });
   done();
 }
 
@@ -51,51 +66,59 @@ export async function fillPlanOrder(id: string, filledAt: string) {
   const o = await prisma.planOrder.update({ where: { id }, data: { status: "filled", filledAt: t } });
   const hhmm = t.toLocaleTimeString("fr-FR", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
   const raison = `Annulé : ${o.symbol} rempli à ${hhmm} Berlin (un trade par jour et par paire).`;
-  // Les ordres de la paire encore posés, relevés avant la bascule : il faut
-  // dire au bot de retirer ceux qu'il avait reçus.
-  const autres = await prisma.planOrder.findMany({ where: { day: o.day, symbol: o.symbol, status: "pending", id: { not: id } } });
+  // Relevés avant la bascule : ceux que le bot avait posés sont à retirer à la main.
+  const posesParLeBot = await prisma.planOrder.findMany({
+    where: { day: o.day, symbol: o.symbol, status: "pending", id: { not: id }, botSentAt: { not: null } },
+  });
   await prisma.planOrder.updateMany({
     where: { day: o.day, symbol: o.symbol, status: "pending", id: { not: id } },
     data: { status: "cancelled", cancelReason: raison },
   });
-  const tick = (await loadPairPlans(await monJournal())).find((x) => x.symbol === o.symbol)?.tick ?? 0.00001;
-  for (const a of autres) if (a.botSentAt) await auBot(a.id, texteAnnulation({ ...a, tick }, raison), "botCancelAt");
+  await aRetirerAlaMain(posesParLeBot, `${o.symbol} a été rempli à ${hhmm} Berlin.`);
   done();
 }
 
 /**
  * Gone from the list: posed by mistake, or a cancelled one cleared away.
  *
- * Si le bot l'avait reçu, il faut qu'il le retire : l'ordre disparaît du
- * journal mais dormirait encore chez le courtier. L'échec de cet envoi est
- * rapporté plutôt qu'avalé — sinon on efface la ligne en croyant l'ordre
- * retiré alors qu'il est toujours en place.
+ * Un ordre que le bot a posé n'est pas effacé : il passe en annulé, pour
+ * ressortir dans sa liste « à retirer ». L'effacer le laisserait dormir chez
+ * le courtier sans que personne ne le sache.
  */
 export async function removePlanOrder(id: string) {
   await exigeProprietaire();
   const o = await prisma.planOrder.findUnique({ where: { id } });
   if (o?.botSentAt && !o.botCancelAt) {
-    const tick = (await loadPairPlans(await monJournal())).find((x) => x.symbol === o.symbol)?.tick ?? 0.00001;
-    const r = await envoyer(texteAnnulation({ ...o, tick }, "Annulé depuis le journal."));
-    if (!r.ok) {
-      await prisma.planOrder.update({ where: { id }, data: { botError: r.erreur } });
-      done();
-      throw new Error(`Ordre gardé : le bot n'a pas reçu l'annulation (${r.erreur}). Retire-le chez le courtier, puis réessaie.`);
-    }
+    await prisma.planOrder.update({ where: { id }, data: { status: "cancelled", cancelReason: "Retiré depuis le journal : à retirer dans VolFix." } });
+    await aRetirerAlaMain([o], "Tu l'as retiré du journal.");
+    done();
+    return;
   }
   await prisma.planOrder.delete({ where: { id } });
   done();
 }
 
-/** Renvoyer au bot ce qu'il n'a pas reçu, après un échec. */
+/** Retiré dans VolFix, à la main : les relances s'arrêtent. */
+export async function markPlanOrderPulled(id: string) {
+  await exigeProprietaire();
+  await prisma.planOrder.update({ where: { id }, data: { botCancelAt: new Date(), botError: null } });
+  done();
+}
+
+/**
+ * À reprendre : l'ordre repart dans la liste du bot.
+ *
+ * Sert après un échec de son côté — marge refusée, plateforme déconnectée :
+ * on efface ce qu'il a dit pour qu'il le reprenne à sa prochaine
+ * interrogation, sans avoir à retoucher la base à la main.
+ */
 export async function resendPlanOrder(id: string) {
   await exigeProprietaire();
   const o = await prisma.planOrder.findUniqueOrThrow({ where: { id } });
-  const p = (await loadPairPlans(await monJournal())).find((x) => x.symbol === o.symbol);
-  if (!p) throw new Error("Paire inconnue.");
-  // Un ordre déjà annulé se renvoie comme une annulation, pas comme un ordre.
-  if (o.status === "cancelled") await auBot(o.id, texteAnnulation({ ...o, tick: p.tick }, o.cancelReason ?? "Annulé."), "botCancelAt");
-  else await auBot(o.id, texteOrdre({ ...o, lots: p.lots, tick: p.tick }), "botSentAt");
+  await prisma.planOrder.update({
+    where: { id },
+    data: o.status === "cancelled" ? { botCancelAt: null, botError: null } : { botSentAt: null, botError: null },
+  });
   done();
 }
 
@@ -154,9 +177,9 @@ export async function closePlanOrder(id: string, outcome: Outcome, extra: number
   done();
 }
 
-export async function setPushPrefs(prefs: { exit: boolean; news: boolean; pull: boolean }) {
+export async function setPushPrefs(prefs: { exit: boolean; news: boolean; pull: boolean; bot: boolean }) {
   await exigeProprietaire();
-  const data = { exit: !!prefs.exit, news: !!prefs.news, pull: !!prefs.pull };
+  const data = { exit: !!prefs.exit, news: !!prefs.news, pull: !!prefs.pull, bot: !!prefs.bot };
   await prisma.pushPrefs.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
   done();
 }

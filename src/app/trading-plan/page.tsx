@@ -46,7 +46,7 @@ export default async function TradingPlanPage() {
       pairs={pairs}
       news={news}
       newsOk={calendar.ok}
-      prefs={{ exit: prefs.exit, news: prefs.news, pull: prefs.pull }}
+      prefs={{ exit: prefs.exit, news: prefs.news, pull: prefs.pull, bot: prefs.bot }}
       pushInfo={{ devices, recent: recent.map((r) => ({ key: r.key, at: r.sentAt.toISOString() })) }}
       orders={orders.map((o) => ({
         id: o.id,
