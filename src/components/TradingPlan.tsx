@@ -419,11 +419,28 @@ export default function TradingPlan({
     if (Math.abs(q.ticks) > 2 * p.sl) return null;
     const enFenetre = (windows[p.symbol] ?? []).some(([a, b]) => now >= a && now < b);
     const ecart = `${Math.abs(q.ticks)} ticks ${q.ticks > 0 ? "sous" : "au-dessus de"} ${px(q.niveau, p.symbol)}`;
-    if (q.perimee && enFenetre) return { texte: `prix figé depuis ${depuis(q.age)} — source muette`, couleur: ORANGE };
-    if (q.perimee) return { texte: `${px(q.price, p.symbol)} · ${ecart} · dernier prix connu, il y a ${depuis(q.age)}`, couleur: DIM };
+    if (q.perimee && enFenetre) return { texte: `prix figé depuis ${depuis(q.age)} — source muette`, couleur: ORANGE, poser: null };
+    if (q.perimee) return { texte: `${px(q.price, p.symbol)} · ${ecart} · dernier prix connu, il y a ${depuis(q.age)}`, couleur: DIM, poser: null };
+
+    /**
+     * De quel côté l'ordre se pose, décidé par le côté d'où le prix arrive :
+     * une ligne au-dessus du prix est une résistance et se vend, en dessous un
+     * support et s'achète. C'est ainsi que le backtest compte une touche, et
+     * c'est l'hésitation que le bouton supprime.
+     *
+     * Proposé seulement sur une cotation fraîche : sur la clôture de vendredi,
+     * le prix peut rouvrir de l'autre côté de la ligne et le sens serait faux.
+     * Et rien si la paire a déjà tradé aujourd'hui, ou si cette ligne a déjà
+     * son ordre — un trade par jour et par paire.
+     */
+    const siens = orders.filter((o) => o.day === day && o.symbol === p.symbol);
+    const fini = siens.some((o) => o.status === "filled" || o.status === "closed");
+    const deja = siens.some((o) => Math.abs(o.level - q.niveau) < p.tick / 2);
+    const side: "Long" | "Short" = q.ticks > 0 ? "Short" : "Long";
     return {
       texte: `${px(q.price, p.symbol)} · ${ecart} · il y a ${depuis(q.age)}`,
       couleur: Math.abs(q.ticks) <= p.sl ? GAIN : "#A8A8A8",
+      poser: fini || deja ? null : { niveau: q.niveau, side, libelle: `PLACER ${side === "Long" ? "L'ACHAT" : "LA VENTE"} ${px(q.niveau, p.symbol)}` },
     };
   };
 
@@ -723,7 +740,17 @@ export default function TradingPlan({
                       </button>
                       {(() => {
                         const m = marcheView(p);
-                        return m ? <div style={{ padding: "0 10px 5px 58px", fontSize: 11, color: m.couleur }}>{m.texte}</div> : null;
+                        if (!m) return null;
+                        return (
+                          <div style={{ padding: "0 10px 5px 58px", fontSize: 11, color: m.couleur, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                            <span>{m.texte}</span>
+                            {m.poser && (
+                              <button type="button" disabled={pending} onClick={() => act(() => addPlanOrder(day, p.symbol, m.poser!.niveau, m.poser!.side))} style={{ ...btn(m.poser.side === "Long" ? BUY : SELL, true), fontSize: 10.5, padding: "2px 8px" }}>
+                                {m.poser.libelle}
+                              </button>
+                            )}
+                          </div>
+                        );
                       })()}
                       {on && (
                         <div style={{ padding: "2px 10px 10px 50px" }}>
@@ -1276,6 +1303,19 @@ export default function TradingPlan({
                     return m ? <div style={{ fontSize: 11, color: m.couleur, marginTop: 3 }}>{m.texte}</div> : null;
                   })()}
                 </button>
+                {(() => {
+                  // Hors du bouton qui déplie la paire : un bouton dans un bouton
+                  // n'est pas du HTML valide, et le clic partirait au mauvais.
+                  const m = marcheView(p);
+                  if (!m?.poser) return null;
+                  return (
+                    <div style={{ padding: "0 12px 10px" }}>
+                      <button type="button" disabled={pending} onClick={() => act(() => addPlanOrder(day, p.symbol, m.poser!.niveau, m.poser!.side))} style={{ ...btn(m.poser.side === "Long" ? BUY : SELL, true), fontSize: 13, padding: "9px 14px", width: "100%" }}>
+                        {m.poser.libelle}
+                      </button>
+                    </div>
+                  );
+                })()}
                 {on && (
                   <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
                     {p.levels.map((L) => {
