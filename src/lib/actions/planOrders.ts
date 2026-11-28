@@ -98,6 +98,39 @@ export async function removePlanOrder(id: string) {
   done();
 }
 
+/**
+ * Confirmé : l'ordre préparé devient un ordre posé.
+ *
+ * Le journal prépare l'ordre quand le prix arrive sur une ligne — sens et prix
+ * compris — mais n'engage rien : seul un `pending` est visible du bot. C'est ce
+ * clic qui transforme une proposition en ordre réel.
+ */
+export async function confirmPlanOrder(id: string) {
+  await exigeProprietaire();
+  const o = await prisma.planOrder.findUniqueOrThrow({ where: { id } });
+  if (o.status !== "proposed") throw new Error("Cet ordre n'est pas une proposition.");
+  // Un trade par jour et par paire : si la paire a tradé entre-temps, non.
+  const fini = await prisma.planOrder.findFirst({ where: { day: o.day, symbol: o.symbol, status: { in: ["filled", "closed"] } } });
+  if (fini) throw new Error(`${o.symbol} a déjà tradé aujourd'hui.`);
+  await prisma.planOrder.update({ where: { id }, data: { status: "pending" } });
+  done();
+}
+
+/**
+ * Refusé : la proposition est écartée pour la journée.
+ *
+ * Marquée annulée plutôt que supprimée, sinon le tour suivant la recréerait
+ * aussitôt — la ligne est toujours à portée du prix. Un refus vaut donc pour
+ * la séance, sur cette ligne-là.
+ */
+export async function refusePlanOrder(id: string) {
+  await exigeProprietaire();
+  const o = await prisma.planOrder.findUniqueOrThrow({ where: { id } });
+  if (o.status !== "proposed") throw new Error("Cet ordre n'est pas une proposition.");
+  await prisma.planOrder.update({ where: { id }, data: { status: "cancelled", cancelReason: "Proposition refusée." } });
+  done();
+}
+
 /** Retiré dans VolFix, à la main : les relances s'arrêtent. */
 export async function markPlanOrderPulled(id: string) {
   await exigeProprietaire();

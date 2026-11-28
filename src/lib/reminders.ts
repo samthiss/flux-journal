@@ -8,7 +8,7 @@ import { afterMs, orderWindows, windowEndReason, dayKey, type Blocking } from "@
 import { sessionDate } from "@/lib/databento/clock";
 import { fmtPrice } from "@/lib/databento/format";
 import { COTATION_PERIMEE_MIN, ageMin, cotations, ligneLaPlusProche, releverCotations } from "@/lib/quotes";
-import { posesAutomatiques } from "@/lib/autoOrders";
+import { nettoyerPropositions, posesAutomatiques } from "@/lib/autoOrders";
 
 /** How long before a blocking release the phone is told: time to pull the orders. */
 export const NEWS_LEAD_MIN = 15;
@@ -110,14 +110,19 @@ export async function remindersTick(now = Date.now()) {
     const day = dayKey(sessionDate(now));
 
     /**
-     * La pose automatique passe avant l'alerte d'approche : si l'ordre vient
-     * d'être posé, prévenir qu'il faudrait le poser n'aurait aucun sens — et
-     * la ligne travaillée est alors écartée de l'alerte juste en dessous.
+     * L'ordre est préparé dès que le prix arrive sur une ligne, et c'est lui
+     * qui remplace l'alerte « pose ton ordre » : un message sur lequel on peut
+     * agir vaut mieux qu'un message qui dit d'aller agir ailleurs.
+     *
+     * Avec la pose automatique allumée il part directement au bot ; éteinte,
+     * il attend un CONFIRMER dans Ordres du jour et n'engage rien. Dans les
+     * deux cas la ligne concernée est alors écartée de l'alerte d'approche
+     * juste en dessous, qui n'aurait plus rien à annoncer.
      */
-    if (prefs.autoPose) {
-      const poses = await posesAutomatiques(now, plans, blocking, day);
-      if (poses.length) console.log("pose automatique :", poses.join(" · "));
-    }
+    const prepares = await posesAutomatiques(now, plans, blocking, day, prefs.autoPose ? "pending" : "proposed");
+    if (prepares.length) console.log(prefs.autoPose ? "pose automatique :" : "ordres préparés :", prepares.join(" · "));
+    const retires = await nettoyerPropositions(now, plans, blocking, day);
+    if (retires.length) console.log("propositions retirées :", retires.join(" · "));
 
     const [q, duJour] = await Promise.all([cotations(), prisma.planOrder.findMany({ where: { day } })]);
     for (const c of q) {

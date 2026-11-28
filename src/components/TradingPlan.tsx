@@ -28,7 +28,7 @@ import {
   MARGE_TICKS,
   RESTE_MIN,
 } from "@/lib/tradingPlan";
-import { addPlanOrder, closePlanOrder, fillPlanOrder, markPlanOrderPulled, removePlanOrder, resendPlanOrder, setPushPrefs, unfillPlanOrder } from "@/lib/actions/planOrders";
+import { confirmPlanOrder, refusePlanOrder, addPlanOrder, closePlanOrder, fillPlanOrder, markPlanOrderPulled, removePlanOrder, resendPlanOrder, setPushPrefs, unfillPlanOrder } from "@/lib/actions/planOrders";
 import { addPushDevice, pushPublicKey, removePushDevice, sendTestPush } from "@/lib/actions/reminders";
 
 const ORANGE = accentColor;
@@ -229,6 +229,8 @@ export default function TradingPlan({
   const dayOver = dayPnl <= DAY_LIMIT;
   const live = orders.filter((o) => o.status === "filled");
   const posed = orders.filter((o) => o.status === "pending");
+  /** Les ordres préparés par le journal, qui attendent un CONFIRMER et n'engagent rien. */
+  const proposes = orders.filter((o) => o.status === "proposed" && o.day === day);
   const contracts = live.reduce((a, o) => a + (pairOf(o.symbol)?.lots ?? 2), 0);
   const worstStop = Math.max(0, ...pairs.map((p) => p.sl * p.tickValue * p.lots));
   const hasOrder = (s: string, level: number, side: string) => orders.some((o) => o.symbol === s && o.side === side && Math.abs(o.level - level) < 1e-9 && o.status !== "cancelled" && o.day === day);
@@ -447,6 +449,7 @@ export default function TradingPlan({
   const orderView = (o: PlanOrderRow, st: string) => {
     const BADGE: Record<string, [string, React.CSSProperties]> = {
       pending: ["POSÉ", { border: `1px solid ${BUY}`, color: BUY }],
+      proposed: ["À CONFIRMER", { background: ORANGE, color: "#000" }],
       filled: ["REMPLI", { background: GAIN, color: "#000" }],
       closing: ["SORTIE", { background: ORANGE, color: "#000" }],
       closed: ["CLOS", { border: "1px solid #666", color: "#AAA" }],
@@ -833,7 +836,7 @@ export default function TradingPlan({
             title="ORDRES DU JOUR"
             right={
               orders.length
-                ? `${posed.length} POSÉ${posed.length > 1 ? "S" : ""} · ${live.length} EN COURS · ${closedToday.length} CLOS · P&L ${money(dayPnl)}`
+                ? `${proposes.length ? `${proposes.length} À CONFIRMER · ` : ""}${posed.length} POSÉ${posed.length > 1 ? "S" : ""} · ${live.length} EN COURS · ${closedToday.length} CLOS · P&L ${money(dayPnl)}`
                 : "CLIC SUR UNE ZONE = NOUVEL ORDRE"
             }
           >
@@ -873,7 +876,7 @@ export default function TradingPlan({
                         style={{
                           borderBottom: "1px solid #1A1A1A",
                           opacity: st === "closed" || st === "cancelled" ? 0.7 : 1,
-                          boxShadow: st === "closed" || st === "cancelled" ? "none" : `inset 3px 0 0 ${st === "pending" ? BUY : GAIN}`,
+                          boxShadow: st === "closed" || st === "cancelled" ? "none" : `inset 3px 0 0 ${st === "pending" ? BUY : st === "proposed" ? ORANGE : GAIN}`,
                         }}
                       >
                         <div style={{ display: "grid", gridTemplateColumns: "40px 58px 84px 84px 84px 84px 84px 1fr", gap: 8, padding: "5px 10px", alignItems: "center" }}>
@@ -910,6 +913,18 @@ export default function TradingPlan({
                             })()}
                           </span>
                         </div>
+
+                        {st === "proposed" && (
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "0 10px 8px 108px" }}>
+                            <span style={{ fontSize: 11, color: "#A8A8A8" }}>Préparé par le journal, rien n&apos;est envoyé.</span>
+                            <button type="button" disabled={pending} onClick={() => act(() => confirmPlanOrder(o.id))} style={btn(o.side === "Long" ? BUY : SELL, true)}>
+                              CONFIRMER {o.side === "Long" ? "L\u2019ACHAT" : "LA VENTE"}
+                            </button>
+                            <button type="button" disabled={pending} onClick={() => act(() => refusePlanOrder(o.id))} style={btn("#999")}>
+                              NON
+                            </button>
+                          </div>
+                        )}
 
                         {st === "pending" && (
                           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "0 10px 8px 108px" }}>
@@ -1390,7 +1405,7 @@ export default function TradingPlan({
             const st = closing === o.id && o.status === "filled" ? "closing" : o.status;
             const v = orderView(o, st);
             return (
-              <article key={o.id} style={{ padding: 12, borderBottom: "1px solid #1A1A1A", opacity: st === "closed" || st === "cancelled" ? 0.7 : 1, boxShadow: st === "closed" || st === "cancelled" ? "none" : `inset 3px 0 0 ${st === "pending" ? BUY : GAIN}` }}>
+              <article key={o.id} style={{ padding: 12, borderBottom: "1px solid #1A1A1A", opacity: st === "closed" || st === "cancelled" ? 0.7 : 1, boxShadow: st === "closed" || st === "cancelled" ? "none" : `inset 3px 0 0 ${st === "pending" ? BUY : st === "proposed" ? ORANGE : GAIN}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ color: TXT, fontWeight: 700, fontSize: 15 }}>{o.symbol}</span>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", background: o.side === "Long" ? BUY : SELL, color: "#000" }}>{sideText(o.side)}</span>
@@ -1425,6 +1440,20 @@ export default function TradingPlan({
                     </div>
                   );
                 })()}
+
+                {st === "proposed" && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 11, color: "#A8A8A8", marginBottom: 6 }}>Préparé par le journal, rien n&apos;est envoyé.</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" disabled={pending} onClick={() => act(() => confirmPlanOrder(o.id))} style={{ ...btn(o.side === "Long" ? BUY : SELL, true), fontSize: 14, padding: "11px 14px", flex: 1 }}>
+                        CONFIRMER
+                      </button>
+                      <button type="button" disabled={pending} aria-label="Refuser l&apos;ordre préparé" onClick={() => act(() => refusePlanOrder(o.id))} style={{ ...btn("#999"), fontSize: 13, padding: "10px 14px" }}>
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {st === "pending" && (
                   <>

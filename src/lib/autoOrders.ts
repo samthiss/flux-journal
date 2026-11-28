@@ -32,10 +32,17 @@ import { COTATION_MAX_MIN, MARGE_TICKS, RESTE_MIN, orderPrices, orderWindows, ty
 import { fmtPrice } from "@/lib/databento/format";
 
 /**
- * Un tour de pose automatique. Renvoie ce qui a été posé, pour le journal du
- * serveur.
+ * Un tour : l'ordre est créé quand le prix arrive sur une ligne.
+ *
+ * `statut` décide de ce qui en sort. `"pending"` est la pose automatique : le
+ * pont le remonte au bot dans les vingt secondes. `"proposed"` est l'ordre
+ * préparé mais pas encore engagé — il s'affiche dans Ordres du jour avec son
+ * sens et ses prix, et attend un CONFIRMER. Le bot ne voit que les `pending`,
+ * donc une proposition ne part nulle part tant qu'elle n'est pas confirmée.
+ *
+ * Renvoie ce qui a été créé, pour le journal du serveur.
  */
-export async function posesAutomatiques(now: number, plans: PairPlan[], blocking: Blocking[], day: string): Promise<string[]> {
+export async function posesAutomatiques(now: number, plans: PairPlan[], blocking: Blocking[], day: string, statut: "pending" | "proposed" = "pending"): Promise<string[]> {
   const [q, duJour] = await Promise.all([cotations(), prisma.planOrder.findMany({ where: { day } })]);
   const poses: string[] = [];
 
@@ -52,7 +59,7 @@ export async function posesAutomatiques(now: number, plans: PairPlan[], blocking
     // La paire est finie si elle a tradé, et occupée si elle a déjà un ordre.
     const siens = duJour.filter((o) => o.symbol === c.symbol);
     if (siens.some((o) => o.status === "filled" || o.status === "closed")) continue;
-    if (siens.some((o) => o.status === "pending")) continue;
+    if (siens.some((o) => o.status === "pending" || o.status === "proposed")) continue;
 
     const proche = ligneLaPlusProche(c.price, p.levels, p.tick);
     if (!proche || Math.abs(proche.ticks) > MARGE_TICKS) continue;
@@ -67,17 +74,56 @@ export async function posesAutomatiques(now: number, plans: PairPlan[], blocking
     const side: "Long" | "Short" = proche.ticks > 0 ? "Short" : "Long";
     const px = orderPrices(p, proche.niveau)[side === "Long" ? "buy" : "sell"];
     const o = await prisma.planOrder.create({
-      data: { day, symbol: c.symbol, side, level: proche.niveau, entry: px.entry, sl: px.sl, tp1: px.tp1, tp2: px.tp2 },
+      data: { day, symbol: c.symbol, side, level: proche.niveau, entry: px.entry, sl: px.sl, tp1: px.tp1, tp2: px.tp2, status: statut },
     });
     poses.push(`${c.symbol} ${side} ${fmtPrice(proche.niveau, c.symbol, p.tick)}`);
     duJour.push(o);
 
-    await pushAll({
-      title: `Ordre posé tout seul · ${c.symbol} ${side === "Long" ? "achat" : "vente"}`,
-      body: `Ligne ${fmtPrice(proche.niveau, c.symbol, p.tick)}, prix à ${Math.abs(proche.ticks)} ticks il y a ${ageMin(c, now)} min. Entrée ${fmtPrice(px.entry, c.symbol, p.tick)} · SL ${fmtPrice(px.sl, c.symbol, p.tick)}. Le bot le prend dans les 20 s.`,
-      url: "/trading-plan",
-      tag: `auto-${o.id}`,
-    });
+    const quoi = `${side === "Long" ? "Achat" : "Vente"} ${fmtPrice(proche.niveau, c.symbol, p.tick)} · entrée ${fmtPrice(px.entry, c.symbol, p.tick)} · SL ${fmtPrice(px.sl, c.symbol, p.tick)}`;
+    await pushAll(
+      statut === "pending"
+        ? {
+            title: `Ordre posé tout seul · ${c.symbol} ${side === "Long" ? "achat" : "vente"}`,
+            body: `${quoi}. Prix à ${Math.abs(proche.ticks)} ticks il y a ${ageMin(c, now)} min. Le bot le prend dans les 20 s.`,
+            url: "/trading-plan",
+            tag: `auto-${o.id}`,
+          }
+        : {
+            title: `${c.symbol} à ${Math.abs(proche.ticks)} ticks de ${fmtPrice(proche.niveau, c.symbol, p.tick)} — ordre prêt`,
+            body: `${quoi}. Rien n'est envoyé : confirme dans Ordres du jour.`,
+            url: "/trading-plan",
+            tag: `propose-${o.id}`,
+          }
+    );
   }
   return poses;
+}
+
+/**
+ * Les propositions qui n'ont plus lieu d'être, retirées.
+ *
+ * Une proposition n'engage rien, donc elle peut disparaître sans rien casser —
+ * et elle doit, sinon la page se remplit d'ordres préparés pour des prix que
+ * le marché a quittés. Trois raisons de la retirer : la fenêtre de la paire
+ * s'est fermée (fin des horaires, heure écartée, news qui approche), le prix
+ * s'est éloigné de plus de deux fois la marge, ou la cotation n'est plus
+ * fraîche. Un ordre confirmé, lui, ne bouge pas : il est devenu la décision du
+ * trader.
+ */
+export async function nettoyerPropositions(now: number, plans: PairPlan[], blocking: Blocking[], day: string): Promise<string[]> {
+  const props = await prisma.planOrder.findMany({ where: { day, status: "proposed" } });
+  if (!props.length) return [];
+  const q = await cotations();
+  const retires: string[] = [];
+  for (const o of props) {
+    const p = plans.find((x) => x.symbol === o.symbol);
+    const c = q.find((x) => x.symbol === o.symbol);
+    const dedans = p ? orderWindows(p, day, blocking).some(([a, b]) => now >= a && now < b) : false;
+    const loin = !p || !c || Math.abs((o.level - c.price) / p.tick) > 2 * MARGE_TICKS;
+    const vieille = !c || ageMin(c, now) > COTATION_MAX_MIN;
+    if (dedans && !loin && !vieille) continue;
+    await prisma.planOrder.delete({ where: { id: o.id } });
+    retires.push(`${o.symbol} ${o.side} (${!dedans ? "hors fenêtre" : loin ? "prix parti" : "cotation périmée"})`);
+  }
+  return retires;
 }
