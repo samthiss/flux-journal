@@ -20,8 +20,8 @@ sur le téléphone.
 Rien d'autre à configurer. Les deux listes sont vides la plupart du temps,
 donc interroger toutes les vingt secondes ne coûte rien.
 
-Ce que le bot VolFix reçoit : une ligne « 6B LONG » dans ~/volfix-bot/signal.txt,
-et rien d'autre. Il n'a donc ni l'entrée, ni le SL, ni les TP que le journal a
+Ce que le bot VolFix reçoit : une ligne dans ~/volfix-bot/signal.txt, « 6B LONG »
+pour poser ou « ANNULER 6B LONG » pour retirer, et rien d'autre. Il n'a donc ni l'entrée, ni le SL, ni les TP que le journal a
 calculés — il charge son template et clique le prix à une position fixe de
 l'échelle.
 
@@ -156,14 +156,25 @@ def passer_ordre(o: dict) -> None:
 
 
 def retirer_ordre(o: dict) -> None:
-    """Le retrait d'un ordre, que le protocole du fichier ne sait pas exprimer.
+    """Le retrait d'un ordre que le bot avait posé.
 
-    Un signal dit d'entrer, jamais d'annuler. Plutôt que d'accuser un retrait
-    qui n'a pas eu lieu — ce qui laisserait un ordre dormir chez le courtier
-    pendant que le journal l'affiche comme retiré —, on remonte l'échec : la
-    ligne passe au rouge dans Ordres du jour avec ce message.
+    Même protocole que la pose, autre première ligne : « ANNULER 6E LONG ».
+    bot.py la reconnaît et annule les ordres en attente du marché — le journal
+    n'en laisse qu'un par paire, donc ça revient au même.
+
+    S'il n'a aucun moyen d'annuler configuré, il lève et ne vide pas le
+    fichier : l'attente ci-dessous expire, l'échec remonte au journal, et la
+    ligne passe au rouge avec « retire-le à la main ». C'est voulu — accuser un
+    retrait qui n'a pas eu lieu laisserait l'ordre dormir chez le courtier.
     """
-    raise RuntimeError(f"Le bot VolFix ne sait pas annuler : retire {o['symbol']} {o['side']} à la main ({o['raison']})")
+    if not attendre_vide(ATTENTE_AVANT):
+        raise RuntimeError(f"Le signal précédent n'est pas consommé après {ATTENTE_AVANT:.0f} s — bot arrêté ou bloqué ?")
+    os.makedirs(os.path.dirname(FICHIER_SIGNAL), exist_ok=True)
+    with open(FICHIER_SIGNAL, "w") as f:
+        f.write(f"ANNULER {o['symbol'].upper()} {'LONG' if o['side'] == 'long' else 'SHORT'}")
+    print(f"Annulation envoyée: {o['symbol']} {o['side']} · {o['raison']}")
+    if not attendre_vide(ATTENTE_APRES):
+        raise RuntimeError(f"Le bot n'a pas annulé en {ATTENTE_APRES:.0f} s — retire l'ordre à la main dans VolFix")
 
 
 def accuser(ordre_id: str, fait: str, erreur: str | None = None) -> None:
