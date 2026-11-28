@@ -67,6 +67,17 @@ export function proxy(request: NextRequest) {
    */
   if (pathname === "/api/comments") return NextResponse.next();
 
+  /**
+   * Le bot d'exécution, qui porte sa clé et non un cookie.
+   *
+   * Même raison que les commentaires : la permission est vérifiée par la
+   * route, qui compare `X-Bot-Key` à `BOT_API_KEY` à temps constant et refuse
+   * tout si la variable n'est pas posée. Sans cette ligne, la porte renvoyait
+   * « Session expired. » avant que la clé ne soit même lue — le script Python
+   * n'a pas de session et n'en aura jamais.
+   */
+  if (pathname.startsWith("/api/bot/")) return NextResponse.next();
+
   // What a phone fetches to install the journal on its home screen, without
   // the session cookie: the manifest and its icons. Nothing of the journal.
   if (INSTALL.includes(pathname)) return NextResponse.next();

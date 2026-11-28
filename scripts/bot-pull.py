@@ -80,7 +80,17 @@ def appel(chemin: str, corps: dict | None = None) -> dict:
         except Exception:  # noqa: BLE001 — un corps illisible ne doit pas masquer le code
             pass
         raise JournalInjoignable(f"HTTP {e.code}{f' : {detail}' if detail else ''}") from e
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
+    except urllib.error.URLError as e:
+        # Un Python installé depuis python.org n'a pas de certificats tant
+        # qu'on n'a pas lancé « Install Certificates.command » : sans eux
+        # aucune adresse en https ne répond, et le message brut n'aide pas.
+        if "CERTIFICATE_VERIFY_FAILED" in str(e):
+            raise JournalInjoignable(
+                "certificats absents de ce Python — lance une fois : "
+                '"/Applications/Python 3.14/Install Certificates.command"'
+            ) from e
+        raise JournalInjoignable(str(e)) from e
+    except (TimeoutError, OSError) as e:
         raise JournalInjoignable(str(e)) from e
 
 
