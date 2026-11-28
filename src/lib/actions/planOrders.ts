@@ -177,9 +177,9 @@ export async function closePlanOrder(id: string, outcome: Outcome, extra: number
   done();
 }
 
-export async function setPushPrefs(prefs: { exit: boolean; news: boolean; pull: boolean; bot: boolean; approche: boolean }) {
+export async function setPushPrefs(prefs: { exit: boolean; news: boolean; pull: boolean; bot: boolean; approche: boolean; autoPose: boolean }) {
   await exigeProprietaire();
-  const data = { exit: !!prefs.exit, news: !!prefs.news, pull: !!prefs.pull, bot: !!prefs.bot, approche: !!prefs.approche };
+  const data = { exit: !!prefs.exit, news: !!prefs.news, pull: !!prefs.pull, bot: !!prefs.bot, approche: !!prefs.approche, autoPose: !!prefs.autoPose };
   await prisma.pushPrefs.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
   done();
 }

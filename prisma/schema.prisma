@@ -913,6 +913,16 @@ model PushPrefs {
   bot  Boolean @default(true)
   /** Quand le prix approche d'une ligne du plan. */
   approche Boolean @default(true)
+
+  /**
+   * Poser l'ordre tout seul quand le prix approche d'une ligne.
+   *
+   * Par défaut non : ça crée des ordres réels sans que personne ne regarde.
+   * À n'allumer qu'en connaissant le trou du bot — il ne sait pas annuler,
+   * donc un ordre posé automatiquement avant une news reste à retirer à la
+   * main dans VolFix.
+   */
+  autoPose Boolean @default(false)
 }
 
 /** A reminder already sent, so a restart or a second tick does not send it twice. */

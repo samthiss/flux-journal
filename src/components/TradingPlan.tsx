@@ -25,6 +25,8 @@ import {
   type Blocking,
   type Outcome,
   type PairPlan,
+  MARGE_TICKS,
+  RESTE_MIN,
 } from "@/lib/tradingPlan";
 import { addPlanOrder, closePlanOrder, fillPlanOrder, markPlanOrderPulled, removePlanOrder, resendPlanOrder, setPushPrefs, unfillPlanOrder } from "@/lib/actions/planOrders";
 import { addPushDevice, pushPublicKey, removePushDevice, sendTestPush } from "@/lib/actions/reminders";
@@ -59,7 +61,7 @@ export type PlanOrderRow = {
   botCancelAt: string | null;
   botError: string | null;
 };
-type Prefs = { exit: boolean; news: boolean; pull: boolean; bot: boolean; approche: boolean };
+type Prefs = { exit: boolean; news: boolean; pull: boolean; bot: boolean; approche: boolean; autoPose: boolean };
 
 // ---- A small store over localStorage: the checklist and the drawdown, kept in the browser ----
 const LS_EVENT = "trading-plan-store";
@@ -1111,6 +1113,30 @@ export default function TradingPlan({
                 </span>
               </button>
             ))}
+
+
+            {/* La pose automatique n'est pas une notification : son propre bloc,
+                parce qu'une case cochée par erreur ici crée des ordres réels. */}
+            <div style={{ padding: "8px 10px 4px", color: ORANGE, fontSize: 10.5, fontWeight: 700, borderTop: "1px solid #1A1A1A", marginTop: 4 }}>POSE AUTOMATIQUE</div>
+            <button
+              type="button"
+              aria-pressed={prefs.autoPose}
+              disabled={pending}
+              className="term-row"
+              onClick={() => act(() => setPushPrefs({ ...prefs, autoPose: !prefs.autoPose }))}
+              style={{ cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start", width: "100%", textAlign: "left", padding: "6px 10px", border: 0, background: "transparent", fontFamily: "inherit", fontSize: "inherit", color: "inherit" }}
+            >
+              <span style={{ width: 16, height: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, ...(prefs.autoPose ? { background: LOSS, color: "#000" } : { border: `1px solid ${ORANGE}` }) }}>
+                {prefs.autoPose ? "✓" : ""}
+              </span>
+              <span style={{ flex: 1 }}>
+                <span style={{ color: prefs.autoPose ? LOSS : TXT, fontWeight: 700 }}>Poser l&apos;ordre tout seul à {MARGE_TICKS} ticks d&apos;une ligne</span>
+                <span style={{ display: "block", color: DIM, fontSize: 11, marginTop: 2, lineHeight: 1.45 }}>
+                  Dans tes fenêtres uniquement, donc jamais pendant une news. Un ordre en attente au plus par paire, rien si la paire a déjà tradé, et rien à moins de {RESTE_MIN} min de la fin d&apos;une fenêtre — le bot ne sait pas annuler.
+                  {prefs.autoPose ? " Des ordres réels partent sans que tu regardes." : ""}
+                </span>
+              </span>
+            </button>
 
             <div style={{ padding: "8px 10px 4px", color: DIM, fontSize: 10.5, fontWeight: 700, borderTop: "1px solid #1A1A1A", marginTop: 4 }}>CET APPAREIL</div>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, padding: "2px 10px 10px", fontSize: 11.5 }}>

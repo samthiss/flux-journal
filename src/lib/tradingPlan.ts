@@ -91,6 +91,24 @@ export function windowEndReason(p: PairPlan, end: number, day: string, news: Blo
   return `heures exclues ${p.symbol}`;
 }
 
+/**
+ * Les réglages de la pose automatique.
+ *
+ * Ici plutôt que dans `autoOrders`, qui touche la base et les notifications :
+ * la page les affiche, et un composant de navigateur ne doit pas embarquer le
+ * serveur pour lire trois nombres.
+ *
+ * La marge de vingt ticks vient de la mesure du retard : la cotation est
+ * différée d'une dizaine de minutes, et sur un an le prix bouge de 4 ticks en
+ * médiane et 11 au 90e centile en dix minutes sur 6E, moins ailleurs. Vingt
+ * ticks couvrent donc le retard dans 98 à 99 % des cas.
+ */
+export const MARGE_TICKS = 20;
+/** L'âge maximal d'une cotation pour agir dessus, et non seulement prévenir. */
+export const COTATION_MAX_MIN = 15;
+/** Le temps qui doit rester dans la fenêtre pour qu'un ordre vaille d'être posé. */
+export const RESTE_MIN = 10;
+
 /** The order prices on a level: entry, stop and targets, for a buy and a sell. */
 export function orderPrices(p: PairPlan, level: number) {
   const side = (dir: 1 | -1) => {

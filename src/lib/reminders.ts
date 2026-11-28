@@ -8,6 +8,7 @@ import { afterMs, orderWindows, windowEndReason, dayKey, type Blocking } from "@
 import { sessionDate } from "@/lib/databento/clock";
 import { fmtPrice } from "@/lib/databento/format";
 import { COTATION_PERIMEE_MIN, ageMin, cotations, ligneLaPlusProche, releverCotations } from "@/lib/quotes";
+import { posesAutomatiques } from "@/lib/autoOrders";
 
 /** How long before a blocking release the phone is told: time to pull the orders. */
 export const NEWS_LEAD_MIN = 15;
@@ -107,6 +108,17 @@ export async function remindersTick(now = Date.now()) {
     if (h >= 1 && h <= 15 && new Date(now).getUTCMinutes() % COTATIONS_TOUTES_LES_MIN === 0) await releverCotations(pairs);
 
     const day = dayKey(sessionDate(now));
+
+    /**
+     * La pose automatique passe avant l'alerte d'approche : si l'ordre vient
+     * d'être posé, prévenir qu'il faudrait le poser n'aurait aucun sens — et
+     * la ligne travaillée est alors écartée de l'alerte juste en dessous.
+     */
+    if (prefs.autoPose) {
+      const poses = await posesAutomatiques(now, plans, blocking, day);
+      if (poses.length) console.log("pose automatique :", poses.join(" · "));
+    }
+
     const [q, duJour] = await Promise.all([cotations(), prisma.planOrder.findMany({ where: { day } })]);
     for (const c of q) {
       const p = plans.find((x) => x.symbol === c.symbol);
