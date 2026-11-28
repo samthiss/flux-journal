@@ -64,6 +64,9 @@ export default async function TradingPlanPage() {
         pnl: o.pnl,
         tradeId: o.tradeId,
         cancelReason: o.cancelReason,
+        botSentAt: o.botSentAt?.toISOString() ?? null,
+        botCancelAt: o.botCancelAt?.toISOString() ?? null,
+        botError: o.botError,
       }))}
     />
   );

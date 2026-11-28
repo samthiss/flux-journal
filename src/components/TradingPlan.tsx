@@ -26,7 +26,7 @@ import {
   type Outcome,
   type PairPlan,
 } from "@/lib/tradingPlan";
-import { addPlanOrder, closePlanOrder, fillPlanOrder, removePlanOrder, setPushPrefs, unfillPlanOrder } from "@/lib/actions/planOrders";
+import { addPlanOrder, closePlanOrder, fillPlanOrder, removePlanOrder, resendPlanOrder, setPushPrefs, unfillPlanOrder } from "@/lib/actions/planOrders";
 import { addPushDevice, pushPublicKey, removePushDevice, sendTestPush } from "@/lib/actions/reminders";
 
 const ORANGE = accentColor;
@@ -54,6 +54,10 @@ export type PlanOrderRow = {
   pnl: number | null;
   tradeId: string | null;
   cancelReason: string | null;
+  /** Ce que le bot Telegram a reçu : l'ordre, son annulation, ou l'échec. */
+  botSentAt: string | null;
+  botCancelAt: string | null;
+  botError: string | null;
 };
 type Prefs = { exit: boolean; news: boolean; pull: boolean };
 
@@ -371,6 +375,21 @@ export default function TradingPlan({
   const act = (f: () => Promise<unknown>) => start(async () => void (await f()));
 
   /** What an order's row says, the same on a desk and a phone. */
+  /**
+   * Ce que le bot Telegram a reçu de cet ordre.
+   *
+   * Affiché sur chaque ligne, parce qu'un ordre que le bot n'a pas eu
+   * n'existe pas côté exécution : le silence ne doit pas ressembler à un
+   * succès. `null` quand il n'y a rien à dire (ordre déjà clos).
+   */
+  const botView = (o: PlanOrderRow): { texte: string; couleur: string; renvoi: boolean } | null => {
+    if (o.botError) return { texte: `BOT : ${o.botError}`, couleur: LOSS, renvoi: true };
+    if (o.status === "cancelled" && o.botSentAt) return o.botCancelAt ? { texte: "BOT : annulation reçue", couleur: DIM, renvoi: false } : { texte: "BOT : annulation non transmise", couleur: LOSS, renvoi: true };
+    if (o.botSentAt) return { texte: `BOT : reçu ${berClock(new Date(o.botSentAt).getTime())}`, couleur: GAIN, renvoi: false };
+    if (o.status === "pending") return { texte: "BOT : pas envoyé", couleur: ORANGE, renvoi: true };
+    return null;
+  };
+
   const orderView = (o: PlanOrderRow, st: string) => {
     const BADGE: Record<string, [string, React.CSSProperties]> = {
       pending: ["POSÉ", { border: `1px solid ${BUY}`, color: BUY }],
@@ -799,9 +818,23 @@ export default function TradingPlan({
                           <span style={{ textAlign: "right", color: LOSS }}>{px(o.sl, o.symbol)}</span>
                           <span style={{ textAlign: "right", color: GAIN }}>{px(o.tp1, o.symbol)}</span>
                           <span style={{ textAlign: "right", color: GAIN }}>{o.tp2 !== null ? px(o.tp2, o.symbol) : "—"}</span>
-                          <span style={{ paddingLeft: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ paddingLeft: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", ...v.badge[1] }}>{v.badge[0]}</span>
                             <span style={{ fontSize: 11.5, color: v.infoColor }}>{v.info}</span>
+                            {(() => {
+                              const b = botView(o);
+                              if (!b) return null;
+                              return (
+                                <span style={{ fontSize: 10.5, color: b.couleur, display: "flex", alignItems: "center", gap: 6 }}>
+                                  {b.texte}
+                                  {b.renvoi && (
+                                    <button type="button" disabled={pending} onClick={() => act(() => resendPlanOrder(o.id))} style={{ ...btn(ORANGE), fontSize: 10, padding: "1px 6px" }}>
+                                      RENVOYER
+                                    </button>
+                                  )}
+                                </span>
+                              );
+                            })()}
                           </span>
                         </div>
 
@@ -1259,6 +1292,20 @@ export default function TradingPlan({
                   </span>
                 </div>
                 {v.info && <div style={{ fontSize: 11.5, marginTop: 6, color: v.infoColor }}>{v.info}</div>}
+                {(() => {
+                  const b = botView(o);
+                  if (!b) return null;
+                  return (
+                    <div style={{ fontSize: 11, marginTop: 5, color: b.couleur, display: "flex", alignItems: "center", gap: 8 }}>
+                      {b.texte}
+                      {b.renvoi && (
+                        <button type="button" disabled={pending} onClick={() => act(() => resendPlanOrder(o.id))} style={{ ...btn(ORANGE), fontSize: 11, padding: "3px 10px" }}>
+                          RENVOYER
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {st === "pending" && (
                   <>

@@ -863,6 +863,21 @@ model PlanOrder {
   cancelReason String?
   createdAt    DateTime  @default(now())
 
+  /** Quand le bot Telegram a reçu l'ordre. Nul tant qu'il ne l'a pas eu. */
+  botSentAt    DateTime?
+
+  /**
+   * Pourquoi l'envoi au bot a échoué, ou nul s'il est passé.
+   *
+   * Gardé sur la ligne plutôt que seulement journalisé : un ordre que le bot
+   * n'a pas reçu n'existe pas côté exécution, et le silence ne doit pas
+   * passer pour un succès.
+   */
+  botError     String?
+
+  /** Quand l'annulation a été transmise au bot, pour un ordre qu'il avait reçu. */
+  botCancelAt  DateTime?
+
   @@index([day])
 }
 
