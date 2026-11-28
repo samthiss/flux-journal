@@ -15,6 +15,8 @@ import { timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { pushAll } from "@/lib/push";
 import { pushPrefs } from "@/lib/planData";
+import { sessionDate } from "@/lib/databento/clock";
+import { dayKey } from "@/lib/tradingPlan";
 
 /** La clé partagée, posée sur Railway. Sans elle la porte est fermée, pas ouverte. */
 const CLE = () => process.env.BOT_API_KEY ?? "";
@@ -84,7 +86,10 @@ const vue = (o: {
 /**
  * Le travail qui attend le bot.
  *
- * À poser : les ordres encore en attente qu'il n'a pas confirmés. À retirer :
+ * À poser : les ordres de **la séance en cours** qu'il n'a pas confirmés. La
+ * date compte : un ordre posé le 18 novembre et oublié en base ne doit pas
+ * devenir un ordre réel dix jours plus tard — c'est pourtant ce qui se
+ * passait, et trois lignes mortes attendaient en production. À retirer :
  * ceux qu'il a passés et que le journal a depuis annulés — parce qu'une autre
  * paire a été remplie, ou parce que le trader les a retirés à la main — et
  * dont le retrait n'est pas confirmé. Les deux listes sont vides la plupart
@@ -93,7 +98,7 @@ const vue = (o: {
  */
 export async function travailDuBot(): Promise<{ aPoser: OrdreBot[]; aRetirer: (OrdreBot & { raison: string })[] }> {
   const [poser, retirer] = await Promise.all([
-    prisma.planOrder.findMany({ where: { status: "pending", botSentAt: null }, orderBy: { createdAt: "asc" } }),
+    prisma.planOrder.findMany({ where: { day: dayKey(sessionDate(Date.now())), status: "pending", botSentAt: null }, orderBy: { createdAt: "asc" } }),
     prisma.planOrder.findMany({ where: { status: "cancelled", botSentAt: { not: null }, botCancelAt: null }, orderBy: { createdAt: "asc" } }),
   ]);
   return {
