@@ -487,6 +487,192 @@ export default function TradingPlan({
     };
   };
 
+  /**
+   * La carte d'un ordre : en-tête, prix, distance, état et boutons.
+   *
+   * Une seule écriture pour les deux usages — la liste du téléphone et les
+   * quatre colonnes de l'écran large. Le tableau de l'écran large tenait avant
+   * sur huit colonnes de 84 px : illisible dans un quart de largeur, et c'est
+   * pour ça que la carte lui sert désormais aussi.
+   */
+  /** Les quatre colonnes du tableau, dans l'ordre où la journée les traverse. */
+  const COLONNES: [string, string, PlanOrderRow[]][] = [
+    ["À CONFIRMER", ORANGE, orders.filter((o) => o.status === "proposed" && o.day === day)],
+    ["POSÉS", BUY, orders.filter((o) => o.status === "pending")],
+    ["EN POSITION", GAIN, orders.filter((o) => ["filled", "closed"].includes(o.status))],
+    ["ÉCARTÉS", "#8A8A8A", orders.filter((o) => o.status === "cancelled")],
+  ];
+  const VIDE: Record<string, string> = {
+    "À CONFIRMER": "Rien à décider. Le journal prépare un ordre quand le prix arrive sur une ligne.",
+    POSÉS: "Aucun ordre chez le courtier.",
+    "EN POSITION": "Aucun trade en cours.",
+    ÉCARTÉS: "Rien d'écarté aujourd'hui.",
+  };
+
+  const carteOrdre = (o: PlanOrderRow) => {
+            const p = pairOf(o.symbol);
+            const st = closing === o.id && o.status === "filled" ? "closing" : o.status;
+            const v = orderView(o, st);
+            return (
+              <article key={o.id} style={{ padding: 12, borderBottom: "1px solid #1A1A1A", opacity: st === "closed" || st === "cancelled" ? 0.7 : 1, boxShadow: st === "closed" || st === "cancelled" ? "none" : `inset 3px 0 0 ${st === "pending" ? BUY : st === "proposed" ? ORANGE : GAIN}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: TXT, fontWeight: 700, fontSize: 15 }}>{o.symbol}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", background: o.side === "Long" ? BUY : SELL, color: "#000" }}>{sideText(o.side)}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", ...v.badge[1] }}>{v.badge[0]}</span>
+                  <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: TXT }}>{px(o.entry, o.symbol)}</span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 11, marginTop: 5 }}>
+                  <span style={{ color: DIM }}>NIV {px(o.level, o.symbol)}</span>
+                  <span style={{ color: LOSS }}>SL {px(o.sl, o.symbol)}</span>
+                  <span style={{ color: GAIN }}>
+                    TP {px(o.tp1, o.symbol)}
+                    {o.tp2 !== null ? ` → ${px(o.tp2, o.symbol)}` : ""}
+                  </span>
+                </div>
+                {v.info && <div style={{ fontSize: 11.5, marginTop: 6, color: v.infoColor }}>{v.info}</div>}
+                {(() => {
+                  const b = botView(o);
+                  if (!b) return null;
+                  return (
+                    <div style={{ fontSize: 11, marginTop: 5, color: b.couleur, display: "flex", alignItems: "center", gap: 8 }}>
+                      {b.texte}
+                      {b.renvoi && (
+                        <button type="button" disabled={pending} onClick={() => act(() => resendPlanOrder(o.id))} style={{ ...btn(ORANGE), fontSize: 11, padding: "3px 10px" }}>
+                          À REPRENDRE
+                        </button>
+                      )}
+                      {b.retrait && (
+                        <button type="button" disabled={pending} onClick={() => act(() => markPlanOrderPulled(o.id))} style={{ ...btn(GAIN), fontSize: 11, padding: "3px 10px" }}>
+                          RETIRÉ
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {(st === "proposed" || st === "pending") &&
+                  (() => {
+                    const d = distanceOrdre(o);
+                    return d ? <div style={{ fontSize: 11, marginTop: 5, color: d.couleur }}>{d.texte}</div> : null;
+                  })()}
+
+                {st === "proposed" && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 11, color: "#A8A8A8", marginBottom: 6 }}>Préparé par le journal, rien n&apos;est envoyé.</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" disabled={pending} onClick={() => act(() => confirmPlanOrder(o.id))} style={{ ...btn(o.side === "Long" ? BUY : SELL, true), fontSize: 14, padding: "11px 14px", flex: 1 }}>
+                        CONFIRMER
+                      </button>
+                      <button type="button" disabled={pending} aria-label="Refuser l&apos;ordre préparé" onClick={() => act(() => refusePlanOrder(o.id))} style={{ ...btn("#999"), fontSize: 13, padding: "10px 14px" }}>
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {st === "pending" && (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+                      <input type="time" aria-label="Heure de remplissage (Berlin)" value={draft(o.id).time ?? ""} onChange={(e) => setDraft(o.id, { time: e.target.value })} style={{ ...input, flex: 1, fontSize: 14, padding: 8 }} />
+                      <button type="button" disabled={pending} onClick={() => fillOrder(o)} style={{ ...btn(ORANGE, true), fontSize: 13, padding: "10px 16px" }}>
+                        REMPLI
+                      </button>
+                      <button type="button" disabled={pending} aria-label="Annuler l'ordre" onClick={() => act(() => removePlanOrder(o.id))} style={{ ...btn("#999"), fontSize: 13, padding: "9px 12px" }}>
+                        ✕
+                      </button>
+                    </div>
+                    <div style={{ color: DIM, fontSize: 10, marginTop: 4 }}>Heure de Berlin · vide = maintenant</div>
+                  </>
+                )}
+
+                {st === "filled" && v.exit && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 11, color: "#A8A8A8" }}>
+                        SORTIE MAX <span style={{ color: ORANGE, fontWeight: 700, fontSize: 16 }}>{berClock(v.exit.at)}</span> BER
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: v.exit.color }}>{v.exit.left}</span>
+                    </div>
+                    <div style={{ height: 6, background: "#1A1A1A", marginTop: 6 }}>
+                      <div style={{ height: "100%", width: `${v.exit.pct.toFixed(0)}%`, background: v.exit.barColor }} />
+                    </div>
+                    <div style={{ color: DIM, fontSize: 10, marginTop: 4 }}>
+                      {ctClock(v.exit.at)} CT · {v.exit.note}
+                    </div>
+                    <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                      <button type="button" disabled={pending} onClick={() => act(() => unfillPlanOrder(o.id))} style={{ ...btn("#777"), fontSize: 12, padding: 10 }}>
+                        PAS REMPLI
+                      </button>
+                      <button type="button" onClick={() => setClosing(o.id)} style={{ ...btn(ORANGE), flex: 1, fontSize: 13, padding: 10 }}>
+                        JE SUIS SORTI…
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {st === "closing" && p && (
+                  <div style={{ marginTop: 10, padding: 10, background: "#0D0D0D" }}>
+                    <div style={{ fontSize: 11, color: ORANGE, fontWeight: 700, marginBottom: 8 }}>COMMENT S&apos;EST TERMINÉ LE TRADE ?</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {outcomeButtons(p).map(([k, label, c]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          disabled={pending}
+                          onClick={() => act(() => closePlanOrder(o.id, k, 0).then(() => setClosing(null)))}
+                          style={{ ...btn(c), display: "flex", justifyContent: "space-between", padding: "10px 12px", fontSize: 13 }}
+                        >
+                          <span>{label}</span>
+                          <span>{money(pnlOf(p, k))}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11, color: "#A8A8A8" }}>
+                      <span style={{ flex: 1 }}>TP1 + TRAIL, RUNNER +</span>
+                      <input type="number" aria-label="Ticks du runner" value={draft(o.id).trail ?? ""} onChange={(e) => setDraft(o.id, { trail: e.target.value })} style={{ ...input, width: 60, fontSize: 14, padding: 7 }} />
+                      <button type="button" disabled={pending} onClick={() => act(() => closePlanOrder(o.id, "TRAIL", Number(draft(o.id).trail) || 0).then(() => setClosing(null)))} style={{ ...btn(GAIN), fontSize: 12, padding: "8px 12px" }}>
+                        OK
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 11, color: "#A8A8A8" }}>
+                      <span style={{ flex: 1 }}>DURÉE MAX / AUTRE ($)</span>
+                      <input type="number" aria-label="P&L en dollars" value={draft(o.id).other ?? ""} onChange={(e) => setDraft(o.id, { other: e.target.value })} style={{ ...input, width: 60, fontSize: 14, padding: 7 }} />
+                      <button type="button" disabled={pending} onClick={() => act(() => closePlanOrder(o.id, "TIME", Number(draft(o.id).other) || 0).then(() => setClosing(null)))} style={{ ...btn("#E6E6E6"), fontSize: 12, padding: "8px 12px" }}>
+                        OK
+                      </button>
+                    </div>
+                    <button type="button" onClick={() => setClosing(null)} style={{ ...btn("#999"), width: "100%", marginTop: 8, padding: 7 }}>
+                      RETOUR
+                    </button>
+                  </div>
+                )}
+
+                {st === "closed" && (
+                  <>
+                    <div style={{ fontSize: 11, color: "#A8A8A8", marginTop: 6, lineHeight: 1.5 }}>
+                      {OUTCOME_TEXT[(o.outcome ?? "TIME") as Outcome]}
+                      {o.filledAt ? ` · rempli ${berClock(new Date(o.filledAt).getTime())} BER` : ""}
+                    </div>
+                    {o.tradeId && (
+                      <Link href={`/trades/${o.tradeId}`} style={{ display: "block", marginTop: 6, fontSize: 11.5, color: BUY, textDecoration: "none" }}>
+                        ✓ Ajouté à tes Trades →
+                      </Link>
+                    )}
+                  </>
+                )}
+
+                {st === "cancelled" && (
+                  <>
+                    <div style={{ fontSize: 11, color: ORANGE, marginTop: 6, lineHeight: 1.5 }}>{o.cancelReason}</div>
+                    <button type="button" disabled={pending} onClick={() => act(() => removePlanOrder(o.id))} style={{ ...btn("#999"), marginTop: 6, padding: "6px 10px" }}>
+                      RETIRER
+                    </button>
+                  </>
+                )}
+              </article>
+            );
+  };
+
   const orderView = (o: PlanOrderRow, st: string) => {
     const BADGE: Record<string, [string, React.CSSProperties]> = {
       pending: ["POSÉ", { border: `1px solid ${BUY}`, color: BUY }],
@@ -891,201 +1077,38 @@ export default function TradingPlan({
             ))}
             {orders.length === 0 ? (
               <div style={{ color: DIM, padding: "14px 10px", lineHeight: 1.6 }}>
-                Aucun ordre pour l&apos;instant. Déplie une paire dans le plan ci-dessus et clique une <span style={{ color: BUY }}>zone d&apos;achat</span> ou de{" "}
-                <span style={{ color: SELL }}>vente</span> pour l&apos;ajouter ici.
+                Aucun ordre pour l&apos;instant. Le journal en prépare un dès que le prix arrive sur une de tes lignes — ou déplie une paire ci-dessus et clique une{" "}
+                <span style={{ color: BUY }}>zone d&apos;achat</span> ou de <span style={{ color: SELL }}>vente</span>.
               </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <div style={{ minWidth: 760 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "40px 58px 84px 84px 84px 84px 84px 1fr", gap: 8, padding: "5px 10px", color: DIM, fontSize: 10.5, borderBottom: "1px solid #2E2E2E" }}>
-                    <span>PAIRE</span>
-                    <span>SENS</span>
-                    <span style={{ textAlign: "right" }}>NIVEAU</span>
-                    <span style={{ textAlign: "right" }}>ENTRÉE</span>
-                    <span style={{ textAlign: "right" }}>SL</span>
-                    <span style={{ textAlign: "right" }}>TP1</span>
-                    <span style={{ textAlign: "right" }}>TP2</span>
-                    <span style={{ paddingLeft: 12 }}>ÉTAT</span>
+              /**
+               * Les quatre colonnes de la maquette du trader : ce qu'il reste à
+               * décider, ce qui dort chez le courtier, ce qui est en risque, et
+               * ce qui ne compte plus. Elles suivent les statuts tels quels, donc
+               * un ordre change de colonne tout seul quand son statut change.
+               */
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 1, background: "#1A1A1A" }}>
+                {COLONNES.map(([titre, couleur, liste]) => (
+                  <div key={titre} style={{ background: "#000", minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "6px 10px",
+                        borderBottom: `2px solid ${couleur}`,
+                        color: couleur,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 6,
+                      }}
+                    >
+                      <span>{titre}</span>
+                      <span>{liste.length}</span>
+                    </div>
+                    {liste.map((o) => carteOrdre(o))}
+                    {liste.length === 0 && <div style={{ color: DIM, padding: "10px", fontSize: 11.5, lineHeight: 1.5 }}>{VIDE[titre]}</div>}
                   </div>
-                  {orders.map((o) => {
-                    const p = pairOf(o.symbol);
-                    const st = closing === o.id && o.status === "filled" ? "closing" : o.status;
-                    const v = orderView(o, st);
-                    return (
-                      <div
-                        key={o.id}
-                        style={{
-                          borderBottom: "1px solid #1A1A1A",
-                          opacity: st === "closed" || st === "cancelled" ? 0.7 : 1,
-                          boxShadow: st === "closed" || st === "cancelled" ? "none" : `inset 3px 0 0 ${st === "pending" ? BUY : st === "proposed" ? ORANGE : GAIN}`,
-                        }}
-                      >
-                        <div style={{ display: "grid", gridTemplateColumns: "40px 58px 84px 84px 84px 84px 84px 1fr", gap: 8, padding: "5px 10px", alignItems: "center" }}>
-                          <span style={{ color: TXT, fontWeight: 700 }}>{o.symbol}</span>
-                          <span>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", background: o.side === "Long" ? BUY : SELL, color: "#000" }}>{sideText(o.side)}</span>
-                          </span>
-                          <span style={{ textAlign: "right" }}>{px(o.level, o.symbol)}</span>
-                          <span style={{ textAlign: "right", color: TXT, fontWeight: 700 }}>{px(o.entry, o.symbol)}</span>
-                          <span style={{ textAlign: "right", color: LOSS }}>{px(o.sl, o.symbol)}</span>
-                          <span style={{ textAlign: "right", color: GAIN }}>{px(o.tp1, o.symbol)}</span>
-                          <span style={{ textAlign: "right", color: GAIN }}>{o.tp2 !== null ? px(o.tp2, o.symbol) : "—"}</span>
-                          <span style={{ paddingLeft: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", ...v.badge[1] }}>{v.badge[0]}</span>
-                            <span style={{ fontSize: 11.5, color: v.infoColor }}>{v.info}</span>
-                            {(() => {
-                              const b = botView(o);
-                              if (!b) return null;
-                              return (
-                                <span style={{ fontSize: 10.5, color: b.couleur, display: "flex", alignItems: "center", gap: 6 }}>
-                                  {b.texte}
-                                  {b.renvoi && (
-                                    <button type="button" disabled={pending} onClick={() => act(() => resendPlanOrder(o.id))} style={{ ...btn(ORANGE), fontSize: 10, padding: "1px 6px" }}>
-                                      À REPRENDRE
-                                    </button>
-                                  )}
-                                  {b.retrait && (
-                                    <button type="button" disabled={pending} onClick={() => act(() => markPlanOrderPulled(o.id))} style={{ ...btn(GAIN), fontSize: 10, padding: "1px 6px" }}>
-                                      RETIRÉ
-                                    </button>
-                                  )}
-                                </span>
-                              );
-                            })()}
-                          </span>
-                        </div>
-
-                        {(st === "proposed" || st === "pending") &&
-                          (() => {
-                            const d = distanceOrdre(o);
-                            return d ? <div style={{ padding: "0 10px 4px 108px", fontSize: 11, color: d.couleur }}>{d.texte}</div> : null;
-                          })()}
-
-                        {st === "proposed" && (
-                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "0 10px 8px 108px" }}>
-                            <span style={{ fontSize: 11, color: "#A8A8A8" }}>Préparé par le journal, rien n&apos;est envoyé.</span>
-                            <button type="button" disabled={pending} onClick={() => act(() => confirmPlanOrder(o.id))} style={btn(o.side === "Long" ? BUY : SELL, true)}>
-                              CONFIRMER {o.side === "Long" ? "L\u2019ACHAT" : "LA VENTE"}
-                            </button>
-                            <button type="button" disabled={pending} onClick={() => act(() => refusePlanOrder(o.id))} style={btn("#999")}>
-                              NON
-                            </button>
-                          </div>
-                        )}
-
-                        {st === "pending" && (
-                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "0 10px 8px 108px" }}>
-                            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: DIM }}>
-                              REMPLI À (BER)
-                              <input type="time" value={draft(o.id).time ?? ""} onChange={(e) => setDraft(o.id, { time: e.target.value })} style={input} />
-                            </label>
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() => fillOrder(o)}
-                              style={btn(ORANGE, true)}
-                            >
-                              REMPLI
-                            </button>
-                            <button type="button" disabled={pending} onClick={() => act(() => removePlanOrder(o.id))} style={btn("#999")}>
-                              ANNULER
-                            </button>
-                            <span style={{ color: DIM, fontSize: 10.5 }}>vide = maintenant</span>
-                          </div>
-                        )}
-
-                        {st === "filled" &&
-                          o.filledAt &&
-                          (() => {
-                            const f = new Date(o.filledAt).getTime();
-                            const exit = exitAt(f);
-                            const left = Math.round((exit - now) / 60000);
-                            const pct = Math.max(0, Math.min(100, ((now - f) / Math.max(1, exit - f)) * 100));
-                            const color = left <= 15 ? LOSS : left <= 60 ? ORANGE : GAIN;
-                            return (
-                              <div style={{ padding: "0 10px 8px 108px" }}>
-                                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-                                  <span style={{ fontSize: 11, color: "#A8A8A8" }}>
-                                    SORTIE MAX <span style={{ color: ORANGE, fontWeight: 700 }}>{berClock(exit)}</span> BER · {ctClock(exit)} CT
-                                  </span>
-                                  <span style={{ fontSize: 12, fontWeight: 700, color }}>{left <= 0 ? "SORS MAINTENANT" : `RESTE ${Math.floor(left / 60)}h${String(left % 60).padStart(2, "0")}`}</span>
-                                  <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                                    <button type="button" disabled={pending} onClick={() => act(() => unfillPlanOrder(o.id))} style={btn("#777")}>
-                                      PAS REMPLI
-                                    </button>
-                                    <button type="button" onClick={() => setClosing(o.id)} style={btn(ORANGE)}>
-                                      SORTI…
-                                    </button>
-                                  </span>
-                                </div>
-                                <div style={{ height: 5, background: "#1A1A1A", marginTop: 5 }}>
-                                  <div style={{ height: "100%", width: `${pct.toFixed(0)}%`, background: left <= 15 ? LOSS : ORANGE }} />
-                                </div>
-                                <div style={{ color: DIM, fontSize: 10.5, marginTop: 3 }}>
-                                  {f + 4 * 3600000 > exit ? "Plafonné à 16:00 CT : tout est clôturé à cette heure." : "Notification 15 min avant, puis à l'heure de sortie."}
-                                </div>
-                              </div>
-                            );
-                          })()}
-
-                        {st === "closing" && p && (
-                          <div style={{ padding: "6px 10px 10px 108px", background: "#0D0D0D" }}>
-                            <div style={{ fontSize: 11, color: ORANGE, fontWeight: 700, marginBottom: 6 }}>COMMENT S&apos;EST TERMINÉ LE TRADE ? (P&amp;L À {p.lots} LOTS)</div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                              {outcomeButtons(p).map(([k, label, c]) => (
-                                <button key={k} type="button" disabled={pending} onClick={() => act(() => closePlanOrder(o.id, k, 0).then(() => setClosing(null)))} style={{ ...btn(c), fontSize: 11.5, padding: "4px 10px" }}>
-                                  {label} <span style={{ opacity: 0.8 }}>{money(pnlOf(p, k))}</span>
-                                </button>
-                              ))}
-                            </div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", marginTop: 8 }}>
-                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#A8A8A8" }}>
-                                TP1 + TRAILING, RUNNER +
-                                <input type="number" value={draft(o.id).trail ?? ""} onChange={(e) => setDraft(o.id, { trail: e.target.value })} style={{ ...input, width: 54 }} /> TICKS
-                              </label>
-                              <button type="button" disabled={pending} onClick={() => act(() => closePlanOrder(o.id, "TRAIL", Number(draft(o.id).trail) || 0).then(() => setClosing(null)))} style={btn(GAIN)}>
-                                OK
-                              </button>
-                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#A8A8A8" }}>
-                                DURÉE MAX / AUTRE
-                                <input type="number" value={draft(o.id).other ?? ""} onChange={(e) => setDraft(o.id, { other: e.target.value })} placeholder="$" style={{ ...input, width: 70 }} /> $
-                              </label>
-                              <button type="button" disabled={pending} onClick={() => act(() => closePlanOrder(o.id, "TIME", Number(draft(o.id).other) || 0).then(() => setClosing(null)))} style={btn("#E6E6E6")}>
-                                OK
-                              </button>
-                              <button type="button" onClick={() => setClosing(null)} style={{ ...btn("#999"), marginLeft: "auto" }}>
-                                RETOUR
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {st === "closed" && (
-                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "0 10px 8px 108px", fontSize: 11.5 }}>
-                            <span style={{ color: "#A8A8A8" }}>
-                              {OUTCOME_TEXT[(o.outcome ?? "TIME") as Outcome]}
-                              {o.filledAt ? ` · rempli ${berClock(new Date(o.filledAt).getTime())} BER` : ""} · P&amp;L {money(o.pnl ?? 0)}
-                            </span>
-                            {o.tradeId && (
-                              <Link href={`/trades/${o.tradeId}`} style={{ color: BUY, textDecoration: "none" }}>
-                                ✓ Ajouté à tes Trades →
-                              </Link>
-                            )}
-                          </div>
-                        )}
-
-                        {st === "cancelled" && (
-                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "0 10px 8px 108px", fontSize: 11.5 }}>
-                            <span style={{ color: ORANGE }}>{o.cancelReason}</span>
-                            <button type="button" disabled={pending} onClick={() => act(() => removePlanOrder(o.id))} style={btn("#999")}>
-                              RETIRER DE LA LISTE
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                ))}
               </div>
             )}
           </Panel>
@@ -1447,169 +1470,7 @@ export default function TradingPlan({
               Aucun ordre. Dans PLAN, ouvre une paire et touche un prix <span style={{ color: BUY }}>d&apos;achat</span> ou <span style={{ color: SELL }}>de vente</span>.
             </div>
           )}
-          {orders.map((o) => {
-            const p = pairOf(o.symbol);
-            const st = closing === o.id && o.status === "filled" ? "closing" : o.status;
-            const v = orderView(o, st);
-            return (
-              <article key={o.id} style={{ padding: 12, borderBottom: "1px solid #1A1A1A", opacity: st === "closed" || st === "cancelled" ? 0.7 : 1, boxShadow: st === "closed" || st === "cancelled" ? "none" : `inset 3px 0 0 ${st === "pending" ? BUY : st === "proposed" ? ORANGE : GAIN}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: TXT, fontWeight: 700, fontSize: 15 }}>{o.symbol}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", background: o.side === "Long" ? BUY : SELL, color: "#000" }}>{sideText(o.side)}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", ...v.badge[1] }}>{v.badge[0]}</span>
-                  <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: TXT }}>{px(o.entry, o.symbol)}</span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 11, marginTop: 5 }}>
-                  <span style={{ color: DIM }}>NIV {px(o.level, o.symbol)}</span>
-                  <span style={{ color: LOSS }}>SL {px(o.sl, o.symbol)}</span>
-                  <span style={{ color: GAIN }}>
-                    TP {px(o.tp1, o.symbol)}
-                    {o.tp2 !== null ? ` → ${px(o.tp2, o.symbol)}` : ""}
-                  </span>
-                </div>
-                {v.info && <div style={{ fontSize: 11.5, marginTop: 6, color: v.infoColor }}>{v.info}</div>}
-                {(() => {
-                  const b = botView(o);
-                  if (!b) return null;
-                  return (
-                    <div style={{ fontSize: 11, marginTop: 5, color: b.couleur, display: "flex", alignItems: "center", gap: 8 }}>
-                      {b.texte}
-                      {b.renvoi && (
-                        <button type="button" disabled={pending} onClick={() => act(() => resendPlanOrder(o.id))} style={{ ...btn(ORANGE), fontSize: 11, padding: "3px 10px" }}>
-                          À REPRENDRE
-                        </button>
-                      )}
-                      {b.retrait && (
-                        <button type="button" disabled={pending} onClick={() => act(() => markPlanOrderPulled(o.id))} style={{ ...btn(GAIN), fontSize: 11, padding: "3px 10px" }}>
-                          RETIRÉ
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {(st === "proposed" || st === "pending") &&
-                  (() => {
-                    const d = distanceOrdre(o);
-                    return d ? <div style={{ fontSize: 11, marginTop: 5, color: d.couleur }}>{d.texte}</div> : null;
-                  })()}
-
-                {st === "proposed" && (
-                  <div style={{ marginTop: 10 }}>
-                    <div style={{ fontSize: 11, color: "#A8A8A8", marginBottom: 6 }}>Préparé par le journal, rien n&apos;est envoyé.</div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button type="button" disabled={pending} onClick={() => act(() => confirmPlanOrder(o.id))} style={{ ...btn(o.side === "Long" ? BUY : SELL, true), fontSize: 14, padding: "11px 14px", flex: 1 }}>
-                        CONFIRMER
-                      </button>
-                      <button type="button" disabled={pending} aria-label="Refuser l&apos;ordre préparé" onClick={() => act(() => refusePlanOrder(o.id))} style={{ ...btn("#999"), fontSize: 13, padding: "10px 14px" }}>
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {st === "pending" && (
-                  <>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
-                      <input type="time" aria-label="Heure de remplissage (Berlin)" value={draft(o.id).time ?? ""} onChange={(e) => setDraft(o.id, { time: e.target.value })} style={{ ...input, flex: 1, fontSize: 14, padding: 8 }} />
-                      <button type="button" disabled={pending} onClick={() => fillOrder(o)} style={{ ...btn(ORANGE, true), fontSize: 13, padding: "10px 16px" }}>
-                        REMPLI
-                      </button>
-                      <button type="button" disabled={pending} aria-label="Annuler l'ordre" onClick={() => act(() => removePlanOrder(o.id))} style={{ ...btn("#999"), fontSize: 13, padding: "9px 12px" }}>
-                        ✕
-                      </button>
-                    </div>
-                    <div style={{ color: DIM, fontSize: 10, marginTop: 4 }}>Heure de Berlin · vide = maintenant</div>
-                  </>
-                )}
-
-                {st === "filled" && v.exit && (
-                  <div style={{ marginTop: 10 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 11, color: "#A8A8A8" }}>
-                        SORTIE MAX <span style={{ color: ORANGE, fontWeight: 700, fontSize: 16 }}>{berClock(v.exit.at)}</span> BER
-                      </span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: v.exit.color }}>{v.exit.left}</span>
-                    </div>
-                    <div style={{ height: 6, background: "#1A1A1A", marginTop: 6 }}>
-                      <div style={{ height: "100%", width: `${v.exit.pct.toFixed(0)}%`, background: v.exit.barColor }} />
-                    </div>
-                    <div style={{ color: DIM, fontSize: 10, marginTop: 4 }}>
-                      {ctClock(v.exit.at)} CT · {v.exit.note}
-                    </div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                      <button type="button" disabled={pending} onClick={() => act(() => unfillPlanOrder(o.id))} style={{ ...btn("#777"), fontSize: 12, padding: 10 }}>
-                        PAS REMPLI
-                      </button>
-                      <button type="button" onClick={() => setClosing(o.id)} style={{ ...btn(ORANGE), flex: 1, fontSize: 13, padding: 10 }}>
-                        JE SUIS SORTI…
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {st === "closing" && p && (
-                  <div style={{ marginTop: 10, padding: 10, background: "#0D0D0D" }}>
-                    <div style={{ fontSize: 11, color: ORANGE, fontWeight: 700, marginBottom: 8 }}>COMMENT S&apos;EST TERMINÉ LE TRADE ?</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {outcomeButtons(p).map(([k, label, c]) => (
-                        <button
-                          key={k}
-                          type="button"
-                          disabled={pending}
-                          onClick={() => act(() => closePlanOrder(o.id, k, 0).then(() => setClosing(null)))}
-                          style={{ ...btn(c), display: "flex", justifyContent: "space-between", padding: "10px 12px", fontSize: 13 }}
-                        >
-                          <span>{label}</span>
-                          <span>{money(pnlOf(p, k))}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11, color: "#A8A8A8" }}>
-                      <span style={{ flex: 1 }}>TP1 + TRAIL, RUNNER +</span>
-                      <input type="number" aria-label="Ticks du runner" value={draft(o.id).trail ?? ""} onChange={(e) => setDraft(o.id, { trail: e.target.value })} style={{ ...input, width: 60, fontSize: 14, padding: 7 }} />
-                      <button type="button" disabled={pending} onClick={() => act(() => closePlanOrder(o.id, "TRAIL", Number(draft(o.id).trail) || 0).then(() => setClosing(null)))} style={{ ...btn(GAIN), fontSize: 12, padding: "8px 12px" }}>
-                        OK
-                      </button>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 11, color: "#A8A8A8" }}>
-                      <span style={{ flex: 1 }}>DURÉE MAX / AUTRE ($)</span>
-                      <input type="number" aria-label="P&L en dollars" value={draft(o.id).other ?? ""} onChange={(e) => setDraft(o.id, { other: e.target.value })} style={{ ...input, width: 60, fontSize: 14, padding: 7 }} />
-                      <button type="button" disabled={pending} onClick={() => act(() => closePlanOrder(o.id, "TIME", Number(draft(o.id).other) || 0).then(() => setClosing(null)))} style={{ ...btn("#E6E6E6"), fontSize: 12, padding: "8px 12px" }}>
-                        OK
-                      </button>
-                    </div>
-                    <button type="button" onClick={() => setClosing(null)} style={{ ...btn("#999"), width: "100%", marginTop: 8, padding: 7 }}>
-                      RETOUR
-                    </button>
-                  </div>
-                )}
-
-                {st === "closed" && (
-                  <>
-                    <div style={{ fontSize: 11, color: "#A8A8A8", marginTop: 6, lineHeight: 1.5 }}>
-                      {OUTCOME_TEXT[(o.outcome ?? "TIME") as Outcome]}
-                      {o.filledAt ? ` · rempli ${berClock(new Date(o.filledAt).getTime())} BER` : ""}
-                    </div>
-                    {o.tradeId && (
-                      <Link href={`/trades/${o.tradeId}`} style={{ display: "block", marginTop: 6, fontSize: 11.5, color: BUY, textDecoration: "none" }}>
-                        ✓ Ajouté à tes Trades →
-                      </Link>
-                    )}
-                  </>
-                )}
-
-                {st === "cancelled" && (
-                  <>
-                    <div style={{ fontSize: 11, color: ORANGE, marginTop: 6, lineHeight: 1.5 }}>{o.cancelReason}</div>
-                    <button type="button" disabled={pending} onClick={() => act(() => removePlanOrder(o.id))} style={{ ...btn("#999"), marginTop: 6, padding: "6px 10px" }}>
-                      RETIRER
-                    </button>
-                  </>
-                )}
-              </article>
-            );
-          })}
+          {orders.map((o) => carteOrdre(o))}
         </div>
 
         {/* ---- JOUR ---- */}
