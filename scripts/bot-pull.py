@@ -30,11 +30,14 @@ après avoir cliqué : c'est la seule preuve qu'il a lu le signal. Ça ne prouve
 pas que l'ordre existe chez le courtier — pour ça il faut regarder VolFix.
 """
 
+from __future__ import annotations
+
+import json
 import os
 import sys
 import time
-
-import requests
+import urllib.error
+import urllib.request
 
 # Le fichier que le bot VolFix surveille. Une ligne : « 6B LONG ».
 FICHIER_SIGNAL = os.path.expanduser("~/volfix-bot/signal.txt")
@@ -51,7 +54,34 @@ ATTENTE_APRES = 45.0  # pour qu'il lise le nôtre
 if not JOURNAL or not CLE:
     sys.exit("Il manque JOURNAL_URL ou BOT_API_KEY.")
 
-ENTETES = {"X-Bot-Key": CLE}
+ENTETES = {"X-Bot-Key": CLE, "Content-Type": "application/json"}
+
+
+class JournalInjoignable(Exception):
+    """Réseau coupé, serveur en redéploiement, clé refusée."""
+
+
+def appel(chemin: str, corps: dict | None = None) -> dict:
+    """Un appel au journal, avec la bibliothèque standard seule.
+
+    Pas de `requests` : ce script tourne sur le Python qui fait marcher
+    pyautogui, et lui demander d'installer un paquet de plus est une panne en
+    puissance. `urllib` suffit pour deux appels.
+    """
+    donnees = json.dumps(corps).encode() if corps is not None else None
+    req = urllib.request.Request(f"{JOURNAL}{chemin}", data=donnees, headers=ENTETES, method="POST" if corps is not None else "GET")
+    try:
+        with urllib.request.urlopen(req, timeout=DELAI) as r:
+            return json.loads(r.read() or "{}")
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = json.loads(e.read() or "{}").get("error", "")
+        except Exception:  # noqa: BLE001 — un corps illisible ne doit pas masquer le code
+            pass
+        raise JournalInjoignable(f"HTTP {e.code}{f' : {detail}' if detail else ''}") from e
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise JournalInjoignable(str(e)) from e
 
 
 def fichier_vide() -> bool:
@@ -131,14 +161,11 @@ def accuser(ordre_id: str, fait: str, erreur: str | None = None) -> None:
     corps: dict = {"fait": fait}
     if erreur:
         corps["erreur"] = erreur[:300]
-    r = requests.post(f"{JOURNAL}/api/bot/orders/{ordre_id}", json=corps, headers=ENTETES, timeout=DELAI)
-    r.raise_for_status()
+    appel(f"/api/bot/orders/{ordre_id}", corps)
 
 
 def un_tour() -> None:
-    r = requests.get(f"{JOURNAL}/api/bot/orders", headers=ENTETES, timeout=DELAI)
-    r.raise_for_status()
-    travail = r.json()
+    travail = appel("/api/bot/orders")
 
     for o in travail["aPoser"]:
         try:
@@ -162,7 +189,7 @@ def main() -> None:
     while True:
         try:
             un_tour()
-        except requests.RequestException as e:
+        except JournalInjoignable as e:
             # Réseau coupé, serveur en redéploiement : on réessaiera au tour
             # suivant. Rien n'est perdu — le journal garde le travail à faire
             # jusqu'à ce qu'un accusé arrive.
