@@ -59,7 +59,7 @@ export type PlanOrderRow = {
   botCancelAt: string | null;
   botError: string | null;
 };
-type Prefs = { exit: boolean; news: boolean; pull: boolean; bot: boolean };
+type Prefs = { exit: boolean; news: boolean; pull: boolean; bot: boolean; approche: boolean };
 
 // ---- A small store over localStorage: the checklist and the drawdown, kept in the browser ----
 const LS_EVENT = "trading-plan-store";
@@ -162,6 +162,7 @@ const PREF_ROWS: [keyof Prefs, string, string][] = [
   ["news", "News 3★", "15 min avant chaque news 3★ des devises de tes paires, pendant tes heures d'ordres."],
   ["pull", "Retrait d'ordre", "1 min avant chaque blackout, news 3★ ou fin des ordres : retire les ordres posés concernés."],
   ["bot", "Bot d'exécution", "Quand le bot confirme qu'il a passé ou retiré un ordre, avec son prix d'entrée."],
+  ["approche", "Approche d'une ligne", "Quand le prix arrive à moins d'un stop d'une de tes lignes, pendant tes heures d'ordres. Prix gratuit, différé d'environ 10 min."],
 ];
 
 export default function TradingPlan({
@@ -171,6 +172,7 @@ export default function TradingPlan({
   news,
   newsOk,
   orders,
+  quotes,
   prefs,
   pushInfo,
 }: {
@@ -181,6 +183,8 @@ export default function TradingPlan({
   news: DayNews[];
   newsOk: boolean;
   orders: PlanOrderRow[];
+  /** Où est le marché par paire : prix différé, son âge en minutes, la ligne la plus proche. */
+  quotes: Record<string, { price: number; age: number; niveau: number; ticks: number; perimee: boolean }>;
   prefs: Prefs;
   /** What the server holds: the devices signed up, and the last reminders sent. */
   pushInfo: { devices: number; recent: { key: string; at: string }[] };
@@ -389,6 +393,36 @@ export default function TradingPlan({
     if (o.botSentAt) return { texte: `BOT : posé ${berClock(new Date(o.botSentAt).getTime())}`, couleur: GAIN, renvoi: false };
     if (o.status === "pending") return { texte: "BOT : en attente", couleur: ORANGE, renvoi: false };
     return null;
+  };
+
+  /** « 12 min », « 3 h », « 2 j » : un âge se lit mieux que 1 201 minutes. */
+  const depuis = (min: number) => (min < 90 ? `${min} min` : min < 36 * 60 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} j`);
+
+  /**
+   * Où est le marché par rapport aux lignes d'une paire.
+   *
+   * Affiché quand ça veut dire quelque chose : à moins de deux stops d'une
+   * ligne. L'âge de la cotation est toujours écrit, parce que le prix est
+   * gratuit et différé d'une dizaine de minutes — il ne doit jamais être lu
+   * comme du direct.
+   *
+   * Une cotation vieille n'alarme que **pendant une fenêtre d'ordres** : là,
+   * un prix figé veut dire que la source s'est tue, et il faut le voir. Hors
+   * fenêtre — le week-end, la nuit — c'est simplement la dernière clôture, et
+   * la distance à la ligne reste l'information utile pour la séance suivante.
+   */
+  const marcheView = (p: PairPlan) => {
+    const q = quotes[p.symbol];
+    if (!q) return null;
+    if (Math.abs(q.ticks) > 2 * p.sl) return null;
+    const enFenetre = (windows[p.symbol] ?? []).some(([a, b]) => now >= a && now < b);
+    const ecart = `${Math.abs(q.ticks)} ticks ${q.ticks > 0 ? "sous" : "au-dessus de"} ${px(q.niveau, p.symbol)}`;
+    if (q.perimee && enFenetre) return { texte: `prix figé depuis ${depuis(q.age)} — source muette`, couleur: ORANGE };
+    if (q.perimee) return { texte: `${px(q.price, p.symbol)} · ${ecart} · dernier prix connu, il y a ${depuis(q.age)}`, couleur: DIM };
+    return {
+      texte: `${px(q.price, p.symbol)} · ${ecart} · il y a ${depuis(q.age)}`,
+      couleur: Math.abs(q.ticks) <= p.sl ? GAIN : "#A8A8A8",
+    };
   };
 
   const orderView = (o: PlanOrderRow, st: string) => {
@@ -685,6 +719,10 @@ export default function TradingPlan({
                         </span>
                         <span style={{ textAlign: "right", color: DIM }}>{p.levels.length}</span>
                       </button>
+                      {(() => {
+                        const m = marcheView(p);
+                        return m ? <div style={{ padding: "0 10px 5px 58px", fontSize: 11, color: m.couleur }}>{m.texte}</div> : null;
+                      })()}
                       {on && (
                         <div style={{ padding: "2px 10px 10px 50px" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "84px minmax(0, 1fr) 12px minmax(0, 1fr)", gap: 8, padding: "5px 0", color: DIM, fontSize: 10.5, borderBottom: "1px solid #2E2E2E" }}>
@@ -1207,6 +1245,10 @@ export default function TradingPlan({
                     </span>
                   </div>
                   <div style={{ fontSize: 11, color: "#A8A8A8", marginTop: 4 }}>{w.length ? `${w.map(([a, b]) => `${ctClock(a)}–${ctClock(b)}`).join(" · ")} CT` : "aucune fenêtre"}</div>
+                  {(() => {
+                    const m = marcheView(p);
+                    return m ? <div style={{ fontSize: 11, color: m.couleur, marginTop: 3 }}>{m.texte}</div> : null;
+                  })()}
                 </button>
                 {on && (
                   <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>

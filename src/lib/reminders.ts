@@ -7,6 +7,7 @@ import { loadPairPlans, pushPrefs } from "@/lib/planData";
 import { afterMs, orderWindows, windowEndReason, dayKey, type Blocking } from "@/lib/tradingPlan";
 import { sessionDate } from "@/lib/databento/clock";
 import { fmtPrice } from "@/lib/databento/format";
+import { COTATION_PERIMEE_MIN, ageMin, cotations, ligneLaPlusProche, releverCotations } from "@/lib/quotes";
 
 /** How long before a blocking release the phone is told: time to pull the orders. */
 export const NEWS_LEAD_MIN = 15;
@@ -14,6 +15,8 @@ export const NEWS_LEAD_MIN = 15;
 export const EXIT_WARN_MIN = 15;
 /** The warning before a posed order must come off. */
 export const PULL_LEAD_MIN = 1;
+/** Les prix sont relevés à ce rythme : la source est différée d'environ dix minutes, plus souvent n'apprendrait rien. */
+const COTATIONS_TOUTES_LES_MIN = 5;
 
 const clock = (t: number, timeZone: string) => new Date(t).toLocaleTimeString("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" });
 const both = (t: number) => `${clock(t, "Europe/Berlin")} Berlin · ${clock(t, "America/Chicago")} CT`;
@@ -82,6 +85,46 @@ export async function remindersTick(now = Date.now()) {
         body: `${o.side === "Long" ? "Achat" : "Vente"} ${o.symbol} à ${fmtPrice(o.entry, o.symbol, p.tick)} : plus d'ordre à partir de ${both(w[1])}.`,
         url: URL,
         tag: `pull-${o.id}`,
+      });
+    }
+  }
+
+  /**
+   * Le prix approche d'une ligne : c'est le moment de poser l'ordre.
+   *
+   * Le seuil est le stop de la paire — « à moins d'un stop de ta ligne » —
+   * plutôt qu'un nombre fixe : vingt ticks ne veulent pas dire la même chose
+   * sur ZN et sur 6E. Une alerte par ligne et par séance, et rien pour une
+   * ligne qui a déjà un ordre ou pour une paire qui a déjà tradé.
+   *
+   * La cotation est gratuite et différée d'une dizaine de minutes, ce que le
+   * message dit. Périmée au-delà d'une demi-heure, elle ne déclenche rien :
+   * un flux cassé ne doit pas ressembler à un marché immobile.
+   */
+  if (prefs.approche && pairs.length) {
+    const h = Number(clock(now, "America/Chicago").slice(0, 2));
+    // Relevé pendant les heures où un ordre peut être posé, et un peu autour.
+    if (h >= 1 && h <= 15 && new Date(now).getUTCMinutes() % COTATIONS_TOUTES_LES_MIN === 0) await releverCotations(pairs);
+
+    const day = dayKey(sessionDate(now));
+    const [q, duJour] = await Promise.all([cotations(), prisma.planOrder.findMany({ where: { day } })]);
+    for (const c of q) {
+      const p = plans.find((x) => x.symbol === c.symbol);
+      if (!p) continue;
+      const age = ageMin(c, now);
+      if (age > COTATION_PERIMEE_MIN) continue;
+      // Hors de la fenêtre d'ordres de la paire, l'approche n'intéresse personne.
+      if (!orderWindows(p, day, blocking).some(([a, b]) => now >= a && now < b)) continue;
+      // Une paire qui a déjà un trade du jour est finie : un trade par jour et par paire.
+      if (duJour.some((o) => o.symbol === c.symbol && (o.status === "filled" || o.status === "closed"))) continue;
+      const proche = ligneLaPlusProche(c.price, p.levels, p.tick);
+      if (!proche || Math.abs(proche.ticks) > p.sl) continue;
+      if (duJour.some((o) => o.symbol === c.symbol && Math.abs(o.level - proche.niveau) < p.tick / 2)) continue;
+      await pushOnce(`approche|${day}|${c.symbol}|${proche.niveau}`, {
+        title: `${c.symbol} à ${Math.abs(proche.ticks)} ticks de ${fmtPrice(proche.niveau, c.symbol, p.tick)}`,
+        body: `${fmtPrice(c.price, c.symbol, p.tick)} il y a ${age} min (prix différé). Pose ton ordre si la ligne tient.`,
+        url: URL,
+        tag: `approche-${c.symbol}-${proche.niveau}`,
       });
     }
   }

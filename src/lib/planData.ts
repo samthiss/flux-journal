@@ -41,7 +41,7 @@ export async function loadPairPlans(ownerId: string): Promise<PairPlan[]> {
 
 /** Which reminders are on. */
 export async function pushPrefs() {
-  return (await prisma.pushPrefs.findUnique({ where: { id: 1 } })) ?? { id: 1, exit: true, news: true, pull: true, bot: true };
+  return (await prisma.pushPrefs.findUnique({ where: { id: 1 } })) ?? { id: 1, exit: true, news: true, pull: true, bot: true, approche: true };
 }
 
 /** The levels switched off, from their JSON column. */

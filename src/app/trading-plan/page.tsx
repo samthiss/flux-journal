@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { monJournal } from "@/lib/session";
 import { getEconomicEvents } from "@/lib/economicCalendar";
+import { COTATION_PERIMEE_MIN, ageMin, cotations, ligneLaPlusProche } from "@/lib/quotes";
 import { newsCurrencies } from "@/lib/contracts";
 import { chicagoInstant, sessionDate } from "@/lib/databento/clock";
 import { loadPairPlans, pushPrefs } from "@/lib/planData";
@@ -32,6 +33,21 @@ export default async function TradingPlanPage() {
       orderBy: { createdAt: "asc" },
     }),
   ]);
+  /**
+   * Où est le marché, pour chaque paire : le prix différé, son âge, et la
+   * ligne la plus proche. Calculé ici parce que la page est servie par le
+   * serveur et que le composant, lui, tourne dans le navigateur.
+   */
+  const quotes: Record<string, { price: number; age: number; niveau: number; ticks: number; perimee: boolean }> = {};
+  for (const q of await cotations()) {
+    const p = pairs.find((x) => x.symbol === q.symbol);
+    if (!p) continue;
+    const proche = ligneLaPlusProche(q.price, p.levels, p.tick);
+    if (!proche) continue;
+    const age = ageMin(q);
+    quotes[q.symbol] = { price: q.price, age, niveau: proche.niveau, ticks: proche.ticks, perimee: age > COTATION_PERIMEE_MIN };
+  }
+
   const followed = new Set(pairs.flatMap((p) => newsCurrencies(p.symbol)));
   const from = chicagoInstant(session.y, session.m, session.d, 0);
   const to = chicagoInstant(session.y, session.m, session.d, 23, 59);
@@ -46,7 +62,8 @@ export default async function TradingPlanPage() {
       pairs={pairs}
       news={news}
       newsOk={calendar.ok}
-      prefs={{ exit: prefs.exit, news: prefs.news, pull: prefs.pull, bot: prefs.bot }}
+      quotes={quotes}
+      prefs={{ exit: prefs.exit, news: prefs.news, pull: prefs.pull, bot: prefs.bot, approche: prefs.approche }}
       pushInfo={{ devices, recent: recent.map((r) => ({ key: r.key, at: r.sentAt.toISOString() })) }}
       orders={orders.map((o) => ({
         id: o.id,

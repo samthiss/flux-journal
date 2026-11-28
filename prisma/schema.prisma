@@ -881,6 +881,28 @@ model PlanOrder {
   @@index([day])
 }
 
+/**
+ * Le dernier prix connu d'un marché, et quand il a été relevé.
+ *
+ * Source gratuite et différée (Yahoo, de l'ordre de dix minutes), donc jamais
+ * présentée comme du direct : `at` est l'horodatage de la cotation elle-même
+ * et `fetchedAt` celui de l'appel, et l'écart entre les deux est affiché à
+ * côté du prix. Une cotation vieille de plus d'une demi-heure ne déclenche
+ * aucune notification — un flux cassé ne doit pas ressembler à un marché
+ * immobile.
+ */
+model MarketQuote {
+  /** Le symbole du journal : 6E, ZN, ZS… */
+  symbol    String   @id
+  price     Float
+  /** L'horodatage de la cotation, tel que la source le donne. */
+  at        DateTime
+  /** Quand le serveur l'a relevée. */
+  fetchedAt DateTime
+  /** Pourquoi le dernier appel a échoué, ou nul. Le prix précédent est gardé. */
+  error     String?
+}
+
 /** Which reminders are sent: one row, the owner's. */
 model PushPrefs {
   id   Int     @id @default(1)
@@ -889,6 +911,8 @@ model PushPrefs {
   pull Boolean @default(true)
   /** Quand le bot confirme qu'il a passé ou retiré un ordre. */
   bot  Boolean @default(true)
+  /** Quand le prix approche d'une ligne du plan. */
+  approche Boolean @default(true)
 }
 
 /** A reminder already sent, so a restart or a second tick does not send it twice. */
