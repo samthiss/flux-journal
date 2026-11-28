@@ -305,6 +305,30 @@ export default function TradingPlan({
       </span>
     );
 
+  /**
+   * Les lignes à portée, nommées dans le résumé.
+   *
+   * Le prix est différé d'une dizaine de minutes, ce que la phrase dit : il
+   * sert à savoir où chercher, pas à savoir si un ordre est rempli.
+   */
+  const aPortee = pairs
+    .map((p) => ({ p, q: quotes[p.symbol] }))
+    .filter((x): x is { p: PairPlan; q: NonNullable<typeof x.q> } => !!x.q && !x.q.perimee && Math.abs(x.q.ticks) <= x.p.sl)
+    .sort((x, y) => Math.abs(x.q.ticks) - Math.abs(y.q.ticks));
+  if (aPortee.length)
+    summary.push(
+      <span key="px">
+        <span style={{ color: GAIN, fontWeight: 700 }}>À portée</span> :{" "}
+        {aPortee.map((x, i) => (
+          <span key={x.p.symbol}>
+            {i ? " · " : ""}
+            <span style={{ color: TXT, fontWeight: 700 }}>{x.p.symbol}</span> {x.q.ticks > 0 ? "vente" : "achat"} {px(x.q.niveau, x.p.symbol)} (à {Math.abs(x.q.ticks)} ticks)
+          </span>
+        ))}
+        .{" "}
+      </span>
+    );
+
   // ---- Device and prefs ----
   const sup = useSyncExternalStore(noop, support, () => "server" as Support);
   const [sub, setSub] = useState<PushSubscription | null | undefined>(undefined);
@@ -446,6 +470,23 @@ export default function TradingPlan({
     };
   };
 
+  /**
+   * Où est le prix par rapport à cet ordre : la ligne « PRIX · à N ticks » du
+   * template. Seulement là où ça sert — un ordre à confirmer ou posé — et
+   * jamais sur une cotation périmée, qui ferait croire à une distance qui
+   * n'existe plus.
+   */
+  const distanceOrdre = (o: PlanOrderRow) => {
+    const p = pairOf(o.symbol);
+    const q = quotes[o.symbol];
+    if (!p || !q || q.perimee) return null;
+    const ticks = Math.round((o.entry - q.price) / p.tick);
+    return {
+      texte: `${px(q.price, o.symbol)} · à ${Math.abs(ticks)} ticks de ton entrée · il y a ${depuis(q.age)}`,
+      couleur: Math.abs(ticks) <= p.sl ? GAIN : "#A8A8A8",
+    };
+  };
+
   const orderView = (o: PlanOrderRow, st: string) => {
     const BADGE: Record<string, [string, React.CSSProperties]> = {
       pending: ["POSÉ", { border: `1px solid ${BUY}`, color: BUY }],
@@ -573,11 +614,11 @@ export default function TradingPlan({
       </div>
 
       {/* ---- Summary ---- */}
-      <Panel title="◆ RÉSUMÉ DU JOUR" right="SANS PRIX EN DIRECT" style={{ borderColor: "#4A3410" }}>
+      <Panel title="◆ RÉSUMÉ DU JOUR" right="PRIX DIFFÉRÉ ~10 MIN" style={{ borderColor: "#4A3410" }}>
         <div style={{ padding: "10px 12px", lineHeight: 1.65, fontSize: 13, color: "#F0F0F0" }}>
           {summary}
           <br />
-          <span style={{ color: ORANGE }}>À faire toi-même :</span> sans flux de prix, l&apos;appli ne voit pas quels niveaux ont été touchés cette nuit ni l&apos;approche depuis 17h. Vérifie-les sur ton graphique avant de poser tes ordres (checklist à droite).
+          <span style={{ color: ORANGE }}>À faire toi-même :</span> le prix différé dit où est le marché, pas le chemin qu&apos;il a pris. L&apos;appli ne voit donc ni les niveaux touchés cette nuit, ni l&apos;approche de 15 ticks depuis 17h, ni un niveau traversé. Vérifie-les sur ton graphique avant de poser tes ordres (checklist à droite).
         </div>
       </Panel>
 
@@ -913,6 +954,12 @@ export default function TradingPlan({
                             })()}
                           </span>
                         </div>
+
+                        {(st === "proposed" || st === "pending") &&
+                          (() => {
+                            const d = distanceOrdre(o);
+                            return d ? <div style={{ padding: "0 10px 4px 108px", fontSize: 11, color: d.couleur }}>{d.texte}</div> : null;
+                          })()}
 
                         {st === "proposed" && (
                           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "0 10px 8px 108px" }}>
@@ -1440,6 +1487,12 @@ export default function TradingPlan({
                     </div>
                   );
                 })()}
+
+                {(st === "proposed" || st === "pending") &&
+                  (() => {
+                    const d = distanceOrdre(o);
+                    return d ? <div style={{ fontSize: 11, marginTop: 5, color: d.couleur }}>{d.texte}</div> : null;
+                  })()}
 
                 {st === "proposed" && (
                   <div style={{ marginTop: 10 }}>
